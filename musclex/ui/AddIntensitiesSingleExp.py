@@ -406,10 +406,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         detection_row.addStretch()
         misaligned_detection_layout.addLayout(detection_row)
 
-        # Row 3: Distance threshold
+        # Row 3: Auto-Manual distance threshold
         dist_thresh_row = QHBoxLayout()
         dist_thresh_row.setSpacing(6)
-        self._dist_thresh_chk = QCheckBox("Distance threshold:")
+        self._dist_thresh_chk = QCheckBox("Auto-Manual Dist threshold:")
         self._dist_thresh_chk.setChecked(True)
         dist_thresh_row.addWidget(self._dist_thresh_chk)
         self._dist_thresh_spin = QDoubleSpinBox()
@@ -719,7 +719,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _fill_auto_manual_dist_column(self, row, name):
         """Fill COL_AUTO_MANUAL_DIST with the distance between auto center and manual center.
-        Left empty when either value is unavailable."""
+        Cells exceeding the distance threshold are highlighted red."""
         import math
         sm = self.workspace.settings_manager
         base = os.path.basename(name)
@@ -730,8 +730,11 @@ class AddIntensitiesSingleExp(QMainWindow):
             dx = auto[0] - manual[0]
             dy = auto[1] - manual[1]
             dist = math.hypot(dx, dy)
-            self.table.setItem(row, self.COL_AUTO_MANUAL_DIST,
-                               QTableWidgetItem(f"{dist:.2f}"))
+            item = QTableWidgetItem(f"{dist:.2f}")
+            if self._dist_threshold_enabled and dist > self._dist_threshold:
+                item.setBackground(QBrush(QColor(255, 100, 100)))
+                item.setForeground(QBrush(QColor(255, 255, 255)))
+            self.table.setItem(row, self.COL_AUTO_MANUAL_DIST, item)
         else:
             self.table.setItem(row, self.COL_AUTO_MANUAL_DIST, QTableWidgetItem(""))
 
@@ -788,11 +791,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 dx = img_center[0] - base_center[0]
                 dy = img_center[1] - base_center[1]
                 dist = math.hypot(dx, dy)
-                item = QTableWidgetItem(f"{dist:.2f}")
-                if self._dist_threshold_enabled and dist > self._dist_threshold:
-                    item.setBackground(QBrush(QColor(255, 100, 100)))
-                    item.setForeground(QBrush(QColor(255, 255, 255)))
-                self.table.setItem(row, self.COL_CENTER_DIST, item)
+                self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(f"{dist:.2f}"))
             else:
                 self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
         else:
@@ -1431,8 +1430,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         _red_fg = QBrush(QColor(255, 255, 255))
 
         for row in range(self.table.rowCount()):
-            # --- distance ---
-            dist_item = self.table.item(row, self.COL_CENTER_DIST)
+            # --- auto-manual distance ---
+            dist_item = self.table.item(row, self.COL_AUTO_MANUAL_DIST)
             if dist_item and dist_item.text():
                 try:
                     val = float(dist_item.text())
