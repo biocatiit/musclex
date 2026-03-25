@@ -32,14 +32,13 @@ class _ElideMiddleDelegate(QStyledItemDelegate):
 
 def _compute_image_diff(args):
     """Top-level function for subprocess: compute mean abs diff between two images.
-    Each image is aligned to the base center/rotation only when its has_transform flag is True.
+    Each image is aligned to the base center/rotation.
     """
     (dir_path, img_name_a, img_name_b,
      spec_a, spec_b,
      center_a, rotation_a,
      center_b, rotation_b,
      base_center, base_rotation,
-     has_transform_a, has_transform_b,
      pair_index) = args
     try:
         import cv2 as _cv2
@@ -62,10 +61,8 @@ def _compute_image_diff(args):
 
         img_a = load_image_via_spec(dir_path, img_name_a, spec_a)
         img_b = load_image_via_spec(dir_path, img_name_b, spec_b)
-        ta = (_transform_img(img_a, center_a, rotation_a, base_center, base_rotation)
-              if has_transform_a else img_a.astype(_np.float32))
-        tb = (_transform_img(img_b, center_b, rotation_b, base_center, base_rotation)
-              if has_transform_b else img_b.astype(_np.float32))
+        ta = _transform_img(img_a, center_a, rotation_a, base_center, base_rotation)
+        tb = _transform_img(img_b, center_b, rotation_b, base_center, base_rotation)
         diff = float(_np.mean(_np.abs(ta - tb)))
         return {'pair_index': pair_index, 'diff': diff, 'error': None}
     except Exception as e:
@@ -144,9 +141,8 @@ def _sum_group_worker(args):
             if blank_f is not None:
                 img = _np.clip(img - blank_f, 0, None)
 
-            center, rotation, has_transform = per_img_transforms[i]
-            if has_transform:
-                img = _transform_img(img, center, rotation, base_center, base_rotation)
+            center, rotation = per_img_transforms[i]
+            img = _transform_img(img, center, rotation, base_center, base_rotation)
 
             images.append(img)
 
@@ -222,8 +218,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_ROTATION_MODE = 8
     COL_DEVIATION = 9
     COL_SIZE = 10
-    COL_TRANSFORM = 11
-    COL_IMAGE_DIFF = 12
+    COL_IMAGE_DIFF = 11
 
     HEADERS = [
         "Group",
@@ -237,7 +232,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Rotation Mode",
         "Deviation",
         "Size",
-        "Transform",
         "Image Difference",
     ]
 
@@ -656,7 +650,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_rotation_columns(row, name)
         self._fill_distance_deviation(row, name)
         self._fill_size_column(row, name)
-        self._fill_transform_column(row, name)
         self._fill_diff_column(row, name)
         self._apply_misaligned_highlight(row, name)
         self._apply_base_marker(row, name)
@@ -829,17 +822,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             item.setBackground(QBrush(QColor(255, 100, 100)))
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.table.setItem(row, self.COL_SIZE, item)
-
-    def _fill_transform_column(self, row, name):
-        """Fill COL_TRANSFORM with a checkmark when the image is flagged for transform."""
-        sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        needs_transform = sm.has_transform(base)
-        item = QTableWidgetItem("\u2714" if needs_transform else "")
-        item.setTextAlignment(Qt.AlignCenter)
-        if needs_transform:
-            item.setForeground(QBrush(QColor(0, 160, 0)))
-        self.table.setItem(row, self.COL_TRANSFORM, item)
 
     def _fill_diff_column(self, row, name):
         """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available).
@@ -1016,19 +998,9 @@ class AddIntensitiesSingleExp(QMainWindow):
             group_act = menu.addAction("Group")
             menu.addSeparator()
 
-        # Need Transform / Don't Transform / Ignore actions (any selection)
+        # Ignore actions (any selection)
         n = len(selected_rows)
         label_suffix = f" ({n} images)" if n > 1 else ""
-        sm = self.workspace.settings_manager
-        # If ALL selected rows are already flagged, offer "Don't Transform"; otherwise "Need Transform"
-        all_flagged = all(
-            sm.has_transform(os.path.basename(self.img_list[r]))
-            for r in selected_rows if r < len(self.img_list)
-        )
-        if all_flagged:
-            transform_act = menu.addAction(f"Don't Transform{label_suffix}")
-        else:
-            transform_act = menu.addAction(f"Need Transform{label_suffix}")
         all_ignored = all(r in self._ignored_rows for r in selected_rows)
         if all_ignored:
             ignore_act = menu.addAction(f"Cancel Ignore{label_suffix}")
@@ -1040,16 +1012,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         if chosen == group_act:
             self._group_rows(selected_rows)
-        elif chosen == transform_act:
-            if all_flagged:
-                for r in selected_rows:
-                    self._clear_transform(r)
-            else:
-                for r in selected_rows:
-                    self._apply_transform(r)
-            current = self.workspace.navigator.current_index
-            if current in selected_rows:
-                self._refresh_current_display()
         elif chosen == ignore_act:
             if all_ignored:
                 for r in selected_rows:
@@ -1165,30 +1127,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             )
         self.image_viewer.display_image(display_img)
         self._redraw_overlays()
-
-    def _apply_transform(self, row):
-        """Flag the image to be transformed during future calculations."""
-        if row < 0 or row >= len(self.img_list):
-            return
-        name = self.img_list[row]
-        base = os.path.basename(name)
-        sm = self.workspace.settings_manager
-        sm.set_transform(base)
-        sm.save_transform()
-        self._fill_transform_column(row, name)
-        print(f"Marked for transform: {base}")
-
-    def _clear_transform(self, row):
-        """Remove the transform flag from the image."""
-        if row < 0 or row >= len(self.img_list):
-            return
-        name = self.img_list[row]
-        base = os.path.basename(name)
-        sm = self.workspace.settings_manager
-        sm.clear_transform(base)
-        sm.save_transform()
-        self._fill_transform_column(row, name)
-        print(f"Transform cleared: {base}")
 
     def _dim_row(self, row):
         """Apply grey foreground to all data columns of a row (visual only)."""
@@ -1314,14 +1252,10 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.blockSignals(False)
 
     def _apply_center_shift_if_needed(self, img, center, img_name):
-        """If the image is flagged for transform, translate it so its center
-        aligns with the global base center (same approach as QuadrantFolder.transformImage).
+        """Translate image so its center aligns with the global base center
+        (same approach as QuadrantFolder.transformImage).
         Returns the (possibly shifted) image array."""
         if center is None:
-            return img
-        sm = self.workspace.settings_manager
-        base = os.path.basename(img_name)
-        if not sm.has_transform(base):
             return img
         base_center = self._get_base_center()
         if base_center is None:
@@ -1668,7 +1602,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.statusLabel.setText("Calculating image differences...")
         self.calc_diff_btn.setEnabled(False)
 
-        sm = self.workspace.settings_manager
         base_center = self._get_base_center()
         base_rotation = self._get_base_rotation()
         dir_path = str(fm.dir_path)
@@ -1685,8 +1618,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             center_b = self._get_effective_center(name_b)
             rotation_a = self._get_effective_rotation(name_a)
             rotation_b = self._get_effective_rotation(name_b)
-            has_transform_a = sm.has_transform(base_a)
-            has_transform_b = sm.has_transform(base_b)
 
             job_args = (
                 dir_path,
@@ -1696,7 +1627,6 @@ class AddIntensitiesSingleExp(QMainWindow):
                 center_b, rotation_b,
                 list(base_center) if base_center else None,
                 base_rotation,
-                has_transform_a, has_transform_b,
                 pair_idx,
             )
             future = self.diffExecutor.submit(_compute_image_diff, job_args)
@@ -1877,7 +1807,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._sum_csv_rows = []
 
         # Transform base
-        sm = self.workspace.settings_manager
         _bc = self._get_base_center()
         base_center = list(_bc) if _bc else None
         base_rotation = self._get_base_rotation()
@@ -1907,14 +1836,11 @@ class AddIntensitiesSingleExp(QMainWindow):
             per_img_transforms = []
             for r in active_rows:
                 name = self.img_list[r]
-                base = os.path.basename(name)
                 center = self._get_effective_center(name)
                 rotation = self._get_effective_rotation(name)
-                has_transform = sm.has_transform(base)
                 per_img_transforms.append((
                     list(center) if center else None,
                     rotation,
-                    has_transform,
                 ))
 
             # Mirror AddIntensitiesExp AISE filename convention:
