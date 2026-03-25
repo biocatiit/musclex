@@ -321,7 +321,6 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Expose select buttons from navigator
         self.selectImageButton = self.workspace.navigator.select_image_btn
-        self.selectFolder = self.workspace.navigator.select_folder_btn
         
         # Reference to leftWidget for compatibility
         self.leftWidget = self.workspace.navigator.select_panel
@@ -361,11 +360,6 @@ class QuadrantFoldingGUI(BaseGUI):
         selectImageAction.setShortcut('Ctrl+I')
         selectImageAction.triggered.connect(self._on_browse_file)
         
-        selectFolderAction = QAction('Select a Folder...', self)
-        selectFolderAction.setShortcut('Ctrl+F')
-        # NOTE: Folder selection removed - not currently used
-        # selectFolderAction.triggered.connect(self._on_browse_folder)
-        
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
         saveSettingsAction.triggered.connect(self.saveSettings)
@@ -376,7 +370,6 @@ class QuadrantFoldingGUI(BaseGUI):
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
-        fileMenu.addAction(selectFolderAction)
         fileMenu.addAction(saveSettingsAction)
         
         helpMenu = menubar.addMenu('&Help')
@@ -1033,8 +1026,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tabWidget.currentChanged.connect(self.onTabChanged)
 
         ##### Image Tab #####
-        # NOTE: selectFolder.clicked connection removed - folder selection not currently used
-        # self.selectFolder.clicked.connect(self._on_browse_folder)
         # Note: intensity/log_scale/colormap changes are handled automatically by ImageViewerWidget
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         

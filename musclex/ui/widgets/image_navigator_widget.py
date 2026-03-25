@@ -172,7 +172,7 @@ class ImageNavigatorWidget(QWidget):
         # Create select buttons panel if requested
         self.select_panel = None
         self.select_image_btn = None
-        self.select_folder_btn = None
+        self.select_folder_btn = None  # removed from UI; kept for API compatibility
 
         self._create_select_panel()
         
@@ -191,7 +191,7 @@ class ImageNavigatorWidget(QWidget):
         self._connect_signals()
     
     def _create_select_panel(self):
-        """Create left panel with select image/folder buttons."""
+        """Create left panel with select image button."""
         from PySide6.QtWidgets import QPushButton
         from PySide6.QtCore import Qt
         
@@ -205,13 +205,7 @@ class ImageNavigatorWidget(QWidget):
         self.select_image_btn.setFixedWidth(300)
         self.select_image_btn.clicked.connect(self.browse_file)
         
-        self.select_folder_btn = QPushButton('Click Here to Select a Folder...')
-        self.select_folder_btn.setFixedHeight(100)
-        self.select_folder_btn.setFixedWidth(300)
-        # NOTE: browse_folder() removed - button kept for future implementation
-        
         select_layout.addWidget(self.select_image_btn)
-        select_layout.addWidget(self.select_folder_btn)
         
         # Initially hide image viewer, show buttons
         self.image_viewer.setHidden(True)

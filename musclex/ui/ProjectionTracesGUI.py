@@ -454,7 +454,6 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Expose select buttons from navigator
         self.selectImageButton = self.workspace.navigator.select_image_btn
-        self.selectFolder = self.workspace.navigator.select_folder_btn
         
         # Reference to leftWidget for compatibility
         self.leftWidget = self.workspace.navigator.select_panel
