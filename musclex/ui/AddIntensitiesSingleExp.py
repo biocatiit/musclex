@@ -224,7 +224,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_AUTO_MANUAL_DIST = 6
     COL_ROTATION = 7
     COL_ROTATION_MODE = 8
-    COL_DEVIATION = 9
+    COL_ROTATION_DIFF = 9
     COL_SIZE = 10
     COL_IMAGE_DIFF = 11
 
@@ -238,7 +238,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Auto-Manual Distance",
         "Rotation",
         "Rotation Mode",
-        "Deviation",
+        "Rotation Difference",
         "Size",
         "Image Difference",
     ]
@@ -304,8 +304,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         # Threshold highlighting
         self._dist_threshold_enabled = False
         self._dist_threshold = 5.0
-        self._dev_threshold_enabled = False
-        self._dev_threshold = 2.0
+        self._rot_diff_threshold_enabled = False
+        self._rot_diff_threshold = 2.0
         self._diff_percentile_threshold: float = None  # 80th pct of all diff values
 
         self._cr_dialog = None
@@ -432,28 +432,28 @@ class AddIntensitiesSingleExp(QMainWindow):
         dist_thresh_row.addStretch()
         misaligned_detection_layout.addLayout(dist_thresh_row)
 
-        # Row 4: Deviation threshold
+        # Row 4: Rotation Difference threshold
         dev_thresh_row = QHBoxLayout()
         dev_thresh_row.setSpacing(6)
-        self._dev_thresh_chk = QCheckBox("Deviation threshold:")
-        self._dev_thresh_chk.setChecked(False)
-        dev_thresh_row.addWidget(self._dev_thresh_chk)
-        self._dev_thresh_spin = QDoubleSpinBox()
-        self._dev_thresh_spin.setRange(0.0, 360.0)
-        self._dev_thresh_spin.setDecimals(2)
-        self._dev_thresh_spin.setSingleStep(0.5)
-        self._dev_thresh_spin.setValue(self._dev_threshold)
-        self._dev_thresh_spin.setSuffix(" °")
-        self._dev_thresh_spin.setEnabled(False)
-        self._dev_thresh_spin.setFixedWidth(100)
-        dev_thresh_row.addWidget(self._dev_thresh_spin)
+        self._rot_diff_thresh_chk = QCheckBox("Rotation Difference threshold:")
+        self._rot_diff_thresh_chk.setChecked(False)
+        dev_thresh_row.addWidget(self._rot_diff_thresh_chk)
+        self._rot_diff_thresh_spin = QDoubleSpinBox()
+        self._rot_diff_thresh_spin.setRange(0.0, 360.0)
+        self._rot_diff_thresh_spin.setDecimals(2)
+        self._rot_diff_thresh_spin.setSingleStep(0.5)
+        self._rot_diff_thresh_spin.setValue(self._rot_diff_threshold)
+        self._rot_diff_thresh_spin.setSuffix(" °")
+        self._rot_diff_thresh_spin.setEnabled(False)
+        self._rot_diff_thresh_spin.setFixedWidth(100)
+        dev_thresh_row.addWidget(self._rot_diff_thresh_spin)
         dev_thresh_row.addStretch()
         misaligned_detection_layout.addLayout(dev_thresh_row)
 
         self._dist_thresh_chk.toggled.connect(self._on_dist_threshold_toggled)
         self._dist_thresh_spin.valueChanged.connect(self._on_dist_threshold_changed)
-        self._dev_thresh_chk.toggled.connect(self._on_dev_threshold_toggled)
-        self._dev_thresh_spin.valueChanged.connect(self._on_dev_threshold_changed)
+        self._rot_diff_thresh_chk.toggled.connect(self._on_rot_diff_threshold_toggled)
+        self._rot_diff_thresh_spin.valueChanged.connect(self._on_rot_diff_threshold_changed)
 
         self.misaligned_detection_group.set_content_layout(misaligned_detection_layout)
 
@@ -748,7 +748,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.setItem(row, self.COL_ROTATION, QTableWidgetItem(""))
             self.table.setItem(row, self.COL_ROTATION_MODE, QTableWidgetItem(""))
 
-        self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
+        self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
 
     def _get_effective_center(self, name):
         """Return (cx, cy) for *name* — manual if present, else auto, else None."""
@@ -765,7 +765,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         return sm.get_rotation(key) or sm.get_auto_rotation(key) or sm.get_auto_rotation(base)
 
     def _fill_distance_deviation(self, row, name):
-        """Fill COL_CENTER_DIST and COL_DEVIATION relative to the global base."""
+        """Fill COL_CENTER_DIST and COL_ROTATION_DIFF relative to the global base."""
         base_center = self._get_base_center()
         base_rotation = self._get_base_rotation()
 
@@ -787,20 +787,20 @@ class AddIntensitiesSingleExp(QMainWindow):
         else:
             self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
 
-        # --- deviation ---
+        # --- rotation difference ---
         if base_rotation is not None:
             img_rotation = self._get_effective_rotation(name)
             if img_rotation is not None:
                 deviation = img_rotation - base_rotation
                 item = QTableWidgetItem(f"{deviation:.2f}°")
-                if self._dev_threshold_enabled and abs(deviation) > self._dev_threshold:
+                if self._rot_diff_threshold_enabled and abs(deviation) > self._rot_diff_threshold:
                     item.setBackground(QBrush(QColor(255, 100, 100)))
                     item.setForeground(QBrush(QColor(255, 255, 255)))
-                self.table.setItem(row, self.COL_DEVIATION, item)
+                self.table.setItem(row, self.COL_ROTATION_DIFF, item)
             else:
-                self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
+                self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
         else:
-            self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
+            self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
 
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""
@@ -1391,18 +1391,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self._dist_threshold_enabled:
             self._apply_threshold_highlighting()
 
-    def _on_dev_threshold_toggled(self, checked):
-        self._dev_thresh_spin.setEnabled(checked)
-        self._dev_threshold_enabled = checked
+    def _on_rot_diff_threshold_toggled(self, checked):
+        self._rot_diff_thresh_spin.setEnabled(checked)
+        self._rot_diff_threshold_enabled = checked
         self._apply_threshold_highlighting()
 
-    def _on_dev_threshold_changed(self, value):
-        self._dev_threshold = value
-        if self._dev_threshold_enabled:
+    def _on_rot_diff_threshold_changed(self, value):
+        self._rot_diff_threshold = value
+        if self._rot_diff_threshold_enabled:
             self._apply_threshold_highlighting()
 
     def _apply_threshold_highlighting(self):
-        """Re-apply (or clear) red highlighting for distance and deviation columns."""
+        """Re-apply (or clear) red highlighting for distance and rotation difference columns."""
         _red_bg = QBrush(QColor(255, 100, 100))
         _red_fg = QBrush(QColor(255, 255, 255))
 
@@ -1421,12 +1421,12 @@ class AddIntensitiesSingleExp(QMainWindow):
                 except ValueError:
                     pass
 
-            # --- deviation ---
-            dev_item = self.table.item(row, self.COL_DEVIATION)
+            # --- rotation difference ---
+            dev_item = self.table.item(row, self.COL_ROTATION_DIFF)
             if dev_item and dev_item.text():
                 try:
                     val = abs(float(dev_item.text().rstrip("°")))
-                    if self._dev_threshold_enabled and val > self._dev_threshold:
+                    if self._rot_diff_threshold_enabled and val > self._rot_diff_threshold:
                         dev_item.setBackground(_red_bg)
                         dev_item.setForeground(_red_fg)
                     else:
