@@ -242,7 +242,11 @@ class AddIntensitiesSingleExp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Muscle X Add Intensities Single Experiment v." + __version__)
-        self.workspace = ProcessingWorkspace(settings_dir="")
+        self._current_inv_transform = None  # inverse affine (2x3) from display → original coords
+        self.workspace = ProcessingWorkspace(
+            settings_dir="",
+            coord_transform_func=self._display_to_original_coords,
+        )
         self.img_list = []
         self.misaligned_names = set()
         self._img_sizes: dict = {}  # img_name -> "WxH" string
@@ -1107,11 +1111,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._cr_dialog = None
 
     def _refresh_current_display(self):
-        """Re-render the currently displayed image using cached geometry.
-
-        Called after transform flags change so the viewer immediately reflects
-        whether the center-shift is applied, without reloading from disk.
-        """
+        """Re-render the currently displayed image using cached geometry."""
         image_data = self.workspace._current_image_data
         if image_data is None:
             return
@@ -1121,10 +1121,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         display_img = np.copy(image_data.img)
         if center is not None and rotation is not None and rotation != 0:
             display_img = rotateImageAboutPoint(display_img, center, rotation)
+        base_center = self._get_base_center()
         if 0 <= row < len(self.img_list):
             display_img = self._apply_center_shift_if_needed(
                 display_img, center, self.img_list[row]
             )
+        self._current_inv_transform = self._build_display_inv_transform(
+            center, rotation, base_center
+        )
         self.image_viewer.display_image(display_img)
         self._redraw_overlays()
 
@@ -1233,10 +1237,14 @@ class AddIntensitiesSingleExp(QMainWindow):
             display_img = image_data.get_working_image()
             if center is not None and rotation is not None and rotation != 0:
                 display_img = rotateImageAboutPoint(display_img, center, rotation)
+            base_center = self._get_base_center()
             if 0 <= row < len(self.img_list):
                 display_img = self._apply_center_shift_if_needed(
                     display_img, center, self.img_list[row]
                 )
+            self._current_inv_transform = self._build_display_inv_transform(
+                center, rotation, base_center
+            )
             self.image_viewer.display_image(display_img)
         self._redraw_overlays()
         if 0 <= row < len(self.img_list):
@@ -1267,6 +1275,53 @@ class AddIntensitiesSingleExp(QMainWindow):
         h, w = img.shape[:2]
         M = np.float32([[1, 0, tx], [0, 1, ty]])
         return cv2.warpAffine(img, M, (w, h))
+
+    def _build_display_inv_transform(self, center, rotation, base_center):
+        """Build the inverse affine matrix (2x3) that maps display coordinates
+        back to original image coordinates.
+
+        The forward transform applied when rendering is:
+          1. Rotate around ``center`` by ``rotation`` degrees
+          2. Translate by (base_center - center)
+
+        The inverse lets the workspace convert a click on the displayed image
+        back to the original image coordinate, mirroring how QuadrantFoldingGUI
+        uses ``inv_transform`` from QuadrantFolder.transformImage().
+        """
+        if center is None or base_center is None:
+            return None
+
+        # Step 1 forward matrix: rotate around center
+        if rotation and rotation != 0:
+            M_rot_3x3 = np.vstack([
+                cv2.getRotationMatrix2D(tuple(center), rotation, 1),
+                [0, 0, 1]
+            ]).astype(np.float64)
+        else:
+            M_rot_3x3 = np.eye(3, dtype=np.float64)
+
+        # Step 2 forward matrix: translation
+        tx = base_center[0] - center[0]
+        ty = base_center[1] - center[1]
+        M_trans_3x3 = np.array(
+            [[1, 0, tx], [0, 1, ty], [0, 0, 1]], dtype=np.float64
+        )
+
+        # Full forward: translate ∘ rotate  (rotate first, then translate)
+        M_full = M_trans_3x3 @ M_rot_3x3
+
+        # Return 2x3 inverse
+        return np.linalg.inv(M_full)[:2, :]
+
+    def _display_to_original_coords(self, x, y):
+        """Convert a point from the displayed (transformed) image back to the
+        original image coordinate system.  Passed to ProcessingWorkspace as
+        ``coord_transform_func`` so center-setting tools operate correctly."""
+        if self._current_inv_transform is None:
+            return x, y
+        pt = np.array([x, y, 1.0], dtype=np.float64)
+        orig = self._current_inv_transform @ pt
+        return float(orig[0]), float(orig[1])
 
     def _redraw_overlays(self):
         """Draw overlays: center circle and/or global center crosshair."""
