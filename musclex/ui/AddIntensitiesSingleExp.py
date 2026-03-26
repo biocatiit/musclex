@@ -116,7 +116,8 @@ def _sum_group_worker(args):
     (group_num, dir_path, img_names, specs,
      per_img_transforms, base_center, base_rotation,
      blank_img, blank_weight, apply_blank,
-     do_average, output_path, compress) = args
+     do_average, output_path, compress,
+     rotation_mode) = args
     try:
         from musclex.utils.file_manager import load_image_via_spec
         import cv2 as _cv2
@@ -131,9 +132,12 @@ def _sum_group_worker(args):
                 if tx != 0 or ty != 0:
                     M = _np.float32([[1, 0, tx], [0, 1, ty]])
                     img = _cv2.warpAffine(img, M, (w, h))
-            deviation = (rotation or 0) - (b_rotation or 0)
-            if deviation != 0 and b_center is not None:
-                M2 = _cv2.getRotationMatrix2D(tuple(b_center), deviation, 1)
+            if rotation_mode == 'absolute':
+                angle = rotation or 0
+            else:
+                angle = (rotation or 0) - (b_rotation or 0)
+            if angle != 0 and b_center is not None:
+                M2 = _cv2.getRotationMatrix2D(tuple(b_center), angle, 1)
                 img = _cv2.warpAffine(img, M2, (w, h))
             return img
 
@@ -593,6 +597,23 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.compress_chk = QCheckBox("Compress the Resulting Images")
         _img_ops_layout.addWidget(self.avg_instead_of_sum_chk)
         _img_ops_layout.addWidget(self.compress_chk)
+
+        # Rotation transform mode
+        _rot_label = QLabel("Rotation Transform Mode:")
+        _rot_label.setStyleSheet("font-weight: bold; color: gray;")
+        _img_ops_layout.addWidget(_rot_label)
+
+        _rot_row = QWidget()
+        _rot_row_layout = QHBoxLayout(_rot_row)
+        _rot_row_layout.setContentsMargins(0, 0, 0, 0)
+        _rot_row_layout.setSpacing(12)
+        self.radio_rot_absolute = QRadioButton("Rotate by Rotation")
+        self.radio_rot_absolute.setChecked(True)
+        self.radio_rot_diff = QRadioButton("Rotate by Diff from Base")
+        _rot_row_layout.addWidget(self.radio_rot_absolute)
+        _rot_row_layout.addWidget(self.radio_rot_diff)
+        _rot_row_layout.addStretch()
+        _img_ops_layout.addWidget(_rot_row)
 
         self._img_ops_group.setLayout(_img_ops_layout)
         self._right_panel_layout.addWidget(self._img_ops_group)
@@ -2090,6 +2111,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         do_average = self.avg_instead_of_sum_chk.isChecked()
         compress = self.compress_chk.isChecked()
+        rotation_mode = 'absolute' if self.radio_rot_absolute.isChecked() else 'diff'
 
         # Blank config (loaded once, shared across all groups)
         blank_mask_config = self.workspace.get_blank_mask_config()
@@ -2166,7 +2188,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             job_args = (group_num, dir_path, img_names, specs,
                         per_img_transforms, base_center, base_rotation,
                         blank_img, blank_weight, apply_blank,
-                        do_average, output_path, compress)
+                        do_average, output_path, compress,
+                        rotation_mode)
             future = self.sumExecutor.submit(_sum_group_worker, job_args)
             self.sumTaskManager.submit_task(filename, group_num, future)
             future.add_done_callback(self._on_sum_future_done)
