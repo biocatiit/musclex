@@ -228,8 +228,10 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_ROTATION = 7
     COL_ROTATION_MODE = 8
     COL_ROTATION_DIFF = 9
-    COL_SIZE = 10
-    COL_IMAGE_DIFF = 11
+    COL_AUTO_ROTATION = 10
+    COL_AUTO_ROT_DIFF = 11
+    COL_SIZE = 12
+    COL_IMAGE_DIFF = 13
 
     HEADERS = [
         "Group",
@@ -242,6 +244,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Rotation",
         "Rotation\nMode",
         "Rotation\nDifference",
+        "Auto\nRotation",
+        "Auto Rot\nDifference",
         "Size",
         "Image\nDifference",
     ]
@@ -828,6 +832,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_auto_center_column(row, name)
         self._fill_auto_manual_dist_column(row, name)
         self._fill_rotation_columns(row, name)
+        self._fill_auto_rotation_column(row, name)
+        self._fill_auto_rot_diff_column(row, name)
         self._fill_distance_deviation(row, name)
         self._fill_size_column(row, name)
         self._fill_diff_column(row, name)
@@ -920,6 +926,31 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.setItem(row, self.COL_ROTATION_MODE, QTableWidgetItem(""))
 
         self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
+
+    def _fill_auto_rotation_column(self, row, name):
+        """Fill COL_AUTO_ROTATION with the raw auto-detected rotation (before any manual override)."""
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        auto = sm.get_auto_rotation(base) or sm.get_auto_rotation(name)
+        if auto is not None:
+            self.table.setItem(row, self.COL_AUTO_ROTATION,
+                               QTableWidgetItem(f"{auto:.2f}°"))
+        else:
+            self.table.setItem(row, self.COL_AUTO_ROTATION, QTableWidgetItem(""))
+
+    def _fill_auto_rot_diff_column(self, row, name):
+        """Fill COL_AUTO_ROT_DIFF with the difference between auto rotation and original rotation.
+        Original rotation is the effective rotation (manual if set, else auto)."""
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        auto = sm.get_auto_rotation(base) or sm.get_auto_rotation(name)
+        original = self._get_effective_rotation(name)
+        if auto is not None and original is not None:
+            diff = auto - original
+            self.table.setItem(row, self.COL_AUTO_ROT_DIFF,
+                               QTableWidgetItem(f"{diff:.2f}°"))
+        else:
+            self.table.setItem(row, self.COL_AUTO_ROT_DIFF, QTableWidgetItem(""))
 
     def _get_effective_center(self, name):
         """Return (cx, cy) for *name* — manual if present, else auto, else None."""
