@@ -138,11 +138,11 @@ class ManualCalibrationDialog(QDialog):
         self.imageCanvas = self.imageViewer.canvas
         self.imageFigure = self.imageViewer.figure
         
-        # Display the image
-        self.imageViewer.display_image(self.img)
+        # Set display options before displaying so display_image uses them
+        self.imageViewer.set_display_options(vmin=vmin, vmax=vmax)
         
-        # Set initial display settings
-        self.imageViewer.display_panel.set_intensity_values(vmin, vmax)
+        # Display the image (will use pre-set vmin/vmax)
+        self.imageViewer.display_image(self.img)
         
         # Add image to scroll area
         self.scrollAreaImg = QScrollArea()
