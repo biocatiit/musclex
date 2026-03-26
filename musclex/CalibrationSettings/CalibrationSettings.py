@@ -528,7 +528,7 @@ class CalibrationSettings(QDialog):
         """
         Opens a finder window to choose a file and process calibration on it once selected.
         """
-        file_name = getAFile()
+        file_name = getAFile(parent=self)
         if file_name != "" and exists(str(file_name)):
             self.cal_img = None
             self.calFile = str(file_name)

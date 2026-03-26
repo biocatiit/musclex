@@ -46,18 +46,26 @@ for t in input_types:
     img_filter += ' *.' + str(t)
 img_filter += ')'
 
-def getAFile(filtr=None, path='', add_txt=False):
+def getAFile(filtr=None, path='', add_txt=False, parent=None):
     """
-    Open a file finder and return the name of the file selected
+    Open a file finder and return the name of the file selected.
+    
+    Args:
+        parent: Optional parent widget. When provided, the dialog is raised above
+                any WindowStaysOnTopHint windows (e.g. detached tool dialogs).
     """
     if filtr is None:
         filtr = img_filter
     if add_txt and filtr != '':
         filtr += ';;Failed cases (*.txt)'
-    file_name = QFileDialog.getOpenFileName(None, 'Select a file', path, filtr, None)
-    if isinstance(file_name, tuple):
-        file_name = file_name[0]
-    return str(file_name)
+    dialog = QFileDialog(parent, 'Select a file', path, filtr)
+    dialog.setFileMode(QFileDialog.ExistingFile)
+    # Ensure the file dialog is not hidden behind WindowStaysOnTopHint windows
+    dialog.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+    if dialog.exec_():
+        files = dialog.selectedFiles()
+        return str(files[0]) if files else ''
+    return ''
 
 def getFiles(path='', filtr=None):
     """
