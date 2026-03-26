@@ -238,7 +238,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Center Mode",
         "distance",
         "Auto Center",
-        "Auto-Manual\nDistance",
+        "Auto\nDifference",
         "Rotation",
         "Rotation\nMode",
         "Rotation\nDifference",
@@ -415,10 +415,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         detection_row.addWidget(self.calc_diff_btn)
         misaligned_detection_layout.addLayout(detection_row)
 
-        # Row 3: Auto-Manual distance threshold
+        # Row 3: Auto difference threshold
         dist_thresh_row = QHBoxLayout()
         dist_thresh_row.setSpacing(6)
-        self._dist_thresh_chk = QCheckBox("Auto-Manual Dist threshold:")
+        self._dist_thresh_chk = QCheckBox("Auto Diff threshold:")
         self._dist_thresh_chk.setChecked(True)
         dist_thresh_row.addWidget(self._dist_thresh_chk)
         self._dist_thresh_spin = QDoubleSpinBox()
@@ -875,17 +875,17 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.setItem(row, self.COL_AUTO_CENTER, QTableWidgetItem(""))
 
     def _fill_auto_manual_dist_column(self, row, name):
-        """Fill COL_AUTO_MANUAL_DIST with the distance between auto center and manual center.
+        """Fill COL_AUTO_MANUAL_DIST with the distance between auto center and original center.
+        Original center is the effective center (manual if set, else auto).
         Cells exceeding the distance threshold are highlighted red."""
         import math
-        sm = self.workspace.settings_manager
         base = os.path.basename(name)
-        auto = sm.get_auto_center(base) or sm.get_auto_center(name)
-        manual_key = base if sm.has_manual_center(base) else name
-        manual = sm.get_center(manual_key)
-        if auto is not None and manual is not None:
-            dx = auto[0] - manual[0]
-            dy = auto[1] - manual[1]
+        auto = self.workspace.settings_manager.get_auto_center(base) or \
+               self.workspace.settings_manager.get_auto_center(name)
+        original = self._get_effective_center(name)
+        if auto is not None and original is not None:
+            dx = auto[0] - original[0]
+            dy = auto[1] - original[1]
             dist = math.hypot(dx, dy)
             item = QTableWidgetItem(f"{dist:.2f}")
             if self._dist_threshold_enabled and dist > self._dist_threshold:
