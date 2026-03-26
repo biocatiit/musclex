@@ -437,10 +437,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         dist_thresh_row.addStretch()
         misaligned_detection_layout.addLayout(dist_thresh_row)
 
-        # Row 4: Rotation Difference threshold
+        # Row 4: Auto-Rot Diff threshold
         dev_thresh_row = QHBoxLayout()
         dev_thresh_row.setSpacing(6)
-        self._rot_diff_thresh_chk = QCheckBox("Rotation Difference threshold:")
+        self._rot_diff_thresh_chk = QCheckBox("Auto-Rot Diff threshold:")
         self._rot_diff_thresh_chk.setChecked(True)
         dev_thresh_row.addWidget(self._rot_diff_thresh_chk)
         self._rot_diff_thresh_spin = QDoubleSpinBox()
@@ -940,15 +940,18 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _fill_auto_rot_diff_column(self, row, name):
         """Fill COL_AUTO_ROT_DIFF with the difference between auto rotation and original rotation.
-        Original rotation is the effective rotation (manual if set, else auto)."""
+        Cells exceeding the rotation-diff threshold are highlighted red."""
         sm = self.workspace.settings_manager
         base = os.path.basename(name)
         auto = sm.get_auto_rotation(base) or sm.get_auto_rotation(name)
         original = self._get_effective_rotation(name)
         if auto is not None and original is not None:
             diff = auto - original
-            self.table.setItem(row, self.COL_AUTO_ROT_DIFF,
-                               QTableWidgetItem(f"{diff:.2f}°"))
+            item = QTableWidgetItem(f"{diff:.2f}°")
+            if self._rot_diff_threshold_enabled and abs(diff) > self._rot_diff_threshold:
+                item.setBackground(QBrush(QColor(255, 100, 100)))
+                item.setForeground(QBrush(QColor(255, 255, 255)))
+            self.table.setItem(row, self.COL_AUTO_ROT_DIFF, item)
         else:
             self.table.setItem(row, self.COL_AUTO_ROT_DIFF, QTableWidgetItem(""))
 
@@ -990,11 +993,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             img_rotation = self._get_effective_rotation(name)
             if img_rotation is not None:
                 deviation = img_rotation - base_rotation
-                item = QTableWidgetItem(f"{deviation:.2f}°")
-                if self._rot_diff_threshold_enabled and abs(deviation) > self._rot_diff_threshold:
-                    item.setBackground(QBrush(QColor(255, 100, 100)))
-                    item.setForeground(QBrush(QColor(255, 255, 255)))
-                self.table.setItem(row, self.COL_ROTATION_DIFF, item)
+                self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(f"{deviation:.2f}°"))
             else:
                 self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
         else:
@@ -1632,8 +1631,8 @@ class AddIntensitiesSingleExp(QMainWindow):
                 except ValueError:
                     pass
 
-            # --- rotation difference ---
-            dev_item = self.table.item(row, self.COL_ROTATION_DIFF)
+            # --- auto-rot diff ---
+            dev_item = self.table.item(row, self.COL_AUTO_ROT_DIFF)
             if dev_item and dev_item.text():
                 try:
                     val = abs(float(dev_item.text().rstrip("°")))
