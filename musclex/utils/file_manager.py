@@ -656,6 +656,8 @@ class FileManager:
         self._h5_frames = {}  # {full_path: nframes}
         self.h5_index_map = {}  # {h5_path: (start_idx, end_idx)} in imgList
         self._path_to_file_idx = {}  # {full_path: file_idx} for fast reverse lookup
+        # Multi-directory support (AIME)
+        self.dir_index_map = {}  # {dir_path: (start_idx, end_idx)} in names/specs
         # Image sizes captured during scan: display_name -> "WxH"
         self.image_sizes: dict = {}
         # Async scan state
@@ -1107,6 +1109,78 @@ class FileManager:
             return True
         except ValueError:
             return False
+
+    def load_from_directories(self, dir_paths: list):
+        """Load images from multiple directories and merge into unified lists.
+
+        Display names are prefixed with each directory's basename to avoid
+        collisions (e.g. "exp1/frame_00001.tif").  All loader specs keep their
+        absolute paths so ``load_image_via_spec`` works without needing
+        ``dir_path`` as a fallback.
+
+        Populates:
+            self.dir_index_map  {dir_path: (start_idx, end_idx)} in names/specs
+            self.h5_index_map   merged, with per-directory offsets applied
+            self.file_list      merged file layer (absolute paths, all dirs)
+            self.names / specs  merged image layer with prefixed display names
+            self.image_sizes    merged size map with prefixed keys
+
+        Does NOT start a background scan – all scanning is done synchronously
+        here so the caller immediately gets a consistent view.
+        """
+        # Stop any residual async scan so _scan_done guards won't misfire.
+        self._scan_done = True
+        self._scan_thread = None
+
+        all_file_list = []
+        all_names = []
+        all_specs = []
+        all_sizes = {}
+        self.dir_index_map = {}
+        self.h5_index_map = {}
+
+        for dir_path in dir_paths:
+            dir_path = str(dir_path)
+            prefix = os.path.basename(dir_path.rstrip('/\\')) or dir_path
+
+            # File layer (fast, no HDF5 opening)
+            for entry in scan_directory_files_sync(dir_path):
+                all_file_list.append(entry)
+
+            # Image layer (full scan; uses disk cache when available)
+            names, specs, h5_map, size_map = scan_directory_images_cached(dir_path)
+
+            start_idx = len(all_names)
+            for name, spec in zip(names, specs):
+                all_names.append(f"{prefix}/{name}")
+                all_specs.append(spec)
+            end_idx = len(all_names) - 1
+
+            if start_idx <= end_idx:
+                self.dir_index_map[dir_path] = (start_idx, end_idx)
+
+            # Merge h5_index_map with the current offset applied
+            for h5_path, (h5_start, h5_end) in h5_map.items():
+                self.h5_index_map[h5_path] = (
+                    h5_start + start_idx,
+                    h5_end + start_idx,
+                )
+
+            all_sizes.update({f"{prefix}/{k}": v for k, v in size_map.items()})
+
+        self.file_list = all_file_list
+        self._rebuild_path_to_file_idx()
+        self.names = all_names
+        self.specs = all_specs
+        self.image_sizes = all_sizes
+        self.dir_path = dir_paths[0] if dir_paths else ""
+        self.current = 0
+        self.current_file_idx = 0
+        self.current_frame_idx = 0
+
+        if all_names:
+            self.load_current()
+
 
 def scan_directory_files_sync(dir_path):
     """

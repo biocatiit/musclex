@@ -104,6 +104,12 @@ def main(arguments=None):
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = AddIntensitiesSingleExp()
             sys.exit(app.exec_())
+        elif prog == 'aime':
+            from musclex.ui.AddIntensitiesMultipleExp import AddIntensitiesMultipleExp
+            app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
+            myapp = AddIntensitiesMultipleExp()
+            sys.exit(app.exec_())
         elif prog == 'aisme':
             from musclex.ui.AddIntensitiesExp import AIStartWindow
             app = QApplication(sys.argv)
