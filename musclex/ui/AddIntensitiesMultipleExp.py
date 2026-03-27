@@ -219,26 +219,28 @@ class _GeometryWorker(QRunnable):
             self.signals.done.emit(None, None, self.row)
 
 
-class AddIntensitiesSingleExp(QMainWindow):
+class AddIntensitiesMultipleExp(QMainWindow):
 
     # Column indices
-    COL_GROUP = 0
-    COL_FRAME = 1
-    COL_CENTER = 2
-    COL_CENTER_MODE = 3
-    COL_CENTER_DIST = 4
-    COL_AUTO_CENTER = 5
-    COL_AUTO_MANUAL_DIST = 6
-    COL_ROTATION = 7
-    COL_ROTATION_MODE = 8
-    COL_ROTATION_DIFF = 9
-    COL_AUTO_ROTATION = 10
-    COL_AUTO_ROT_DIFF = 11
-    COL_SIZE = 12
-    COL_IMAGE_DIFF = 13
+    COL_INDEX = 0    # frame-index group label (replaces COL_GROUP)
+    COL_EXP   = 1    # experiment directory basename (new)
+    COL_FRAME = 2
+    COL_CENTER = 3
+    COL_CENTER_MODE = 4
+    COL_CENTER_DIST = 5
+    COL_AUTO_CENTER = 6
+    COL_AUTO_MANUAL_DIST = 7
+    COL_ROTATION = 8
+    COL_ROTATION_MODE = 9
+    COL_ROTATION_DIFF = 10
+    COL_AUTO_ROTATION = 11
+    COL_AUTO_ROT_DIFF = 12
+    COL_SIZE = 13
+    COL_IMAGE_DIFF = 14
 
     HEADERS = [
-        "Group",
+        "Index",
+        "Experiment",
         "Frame",
         "Original Center",
         "Center\nMode",
@@ -260,7 +262,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Muscle X Add Intensities Single Experiment v." + __version__)
+        self.setWindowTitle("Muscle X Add Intensities Multiple Experiments v." + __version__)
         self._current_inv_transform = None  # inverse affine (2x3) from display → original coords
         self.workspace = ProcessingWorkspace(
             settings_dir="",
@@ -316,7 +318,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         # Result tab state
         self._result_entries: list = []
         # Each entry: {'filename': str, 'n_images': int, 'total_intensity': float, 'date': str}
-        self._aise_results_dir: str = ""
+        self._parent_dir: str = ""
 
         # Threshold highlighting
         self._dist_threshold_enabled = True
@@ -366,9 +368,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(self.COL_GROUP, QHeaderView.Fixed)
-        self.table.setColumnWidth(self.COL_GROUP, 52)
-        for col in range(1, len(self.HEADERS)):
+        header.setSectionResizeMode(self.COL_INDEX, QHeaderView.Fixed)
+        self.table.setColumnWidth(self.COL_INDEX, 52)
+        header.setSectionResizeMode(self.COL_EXP, QHeaderView.Interactive)
+        self.table.setColumnWidth(self.COL_EXP, 120)
+        for col in range(2, len(self.HEADERS)):
             header.setSectionResizeMode(col, QHeaderView.Interactive)
         self.table.setColumnWidth(self.COL_FRAME, 200)
         self.table.setItemDelegateForColumn(self.COL_FRAME, _ElideMiddleDelegate(self.table))
@@ -378,13 +382,27 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.table.customContextMenuRequested.connect(self._on_context_menu)
         self.table.itemSelectionChanged.connect(self._on_table_selection_changed)
 
+        # Custom select panel for AIME: pick parent folder containing experiment subdirs or H5s
+        self._select_panel = QWidget()
+        _sel_layout = QVBoxLayout(self._select_panel)
+        _sel_layout.setContentsMargins(24, 24, 24, 24)
+        _sel_layout.setSpacing(12)
+        _sel_layout.addStretch()
+        _sel_btn = QPushButton("Select Experiment Folder\u2026")
+        _sel_btn.setMinimumHeight(36)
+        _sel_btn.clicked.connect(self._on_select_experiment_folder)
+        _sel_layout.addWidget(_sel_btn)
+        self._exp_dirs_label = QLabel("")
+        self._exp_dirs_label.setWordWrap(True)
+        self._exp_dirs_label.setStyleSheet("color: gray;")
+        _sel_layout.addWidget(self._exp_dirs_label)
+        _sel_layout.addStretch()
+
         # Left side of splitter: select_panel (before load) / table (after load)
         self._left_stack = QStackedWidget()
-        self._left_stack.addWidget(self.workspace.navigator.select_panel)  # index 0
-        self._left_stack.addWidget(self.table)                              # index 1
+        self._left_stack.addWidget(self._select_panel)  # index 0
+        self._left_stack.addWidget(self.table)           # index 1
         self._left_stack.setCurrentIndex(0)
-        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
-        self.workspace.navigator.scanComplete.connect(self._on_scan_complete)
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
         self.workspace.needsReprocess.connect(
             lambda: self._on_image_data_ready(self.workspace._current_image_data)
@@ -560,37 +578,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         _img_ops_layout.setSpacing(4)
         _img_ops_layout.setContentsMargins(4, 4, 4, 4)
 
-        # Grouping mode selector
-        _grouping_label = QLabel("Grouping Mode:")
-        _grouping_label.setStyleSheet("font-weight: bold; color: gray;")
-        _img_ops_layout.addWidget(_grouping_label)
-
-        _grouping_row = QWidget()
-        _grouping_row_layout = QHBoxLayout(_grouping_row)
-        _grouping_row_layout.setContentsMargins(0, 0, 0, 0)
-        _grouping_row_layout.setSpacing(12)
-        self.radio_manual = QRadioButton("Select Group Graphically")
-        self.radio_manual.setChecked(True)
-        self.radio_bin_images = QRadioButton("Bin Images")
-        _grouping_row_layout.addWidget(self.radio_manual)
-        _grouping_row_layout.addWidget(self.radio_bin_images)
-        _grouping_row_layout.addStretch()
-        _img_ops_layout.addWidget(_grouping_row)
-
-        # Binning factor row (shown only when Bin Images is selected)
-        self._binning_row = QWidget()
-        binning_layout = QHBoxLayout(self._binning_row)
-        binning_layout.setContentsMargins(16, 0, 0, 0)
-        binning_layout.setSpacing(6)
-        binning_layout.addWidget(QLabel("Binning factor:"))
-        self.binning_spin = QSpinBox()
-        self.binning_spin.setMinimum(2)
-        self.binning_spin.setMaximum(256)
-        self.binning_spin.setValue(2)
-        binning_layout.addWidget(self.binning_spin)
-        self._binning_row.setVisible(False)
-        _img_ops_layout.addWidget(self._binning_row)
-
         self.avg_instead_of_sum_chk = QCheckBox("Compute Average Instead of Sum")
         self.compress_chk = QCheckBox("Compress the Resulting Images")
         _img_ops_layout.addWidget(self.avg_instead_of_sum_chk)
@@ -623,10 +610,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sum_images_btn.setStyleSheet(
             "QPushButton { color: #ededed; background-color: #af6207 }")
         self._right_panel_layout.addWidget(self.sum_images_btn)
-
-        self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
-        self.radio_bin_images.toggled.connect(self._on_bin_images_toggled)
-        self.binning_spin.valueChanged.connect(self._on_binning_factor_changed)
 
         self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
         self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
@@ -686,8 +669,9 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _refresh_result_tab(self):
         """Populate the result table from memory or CSV."""
-        if not self._result_entries and self._aise_results_dir:
-            csv_path = os.path.join(self._aise_results_dir, 'intensities.csv')
+        aime_results_dir = os.path.join(self._parent_dir, "aime_results") if self._parent_dir else ""
+        if not self._result_entries and aime_results_dir:
+            csv_path = os.path.join(aime_results_dir, 'intensities.csv')
             if os.path.exists(csv_path):
                 import csv as _csv
                 seen = {}
@@ -724,14 +708,15 @@ class AddIntensitiesSingleExp(QMainWindow):
         if row < 0 or row >= len(self._result_entries):
             return
         entry = self._result_entries[row]
-        if not self._aise_results_dir:
+        aime_results_dir = os.path.join(self._parent_dir, "aime_results") if self._parent_dir else ""
+        if not aime_results_dir:
             return
-        full_path = os.path.join(self._aise_results_dir, entry['filename'])
+        full_path = os.path.join(aime_results_dir, entry['filename'])
         if not os.path.exists(full_path):
             return
         try:
             img = load_image_via_spec(
-                self._aise_results_dir, entry['filename'], ("tiff", full_path))
+                aime_results_dir, entry['filename'], ("tiff", full_path))
             # Mirror ImageNavigatorWidget behaviour: auto-scale intensity on new
             # image unless "Persist intensities" is checked in the display panel.
             if self._result_viewer.display_panel is not None:
@@ -758,7 +743,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """If no global base is recorded yet, set the first image as the default."""
         if self._base_image_filename or not self.img_list:
             return
-        first_name = os.path.basename(self.img_list[0])
+        first_name = self.img_list[0]
         self.workspace.settings_manager.set_global_base(first_name)
         self.workspace.settings_manager.save_global_base()
         self._base_image_filename = first_name
@@ -776,64 +761,162 @@ class AddIntensitiesSingleExp(QMainWindow):
         return self._get_effective_rotation(self._base_image_filename)
 
     # ------------------------------------------------------------------
-    # Folder loaded → switch to table view
+    # Experiment folder selection (AIME)
     # ------------------------------------------------------------------
 
-    def _on_folder_loaded(self, dir_path):
-        """Switch to table view with the initial file list (scan may still be running)."""
-        self.img_list = list(self.workspace.navigator.file_manager.names)
-        self.misaligned_names = set()
-        self._img_sizes = self.workspace.navigator.file_manager.image_sizes
-        self._compute_most_common_size()
-        self._compute_diff_percentile_threshold()
-        self._sync_global_settings_state()
-        self._auto_set_global_base_if_missing()
-        self._init_table()
-        self._sync_table_selection()
-        self._left_stack.setCurrentIndex(1)
-        # Reset result state when a new folder is loaded
-        self._result_entries = []
-        self._aise_results_dir = os.path.join(str(dir_path), "aise_results")
+    # Folder names generated by AIME/AISE that should not be treated as experiments
+    _SYSTEM_DIRS = {'aime_results', 'aise_results', 'calibration'}
 
-    def _on_scan_complete(self):
-        """Refresh the file list once the background scan finishes."""
-        fm = self.workspace.navigator.file_manager
-        _, ftype, fpath = fm._get_current_file_info()
-        if ftype == "h5" and fpath in fm.h5_index_map:
-            start, end = fm.h5_index_map[fpath]
-            fm.set_directory_listing(
-                fm.dir_path,
-                fm.names[start:end + 1],
-                fm.specs[start:end + 1],
-                h5_index_map={fpath: (0, end - start)},
+    def _on_select_experiment_folder(self):
+        """Open a folder dialog, discover experiment subdirs/H5 files, load them."""
+        from PySide6.QtWidgets import QFileDialog
+        parent_dir = QFileDialog.getExistingDirectory(
+            self, "Select Experiment Parent Folder", "",
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
+        )
+        if not parent_dir:
+            return
+
+        try:
+            entries = sorted(os.listdir(parent_dir))
+        except OSError:
+            entries = []
+
+        # Check for H5 files first — if present, each H5 = one experiment
+        h5_files = [
+            os.path.join(parent_dir, e) for e in entries
+            if (e.lower().endswith('.h5') or e.lower().endswith('.hdf5'))
+            and os.path.isfile(os.path.join(parent_dir, e))
+        ]
+
+        if h5_files:
+            # H5 mode: scan parent directory once, split by h5_index_map
+            use_h5_map = True
+            sources = h5_files
+            fm = self.workspace.navigator.file_manager
+            fm.load_from_directories([parent_dir])
+        else:
+            # Dir mode: each subdirectory = one experiment (exclude system dirs)
+            use_h5_map = False
+            sources = [
+                os.path.join(parent_dir, e) for e in entries
+                if os.path.isdir(os.path.join(parent_dir, e))
+                and e not in self._SYSTEM_DIRS
+            ]
+            fm = self.workspace.navigator.file_manager
+            if sources:
+                fm.load_from_directories(sources)
+
+        if not sources:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "No Experiments Found",
+                f"No HDF5 files or subdirectories found in:\n{parent_dir}",
             )
-        self.img_list = list(fm.names)
+            return
+
+        self._exp_dirs_label.setText(
+            f"{len(sources)} experiment(s) found:\n" +
+            "\n".join(os.path.basename(s) for s in sources[:10]) +
+            ("\n…" if len(sources) > 10 else "")
+        )
+
+        self._on_directories_loaded(parent_dir, sources, use_h5_map=use_h5_map)
+
+    def _on_directories_loaded(self, parent_dir, dir_paths, use_h5_map=False):
+        """Build img_list in index-first order and auto-populate _groups."""
+        self._parent_dir = parent_dir
+        self._exp_dirs = dir_paths
+        fm = self.workspace.navigator.file_manager
+
+        # Choose the right map depending on source type
+        if use_h5_map:
+            # H5 mode: dir_paths are individual H5 file paths;
+            # fm.h5_index_map keys are those same H5 paths
+            index_map = {
+                dp: fm.h5_index_map[dp]
+                for dp in dir_paths
+                if dp in (fm.h5_index_map or {})
+            }
+        else:
+            index_map = fm.dir_index_map or {}
+
+        if not index_map:
+            return
+
+        ranges = list(index_map.values())
+        n_exps = len(ranges)
+        n_indices = min(end - start + 1 for start, end in ranges)
+
+        self.img_list = []
+        self._row_exp_names = []   # experiment label per row (for COL_EXP)
+        for idx in range(n_indices):
+            for dp in dir_paths:
+                if dp in index_map:
+                    start, _ = index_map[dp]
+                    self.img_list.append(fm.names[start + idx])
+                    if use_h5_map:
+                        # dp is an H5 file path; strip extension for display
+                        exp_label = os.path.splitext(os.path.basename(dp))[0]
+                    else:
+                        # dp is a directory; use its basename
+                        exp_label = os.path.basename(dp.rstrip('/\\'))
+                    self._row_exp_names.append(exp_label)
+
+        # Auto-build _groups: one group per index slot covering all experiments
+        self._groups = []
+        for idx in range(n_indices):
+            self._groups.append({'start': idx * n_exps, 'count': n_exps, 'number': idx + 1})
+
+        self.misaligned_names = set()
         self._img_sizes = fm.image_sizes
         self._compute_most_common_size()
         self._compute_diff_percentile_threshold()
         self._sync_global_settings_state()
+        self._auto_set_global_base_if_missing()
+
+        # Reset result state
+        self._result_entries = []
+
         self._init_table()
         self._sync_table_selection()
+        self._left_stack.setCurrentIndex(1)
 
     # ------------------------------------------------------------------
     # Data population
     # ------------------------------------------------------------------
 
     def _init_table(self):
-        """Fully rebuild the table from img_list (resets rows and groups)."""
-        self._groups = []
+        """Fully rebuild the table from img_list (resets rows, keeps _groups)."""
         self._ignored_rows = set()
         self._row_geometry_cache = {}
         self.table.setRowCount(0)
         self.table.setRowCount(len(self.img_list))
         sm = self.workspace.settings_manager
+        n_exps = len(self._exp_dirs) if hasattr(self, '_exp_dirs') and self._exp_dirs else 1
         for row, name in enumerate(self.img_list):
-            item = QTableWidgetItem(os.path.basename(name))
-            item.setToolTip(name)
-            self.table.setItem(row, self.COL_FRAME, item)
+            # COL_INDEX: which index group this row belongs to (1-based)
+            idx_number = row // n_exps + 1
+            idx_item = QTableWidgetItem(str(idx_number))
+            idx_item.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(row, self.COL_INDEX, idx_item)
+
+            # COL_EXP: experiment label pre-computed in _on_directories_loaded
+            row_exp_names = getattr(self, '_row_exp_names', [])
+            exp_basename = row_exp_names[row] if row < len(row_exp_names) else ""
+            exp_item = QTableWidgetItem(exp_basename)
+            exp_item.setToolTip(name)
+            self.table.setItem(row, self.COL_EXP, exp_item)
+
+            # COL_FRAME: just the filename portion
+            frame_item = QTableWidgetItem(os.path.basename(name))
+            frame_item.setToolTip(name)
+            self.table.setItem(row, self.COL_FRAME, frame_item)
+
             self._update_row_data(row, name)
-            if sm.has_ignore(os.path.basename(name)):
+            if sm.has_ignore(name):
                 self._apply_ignore(row)
+        self._render_groups()
         self.table.resizeColumnsToContents()
 
     def _update_table_data(self):
@@ -869,10 +952,8 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _fill_center_columns(self, row, name):
         """Fill COL_CENTER and COL_CENTER_MODE from workspace settings manager."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        key = base if sm.has_manual_center(base) else name
 
-        manual = sm.get_center(key)
+        manual = sm.get_center(name)
         if manual is not None:
             cx, cy = manual
             self.table.setItem(row, self.COL_CENTER,
@@ -881,7 +962,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                                QTableWidgetItem("Manual"))
             return
 
-        auto = sm.get_auto_center(key) or sm.get_auto_center(base)
+        auto = sm.get_auto_center(name)
         if auto is not None:
             cx, cy = auto
             self.table.setItem(row, self.COL_CENTER,
@@ -895,8 +976,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _fill_auto_center_column(self, row, name):
         """Fill COL_AUTO_CENTER with the raw auto-detected center (before any manual override)."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        auto = sm.get_auto_center(base) or sm.get_auto_center(name)
+        auto = sm.get_auto_center(name)
         if auto is not None:
             cx, cy = auto
             self.table.setItem(row, self.COL_AUTO_CENTER,
@@ -909,9 +989,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         Original center is the effective center (manual if set, else auto).
         Cells exceeding the distance threshold are highlighted red."""
         import math
-        base = os.path.basename(name)
-        auto = self.workspace.settings_manager.get_auto_center(base) or \
-               self.workspace.settings_manager.get_auto_center(name)
+        auto = self.workspace.settings_manager.get_auto_center(name)
         original = self._get_effective_center(name)
         if auto is not None and original is not None:
             dx = auto[0] - original[0]
@@ -928,10 +1006,8 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _fill_rotation_columns(self, row, name):
         """Fill COL_ROTATION and COL_ROTATION_MODE from workspace settings manager."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        key = base if sm.has_manual_rotation(base) else name
 
-        manual = sm.get_rotation(key)
+        manual = sm.get_rotation(name)
         if manual is not None:
             self.table.setItem(row, self.COL_ROTATION,
                                QTableWidgetItem(f"{manual:.2f}°"))
@@ -939,7 +1015,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                                QTableWidgetItem("Manual"))
             return
 
-        auto = sm.get_auto_rotation(key) or sm.get_auto_rotation(base)
+        auto = sm.get_auto_rotation(name)
         if auto is not None:
             self.table.setItem(row, self.COL_ROTATION,
                                QTableWidgetItem(f"{auto:.2f}°"))
@@ -954,8 +1030,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _fill_auto_rotation_column(self, row, name):
         """Fill COL_AUTO_ROTATION with the raw auto-detected rotation (before any manual override)."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        auto = sm.get_auto_rotation(base) or sm.get_auto_rotation(name)
+        auto = sm.get_auto_rotation(name)
         if auto is not None:
             self.table.setItem(row, self.COL_AUTO_ROTATION,
                                QTableWidgetItem(f"{auto:.2f}°"))
@@ -966,8 +1041,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Fill COL_AUTO_ROT_DIFF with the difference between auto rotation and original rotation.
         Cells exceeding the rotation-diff threshold are highlighted red."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        auto = sm.get_auto_rotation(base) or sm.get_auto_rotation(name)
+        auto = sm.get_auto_rotation(name)
         original = self._get_effective_rotation(name)
         if auto is not None and original is not None:
             diff = auto - original
@@ -982,16 +1056,12 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _get_effective_center(self, name):
         """Return (cx, cy) for *name* — manual if present, else auto, else None."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        key = base if sm.has_manual_center(base) else name
-        return sm.get_center(key) or sm.get_auto_center(key) or sm.get_auto_center(base)
+        return sm.get_center(name) or sm.get_auto_center(name)
 
     def _get_effective_rotation(self, name):
         """Return rotation angle for *name* — manual if present, else auto, else None."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        key = base if sm.has_manual_rotation(base) else name
-        return sm.get_rotation(key) or sm.get_auto_rotation(key) or sm.get_auto_rotation(base)
+        return sm.get_rotation(name) or sm.get_auto_rotation(name)
 
     def _fill_distance_deviation(self, row, name):
         """Fill COL_CENTER_DIST and COL_ROTATION_DIFF relative to the global base."""
@@ -1034,7 +1104,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         Updates self._diff_percentile_threshold and syncs the spinbox to the computed value."""
         sm = self.workspace.settings_manager
         values = [
-            sm.get_image_diff(os.path.basename(name))
+            sm.get_image_diff(name)
             for name in self.img_list
         ]
         values = [v for v in values if v is not None]
@@ -1062,7 +1132,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available).
         Cells whose value exceeds the user-controlled threshold are highlighted red."""
         sm = self.workspace.settings_manager
-        val = sm.get_image_diff(os.path.basename(name))
+        val = sm.get_image_diff(name)
         text = f"{val:.4f}" if val is not None else ""
         item = QTableWidgetItem(text)
         if (val is not None
@@ -1075,13 +1145,12 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
-        COL_GROUP is intentionally skipped to keep group cell appearance intact."""
+        COL_INDEX is intentionally skipped to keep group cell appearance intact."""
         if not self.misaligned_names:
             return
-        base = os.path.basename(name)
-        if name in self.misaligned_names or base in self.misaligned_names:
+        if name in self.misaligned_names or os.path.basename(name) in self.misaligned_names:
             highlight = QBrush(QColor(255, 120, 120))
-            for col in range(1, self.table.columnCount()):   # skip COL_GROUP
+            for col in range(1, self.table.columnCount()):   # skip COL_INDEX
                 item = self.table.item(row, col)
                 if item is None:
                     item = QTableWidgetItem("")
@@ -1093,9 +1162,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         item = self.table.item(row, self.COL_FRAME)
         if item is None:
             return
-        base = os.path.basename(name)
         base_name = self._base_image_filename or ''
-        is_base = (base == os.path.basename(base_name)) if base_name else False
+        is_base = (name == base_name) if base_name else False
         display = os.path.basename(name)
         if is_base:
             item.setText(f"\u2605 {display}")
@@ -1110,29 +1178,6 @@ class AddIntensitiesSingleExp(QMainWindow):
     # Grouping helpers
     # ------------------------------------------------------------------
 
-    def _on_bin_images_toggled(self, checked):
-        """Apply or clear automatic bin-grouping when the radio button is toggled."""
-        if checked:
-            self._apply_bin_grouping()
-        else:
-            self._groups = []
-            self._render_groups()
-
-    def _on_binning_factor_changed(self):
-        """Re-apply bin-grouping when the factor spinbox changes (only in bin mode)."""
-        if self.radio_bin_images.isChecked():
-            self._apply_bin_grouping()
-
-    def _apply_bin_grouping(self):
-        """Split the image list into sequential groups of *binning_spin* size."""
-        factor = self.binning_spin.value()
-        n = len(self.img_list)
-        self._groups = []
-        for i in range(0, n, factor):
-            count = min(factor, n - i)
-            self._groups.append({'start': i, 'count': count, 'number': 0})
-        self._renumber_groups()
-
     def _find_group_at_row(self, row):
         """Return the group dict that contains *row*, or None."""
         for group in self._groups:
@@ -1141,26 +1186,27 @@ class AddIntensitiesSingleExp(QMainWindow):
         return None
 
     def _render_groups(self):
-        """Clear all group-column spans then re-render from self._groups."""
-        # Reset every cell in the Group column to 1×1 span and clear text/colour
+        """Re-render group spans in COL_INDEX from self._groups.
+        In AIME, groups are auto-built and COL_INDEX already has the index number
+        set per-row, so this only applies the visual span/colour."""
+        # Reset spans and styling on COL_INDEX
         for row in range(self.table.rowCount()):
-            self.table.setSpan(row, self.COL_GROUP, 1, 1)
-            item = self.table.item(row, self.COL_GROUP)
+            self.table.setSpan(row, self.COL_INDEX, 1, 1)
+            item = self.table.item(row, self.COL_INDEX)
             if item:
-                item.setText("")
                 item.setBackground(QBrush())
                 item.setForeground(QBrush())
 
-        # Paint each group
+        # Paint each group with blue background spanning all rows in the group
         for group in self._groups:
             start = group['start']
             count = group['count']
             if count > 1:
-                self.table.setSpan(start, self.COL_GROUP, count, 1)
-            item = self.table.item(start, self.COL_GROUP)
+                self.table.setSpan(start, self.COL_INDEX, count, 1)
+            item = self.table.item(start, self.COL_INDEX)
             if item is None:
-                item = QTableWidgetItem()
-                self.table.setItem(start, self.COL_GROUP, item)
+                item = QTableWidgetItem(str(group['number']))
+                self.table.setItem(start, self.COL_INDEX, item)
             item.setText(str(group['number']))
             item.setTextAlignment(Qt.AlignCenter)
             item.setBackground(QBrush(self._GROUP_BG))
@@ -1174,49 +1220,17 @@ class AddIntensitiesSingleExp(QMainWindow):
             group['number'] = i + 1
         self._render_groups()
 
-    def _group_rows(self, selected_rows):
-        """Create a new group covering min…max of *selected_rows*.
-        Any existing groups that overlap the new range are removed first."""
-        start = min(selected_rows)
-        end = max(selected_rows)
-        count = end - start + 1
-
-        # Remove overlapping groups
-        self._groups = [
-            g for g in self._groups
-            if not (g['start'] <= end and g['start'] + g['count'] > start)
-        ]
-
-        self._groups.append({'start': start, 'count': count, 'number': 0})
-        self._renumber_groups()
-
-    def _ungroup(self, group):
-        """Remove *group* and renumber remaining groups."""
-        self._groups.remove(group)
-        self._renumber_groups()
-
     # ------------------------------------------------------------------
     # Context menu
     # ------------------------------------------------------------------
 
     def _on_context_menu(self, pos):
         row = self.table.rowAt(pos.y())
-        col = self.table.columnAt(pos.x())
         if row < 0:
             return
 
         global_pos = self.table.viewport().mapToGlobal(pos)
         menu = QMenu(self)
-
-        # Right-click on the Group column: offer Ungroup if the row is grouped
-        if col == self.COL_GROUP:
-            group = self._find_group_at_row(row)
-            if group is not None:
-                ungroup_act = menu.addAction(f"Ungroup  (Group {group['number']})")
-                chosen = menu.exec(global_pos)
-                if chosen == ungroup_act:
-                    self._ungroup(group)
-            return
 
         selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
 
@@ -1226,12 +1240,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         if len(selected_rows) == 1:
             set_cr_act = menu.addAction("Set Center and Rotation")
             set_global_act = menu.addAction("Set as Global Base")
-            menu.addSeparator()
-
-        # Group action (≥2 rows selected)
-        group_act = None
-        if len(selected_rows) >= 2:
-            group_act = menu.addAction("Group")
             menu.addSeparator()
 
         # Ignore actions (any selection)
@@ -1246,9 +1254,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         chosen = menu.exec(global_pos)
         if chosen is None:
             return
-        if chosen == group_act:
-            self._group_rows(selected_rows)
-        elif chosen == ignore_act:
+        if chosen == ignore_act:
             if all_ignored:
                 for r in selected_rows:
                     self._clear_ignore(r)
@@ -1260,7 +1266,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         elif chosen == set_global_act:
             row = selected_rows[0]
             if row < len(self.img_list):
-                img_name = os.path.basename(self.img_list[row])
+                img_name = self.img_list[row]
                 self.workspace.settings_manager.set_global_base(img_name)
                 self.workspace.settings_manager.save_global_base()
                 self._on_global_base_changed()
@@ -1380,11 +1386,10 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         self._ignored_rows.add(row)
         name = self.img_list[row]
-        base = os.path.basename(name)
         sm = self.workspace.settings_manager
-        sm.set_ignore(base)
+        sm.set_ignore(name)
         sm.save_ignore()
-        print(f"Ignore: {base}")
+        print(f"Ignore: {name}")
         self._dim_row(row)
 
     def _clear_ignore(self, row):
@@ -1393,11 +1398,10 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         self._ignored_rows.discard(row)
         name = self.img_list[row]
-        base = os.path.basename(name)
         sm = self.workspace.settings_manager
-        sm.clear_ignore(base)
+        sm.clear_ignore(name)
         sm.save_ignore()
-        print(f"Cancel Ignore: {base}")
+        print(f"Cancel Ignore: {name}")
         normal = QBrush(self.table.palette().color(self.table.foregroundRole()))
         for col in range(1, self.table.columnCount()):
             item = self.table.item(row, col)
@@ -1755,15 +1759,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.statusLabel.setText("Detecting center/rotation...")
 
         orientation_model = getattr(self.workspace, '_orientation_model', 0)
-        dir_path = str(fm.dir_path)
 
         for i, img_name in enumerate(self.img_list):
-            base = os.path.basename(img_name)
             spec = fm.specs[i] if i < len(fm.specs) else None
-            manual_center, manual_rotation = self.workspace.get_manual_settings(base)
+            manual_center, manual_rotation = self.workspace.get_manual_settings(img_name)
             job_args = (
-                dir_path,
-                base,
+                "",
+                img_name,
                 spec,
                 manual_center,
                 manual_rotation,
@@ -1800,7 +1802,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             else:
                 sm = self.workspace.settings_manager
                 sm.set_auto_cache(
-                    os.path.basename(task.filename),
+                    task.filename,
                     result['center'],
                     result['rotation'],
                 )
@@ -1923,8 +1925,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         base_rotation = self._get_base_rotation()
 
         job_args = (
-            str(fm.dir_path),
-            os.path.basename(name_a), os.path.basename(name_b),
+            "",
+            name_a, name_b,
             fm.specs[idx_a] if idx_a < len(fm.specs) else None,
             fm.specs[idx_b] if idx_b < len(fm.specs) else None,
             self._get_effective_center(name_a),
@@ -1936,7 +1938,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             idx_b,  # job_index → the row whose diff column gets updated
         )
         future = self.diffExecutor.submit(_compute_image_diff, job_args)
-        self.diffTaskManager.submit_task(os.path.basename(name_b), idx_b, future)
+        self.diffTaskManager.submit_task(name_b, idx_b, future)
         future.add_done_callback(
             lambda f, a=idx_a, b=idx_b: QTimer.singleShot(
                 0, self, lambda: self._on_diff_result(f, a, b)
@@ -1961,7 +1963,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
             elif name_b is not None:
                 sm = self.workspace.settings_manager
-                sm.set_image_diff(os.path.basename(name_b), result['diff'])
+                sm.set_image_diff(name_b, result['diff'])
                 sm.save_image_diff()
                 self._compute_diff_percentile_threshold()
 
@@ -2060,8 +2062,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             QMessageBox.warning(self, "Sum Images", "No folder loaded.")
             return
 
-        dir_path = str(fm.dir_path)
-        output_dir = os.path.join(dir_path, "aise_results")
+        parent_dir = getattr(self, '_parent_dir', str(fm.dir_path))
+        output_dir = os.path.join(parent_dir, "aime_results")
         os.makedirs(output_dir, exist_ok=True)
 
         if self.sumExecutor is None:
@@ -2081,9 +2083,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         mask_for_csv = None
         from musclex.utils.file_manager import getBlankImageAndMask
         if apply_blank:
-            blank_img, mask_for_csv, _ = getBlankImageAndMask(dir_path, return_weight=True)
+            blank_img, mask_for_csv, _ = getBlankImageAndMask(parent_dir, return_weight=True)
         else:
-            _, mask_for_csv, _ = getBlankImageAndMask(dir_path, return_weight=True)
+            _, mask_for_csv, _ = getBlankImageAndMask(parent_dir, return_weight=True)
 
         self._sum_blank_weight = blank_weight if apply_blank else 0.0
         self._sum_nonmasked_pixels = (
@@ -2115,7 +2117,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 print(f"Group {group_num}: all images ignored, skipping.")
                 continue
 
-            img_names = [os.path.basename(self.img_list[r]) for r in active_rows]
+            img_names = [self.img_list[r] for r in active_rows]
             specs = [fm.specs[r] if r < len(fm.specs) else None for r in active_rows]
 
             per_img_transforms = []
@@ -2128,10 +2130,9 @@ class AddIntensitiesSingleExp(QMainWindow):
                     rotation,
                 ))
 
-            # Mirror AddIntensitiesExp AISE filename convention:
-            # {prefix}_{firstNum}_{lastNum}.tif  or  group_{num:05d}.tif
-            first = img_names[0]
-            last = img_names[-1]
+            # Build output filename from basenames of first/last images in group
+            first = os.path.basename(img_names[0])
+            last = os.path.basename(img_names[-1])
             f_ind1 = first.rfind('_')
             f_ind2 = first.rfind('.')
             l_ind1 = last.rfind('_')
@@ -2145,7 +2146,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                             + last[l_ind1 + 1:l_ind2] + '.tif')
             output_path = os.path.join(output_dir, filename)
 
-            job_args = (group_num, dir_path, img_names, specs,
+            job_args = (group_num, "", img_names, specs,
                         per_img_transforms, base_center, base_rotation,
                         blank_img, blank_weight, apply_blank,
                         do_average, output_path, compress,
@@ -2239,7 +2240,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             traceback.print_exc()
 
     def _write_sum_csv(self, output_dir):
-        """Write accumulated CSV statistics to aise_results/intensities.csv."""
+        """Write accumulated CSV statistics to aime_results/intensities.csv."""
         if not self._sum_csv_rows:
             return
         import csv as _csv
@@ -2278,9 +2279,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sum_images_btn.setText("Sum Images")
         self.sum_images_btn.blockSignals(False)
 
-        fm = self.workspace.navigator.file_manager
-        if fm is not None and self._sum_csv_rows:
-            output_dir = os.path.join(str(fm.dir_path), "aise_results")
+        if self._parent_dir and self._sum_csv_rows:
+            output_dir = os.path.join(self._parent_dir, "aime_results")
             self._write_sum_csv(output_dir)
 
         op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"
