@@ -419,6 +419,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.image_viewer = self.workspace.navigator.image_viewer
         self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.image_viewer.setMinimumHeight(200)
+        # Navigator hides image_viewer until load_file() is called; AIME skips
+        # load_file() so we need to show it explicitly here.
+        self.image_viewer.setVisible(True)
         self._viewer_container = QWidget()
         self._viewer_container_layout = QVBoxLayout(self._viewer_container)
         self._viewer_container_layout.setContentsMargins(0, 0, 0, 0)
@@ -789,12 +792,24 @@ class AddIntensitiesMultipleExp(QMainWindow):
             and os.path.isfile(os.path.join(parent_dir, e))
         ]
 
+        fm = self.workspace.navigator.file_manager
+
         if h5_files:
-            # H5 mode: scan parent directory once, split by h5_index_map
+            # H5 mode: scan the parent directory the same way FileManager normally
+            # handles a directory containing H5 files.  This keeps names unprefixed
+            # (e.g. "P2_F5_849_1_094_xxx_00001.h5") and populates h5_index_map so
+            # each H5 file maps cleanly to its frame range.
             use_h5_map = True
             sources = h5_files
-            fm = self.workspace.navigator.file_manager
-            fm.load_from_directories([parent_dir])
+            from musclex.utils.file_manager import scan_directory_images_cached
+            names, specs, h5_map, size_map = scan_directory_images_cached(parent_dir)
+            fm.set_from_file(h5_files[0])
+            fm.set_directory_listing(parent_dir, names, specs, h5_index_map=h5_map, size_map=size_map)
+            fm.dir_index_map = {}
+            fm.current = 0
+            fm.current_file_idx = 0
+            fm.current_frame_idx = 0
+            fm.load_current()
         else:
             # Dir mode: each subdirectory = one experiment (exclude system dirs)
             use_h5_map = False
@@ -803,7 +818,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 if os.path.isdir(os.path.join(parent_dir, e))
                 and e not in self._SYSTEM_DIRS
             ]
-            fm = self.workspace.navigator.file_manager
             if sources:
                 fm.load_from_directories(sources)
 
@@ -879,8 +893,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._result_entries = []
 
         self._init_table()
-        self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
+        # Explicitly trigger the navigator so imageChanged → imageDataReady fires
+        # (_sync_table_selection uses blockSignals so it won't drive the viewer)
+        self.workspace.navigator.switch_to_image_by_index(0)
+        self._sync_table_selection()
 
     # ------------------------------------------------------------------
     # Data population
@@ -1189,9 +1206,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
         """Re-render group spans in COL_INDEX from self._groups.
         In AIME, groups are auto-built and COL_INDEX already has the index number
         set per-row, so this only applies the visual span/colour."""
-        # Reset spans and styling on COL_INDEX
+        # Reset spans and styling on COL_INDEX.
+        # setSpan(row, col, 1, 1) is a no-op in Qt and triggers a warning, so
+        # only call it when a cell currently spans more than one row.
         for row in range(self.table.rowCount()):
-            self.table.setSpan(row, self.COL_INDEX, 1, 1)
+            if self.table.rowSpan(row, self.COL_INDEX) > 1:
+                self.table.setSpan(row, self.COL_INDEX, 1, 1)
             item = self.table.item(row, self.COL_INDEX)
             if item:
                 item.setBackground(QBrush())
