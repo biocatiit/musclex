@@ -3257,6 +3257,8 @@ class QuadrantFoldingGUI(BaseGUI):
         Triggered when a folder with multiple H5 files has been selected to process it
         """
         start_idx, end_idx = self.file_manager.get_current_h5_range()
+        if start_idx is None or end_idx is None:
+            return
         self._process_image_list(range(start_idx, end_idx + 1), text="Process Current H5 File")
 
 

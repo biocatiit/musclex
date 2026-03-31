@@ -1285,8 +1285,9 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
-        
         start_idx, end_idx = self.file_manager.get_current_h5_range()
+        if start_idx is None or end_idx is None:
+            return
         idx = self.file_manager.current
         img_ids = list(range(idx + 1, end_idx + 1)) + list(range(start_idx, idx + 1))
         self._process_image_list(img_ids)
