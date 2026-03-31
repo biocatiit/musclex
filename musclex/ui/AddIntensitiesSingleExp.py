@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
     QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem, QMessageBox,
-    QTabBar,
+    QTabBar, QDialog, QTextBrowser,
 )
-from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
+from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer, QSettings
 from PySide6.QtGui import QColor, QBrush, QFont
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
@@ -219,6 +219,161 @@ class _GeometryWorker(QRunnable):
             self.signals.done.emit(None, None, self.row)
 
 
+_WORKFLOW_HTML = """
+<html>
+<head>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 10px 16px; color: #222; }
+  h2   { color: #2c5f9e; margin-bottom: 4px; }
+  p.intro { margin-top: 0; color: #555; font-style: italic; }
+  ol   { padding-left: 20px; }
+  li   { margin-bottom: 10px; line-height: 1.5; }
+  .step-title { font-weight: bold; color: #1a3d6b; }
+  .hint { font-size: 12px; color: #666; margin-left: 4px; }
+  hr   { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
+</style>
+</head>
+<body>
+<h2>AISE Workflow Guide</h2>
+<p class="intro">
+  Follow these steps to align, inspect and sum your images.
+  The <b>global image</b> is the reference to which all other images are aligned.
+</p>
+<hr/>
+<ol>
+  <li>
+    <span class="step-title">Set the global (reference) image</span><br/>
+    <span class="hint">
+      By default the first image is the global image.
+      Right-click a row in the table and choose <i>Set as Global Image</i> to change it.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Correct the center of the global image</span><br/>
+    <span class="hint">
+      Select the global image and adjust its center in the viewer.
+      Right-click &rarr; <i>Apply to Subsequent Images</i> to propagate the correction.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Correct the orientation (rotation) if needed</span><br/>
+    <span class="hint">
+      Adjust the rotation of the global image.
+      Right-click &rarr; <i>Apply to Subsequent Images</i> to propagate.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Detect misalignment</span><br/>
+    <span class="hint">
+      Click <i>Detect Centers &amp; Rotations</i>.
+      The table highlights rows whose center distance or rotation difference
+      exceeds the configured thresholds.
+      Use <i>Compute Image Difference</i> to add pixel-level comparison scores.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Correct misaligned images</span><br/>
+    <span class="hint">
+      Select a misaligned row and adjust its center / rotation.
+      Right-click &rarr; <i>Apply to Subsequent Images</i> if the drift is progressive.
+      Right-click &rarr; <i>Ignore Image</i> to exclude an image from summation and misalignment detection.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Repeat detection &amp; correction as needed</span><br/>
+    <span class="hint">
+      Re-run <i>Detect Centers &amp; Rotations</i> after corrections to verify alignment.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Inspect alignment by stepping through images</span><br/>
+    <span class="hint">
+      Click rows in the table (or use arrow keys) to preview each image in the viewer
+      and confirm alignment visually.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Define bins</span><br/>
+    <span class="hint">
+      <b>Fixed-size bins:</b> set the bin size in the <i>Image Operations</i> panel
+      and click <i>Auto Group</i>.<br/>
+      <b>Manual bins:</b> highlight the desired rows in the table,
+      then right-click &rarr; <i>Group Selected</i>.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Apply operation to bins (Average or Sum)</span><br/>
+    <span class="hint">
+      Choose <i>Average</i> or <i>Sum</i> in the <i>Image Operations</i> panel,
+      then click <i>Sum Images</i>.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Inspect results</span><br/>
+    <span class="hint">
+      Switch to the <b>Result</b> tab at the top to browse and inspect the output images.
+    </span>
+  </li>
+</ol>
+</body>
+</html>
+"""
+
+_AISE_SETTINGS_KEY = "aise/hide_workflow_guide"
+
+
+class WorkflowGuideDialog(QDialog):
+    """Modal dialog showing the AISE workflow with a 'don't show again' checkbox."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("AISE Workflow Guide")
+        self.resize(600, 580)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        browser = QTextBrowser()
+        browser.setHtml(_WORKFLOW_HTML)
+        browser.setOpenExternalLinks(False)
+        browser.setReadOnly(True)
+        layout.addWidget(browser, 1)
+
+        bottom_row = QHBoxLayout()
+        self._dont_show_chk = QCheckBox("Don't show this again")
+        bottom_row.addWidget(self._dont_show_chk)
+        bottom_row.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.setDefault(True)
+        close_btn.clicked.connect(self._on_close)
+        bottom_row.addWidget(close_btn)
+        layout.addLayout(bottom_row)
+
+    @staticmethod
+    def _settings():
+        return QSettings("BioCAT", "MuscleX")
+
+    def _on_close(self):
+        if self._dont_show_chk.isChecked():
+            self._settings().setValue(_AISE_SETTINGS_KEY, True)
+        self.accept()
+
+    @staticmethod
+    def show_if_needed(parent=None):
+        """Show the dialog unless the user has suppressed it."""
+        if WorkflowGuideDialog._settings().value(_AISE_SETTINGS_KEY, False, type=bool):
+            return
+        dlg = WorkflowGuideDialog(parent)
+        dlg.exec()
+
+    @staticmethod
+    def show_always(parent=None):
+        """Show the dialog unconditionally (triggered by the toolbar button)."""
+        dlg = WorkflowGuideDialog(parent)
+        dlg.exec()
+
+
 class AddIntensitiesSingleExp(QMainWindow):
 
     # Column indices
@@ -332,6 +487,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._build_ui()
         self.resize(1400, 800)
         self.show()
+        QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(self))
 
     # ------------------------------------------------------------------
     # UI construction
@@ -509,12 +665,27 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.splitter.setSizes([900, 500])
         right_container.setMinimumWidth(400)
 
-        # ── Tab bar ────────────────────────────────────────────────────────
+        # ── Top bar: workflow guide button + tab bar ───────────────────────
+        top_bar = QHBoxLayout()
+        top_bar.setContentsMargins(0, 0, 0, 0)
+        top_bar.setSpacing(8)
+
         self._tab_bar = QTabBar()
         self._tab_bar.addTab("Origin")
         self._tab_bar.addTab("Result")
         self._tab_bar.setExpanding(False)
-        root.addWidget(self._tab_bar)
+        top_bar.addWidget(self._tab_bar)
+        top_bar.addStretch()
+
+        self._workflow_btn = QPushButton("Workflow Guide")
+        self._workflow_btn.setToolTip("Show the step-by-step workflow guide")
+        self._workflow_btn.setFixedHeight(26)
+        self._workflow_btn.clicked.connect(lambda: WorkflowGuideDialog.show_always(self))
+        top_bar.addWidget(self._workflow_btn)
+
+        top_bar_widget = QWidget()
+        top_bar_widget.setLayout(top_bar)
+        root.addWidget(top_bar_widget)
 
         # Main stack: page 0 = splitter (Origin), page 1 = Result page
         self._result_page = self._build_result_page()
