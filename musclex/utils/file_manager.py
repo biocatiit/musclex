@@ -1219,7 +1219,13 @@ class FileManager:
         self.specs = all_specs
         self.source_labels = all_labels
         self.image_sizes = all_sizes
-        self.dir_path = str(sources[0]) if sources else ""
+        # Set dir_path to the common parent directory of all sources, not the first source
+        # itself (which may be a subdirectory or H5 file). The UI guarantees all sources
+        # share the same parent, so dirname of any source (after stripping trailing sep) is enough.
+        if sources:
+            self.dir_path = os.path.dirname(str(sources[0]).rstrip('/\\'))
+        else:
+            self.dir_path = ""
         self.current = 0
         self.current_file_idx = 0
         self.current_frame_idx = 0
