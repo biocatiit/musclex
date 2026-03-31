@@ -268,7 +268,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
             settings_dir="",
             coord_transform_func=self._display_to_original_coords,
         )
-        self.img_list = []
         self.misaligned_names = set()
         self._img_sizes: dict = {}  # img_name -> "WxH" string
         self._most_common_size: str = ""  # most frequent size across all images
@@ -783,6 +782,35 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._sync_global_settings_state()
         self._update_table_data()
 
+    # ------------------------------------------------------------------
+    # FM index ↔ table row helpers
+    # ------------------------------------------------------------------
+
+    def _fm_index_for_row(self, row: int):
+        """Return the FileManager index stored in *row*, or None."""
+        item = self.table.item(row, self.COL_INDEX)
+        if item is None:
+            return None
+        val = item.data(Qt.UserRole)
+        return val if isinstance(val, int) else None
+
+    def _name_for_row(self, row: int):
+        """Return the image filename (from FileManager) for *row*, or None."""
+        fm = self.workspace.navigator.file_manager
+        if fm is None:
+            return None
+        fm_idx = self._fm_index_for_row(row)
+        if fm_idx is None or fm_idx >= len(fm.names):
+            return None
+        return fm.names[fm_idx]
+
+    def _row_for_fm_index(self, fm_idx: int):
+        """Return the table row whose stored FM index equals *fm_idx*, or None."""
+        for row in range(self.table.rowCount()):
+            if self._fm_index_for_row(row) == fm_idx:
+                return row
+        return None
+
     def _sync_global_settings_state(self):
         """Read the saved global base and update _base_image_filename."""
         base = self.workspace.settings_manager.get_global_base()
@@ -790,9 +818,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
     def _auto_set_global_base_if_missing(self):
         """If no global base is recorded yet, set the first image as the default."""
-        if self._base_image_filename or not self.img_list:
+        if self._base_image_filename:
             return
-        first_name = self.img_list[0]
+        first_name = self._name_for_row(0)
+        if first_name is None:
+            return
         self.workspace.settings_manager.set_global_base(first_name)
         self.workspace.settings_manager.save_global_base()
         self._base_image_filename = first_name
@@ -883,7 +913,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._on_directories_loaded(self._parent_dir_path, sources)
 
     def _on_directories_loaded(self, parent_dir, dir_paths):
-        """Build img_list in index-first order and auto-populate _groups."""
+        """Build table rows in index-first order and auto-populate _groups."""
         self._parent_dir = parent_dir
         self._exp_dirs = dir_paths
         fm = self.workspace.navigator.file_manager
@@ -901,21 +931,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
         ranges = list(index_map.values())
         n_exps = len(ranges)
         n_indices = min(end - start + 1 for start, end in ranges)
-
-        self.img_list = []
-        self._row_exp_names = []   # experiment label per row (for COL_EXP)
-        for idx in range(n_indices):
-            for dp in dir_paths:
-                if dp in index_map:
-                    start, _ = index_map[dp]
-                    abs_idx = start + idx
-                    self.img_list.append(fm.names[abs_idx])
-                    # source_labels carries the experiment label set by load_from_sources
-                    if fm.source_labels and abs_idx < len(fm.source_labels):
-                        exp_label = fm.source_labels[abs_idx]
-                    else:
-                        exp_label = os.path.basename(dp.rstrip('/\\'))
-                    self._row_exp_names.append(exp_label)
 
         # Auto-build _groups: one group per index slot covering all experiments
         self._groups = []
@@ -944,44 +959,79 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def _init_table(self):
-        """Fully rebuild the table from img_list (resets rows, keeps _groups)."""
+        """Fully rebuild the table from FileManager data (resets rows, keeps _groups).
+
+        Rows are ordered index-first (all experiments for frame 0, then frame 1, …).
+        Each row's COL_INDEX item stores the absolute FileManager index as Qt.UserRole
+        so every other method can look up the correct name/spec via _name_for_row /
+        _fm_index_for_row without maintaining a redundant list.
+        """
         self._ignored_rows = set()
         self._row_geometry_cache = {}
         self.table.setRowCount(0)
-        self.table.setRowCount(len(self.img_list))
+
+        fm = self.workspace.navigator.file_manager
+        dir_paths = getattr(self, '_exp_dirs', [])
+        if fm is None or not dir_paths:
+            return
+
+        index_map = {
+            dp: fm.source_index_map[dp]
+            for dp in dir_paths
+            if dp in (fm.source_index_map or {})
+        }
+        if not index_map:
+            return
+
+        ranges = list(index_map.values())
+        n_indices = min(end - start + 1 for start, end in ranges)
+        n_exps = len([dp for dp in dir_paths if dp in index_map])
+        self.table.setRowCount(n_indices * n_exps)
+
         sm = self.workspace.settings_manager
-        n_exps = len(self._exp_dirs) if hasattr(self, '_exp_dirs') and self._exp_dirs else 1
-        for row, name in enumerate(self.img_list):
-            # COL_INDEX: which index group this row belongs to (1-based)
-            idx_number = row // n_exps + 1
-            idx_item = QTableWidgetItem(str(idx_number))
-            idx_item.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(row, self.COL_INDEX, idx_item)
+        row = 0
+        for idx in range(n_indices):
+            for dp in dir_paths:
+                if dp not in index_map:
+                    continue
+                start, _ = index_map[dp]
+                fm_idx = start + idx
+                name = fm.names[fm_idx]
 
-            # COL_EXP: experiment label pre-computed in _on_directories_loaded
-            row_exp_names = getattr(self, '_row_exp_names', [])
-            exp_basename = row_exp_names[row] if row < len(row_exp_names) else ""
-            exp_item = QTableWidgetItem(exp_basename)
-            exp_item.setToolTip(name)
-            self.table.setItem(row, self.COL_EXP, exp_item)
+                # COL_INDEX: index slot number (1-based); UserRole = absolute FM index
+                idx_item = QTableWidgetItem(str(idx + 1))
+                idx_item.setTextAlignment(Qt.AlignCenter)
+                idx_item.setData(Qt.UserRole, fm_idx)
+                self.table.setItem(row, self.COL_INDEX, idx_item)
 
-            # COL_FRAME: just the filename portion
-            frame_item = QTableWidgetItem(os.path.basename(name))
-            frame_item.setToolTip(name)
-            self.table.setItem(row, self.COL_FRAME, frame_item)
+                # COL_EXP: experiment label from FM source_labels or directory name
+                if fm.source_labels and fm_idx < len(fm.source_labels):
+                    exp_label = fm.source_labels[fm_idx]
+                else:
+                    exp_label = os.path.basename(dp.rstrip('/\\'))
+                exp_item = QTableWidgetItem(exp_label)
+                exp_item.setToolTip(name)
+                self.table.setItem(row, self.COL_EXP, exp_item)
 
-            self._update_row_data(row, name)
-            if sm.has_ignore(name):
-                self._apply_ignore(row)
+                # COL_FRAME: just the filename portion
+                frame_item = QTableWidgetItem(os.path.basename(name))
+                frame_item.setToolTip(name)
+                self.table.setItem(row, self.COL_FRAME, frame_item)
+
+                self._update_row_data(row, name)
+                if sm.has_ignore(name):
+                    self._apply_ignore(row)
+                row += 1
+
         self._render_groups()
         self.table.resizeColumnsToContents()
 
     def _update_table_data(self):
         """Refresh center/rotation data columns for all existing rows (preserves selection and groups)."""
-        for row, name in enumerate(self.img_list):
-            if row >= self.table.rowCount():
-                break
-            self._update_row_data(row, name)
+        for row in range(self.table.rowCount()):
+            name = self._name_for_row(row)
+            if name:
+                self._update_row_data(row, name)
 
     def _update_row_data(self, row, name):
         """Refresh center/rotation data columns for a single row."""
@@ -1161,8 +1211,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         Updates self._diff_percentile_threshold and syncs the spinbox to the computed value."""
         sm = self.workspace.settings_manager
         values = [
-            sm.get_image_diff(name)
-            for name in self.img_list
+            sm.get_image_diff(self._name_for_row(row))
+            for row in range(self.table.rowCount())
+            if self._name_for_row(row) is not None
         ]
         values = [v for v in values if v is not None]
         if len(values) >= 2:
@@ -1325,8 +1376,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self._open_center_rotation_dialog(selected_rows[0])
         elif chosen == set_global_act:
             row = selected_rows[0]
-            if row < len(self.img_list):
-                img_name = self.img_list[row]
+            img_name = self._name_for_row(row)
+            if img_name:
                 self.workspace.settings_manager.set_global_base(img_name)
                 self.workspace.settings_manager.save_global_base()
                 self._on_global_base_changed()
@@ -1341,8 +1392,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self._cr_dialog.raise_()
             return
 
-        if row != self.workspace.navigator.current_index:
-            self.workspace.navigator.switch_to_image_by_index(row)
+        fm_idx = self._fm_index_for_row(row)
+        if fm_idx is not None and fm_idx != self.workspace.navigator.current_index:
+            self.workspace.navigator.switch_to_image_by_index(fm_idx)
 
         from PySide6.QtWidgets import QDialog
 
@@ -1413,17 +1465,18 @@ class AddIntensitiesMultipleExp(QMainWindow):
         image_data = self.workspace._current_image_data
         if image_data is None:
             return
-        row = self.workspace.navigator.current_index
+        fm_idx = self.workspace.navigator.current_index
         center = self._current_center
         rotation = self._current_rotation
         display_img = np.copy(image_data.img)
         if center is not None and rotation is not None and rotation != 0:
             display_img = rotateImageAboutPoint(display_img, center, rotation)
         base_center = self._get_base_center()
-        if 0 <= row < len(self.img_list):
-            display_img = self._apply_center_shift_if_needed(
-                display_img, center, self.img_list[row]
-            )
+        table_row = self._row_for_fm_index(fm_idx)
+        if table_row is not None:
+            name = self._name_for_row(table_row)
+            if name:
+                display_img = self._apply_center_shift_if_needed(display_img, center, name)
         self._current_inv_transform = self._build_display_inv_transform(
             center, rotation, base_center
         )
@@ -1442,10 +1495,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
     def _apply_ignore(self, row):
         """Mark row as ignored: dim its text and add to ignored set."""
-        if row < 0 or row >= len(self.img_list):
+        if row < 0 or row >= self.table.rowCount():
+            return
+        name = self._name_for_row(row)
+        if name is None:
             return
         self._ignored_rows.add(row)
-        name = self.img_list[row]
         sm = self.workspace.settings_manager
         sm.set_ignore(name)
         sm.save_ignore()
@@ -1454,10 +1509,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
     def _clear_ignore(self, row):
         """Remove the ignore flag from the row and restore normal text colour."""
-        if row < 0 or row >= len(self.img_list):
+        if row < 0 or row >= self.table.rowCount():
+            return
+        name = self._name_for_row(row)
+        if name is None:
             return
         self._ignored_rows.discard(row)
-        name = self.img_list[row]
         sm = self.workspace.settings_manager
         sm.clear_ignore(name)
         sm.save_ignore()
@@ -1498,11 +1555,14 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if len(selected_rows) != 1:
             return
         row = self.table.currentRow()
-        if row < 0 or row >= len(self.img_list):
+        if row < 0 or row >= self.table.rowCount():
+            return
+        fm_idx = self._fm_index_for_row(row)
+        if fm_idx is None:
             return
         self._navigating_from_table = True
         try:
-            self.workspace.navigator.switch_to_image_by_index(row)
+            self.workspace.navigator.switch_to_image_by_index(fm_idx)
         finally:
             self._navigating_from_table = False
 
@@ -1517,15 +1577,18 @@ class AddIntensitiesMultipleExp(QMainWindow):
         rotated display copy is shown in _on_geometry_ready once geometry
         is known.
         """
-        row = self.workspace.navigator.current_index
-        worker = _GeometryWorker(image_data, row)
+        fm_idx = self.workspace.navigator.current_index
+        table_row = self._row_for_fm_index(fm_idx)
+        worker = _GeometryWorker(image_data, table_row if table_row is not None else -1)
         worker.signals.done.connect(
             lambda c, r, i, d=image_data: self._on_geometry_ready(c, r, i, d)
         )
         self._threadPool.start(worker)
 
-    def _on_geometry_ready(self, center, rotation, row, image_data=None):
-        """Callback (main thread) after background geometry calculation finishes."""
+    def _on_geometry_ready(self, center, rotation, table_row, image_data=None):
+        """Callback (main thread) after background geometry calculation finishes.
+        *table_row* is the table row index (not the FM index).
+        """
         self._current_center = center
         self._current_rotation = rotation
         if image_data is not None:
@@ -1534,25 +1597,28 @@ class AddIntensitiesMultipleExp(QMainWindow):
             if center is not None and rotation is not None and rotation != 0:
                 display_img = rotateImageAboutPoint(display_img, center, rotation)
             base_center = self._get_base_center()
-            if 0 <= row < len(self.img_list):
-                display_img = self._apply_center_shift_if_needed(
-                    display_img, center, self.img_list[row]
-                )
+            if table_row is not None and table_row >= 0:
+                name = self._name_for_row(table_row)
+                if name:
+                    display_img = self._apply_center_shift_if_needed(display_img, center, name)
             self._current_inv_transform = self._build_display_inv_transform(
                 center, rotation, base_center
             )
             self.image_viewer.display_image(display_img)
         self._redraw_overlays()
-        if 0 <= row < len(self.img_list):
-            self._update_row_data(row, self.img_list[row])
+        if table_row is not None and table_row >= 0:
+            name = self._name_for_row(table_row)
+            if name:
+                self._update_row_data(table_row, name)
 
     def _sync_table_selection(self):
-        """Highlight the table row that matches the navigator's current image index."""
-        idx = self.workspace.navigator.current_index
-        if 0 <= idx < self.table.rowCount():
+        """Highlight the table row that matches the navigator's current FM index."""
+        fm_idx = self.workspace.navigator.current_index
+        row = self._row_for_fm_index(fm_idx)
+        if row is not None and 0 <= row < self.table.rowCount():
             self.table.blockSignals(True)
-            self.table.selectRow(idx)
-            self.table.scrollTo(self.table.model().index(idx, 0))
+            self.table.selectRow(row)
+            self.table.scrollTo(self.table.model().index(row, 0))
             self.table.blockSignals(False)
 
     def _apply_center_shift_if_needed(self, img, center, img_name):
@@ -1795,7 +1861,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         """
         if self._in_batch:
             return
-        if not self.img_list:
+        if self.table.rowCount() == 0:
             return
 
         fm = self.workspace.navigator.file_manager
@@ -1811,7 +1877,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.stop_process = False
         self.taskManager.clear()
 
-        n = len(self.img_list)
+        n = self.table.rowCount()
         self.progressBar.setMaximum(n)
         self.progressBar.setMinimum(0)
         self.progressBar.setValue(0)
@@ -1820,8 +1886,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         orientation_model = getattr(self.workspace, '_orientation_model', 0)
 
-        for i, img_name in enumerate(self.img_list):
-            spec = fm.specs[i] if i < len(fm.specs) else None
+        for row in range(n):
+            fm_idx = self._fm_index_for_row(row)
+            if fm_idx is None:
+                continue
+            img_name = fm.names[fm_idx]
+            spec = fm.specs[fm_idx] if fm_idx < len(fm.specs) else None
             manual_center, manual_rotation = self.workspace.get_manual_settings(img_name)
             job_args = (
                 "",
@@ -1832,7 +1902,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 orientation_model,
             )
             future = self.processExecutor.submit(_compute_geometry, job_args)
-            self.taskManager.submit_task(img_name, i, future)
+            self.taskManager.submit_task(img_name, row, future)
             future.add_done_callback(self._on_future_done)
 
         print(f"Batch detection started: {n} images submitted")
@@ -1873,8 +1943,10 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 f"Detecting: {stats['completed'] + stats['failed']}/{stats['total']}"
             )
 
-            if 0 <= task.job_index < len(self.img_list):
-                self._update_row_data(task.job_index, self.img_list[task.job_index])
+            if 0 <= task.job_index < self.table.rowCount():
+                name = self._name_for_row(task.job_index)
+                if name:
+                    self._update_row_data(task.job_index, name)
 
             if stats['pending'] == 0:
                 self._on_batch_complete()
@@ -1922,9 +1994,10 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
     def _row_has_geometry(self, row):
         """Return True if *row* has a usable center (auto or manual)."""
-        if row < 0 or row >= len(self.img_list):
+        if row < 0 or row >= self.table.rowCount():
             return False
-        return self._get_effective_center(self.img_list[row]) is not None
+        name = self._name_for_row(row)
+        return name is not None and self._get_effective_center(name) is not None
 
     def _trigger_diff_for_row(self, row):
         """Recompute the (at most) two diff pairs that involve *row*.
@@ -1935,7 +2008,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         All callbacks run in the main thread (via QTimer.singleShot), so
         _diff_pairs_in_flight is safe to mutate here without a lock.
         """
-        active = [i for i in range(len(self.img_list)) if i not in self._ignored_rows]
+        active = [i for i in range(self.table.rowCount()) if i not in self._ignored_rows]
         if row not in active:
             return
 
@@ -1979,23 +2052,28 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self._diff_pairs_in_flight.discard((idx_a, idx_b))
             return
 
-        name_a = self.img_list[idx_a]
-        name_b = self.img_list[idx_b]
+        name_a = self._name_for_row(idx_a)
+        name_b = self._name_for_row(idx_b)
+        if name_a is None or name_b is None:
+            self._diff_pairs_in_flight.discard((idx_a, idx_b))
+            return
+        fm_idx_a = self._fm_index_for_row(idx_a)
+        fm_idx_b = self._fm_index_for_row(idx_b)
         base_center = self._get_base_center()
         base_rotation = self._get_base_rotation()
 
         job_args = (
             "",
             name_a, name_b,
-            fm.specs[idx_a] if idx_a < len(fm.specs) else None,
-            fm.specs[idx_b] if idx_b < len(fm.specs) else None,
+            fm.specs[fm_idx_a] if fm_idx_a is not None and fm_idx_a < len(fm.specs) else None,
+            fm.specs[fm_idx_b] if fm_idx_b is not None and fm_idx_b < len(fm.specs) else None,
             self._get_effective_center(name_a),
             self._get_effective_rotation(name_a),
             self._get_effective_center(name_b),
             self._get_effective_rotation(name_b),
             list(base_center) if base_center else None,
             base_rotation,
-            idx_b,  # job_index → the row whose diff column gets updated
+            idx_b,  # job_index → table row whose diff column gets updated
         )
         future = self.diffExecutor.submit(_compute_image_diff, job_args)
         self.diffTaskManager.submit_task(name_b, idx_b, future)
@@ -2018,7 +2096,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
             self.diffTaskManager.complete_task(future, result, error)
 
-            name_b = self.img_list[idx_b] if idx_b < len(self.img_list) else None
+            name_b = self._name_for_row(idx_b) if idx_b < self.table.rowCount() else None
             if error:
                 print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
             elif name_b is not None:
@@ -2177,12 +2255,16 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 print(f"Group {group_num}: all images ignored, skipping.")
                 continue
 
-            img_names = [self.img_list[r] for r in active_rows]
-            specs = [fm.specs[r] if r < len(fm.specs) else None for r in active_rows]
+            img_names = [self._name_for_row(r) for r in active_rows]
+            fm_indices = [self._fm_index_for_row(r) for r in active_rows]
+            specs = [
+                fm.specs[fi] if fi is not None and fi < len(fm.specs) else None
+                for fi in fm_indices
+            ]
 
             per_img_transforms = []
             for r in active_rows:
-                name = self.img_list[r]
+                name = self._name_for_row(r)
                 center = self._get_effective_center(name)
                 rotation = self._get_effective_rotation(name)
                 per_img_transforms.append((
