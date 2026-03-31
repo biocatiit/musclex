@@ -885,9 +885,10 @@ class FileManager:
         return fname, ftype, fpath
 
     def _get_h5_nframes(self, path):
-        """Get HDF5 file frame count (with caching)"""
+        """Get HDF5 file frame count (with caching). Returns int, not tuple."""
         if path not in self._h5_frames:
-            self._h5_frames[path] = _h5_nframes(path)
+            nframes, _shape = _h5_nframes(path)
+            self._h5_frames[path] = nframes
         return self._h5_frames[path]
     
     def get_current_h5_range(self):
