@@ -912,13 +912,23 @@ class FileManager:
         
         if ftype == "h5":
             source = ("h5", fpath, self.current_frame_idx)
-            base, ext = os.path.splitext(fname)
-            self.current_image_name = f"{base}_{self.current_frame_idx+1:05d}{ext}"
             self.current_h5_nframes = self._get_h5_nframes(fpath)
+            # Prefer names[current] so that dir-sourced frames get prefix (e.g. "exp1/base_00001.h5"),
+            # keeping the key consistent with what batch processing uses via names[i].
+            if self.names and 0 <= self.current < len(self.names):
+                self.current_image_name = self.names[self.current]
+            else:
+                base, ext = os.path.splitext(fname)
+                self.current_image_name = f"{base}_{self.current_frame_idx+1:05d}{ext}"
         else:
             source = ("tiff", fpath)
-            self.current_image_name = fname
             self.current_h5_nframes = None
+            # Prefer names[current] so that dir-sourced images get prefix (e.g. "exp1/frame.tif"),
+            # keeping the key consistent with what batch processing uses via names[i].
+            if self.names and 0 <= self.current < len(self.names):
+                self.current_image_name = self.names[self.current]
+            else:
+                self.current_image_name = fname
         img = load_image_via_spec(self.dir_path, fname, source)
         self.current_image = img
         self.current_file_type = ftype
