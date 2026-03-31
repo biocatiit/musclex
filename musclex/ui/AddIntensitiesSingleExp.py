@@ -970,13 +970,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Refresh the file list once the background scan finishes."""
         fm = self.workspace.navigator.file_manager
         _, ftype, fpath = fm._get_current_file_info()
-        if ftype == "h5" and fpath in fm.h5_index_map:
-            start, end = fm.h5_index_map[fpath]
+        if ftype == "h5" and fpath in fm.source_index_map:
+            start, end = fm.source_index_map[fpath]
             fm.set_directory_listing(
                 fm.dir_path,
                 fm.names[start:end + 1],
                 fm.specs[start:end + 1],
-                h5_index_map={fpath: (0, end - start)},
+                source_index_map={fpath: (0, end - start)},
             )
         self.img_list = list(fm.names)
         self._img_sizes = fm.image_sizes

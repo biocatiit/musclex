@@ -411,7 +411,7 @@ def _tiff_size(path):
 def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None):
     """
     Scan a directory for TIFF and HDF5 images and return unified
-    (imgList, loader_specs, h5_index_map, size_map).
+    (imgList, loader_specs, source_index_map, size_map).
     Uses a cache keyed by directory content signature. HDF5 frame counts are computed
     in parallel using processes. Frames are NOT loaded.
 
@@ -423,10 +423,10 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
         progress_dict: Optional dict to track progress. Will set 'h5_total' and 'h5_done'
 
     Returns:
-        imgList:     List of ALL display names (complete list)
-        specs:       List of ALL loader specs (tuples)
-        h5_index_map: Dict mapping HDF5 file path -> (start_index, end_index) in imgList
-        size_map:    Dict mapping display name -> "WxH" string (empty string if unknown)
+        imgList:          List of ALL display names (complete list)
+        specs:            List of ALL loader specs (tuples)
+        source_index_map: Dict mapping HDF5 file path -> (start_index, end_index) in imgList
+        size_map:         Dict mapping display name -> "WxH" string (empty string if unknown)
     """
     sig = _dir_signature(dir_path)
     if sig is not None:
@@ -539,20 +539,20 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
     imgList = [n for n, _ in entries]
     specs = [s for _, s in entries]
 
-    # Build final h5_index_map after sorting
-    h5_index_map = {}
+    # Build final source_index_map after sorting
+    source_index_map = {}
     for path in h5_positions.keys():
         indices = [i for i, spec in enumerate(specs)
                    if isinstance(spec, tuple) and len(spec) >= 2 and spec[1] == path]
         if indices:
-            h5_index_map[path] = (min(indices), max(indices))
+            source_index_map[path] = (min(indices), max(indices))
 
     if sig is not None:
-        payload = (imgList, specs, h5_index_map, size_map)
+        payload = (imgList, specs, source_index_map, size_map)
         _SCAN_CACHE[dir_path] = (sig, payload)
         _save_scan_cache_to_disk(dir_path, sig, payload)
 
-    return imgList, specs, h5_index_map, size_map
+    return imgList, specs, source_index_map, size_map
 # --------------------- Unified image loader for GUI specs ---------------------
 def load_image_via_spec(file_path, display_name, source):
     """
@@ -654,10 +654,10 @@ class FileManager:
         self.current_h5_nframes = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
-        self.h5_index_map = {}  # {h5_path: (start_idx, end_idx)} in imgList
+        self.source_index_map = {}  # {h5_path_or_dir_path: (start_idx, end_idx)} in names/specs
         self._path_to_file_idx = {}  # {full_path: file_idx} for fast reverse lookup
-        # Multi-directory support (AIME)
-        self.dir_index_map = {}  # {dir_path: (start_idx, end_idx)} in names/specs
+        # Per-image experiment label, parallel to names/specs
+        self.source_labels: list = []  # source_labels[i] = experiment label for names[i]
         # Image sizes captured during scan: display_name -> "WxH"
         self.image_sizes: dict = {}
         # Async scan state
@@ -774,13 +774,21 @@ class FileManager:
         self.specs = specs
         self.current = self.current_file_idx if self.current_file_idx < len(names) else 0
 
-    def set_directory_listing(self, dir_path, names, specs, h5_index_map=None, preserve_current_name=True, size_map=None):
+    def set_directory_listing(self, dir_path, names, specs, source_index_map=None, preserve_current_name=True, size_map=None, h5_index_map=None):
         """
         Set complete image list (from async scan, HDF5 expanded).
         Preserves currently selected file and frame.
+
+        Args:
+            source_index_map: Dict mapping H5 file path or dir path -> (start, end) in names.
+            h5_index_map: Deprecated alias for source_index_map (accepted for backward compat).
         """
         if not names or not specs:
             return
+
+        # backward-compat: honour old keyword if new one not supplied
+        if source_index_map is None and h5_index_map is not None:
+            source_index_map = h5_index_map
         
         # Remember current file and frame
         prev_file_path = None
@@ -791,7 +799,7 @@ class FileManager:
         self.dir_path = dir_path
         self.names = names
         self.specs = specs
-        self.h5_index_map = h5_index_map if h5_index_map is not None else {}
+        self.source_index_map = source_index_map if source_index_map is not None else {}
         if size_map:
             self.image_sizes.update(size_map)
         
@@ -826,7 +834,7 @@ class FileManager:
 
         def _worker():
             # Get complete list from cache
-            imgList, specs, h5_index_map, size_map = scan_directory_images_cached(
+            imgList, specs, source_index_map, size_map = scan_directory_images_cached(
                 self.dir_path,
                 progress_dict=self._h5_progress
             )
@@ -842,11 +850,12 @@ class FileManager:
                         filtered_specs.append(spec)
                 imgList = filtered_names
                 specs = filtered_specs
-                # Note: h5_index_map stays unchanged (refers to original complete list)
+                # Note: source_index_map stays unchanged (refers to original complete list)
             
             try:
                 # Update internal listing preserving current selection when possible
-                self.set_directory_listing(self.dir_path, imgList, specs, h5_index_map,
+                self.set_directory_listing(self.dir_path, imgList, specs,
+                                           source_index_map=source_index_map,
                                            preserve_current_name=True, size_map=size_map)
             finally:
                 # Signal completion regardless of success
@@ -886,7 +895,10 @@ class FileManager:
         fname, ftype, fpath = self._get_current_file_info()
         if fname is None:
             return None, None
-        return self.h5_index_map[fpath]
+        result = self.source_index_map.get(fpath)
+        if result is None:
+            return None, None
+        return result
 
     def load_current(self):
         """Load current image"""
@@ -1038,7 +1050,7 @@ class FileManager:
     def convert_frame_idx_to_image_idx(self, frame_idx):
         """
         Convert a frame index in the current HDF5 file to an image-layer index.
-        Uses h5_index_map for fast lookup when available.
+        Uses source_index_map for fast lookup when available.
         Returns an integer index in `self.names/specs`, or None if not resolvable.
         """
         try:
@@ -1053,9 +1065,9 @@ class FileManager:
                 elif frame_idx >= self.current_h5_nframes:
                     frame_idx = self.current_h5_nframes - 1
 
-            # Fast path: use h5_index_map if available
-            if fpath in self.h5_index_map:
-                start_idx, end_idx = self.h5_index_map[fpath]
+            # Fast path: use source_index_map if available
+            if fpath in self.source_index_map:
+                start_idx, end_idx = self.source_index_map[fpath]
                 # The frames should be sequential within this range
                 target_idx = start_idx + frame_idx
                 if start_idx <= target_idx <= end_idx:
@@ -1110,23 +1122,26 @@ class FileManager:
         except ValueError:
             return False
 
-    def load_from_directories(self, dir_paths: list):
-        """Load images from multiple directories and merge into unified lists.
+    def load_from_sources(self, sources: list):
+        """Load images from a mixed list of H5 file paths and directory paths.
 
-        Display names are prefixed with each directory's basename to avoid
-        collisions (e.g. "exp1/frame_00001.tif").  All loader specs keep their
-        absolute paths so ``load_image_via_spec`` works without needing
-        ``dir_path`` as a fallback.
+        Each source becomes one experiment entry in ``source_index_map``.
+
+        Naming rules:
+            H5 file source  → frames named ``base_00001.h5`` (no directory prefix).
+                               ``source_labels[i]`` = basename of the H5 file without extension.
+            Dir source      → images named ``dirname/image.tif`` or ``dirname/base_00001.h5``.
+                               ``source_labels[i]`` = basename of the directory.
 
         Populates:
-            self.dir_index_map  {dir_path: (start_idx, end_idx)} in names/specs
-            self.h5_index_map   merged, with per-directory offsets applied
-            self.file_list      merged file layer (absolute paths, all dirs)
-            self.names / specs  merged image layer with prefixed display names
-            self.image_sizes    merged size map with prefixed keys
+            self.source_index_map  {source_path: (start_idx, end_idx)} in names/specs
+            self.source_labels     experiment label per position (parallel to names/specs)
+            self.file_list         merged file layer (absolute paths)
+            self.names / specs     merged image layer
+            self.image_sizes       merged size map
 
         Does NOT start a background scan – all scanning is done synchronously
-        here so the caller immediately gets a consistent view.
+        so the caller immediately gets a consistent view.
         """
         # Stop any residual async scan so _scan_done guards won't misfire.
         self._scan_done = True
@@ -1135,51 +1150,75 @@ class FileManager:
         all_file_list = []
         all_names = []
         all_specs = []
+        all_labels = []
         all_sizes = {}
-        self.dir_index_map = {}
-        self.h5_index_map = {}
+        self.source_index_map = {}
 
-        for dir_path in dir_paths:
-            dir_path = str(dir_path)
-            prefix = os.path.basename(dir_path.rstrip('/\\')) or dir_path
+        for source in sources:
+            source = str(source)
+            base_ext = os.path.splitext(os.path.basename(source))
+            base, ext = base_ext
 
-            # File layer (fast, no HDF5 opening)
-            for entry in scan_directory_files_sync(dir_path):
-                all_file_list.append(entry)
+            if os.path.isfile(source) and ext.lower() in ('.h5', '.hdf5'):
+                # --- H5 file as experiment (no prefix) ---
+                label = base  # e.g. "exp1_master" without extension
+                nframes, shape = _h5_nframes(source)
+                if nframes <= 0:
+                    continue
+                all_file_list.append((os.path.basename(source), "h5", source))
+                start_idx = len(all_names)
+                for i in range(nframes):
+                    disp = f"{base}_{i + 1:05d}{ext}"
+                    all_names.append(disp)
+                    all_specs.append(("h5", source, i))
+                    all_labels.append(label)
+                    if shape is not None:
+                        all_sizes[disp] = f"{shape[1]}×{shape[0]}"
+                end_idx = len(all_names) - 1
+                if start_idx <= end_idx:
+                    self.source_index_map[source] = (start_idx, end_idx)
 
-            # Image layer (full scan; uses disk cache when available)
-            names, specs, h5_map, size_map = scan_directory_images_cached(dir_path)
+            elif os.path.isdir(source):
+                # --- Directory as experiment (prefixed names) ---
+                prefix = os.path.basename(source.rstrip('/\\')) or source
+                label = prefix
 
-            start_idx = len(all_names)
-            for name, spec in zip(names, specs):
-                all_names.append(f"{prefix}/{name}")
-                all_specs.append(spec)
-            end_idx = len(all_names) - 1
+                # File layer (fast, no HDF5 opening)
+                for entry in scan_directory_files_sync(source):
+                    all_file_list.append(entry)
 
-            if start_idx <= end_idx:
-                self.dir_index_map[dir_path] = (start_idx, end_idx)
+                # Image layer (full scan; uses disk cache when available)
+                names, specs, _h5_map, size_map = scan_directory_images_cached(source)
 
-            # Merge h5_index_map with the current offset applied
-            for h5_path, (h5_start, h5_end) in h5_map.items():
-                self.h5_index_map[h5_path] = (
-                    h5_start + start_idx,
-                    h5_end + start_idx,
-                )
+                start_idx = len(all_names)
+                for name, spec in zip(names, specs):
+                    all_names.append(f"{prefix}/{name}")
+                    all_specs.append(spec)
+                    all_labels.append(label)
+                end_idx = len(all_names) - 1
 
-            all_sizes.update({f"{prefix}/{k}": v for k, v in size_map.items()})
+                if start_idx <= end_idx:
+                    self.source_index_map[source] = (start_idx, end_idx)
+
+                all_sizes.update({f"{prefix}/{k}": v for k, v in size_map.items()})
 
         self.file_list = all_file_list
         self._rebuild_path_to_file_idx()
         self.names = all_names
         self.specs = all_specs
+        self.source_labels = all_labels
         self.image_sizes = all_sizes
-        self.dir_path = dir_paths[0] if dir_paths else ""
+        self.dir_path = str(sources[0]) if sources else ""
         self.current = 0
         self.current_file_idx = 0
         self.current_frame_idx = 0
 
         if all_names:
             self.load_current()
+
+    def load_from_directories(self, dir_paths: list):
+        """Backward-compatible shim — delegates to load_from_sources."""
+        self.load_from_sources(dir_paths)
 
 
 def scan_directory_files_sync(dir_path):

@@ -785,41 +785,22 @@ class AddIntensitiesMultipleExp(QMainWindow):
         except OSError:
             entries = []
 
-        # Check for H5 files first — if present, each H5 = one experiment
+        # H5 files directly inside the parent → each H5 = one experiment
         h5_files = [
             os.path.join(parent_dir, e) for e in entries
             if (e.lower().endswith('.h5') or e.lower().endswith('.hdf5'))
             and os.path.isfile(os.path.join(parent_dir, e))
         ]
 
-        fm = self.workspace.navigator.file_manager
-
         if h5_files:
-            # H5 mode: scan the parent directory the same way FileManager normally
-            # handles a directory containing H5 files.  This keeps names unprefixed
-            # (e.g. "P2_F5_849_1_094_xxx_00001.h5") and populates h5_index_map so
-            # each H5 file maps cleanly to its frame range.
-            use_h5_map = True
             sources = h5_files
-            from musclex.utils.file_manager import scan_directory_images_cached
-            names, specs, h5_map, size_map = scan_directory_images_cached(parent_dir)
-            fm.set_from_file(h5_files[0])
-            fm.set_directory_listing(parent_dir, names, specs, h5_index_map=h5_map, size_map=size_map)
-            fm.dir_index_map = {}
-            fm.current = 0
-            fm.current_file_idx = 0
-            fm.current_frame_idx = 0
-            fm.load_current()
         else:
-            # Dir mode: each subdirectory = one experiment (exclude system dirs)
-            use_h5_map = False
+            # Subdirectories = one experiment each (exclude system dirs)
             sources = [
                 os.path.join(parent_dir, e) for e in entries
                 if os.path.isdir(os.path.join(parent_dir, e))
                 and e not in self._SYSTEM_DIRS
             ]
-            if sources:
-                fm.load_from_directories(sources)
 
         if not sources:
             from PySide6.QtWidgets import QMessageBox
@@ -829,31 +810,29 @@ class AddIntensitiesMultipleExp(QMainWindow):
             )
             return
 
+        fm = self.workspace.navigator.file_manager
+        fm.load_from_sources(sources)
+
         self._exp_dirs_label.setText(
             f"{len(sources)} experiment(s) found:\n" +
             "\n".join(os.path.basename(s) for s in sources[:10]) +
             ("\n…" if len(sources) > 10 else "")
         )
 
-        self._on_directories_loaded(parent_dir, sources, use_h5_map=use_h5_map)
+        self._on_directories_loaded(parent_dir, sources)
 
-    def _on_directories_loaded(self, parent_dir, dir_paths, use_h5_map=False):
+    def _on_directories_loaded(self, parent_dir, dir_paths):
         """Build img_list in index-first order and auto-populate _groups."""
         self._parent_dir = parent_dir
         self._exp_dirs = dir_paths
         fm = self.workspace.navigator.file_manager
 
-        # Choose the right map depending on source type
-        if use_h5_map:
-            # H5 mode: dir_paths are individual H5 file paths;
-            # fm.h5_index_map keys are those same H5 paths
-            index_map = {
-                dp: fm.h5_index_map[dp]
-                for dp in dir_paths
-                if dp in (fm.h5_index_map or {})
-            }
-        else:
-            index_map = fm.dir_index_map or {}
+        # Unified lookup — source_index_map covers both H5-file and dir sources
+        index_map = {
+            dp: fm.source_index_map[dp]
+            for dp in dir_paths
+            if dp in (fm.source_index_map or {})
+        }
 
         if not index_map:
             return
@@ -868,12 +847,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
             for dp in dir_paths:
                 if dp in index_map:
                     start, _ = index_map[dp]
-                    self.img_list.append(fm.names[start + idx])
-                    if use_h5_map:
-                        # dp is an H5 file path; strip extension for display
-                        exp_label = os.path.splitext(os.path.basename(dp))[0]
+                    abs_idx = start + idx
+                    self.img_list.append(fm.names[abs_idx])
+                    # source_labels carries the experiment label set by load_from_sources
+                    if fm.source_labels and abs_idx < len(fm.source_labels):
+                        exp_label = fm.source_labels[abs_idx]
                     else:
-                        # dp is a directory; use its basename
                         exp_label = os.path.basename(dp.rstrip('/\\'))
                     self._row_exp_names.append(exp_label)
 

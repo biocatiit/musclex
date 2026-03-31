@@ -1979,8 +1979,8 @@ class EquatorWindow(QMainWindow):
         if ret == QMessageBox.Yes:
             # Get the range of indices corresponding to current H5 file
             current_h5_path = self.file_manager._get_current_file_info()[2]  # Get file path
-            if current_h5_path in self.file_manager.h5_index_map:
-                start_idx, end_idx = self.file_manager.h5_index_map[current_h5_path]
+            if current_h5_path in self.file_manager.source_index_map:
+                start_idx, end_idx = self.file_manager.source_index_map[current_h5_path]
                 # Process all frames in this H5 file
                 self._batchProcessImages(range(start_idx, end_idx + 1), process_type="h5")
             else:
