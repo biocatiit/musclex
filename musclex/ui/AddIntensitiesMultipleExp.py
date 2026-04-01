@@ -425,7 +425,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _sel_all_btn.clicked.connect(self._source_list_widget.selectAll)
         _sel_none_btn = QPushButton("Select None")
         _sel_none_btn.clicked.connect(self._source_list_widget.clearSelection)
-        self._load_sources_btn = QPushButton("Load \u2192")
+        self._load_sources_btn = QPushButton("Load")
         self._load_sources_btn.setMinimumHeight(32)
         self._load_sources_btn.setEnabled(False)
         self._load_sources_btn.setStyleSheet("font-weight: bold;")
@@ -652,7 +652,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._right_panel_layout.addWidget(self._img_ops_group)
         self._right_panel_layout.addStretch()
 
-        self.sum_images_btn = QPushButton("Sum Images")
+        self.sum_images_btn = QPushButton("Sum Images by Index")
         self.sum_images_btn.setCheckable(True)
         self.sum_images_btn.setMinimumHeight(32)
         self.sum_images_btn.setStyleSheet(
