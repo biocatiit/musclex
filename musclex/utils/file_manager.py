@@ -295,9 +295,36 @@ def _disk_cache_file(dir_path):
         cdir = _disk_cache_dir(dir_path)
         if cdir is None:
             return None
-        return join(cdir, "scan_cache.pkl")
+        # v2: specs stored as relative paths so cache is portable across machines/users.
+        # Old scan_cache.pkl (absolute paths) is intentionally ignored.
+        return join(cdir, "scan_cache_v2.pkl")
     except Exception:
         return None
+
+
+def _specs_to_relative(specs):
+    """Convert absolute paths in specs to basenames for portable disk storage."""
+    result = []
+    for spec in specs:
+        if isinstance(spec, tuple) and len(spec) >= 2:
+            rel = os.path.basename(spec[1])
+            result.append((spec[0], rel) + spec[2:])
+        else:
+            result.append(spec)
+    return result
+
+
+def _specs_to_absolute(dir_path, specs):
+    """Restore absolute paths in specs loaded from disk cache."""
+    result = []
+    for spec in specs:
+        if isinstance(spec, tuple) and len(spec) >= 2:
+            abs_path = join(dir_path, spec[1])
+            result.append((spec[0], abs_path) + spec[2:])
+        else:
+            result.append(spec)
+    return result
+
 
 def _load_scan_cache_from_disk(dir_path, sig):
     try:
@@ -306,7 +333,11 @@ def _load_scan_cache_from_disk(dir_path, sig):
             with open(cfile, "rb") as f:
                 data = pickle.load(f)
             if isinstance(data, dict) and data.get("sig") == sig and isinstance(data.get("payload"), tuple):
-                return data.get("payload")
+                payload = data.get("payload")
+                # Restore absolute paths from relative (v2 format)
+                if payload and len(payload) >= 2:
+                    payload = (payload[0], _specs_to_absolute(dir_path, payload[1])) + payload[2:]
+                return payload
     except Exception:
         pass
     return None
@@ -318,6 +349,9 @@ def _save_scan_cache_to_disk(dir_path, sig, payload):
             os.makedirs(cdir, exist_ok=True)
         cfile = _disk_cache_file(dir_path)
         if cfile:
+            # Store specs with relative paths so cache is portable across machines
+            if payload and len(payload) >= 2:
+                payload = (payload[0], _specs_to_relative(payload[1])) + payload[2:]
             with open(cfile, "wb") as f:
                 pickle.dump({"sig": sig, "payload": payload}, f)
     except Exception:
