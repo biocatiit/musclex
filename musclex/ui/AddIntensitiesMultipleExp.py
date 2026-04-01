@@ -277,8 +277,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._overlay_lines = []  # lines added by _redraw_overlays (global center crosshair)
         self._navigating_from_table = False  # guard against re-entrant navigation
 
-        # Each entry: {'start': int, 'count': int, 'number': int}
-        self._groups = []
+        self._span_col = self.COL_INDEX  # which column drives setSpan merge
 
         # Track rows that have been ignored
         self._ignored_rows: set = set()
@@ -577,7 +576,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # ── Tab bar ────────────────────────────────────────────────────────
         self._tab_bar = QTabBar()
-        self._tab_bar.addTab("Origin")
+        self._tab_bar.addTab("Group by Index")
+        self._tab_bar.addTab("Group by Exp")
         self._tab_bar.addTab("Result")
         self._tab_bar.setExpanding(False)
         root.addWidget(self._tab_bar)
@@ -711,8 +711,15 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_main_tab_changed(self, index: int):
-        self._main_stack.setCurrentIndex(index)
-        if index == 1:
+        if index <= 1:
+            self._main_stack.setCurrentIndex(0)
+            self._span_col = self.COL_INDEX if index == 0 else self.COL_EXP
+            secondary = self.COL_EXP if index == 0 else self.COL_INDEX
+            self.table.sortItems(secondary, Qt.AscendingOrder)
+            self.table.sortItems(self._span_col, Qt.AscendingOrder)
+            self._rebuild_spans()
+        else:
+            self._main_stack.setCurrentIndex(1)
             self._refresh_result_tab()
 
     def _refresh_result_tab(self):
@@ -913,41 +920,22 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._on_directories_loaded(self._parent_dir_path, sources)
 
     def _on_directories_loaded(self, parent_dir, dir_paths):
-        """Build table rows in index-first order and auto-populate _groups."""
+        """Build table rows and auto-populate spans."""
         self._parent_dir = parent_dir
         self._exp_dirs = dir_paths
         fm = self.workspace.navigator.file_manager
-
-        # Unified lookup — source_index_map covers both H5-file and dir sources
-        index_map = {
-            dp: fm.source_index_map[dp]
-            for dp in dir_paths
-            if dp in (fm.source_index_map or {})
-        }
-
-        if not index_map:
-            return
-
-        ranges = list(index_map.values())
-        n_exps = len(ranges)
-        n_indices = min(end - start + 1 for start, end in ranges)
-
-        # Auto-build _groups: one group per index slot covering all experiments
-        self._groups = []
-        for idx in range(n_indices):
-            self._groups.append({'start': idx * n_exps, 'count': n_exps, 'number': idx + 1})
 
         self.misaligned_names = set()
         self._img_sizes = fm.image_sizes
         self._compute_most_common_size()
         self._compute_diff_percentile_threshold()
         self._sync_global_settings_state()
-        self._auto_set_global_base_if_missing()
 
         # Reset result state
         self._result_entries = []
 
         self._init_table()
+        self._auto_set_global_base_if_missing()
         self._left_stack.setCurrentIndex(1)
         # Explicitly trigger the navigator so imageChanged → imageDataReady fires
         # (_sync_table_selection uses blockSignals so it won't drive the viewer)
@@ -959,12 +947,15 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def _init_table(self):
-        """Fully rebuild the table from FileManager data (resets rows, keeps _groups).
+        """Fully rebuild the table from FileManager data.
 
-        Rows are ordered index-first (all experiments for frame 0, then frame 1, …).
         Each row's COL_INDEX item stores the absolute FileManager index as Qt.UserRole
         so every other method can look up the correct name/spec via _name_for_row /
-        _fm_index_for_row without maintaining a redundant list.
+        _fm_index_for_row.
+
+        After filling all rows, two stable sorts are applied (EXP then INDEX) to
+        achieve "primary sort by INDEX, secondary by EXP".  _rebuild_spans() then
+        merges consecutive equal cells in the active span column.
         """
         self._ignored_rows = set()
         self._row_geometry_cache = {}
@@ -986,34 +977,34 @@ class AddIntensitiesMultipleExp(QMainWindow):
         ranges = list(index_map.values())
         n_indices = min(end - start + 1 for start, end in ranges)
         n_exps = len([dp for dp in dir_paths if dp in index_map])
-        self.table.setRowCount(n_indices * n_exps)
+        total_rows = n_indices * n_exps
+        self.table.setSortingEnabled(False)
+        self.table.setRowCount(total_rows)
 
         sm = self.workspace.settings_manager
         row = 0
-        for idx in range(n_indices):
-            for dp in dir_paths:
-                if dp not in index_map:
-                    continue
-                start, _ = index_map[dp]
+        for dp in dir_paths:
+            if dp not in index_map:
+                continue
+            start, _ = index_map[dp]
+            if fm.source_labels and start < len(fm.source_labels):
+                exp_label = fm.source_labels[start]
+            else:
+                exp_label = os.path.basename(dp.rstrip('/\\'))
+            for idx in range(n_indices):
                 fm_idx = start + idx
                 name = fm.names[fm_idx]
 
-                # COL_INDEX: index slot number (1-based); UserRole = absolute FM index
-                idx_item = QTableWidgetItem(str(idx + 1))
+                idx_item = QTableWidgetItem()
+                idx_item.setData(Qt.DisplayRole, idx + 1)
                 idx_item.setTextAlignment(Qt.AlignCenter)
                 idx_item.setData(Qt.UserRole, fm_idx)
                 self.table.setItem(row, self.COL_INDEX, idx_item)
 
-                # COL_EXP: experiment label from FM source_labels or directory name
-                if fm.source_labels and fm_idx < len(fm.source_labels):
-                    exp_label = fm.source_labels[fm_idx]
-                else:
-                    exp_label = os.path.basename(dp.rstrip('/\\'))
                 exp_item = QTableWidgetItem(exp_label)
                 exp_item.setToolTip(name)
                 self.table.setItem(row, self.COL_EXP, exp_item)
 
-                # COL_FRAME: just the filename portion
                 frame_item = QTableWidgetItem(os.path.basename(name))
                 frame_item.setToolTip(name)
                 self.table.setItem(row, self.COL_FRAME, frame_item)
@@ -1023,7 +1014,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
                     self._apply_ignore(row)
                 row += 1
 
-        self._render_groups()
+        self.table.sortItems(self.COL_EXP, Qt.AscendingOrder)
+        self.table.sortItems(self.COL_INDEX, Qt.AscendingOrder)
+        self._rebuild_spans()
         self.table.resizeColumnsToContents()
 
     def _update_table_data(self):
@@ -1286,50 +1279,47 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # Grouping helpers
     # ------------------------------------------------------------------
 
-    def _find_group_at_row(self, row):
-        """Return the group dict that contains *row*, or None."""
-        for group in self._groups:
-            if group['start'] <= row < group['start'] + group['count']:
-                return group
-        return None
+    def _rebuild_spans(self):
+        """Merge consecutive rows that share the same value in ``_span_col``.
 
-    def _render_groups(self):
-        """Re-render group spans in COL_INDEX from self._groups.
-        In AIME, groups are auto-built and COL_INDEX already has the index number
-        set per-row, so this only applies the visual span/colour."""
-        # Reset spans and styling on COL_INDEX.
-        # setSpan(row, col, 1, 1) is a no-op in Qt and triggers a warning, so
-        # only call it when a cell currently spans more than one row.
+        Resets any existing spans on COL_INDEX and COL_EXP first, then scans
+        ``_span_col`` and applies ``setSpan`` + blue styling to each run of
+        equal values.
+        """
         for row in range(self.table.rowCount()):
-            if self.table.rowSpan(row, self.COL_INDEX) > 1:
-                self.table.setSpan(row, self.COL_INDEX, 1, 1)
+            for c in (self.COL_INDEX, self.COL_EXP):
+                if self.table.rowSpan(row, c) > 1:
+                    self.table.setSpan(row, c, 1, 1)
             item = self.table.item(row, self.COL_INDEX)
             if item:
                 item.setBackground(QBrush())
                 item.setForeground(QBrush())
+            item_exp = self.table.item(row, self.COL_EXP)
+            if item_exp:
+                item_exp.setBackground(QBrush())
+                item_exp.setForeground(QBrush())
 
-        # Paint each group with blue background spanning all rows in the group
-        for group in self._groups:
-            start = group['start']
-            count = group['count']
-            if count > 1:
-                self.table.setSpan(start, self.COL_INDEX, count, 1)
-            item = self.table.item(start, self.COL_INDEX)
+        col = self._span_col
+        i = 0
+        while i < self.table.rowCount():
+            item = self.table.item(i, col)
             if item is None:
-                item = QTableWidgetItem(str(group['number']))
-                self.table.setItem(start, self.COL_INDEX, item)
-            item.setText(str(group['number']))
-            item.setTextAlignment(Qt.AlignCenter)
-            item.setBackground(QBrush(self._GROUP_BG))
-            item.setForeground(QBrush(self._GROUP_FG))
-
-    def _renumber_groups(self):
-        """Sort groups by row position and assign sequential numbers (1, 2, 3…),
-        then re-render."""
-        self._groups.sort(key=lambda g: g['start'])
-        for i, group in enumerate(self._groups):
-            group['number'] = i + 1
-        self._render_groups()
+                i += 1
+                continue
+            val = item.text()
+            j = i + 1
+            while j < self.table.rowCount():
+                jitem = self.table.item(j, col)
+                if jitem is None or jitem.text() != val:
+                    break
+                j += 1
+            if j - i > 1:
+                self.table.setSpan(i, col, j - i, 1)
+            span_item = self.table.item(i, col)
+            if span_item:
+                span_item.setBackground(QBrush(self._GROUP_BG))
+                span_item.setForeground(QBrush(self._GROUP_FG))
+            i = j
 
     # ------------------------------------------------------------------
     # Context menu
@@ -2136,10 +2126,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if checked:
             if self._in_sum_batch:
                 return
-            # Validate preconditions before committing the toggle
-            if not self._groups:
+            if self.table.rowCount() == 0:
                 QMessageBox.information(self, "Sum Images",
-                                        "No groups defined. Please create groups first.")
+                                        "No images loaded.")
                 self.sum_images_btn.blockSignals(True)
                 self.sum_images_btn.setChecked(False)
                 self.sum_images_btn.blockSignals(False)
@@ -2190,9 +2179,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def _on_sum_images_clicked(self):
         if self._in_sum_batch:
             return
-        if not self._groups:
+        if self.table.rowCount() == 0:
             QMessageBox.information(self, "Sum Images",
-                                    "No groups defined. Please create groups first.")
+                                    "No images loaded.")
             return
 
         fm = self.workspace.navigator.file_manager
@@ -2239,18 +2228,17 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._in_sum_batch = True
         self.sumTaskManager.clear()
 
-        sorted_groups = sorted(self._groups, key=lambda g: g['start'])
+        # Build index groups from COL_INDEX column (always groups by frame index)
+        from collections import defaultdict
+        index_groups = defaultdict(list)
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, self.COL_INDEX)
+            if item is not None:
+                index_groups[item.data(Qt.DisplayRole)].append(row)
+
         jobs_submitted = 0
-
-        for group in sorted_groups:
-            start = group['start']
-            count = group['count']
-            group_num = group['number']
-
-            active_rows = [
-                r for r in range(start, start + count)
-                if r not in self._ignored_rows
-            ]
+        for group_num, rows in sorted(index_groups.items()):
+            active_rows = [r for r in rows if r not in self._ignored_rows]
             if not active_rows:
                 print(f"Group {group_num}: all images ignored, skipping.")
                 continue
@@ -2272,7 +2260,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
                     rotation,
                 ))
 
-            # Build output filename from basenames of first/last images in group
             first = os.path.basename(img_names[0])
             last = os.path.basename(img_names[-1])
             f_ind1 = first.rfind('_')
