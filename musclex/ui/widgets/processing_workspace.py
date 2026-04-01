@@ -1653,8 +1653,17 @@ class ProcessingWorkspace(QWidget):
         # Build message - just concatenate the two lines
         message = f"{center_text}\n{rotation_text}"
         
-        # Use top-level window (QMainWindow) as parent for proper display
+        # Use top-level window as parent for proper display.
+        # self.window() returns self when the workspace has no Qt parent (it is
+        # used as a component bag and its sub-widgets are reparented elsewhere).
+        # In that case fall back to the currently active window so the popup is
+        # centred on screen rather than placed at (0, 0).
         parent = self.window()
+        if parent is self:
+            from PySide6.QtWidgets import QApplication
+            active = QApplication.activeWindow()
+            if active is not None:
+                parent = active
         
         # Create modal message box with OK button
         msg_box = QMessageBox(parent)
