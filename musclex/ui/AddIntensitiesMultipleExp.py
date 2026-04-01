@@ -2405,7 +2405,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         self.sum_images_btn.blockSignals(True)
         self.sum_images_btn.setChecked(False)
-        self.sum_images_btn.setText("Sum Images")
+        self.sum_images_btn.setText("Sum Images by Index")
         self.sum_images_btn.blockSignals(False)
 
         if self._parent_dir and self._sum_csv_rows:
