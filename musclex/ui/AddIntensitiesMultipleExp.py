@@ -408,7 +408,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _sel_layout.addLayout(_dir_row)
 
         # Step 2: list of available items (H5 files + subdirs) with multi-select
-        _avail_label = QLabel("Available experiments (select one or more):")
+        _avail_label = QLabel("Available experiments (Use Ctrl/Shift to select multiple):")
         _avail_label.setStyleSheet("font-size: 11px;")
         _sel_layout.addWidget(_avail_label)
 
