@@ -745,6 +745,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 except Exception as e:
                     print(f"Could not read intensities.csv: {e}")
 
+        self._result_entries.sort(key=lambda e: e['filename'])
         self._result_table.setRowCount(0)
         for entry in self._result_entries:
             row = self._result_table.rowCount()
