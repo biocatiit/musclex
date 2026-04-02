@@ -21,51 +21,20 @@ from musclex.utils.image_processor import rotateImageAboutPoint
 from musclex.utils.file_manager import load_image_via_spec
 from musclex.ui.add_intensities_row_mapper import CartesianRowMapper
 from musclex.ui.add_intensities_common import (
-    _ElideMiddleDelegate,
     _compute_image_diff,
     _compute_geometry,
     _sum_group_worker,
     _GeometryWorkerSignals,
     _GeometryWorker,
 )
+from musclex.ui.widgets.image_alignment_table import ImageAlignmentTable, ColKey
 
 
 class AddIntensitiesMultipleExp(QMainWindow):
 
-    # Column indices
-    COL_INDEX = 0    # frame-index group label (replaces COL_GROUP)
-    COL_EXP   = 1    # experiment directory basename (new)
-    COL_FRAME = 2
-    COL_CENTER = 3
-    COL_CENTER_MODE = 4
-    COL_CENTER_DIST = 5
-    COL_AUTO_CENTER = 6
-    COL_AUTO_MANUAL_DIST = 7
-    COL_ROTATION = 8
-    COL_ROTATION_MODE = 9
-    COL_ROTATION_DIFF = 10
-    COL_AUTO_ROTATION = 11
-    COL_AUTO_ROT_DIFF = 12
-    COL_SIZE = 13
-    COL_IMAGE_DIFF = 14
-
-    HEADERS = [
-        "Index",
-        "Experiment",
-        "Frame",
-        "Original Center",
-        "Center\nMode",
-        "Dist\nfrom Base",
-        "Auto\nCenter",
-        "Auto Center\nDifference",
-        "Rotation",
-        "Rotation\nMode",
-        "Rot Diff\nfrom Base",
-        "Auto\nRotation",
-        "Auto Rot\nDifference",
-        "Size",
-        "Image\nDifference",
-    ]
+    # Window-specific column indices
+    COL_INDEX = 0    # frame-index group label
+    COL_EXP   = 1    # experiment directory basename
 
     # Visual style for group cells
     _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
@@ -168,24 +137,28 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.setStatusBar(self._statusBar)
 
         # Table
-        self.table = QTableWidget()
-        self.table.setColumnCount(len(self.HEADERS))
-        self.table.setHorizontalHeaderLabels(self.HEADERS)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.table.setAlternatingRowColors(True)
-        self.table.verticalHeader().setDefaultSectionSize(22)
-        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
+        self.table = ImageAlignmentTable(
+            col_map={
+                ColKey.FRAME: 2, ColKey.CENTER: 3, ColKey.CENTER_MODE: 4,
+                ColKey.CENTER_DIST: 5, ColKey.AUTO_CENTER: 6,
+                ColKey.AUTO_MANUAL_DIST: 7, ColKey.ROTATION: 8,
+                ColKey.ROTATION_MODE: 9, ColKey.ROTATION_DIFF: 10,
+                ColKey.AUTO_ROTATION: 11, ColKey.AUTO_ROT_DIFF: 12,
+                ColKey.SIZE: 13, ColKey.IMAGE_DIFF: 14,
+            },
+            headers=[
+                "Index", "Experiment", "Frame", "Original Center",
+                "Center\nMode", "Dist\nfrom Base", "Auto\nCenter",
+                "Auto Center\nDifference", "Rotation", "Rotation\nMode",
+                "Rot Diff\nfrom Base", "Auto\nRotation",
+                "Auto Rot\nDifference", "Size", "Image\nDifference",
+            ],
+        )
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(self.COL_INDEX, QHeaderView.Fixed)
         self.table.setColumnWidth(self.COL_INDEX, 52)
         header.setSectionResizeMode(self.COL_EXP, QHeaderView.Interactive)
         self.table.setColumnWidth(self.COL_EXP, 120)
-        for col in range(2, len(self.HEADERS)):
-            header.setSectionResizeMode(col, QHeaderView.Interactive)
-        self.table.setColumnWidth(self.COL_FRAME, 200)
-        self.table.setItemDelegateForColumn(self.COL_FRAME, _ElideMiddleDelegate(self.table))
 
         # Context menu for grouping / ungrouping
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -795,7 +768,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
                 frame_item = QTableWidgetItem(os.path.basename(name))
                 frame_item.setToolTip(name)
-                self.table.setItem(row, self.COL_FRAME, frame_item)
+                self.table.setItem(row, self.table.col(ColKey.FRAME), frame_item)
 
                 self._update_row_data(row, name)
                 if sm.has_ignore(name):
@@ -818,128 +791,66 @@ class AddIntensitiesMultipleExp(QMainWindow):
         """Refresh center/rotation data columns for a single row."""
         if row < 0 or row >= self.table.rowCount():
             return
-        self._fill_center_columns(row, name)
-        self._fill_auto_center_column(row, name)
-        self._fill_auto_manual_dist_column(row, name)
-        self._fill_rotation_columns(row, name)
-        self._fill_auto_rotation_column(row, name)
-        self._fill_auto_rot_diff_column(row, name)
-        self._fill_distance_deviation(row, name)
-        self._fill_size_column(row, name)
-        self._fill_diff_column(row, name)
-        self._apply_misaligned_highlight(row, name)
-        self._apply_base_marker(row, name)
-        if row in self._ignored_rows:
-            self._dim_row(row)
+        sm = self.workspace.settings_manager
 
-        new_geom = (self._get_effective_center(name), self._get_effective_rotation(name))
+        # Center
+        manual_c = sm.get_center(name)
+        if manual_c is not None:
+            self.table.fill_center(row, manual_c, "Manual")
+        else:
+            auto_c = sm.get_auto_center(name)
+            self.table.fill_center(row, auto_c, "Auto" if auto_c else None)
+
+        auto_center = sm.get_auto_center(name)
+        self.table.fill_auto_center(row, auto_center)
+
+        effective_center = self._get_effective_center(name)
+        self.table.fill_auto_manual_dist(
+            row, auto_center, effective_center,
+            self._dist_threshold_enabled, self._dist_threshold,
+        )
+
+        # Rotation
+        manual_r = sm.get_rotation(name)
+        if manual_r is not None:
+            self.table.fill_rotation(row, manual_r, "Manual")
+        else:
+            auto_r = sm.get_auto_rotation(name)
+            self.table.fill_rotation(row, auto_r, "Auto" if auto_r else None)
+
+        auto_rotation = sm.get_auto_rotation(name)
+        self.table.fill_auto_rotation(row, auto_rotation)
+
+        effective_rotation = self._get_effective_rotation(name)
+        self.table.fill_auto_rot_diff(
+            row, auto_rotation, effective_rotation,
+            self._rot_diff_threshold_enabled, self._rot_diff_threshold,
+        )
+
+        # Distance / rotation deviation from base
+        self.table.fill_distance_deviation(
+            row, effective_center, effective_rotation,
+            self._get_base_center(), self._get_base_rotation(),
+        )
+
+        # Size and diff
+        base = os.path.basename(name)
+        size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
+        self.table.fill_size(row, size_str, self._most_common_size)
+
+        diff_val = sm.get_image_diff(name)
+        self.table.fill_diff(row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value)
+
+        # Visual markers
+        self.table.apply_misaligned_highlight(row, name, self.misaligned_names)
+        self.table.apply_base_marker(row, name, self._base_image_filename)
+        if row in self._ignored_rows:
+            self.table.dim_row(row)
+
+        new_geom = (effective_center, effective_rotation)
         if self._row_geometry_cache.get(row) != new_geom:
             self._row_geometry_cache[row] = new_geom
             self._trigger_diff_for_row(row)
-
-    def _fill_center_columns(self, row, name):
-        """Fill COL_CENTER and COL_CENTER_MODE from workspace settings manager."""
-        sm = self.workspace.settings_manager
-
-        manual = sm.get_center(name)
-        if manual is not None:
-            cx, cy = manual
-            self.table.setItem(row, self.COL_CENTER,
-                               QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
-            self.table.setItem(row, self.COL_CENTER_MODE,
-                               QTableWidgetItem("Manual"))
-            return
-
-        auto = sm.get_auto_center(name)
-        if auto is not None:
-            cx, cy = auto
-            self.table.setItem(row, self.COL_CENTER,
-                               QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
-            self.table.setItem(row, self.COL_CENTER_MODE,
-                               QTableWidgetItem("Auto"))
-        else:
-            self.table.setItem(row, self.COL_CENTER, QTableWidgetItem(""))
-            self.table.setItem(row, self.COL_CENTER_MODE, QTableWidgetItem(""))
-
-    def _fill_auto_center_column(self, row, name):
-        """Fill COL_AUTO_CENTER with the raw auto-detected center (before any manual override)."""
-        sm = self.workspace.settings_manager
-        auto = sm.get_auto_center(name)
-        if auto is not None:
-            cx, cy = auto
-            self.table.setItem(row, self.COL_AUTO_CENTER,
-                               QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
-        else:
-            self.table.setItem(row, self.COL_AUTO_CENTER, QTableWidgetItem(""))
-
-    def _fill_auto_manual_dist_column(self, row, name):
-        """Fill COL_AUTO_MANUAL_DIST with the distance between auto center and original center.
-        Original center is the effective center (manual if set, else auto).
-        Cells exceeding the distance threshold are highlighted red."""
-        import math
-        auto = self.workspace.settings_manager.get_auto_center(name)
-        original = self._get_effective_center(name)
-        if auto is not None and original is not None:
-            dx = auto[0] - original[0]
-            dy = auto[1] - original[1]
-            dist = math.hypot(dx, dy)
-            item = QTableWidgetItem(f"{dist:.2f}")
-            if self._dist_threshold_enabled and dist > self._dist_threshold:
-                item.setBackground(QBrush(QColor(255, 100, 100)))
-                item.setForeground(QBrush(QColor(255, 255, 255)))
-            self.table.setItem(row, self.COL_AUTO_MANUAL_DIST, item)
-        else:
-            self.table.setItem(row, self.COL_AUTO_MANUAL_DIST, QTableWidgetItem(""))
-
-    def _fill_rotation_columns(self, row, name):
-        """Fill COL_ROTATION and COL_ROTATION_MODE from workspace settings manager."""
-        sm = self.workspace.settings_manager
-
-        manual = sm.get_rotation(name)
-        if manual is not None:
-            self.table.setItem(row, self.COL_ROTATION,
-                               QTableWidgetItem(f"{manual:.2f}°"))
-            self.table.setItem(row, self.COL_ROTATION_MODE,
-                               QTableWidgetItem("Manual"))
-            return
-
-        auto = sm.get_auto_rotation(name)
-        if auto is not None:
-            self.table.setItem(row, self.COL_ROTATION,
-                               QTableWidgetItem(f"{auto:.2f}°"))
-            self.table.setItem(row, self.COL_ROTATION_MODE,
-                               QTableWidgetItem("Auto"))
-        else:
-            self.table.setItem(row, self.COL_ROTATION, QTableWidgetItem(""))
-            self.table.setItem(row, self.COL_ROTATION_MODE, QTableWidgetItem(""))
-
-        self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
-
-    def _fill_auto_rotation_column(self, row, name):
-        """Fill COL_AUTO_ROTATION with the raw auto-detected rotation (before any manual override)."""
-        sm = self.workspace.settings_manager
-        auto = sm.get_auto_rotation(name)
-        if auto is not None:
-            self.table.setItem(row, self.COL_AUTO_ROTATION,
-                               QTableWidgetItem(f"{auto:.2f}°"))
-        else:
-            self.table.setItem(row, self.COL_AUTO_ROTATION, QTableWidgetItem(""))
-
-    def _fill_auto_rot_diff_column(self, row, name):
-        """Fill COL_AUTO_ROT_DIFF with the difference between auto rotation and original rotation.
-        Cells exceeding the rotation-diff threshold are highlighted red."""
-        sm = self.workspace.settings_manager
-        auto = sm.get_auto_rotation(name)
-        original = self._get_effective_rotation(name)
-        if auto is not None and original is not None:
-            diff = auto - original
-            item = QTableWidgetItem(f"{diff:.2f}°")
-            if self._rot_diff_threshold_enabled and abs(diff) > self._rot_diff_threshold:
-                item.setBackground(QBrush(QColor(255, 100, 100)))
-                item.setForeground(QBrush(QColor(255, 255, 255)))
-            self.table.setItem(row, self.COL_AUTO_ROT_DIFF, item)
-        else:
-            self.table.setItem(row, self.COL_AUTO_ROT_DIFF, QTableWidgetItem(""))
 
     def _get_effective_center(self, name):
         """Return (cx, cy) for *name* — manual if present, else auto, else None."""
@@ -950,36 +861,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
         """Return rotation angle for *name* — manual if present, else auto, else None."""
         sm = self.workspace.settings_manager
         return sm.get_rotation(name) or sm.get_auto_rotation(name)
-
-    def _fill_distance_deviation(self, row, name):
-        """Fill COL_CENTER_DIST and COL_ROTATION_DIFF relative to the global base."""
-        base_center = self._get_base_center()
-        base_rotation = self._get_base_rotation()
-
-        # --- distance ---
-        if base_center:
-            img_center = self._get_effective_center(name)
-            if img_center is not None:
-                import math
-                dx = img_center[0] - base_center[0]
-                dy = img_center[1] - base_center[1]
-                dist = math.hypot(dx, dy)
-                self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(f"{dist:.2f}"))
-            else:
-                self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
-        else:
-            self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
-
-        # --- rotation difference ---
-        if base_rotation is not None:
-            img_rotation = self._get_effective_rotation(name)
-            if img_rotation is not None:
-                deviation = img_rotation - base_rotation
-                self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(f"{deviation:.2f}°"))
-            else:
-                self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
-        else:
-            self.table.setItem(row, self.COL_ROTATION_DIFF, QTableWidgetItem(""))
 
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""
@@ -1005,63 +886,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self._diff_thresh_value = self._diff_percentile_threshold
         else:
             self._diff_percentile_threshold = None
-
-    def _fill_size_column(self, row, name):
-        """Fill COL_SIZE with cached image dimensions (WxH) if available.
-        Text is coloured red when the size differs from the most common size."""
-        base = os.path.basename(name)
-        size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
-        item = QTableWidgetItem(size_str)
-        if size_str and self._most_common_size and size_str != self._most_common_size:
-            item.setBackground(QBrush(QColor(255, 100, 100)))
-            item.setForeground(QBrush(QColor(255, 255, 255)))
-        self.table.setItem(row, self.COL_SIZE, item)
-
-    def _fill_diff_column(self, row, name):
-        """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available).
-        Cells whose value exceeds the user-controlled threshold are highlighted red."""
-        sm = self.workspace.settings_manager
-        val = sm.get_image_diff(name)
-        text = f"{val:.4f}" if val is not None else ""
-        item = QTableWidgetItem(text)
-        if (val is not None
-                and self._diff_thresh_enabled
-                and self._diff_thresh_value > 0
-                and val > self._diff_thresh_value):
-            item.setBackground(QBrush(QColor(255, 100, 100)))
-            item.setForeground(QBrush(QColor(255, 255, 255)))
-        self.table.setItem(row, self.COL_IMAGE_DIFF, item)
-
-    def _apply_misaligned_highlight(self, row, name):
-        """Colour the data columns red if the image is in misaligned_names.
-        COL_INDEX is intentionally skipped to keep group cell appearance intact."""
-        if not self.misaligned_names:
-            return
-        if name in self.misaligned_names or os.path.basename(name) in self.misaligned_names:
-            highlight = QBrush(QColor(255, 120, 120))
-            for col in range(1, self.table.columnCount()):   # skip COL_INDEX
-                item = self.table.item(row, col)
-                if item is None:
-                    item = QTableWidgetItem("")
-                    self.table.setItem(row, col, item)
-                item.setBackground(highlight)
-
-    def _apply_base_marker(self, row, name):
-        """Prefix the Frame cell with a star if this image is the global base."""
-        item = self.table.item(row, self.COL_FRAME)
-        if item is None:
-            return
-        base_name = self._base_image_filename or ''
-        is_base = (name == base_name) if base_name else False
-        display = os.path.basename(name)
-        if is_base:
-            item.setText(f"\u2605 {display}")
-            bold = QFont()
-            bold.setBold(True)
-            item.setFont(bold)
-        else:
-            item.setText(display)
-            item.setFont(QFont())
 
     # ------------------------------------------------------------------
     # Grouping helpers
@@ -1271,16 +1095,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.image_viewer.display_image(display_img)
         self._redraw_overlays()
 
-    def _dim_row(self, row):
-        """Apply grey foreground to all data columns of a row (visual only)."""
-        dim = QBrush(QColor(160, 160, 160))
-        for col in range(1, self.table.columnCount()):
-            item = self.table.item(row, col)
-            if item is None:
-                item = QTableWidgetItem("")
-                self.table.setItem(row, col, item)
-            item.setForeground(dim)
-
     def _apply_ignore(self, row):
         """Mark row as ignored: dim its text and add to ignored set."""
         if row < 0 or row >= self.table.rowCount():
@@ -1293,7 +1107,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         sm.set_ignore(name)
         sm.save_ignore()
         print(f"Ignore: {name}")
-        self._dim_row(row)
+        self.table.dim_row(row)
 
     def _clear_ignore(self, row):
         """Remove the ignore flag from the row and restore normal text colour."""
@@ -1554,52 +1368,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self._apply_threshold_highlighting()
 
     def _apply_threshold_highlighting(self):
-        """Re-apply (or clear) red highlighting for distance, rotation difference, and image diff columns."""
-        _red_bg = QBrush(QColor(255, 100, 100))
-        _red_fg = QBrush(QColor(255, 255, 255))
-
-        for row in range(self.table.rowCount()):
-            # --- auto-manual distance ---
-            dist_item = self.table.item(row, self.COL_AUTO_MANUAL_DIST)
-            if dist_item and dist_item.text():
-                try:
-                    val = float(dist_item.text())
-                    if self._dist_threshold_enabled and val > self._dist_threshold:
-                        dist_item.setBackground(_red_bg)
-                        dist_item.setForeground(_red_fg)
-                    else:
-                        dist_item.setData(Qt.BackgroundRole, None)
-                        dist_item.setData(Qt.ForegroundRole, None)
-                except ValueError:
-                    pass
-
-            # --- auto-rot diff ---
-            dev_item = self.table.item(row, self.COL_AUTO_ROT_DIFF)
-            if dev_item and dev_item.text():
-                try:
-                    val = abs(float(dev_item.text().rstrip("°")))
-                    if self._rot_diff_threshold_enabled and val > self._rot_diff_threshold:
-                        dev_item.setBackground(_red_bg)
-                        dev_item.setForeground(_red_fg)
-                    else:
-                        dev_item.setData(Qt.BackgroundRole, None)
-                        dev_item.setData(Qt.ForegroundRole, None)
-                except ValueError:
-                    pass
-
-            # --- image diff ---
-            diff_item = self.table.item(row, self.COL_IMAGE_DIFF)
-            if diff_item and diff_item.text():
-                try:
-                    val = float(diff_item.text())
-                    if self._diff_thresh_enabled and self._diff_thresh_value > 0 and val > self._diff_thresh_value:
-                        diff_item.setBackground(_red_bg)
-                        diff_item.setForeground(_red_fg)
-                    else:
-                        diff_item.setData(Qt.BackgroundRole, None)
-                        diff_item.setData(Qt.ForegroundRole, None)
-                except ValueError:
-                    pass
+        """Delegate threshold highlighting to the table widget."""
+        self.table.apply_threshold_highlighting(
+            self._dist_threshold_enabled, self._dist_threshold,
+            self._rot_diff_threshold_enabled, self._rot_diff_threshold,
+            self._diff_thresh_enabled, self._diff_thresh_value,
+        )
 
     def _on_detection_btn_toggled(self, checked):
         """Handle the Start Detection / Stop toggle button."""
@@ -1894,7 +1668,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 self._compute_diff_percentile_threshold()
 
             if name_b is not None and idx_b < self.table.rowCount():
-                self._fill_diff_column(idx_b, name_b)
+                diff_val = self.workspace.settings_manager.get_image_diff(name_b)
+                self.table.fill_diff(
+                    idx_b, diff_val,
+                    self._diff_thresh_enabled, self._diff_thresh_value,
+                )
 
             if not self._diff_pairs_in_flight and self.diffExecutor is not None:
                 self.diffExecutor.shutdown(wait=False)
