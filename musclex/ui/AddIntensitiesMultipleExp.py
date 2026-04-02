@@ -1399,9 +1399,19 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._cr_dialog = dlg
 
         splitter = QSplitter(Qt.Horizontal, dlg)
-        outer = QHBoxLayout(dlg)
-        outer.setContentsMargins(0, 0, 0, 0)
+        outer = QVBoxLayout(dlg)
+        outer.setContentsMargins(0, 0, 0, 4)
         outer.addWidget(splitter)
+
+        from PySide6.QtWidgets import QPushButton, QHBoxLayout as _QHBox
+        _btn_row = _QHBox()
+        _btn_row.addStretch()
+        _close_btn = QPushButton("Close")
+        _close_btn.setFixedWidth(100)
+        _close_btn.clicked.connect(dlg.close)
+        _btn_row.addWidget(_close_btn)
+        _btn_row.addStretch()
+        outer.addLayout(_btn_row)
 
         splitter.addWidget(self.image_viewer)
 
