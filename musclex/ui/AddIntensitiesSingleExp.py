@@ -19,6 +19,7 @@ from musclex.ui.widgets.image_viewer_widget import ImageViewerWidget
 from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
 from musclex.utils.file_manager import load_image_via_spec
+from musclex.ui.add_intensities_row_mapper import SingleRowMapper
 
 
 class _ElideMiddleDelegate(QStyledItemDelegate):
@@ -422,6 +423,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             coord_transform_func=self._display_to_original_coords,
         )
         self.img_list = []
+        self._row_mapper = SingleRowMapper(lambda: self.img_list)
         self.misaligned_names = set()
         self._img_sizes: dict = {}  # img_name -> "WxH" string
         self._most_common_size: str = ""  # most frequent size across all images
@@ -929,7 +931,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         """If no global base is recorded yet, set the first image as the default."""
         if self._base_image_filename or not self.img_list:
             return
-        first_name = os.path.basename(self.img_list[0])
+        first_name = self._row_mapper.name_for_row(0)
+        if first_name is None:
+            return
+        first_name = os.path.basename(first_name)
         self.workspace.settings_manager.set_global_base(first_name)
         self.workspace.settings_manager.save_global_base()
         self._base_image_filename = first_name
@@ -996,9 +1001,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._ignored_rows = set()
         self._row_geometry_cache = {}
         self.table.setRowCount(0)
-        self.table.setRowCount(len(self.img_list))
+        n = self._row_mapper.row_count()
+        self.table.setRowCount(n)
         sm = self.workspace.settings_manager
-        for row, name in enumerate(self.img_list):
+        for row in range(n):
+            name = self._row_mapper.name_for_row(row)
             item = QTableWidgetItem(os.path.basename(name))
             item.setToolTip(name)
             self.table.setItem(row, self.COL_FRAME, item)
@@ -1009,10 +1016,12 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _update_table_data(self):
         """Refresh center/rotation data columns for all existing rows (preserves selection and groups)."""
-        for row, name in enumerate(self.img_list):
+        for row in range(self._row_mapper.row_count()):
             if row >= self.table.rowCount():
                 break
-            self._update_row_data(row, name)
+            name = self._row_mapper.name_for_row(row)
+            if name is not None:
+                self._update_row_data(row, name)
 
     def _update_row_data(self, row, name):
         """Refresh center/rotation data columns for a single row."""
@@ -1205,8 +1214,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         Updates self._diff_percentile_threshold and syncs the spinbox to the computed value."""
         sm = self.workspace.settings_manager
         values = [
-            sm.get_image_diff(os.path.basename(name))
-            for name in self.img_list
+            sm.get_image_diff(os.path.basename(self._row_mapper.name_for_row(r)))
+            for r in range(self._row_mapper.row_count())
+            if self._row_mapper.name_for_row(r) is not None
         ]
         values = [v for v in values if v is not None]
         if len(values) >= 2:
@@ -1297,7 +1307,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _apply_bin_grouping(self):
         """Split the image list into sequential groups of *binning_spin* size."""
         factor = self.binning_spin.value()
-        n = len(self.img_list)
+        n = self._row_mapper.row_count()
         self._groups = []
         for i in range(0, n, factor):
             count = min(factor, n - i)
@@ -1430,8 +1440,9 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._open_center_rotation_dialog(selected_rows[0])
         elif chosen == set_global_act:
             row = selected_rows[0]
-            if row < len(self.img_list):
-                img_name = os.path.basename(self.img_list[row])
+            name = self._row_mapper.name_for_row(row)
+            if name is not None:
+                img_name = os.path.basename(name)
                 self.workspace.settings_manager.set_global_base(img_name)
                 self.workspace.settings_manager.save_global_base()
                 self._on_global_base_changed()
@@ -1525,9 +1536,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         if center is not None and rotation is not None and rotation != 0:
             display_img = rotateImageAboutPoint(display_img, center, rotation)
         base_center = self._get_base_center()
-        if 0 <= row < len(self.img_list):
+        name = self._row_mapper.name_for_row(row)
+        if name is not None:
             display_img = self._apply_center_shift_if_needed(
-                display_img, center, self.img_list[row]
+                display_img, center, name
             )
         self._current_inv_transform = self._build_display_inv_transform(
             center, rotation, base_center
@@ -1547,10 +1559,10 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _apply_ignore(self, row):
         """Mark row as ignored: dim its text and add to ignored set."""
-        if row < 0 or row >= len(self.img_list):
+        name = self._row_mapper.name_for_row(row)
+        if name is None:
             return
         self._ignored_rows.add(row)
-        name = self.img_list[row]
         base = os.path.basename(name)
         sm = self.workspace.settings_manager
         sm.set_ignore(base)
@@ -1560,10 +1572,10 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _clear_ignore(self, row):
         """Remove the ignore flag from the row and restore normal text colour."""
-        if row < 0 or row >= len(self.img_list):
+        name = self._row_mapper.name_for_row(row)
+        if name is None:
             return
         self._ignored_rows.discard(row)
-        name = self.img_list[row]
         base = os.path.basename(name)
         sm = self.workspace.settings_manager
         sm.clear_ignore(base)
@@ -1605,11 +1617,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         if len(selected_rows) != 1:
             return
         row = self.table.currentRow()
-        if row < 0 or row >= len(self.img_list):
+        if row < 0 or row >= self._row_mapper.row_count():
+            return
+        fm_idx = self._row_mapper.fm_index_for_row(row)
+        if fm_idx is None:
             return
         self._navigating_from_table = True
         try:
-            self.workspace.navigator.switch_to_image_by_index(row)
+            self.workspace.navigator.switch_to_image_by_index(fm_idx)
         finally:
             self._navigating_from_table = False
 
@@ -1641,17 +1656,19 @@ class AddIntensitiesSingleExp(QMainWindow):
             if center is not None and rotation is not None and rotation != 0:
                 display_img = rotateImageAboutPoint(display_img, center, rotation)
             base_center = self._get_base_center()
-            if 0 <= row < len(self.img_list):
+            name = self._row_mapper.name_for_row(row)
+            if name is not None:
                 display_img = self._apply_center_shift_if_needed(
-                    display_img, center, self.img_list[row]
+                    display_img, center, name
                 )
             self._current_inv_transform = self._build_display_inv_transform(
                 center, rotation, base_center
             )
             self.image_viewer.display_image(display_img)
         self._redraw_overlays()
-        if 0 <= row < len(self.img_list):
-            self._update_row_data(row, self.img_list[row])
+        name = self._row_mapper.name_for_row(row)
+        if name is not None:
+            self._update_row_data(row, name)
 
     def _sync_table_selection(self):
         """Highlight the table row that matches the navigator's current image index."""
@@ -1918,7 +1935,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.stop_process = False
         self.taskManager.clear()
 
-        n = len(self.img_list)
+        n = self._row_mapper.row_count()
         self.progressBar.setMaximum(n)
         self.progressBar.setMinimum(0)
         self.progressBar.setValue(0)
@@ -1928,9 +1945,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         orientation_model = getattr(self.workspace, '_orientation_model', 0)
         dir_path = str(fm.dir_path)
 
-        for i, img_name in enumerate(self.img_list):
+        for i in range(n):
+            img_name = self._row_mapper.name_for_row(i)
+            if img_name is None:
+                continue
+            fm_idx = self._row_mapper.fm_index_for_row(i)
             base = os.path.basename(img_name)
-            spec = fm.specs[i] if i < len(fm.specs) else None
+            spec = fm.specs[fm_idx] if fm_idx is not None and fm_idx < len(fm.specs) else None
             manual_center, manual_rotation = self.workspace.get_manual_settings(base)
             job_args = (
                 dir_path,
@@ -1982,8 +2003,9 @@ class AddIntensitiesSingleExp(QMainWindow):
                 f"Detecting: {stats['completed'] + stats['failed']}/{stats['total']}"
             )
 
-            if 0 <= task.job_index < len(self.img_list):
-                self._update_row_data(task.job_index, self.img_list[task.job_index])
+            name = self._row_mapper.name_for_row(task.job_index)
+            if name is not None:
+                self._update_row_data(task.job_index, name)
 
             if stats['pending'] == 0:
                 self._on_batch_complete()
@@ -2031,9 +2053,10 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _row_has_geometry(self, row):
         """Return True if *row* has a usable center (auto or manual)."""
-        if row < 0 or row >= len(self.img_list):
+        name = self._row_mapper.name_for_row(row)
+        if name is None:
             return False
-        return self._get_effective_center(self.img_list[row]) is not None
+        return self._get_effective_center(name) is not None
 
     def _trigger_diff_for_row(self, row):
         """Recompute the (at most) two diff pairs that involve *row*.
@@ -2044,7 +2067,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         All callbacks run in the main thread (via QTimer.singleShot), so
         _diff_pairs_in_flight is safe to mutate here without a lock.
         """
-        active = [i for i in range(len(self.img_list)) if i not in self._ignored_rows]
+        active = [i for i in range(self._row_mapper.row_count()) if i not in self._ignored_rows]
         if row not in active:
             return
 
@@ -2088,16 +2111,21 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._diff_pairs_in_flight.discard((idx_a, idx_b))
             return
 
-        name_a = self.img_list[idx_a]
-        name_b = self.img_list[idx_b]
+        name_a = self._row_mapper.name_for_row(idx_a)
+        name_b = self._row_mapper.name_for_row(idx_b)
+        if name_a is None or name_b is None:
+            self._diff_pairs_in_flight.discard((idx_a, idx_b))
+            return
+        fm_idx_a = self._row_mapper.fm_index_for_row(idx_a)
+        fm_idx_b = self._row_mapper.fm_index_for_row(idx_b)
         base_center = self._get_base_center()
         base_rotation = self._get_base_rotation()
 
         job_args = (
             str(fm.dir_path),
             os.path.basename(name_a), os.path.basename(name_b),
-            fm.specs[idx_a] if idx_a < len(fm.specs) else None,
-            fm.specs[idx_b] if idx_b < len(fm.specs) else None,
+            fm.specs[fm_idx_a] if fm_idx_a is not None and fm_idx_a < len(fm.specs) else None,
+            fm.specs[fm_idx_b] if fm_idx_b is not None and fm_idx_b < len(fm.specs) else None,
             self._get_effective_center(name_a),
             self._get_effective_rotation(name_a),
             self._get_effective_center(name_b),
@@ -2127,7 +2155,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
             self.diffTaskManager.complete_task(future, result, error)
 
-            name_b = self.img_list[idx_b] if idx_b < len(self.img_list) else None
+            name_b = self._row_mapper.name_for_row(idx_b)
             if error:
                 print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
             elif name_b is not None:
@@ -2286,13 +2314,14 @@ class AddIntensitiesSingleExp(QMainWindow):
                 print(f"Group {group_num}: all images ignored, skipping.")
                 continue
 
-            img_names = [os.path.basename(self.img_list[r]) for r in active_rows]
-            specs = [fm.specs[r] if r < len(fm.specs) else None for r in active_rows]
+            img_names = [os.path.basename(self._row_mapper.name_for_row(r) or '') for r in active_rows]
+            fm_indices = [self._row_mapper.fm_index_for_row(r) for r in active_rows]
+            specs = [fm.specs[fi] if fi is not None and fi < len(fm.specs) else None for fi in fm_indices]
 
             per_img_transforms = []
             for r in active_rows:
-                name = self.img_list[r]
-                center = self._get_effective_center(name)
+                name = self._row_mapper.name_for_row(r)
+                center = self._get_effective_center(name) if name else None
                 rotation = self._get_effective_rotation(name)
                 per_img_transforms.append((
                     list(center) if center else None,
