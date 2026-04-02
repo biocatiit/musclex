@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
     QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem, QMessageBox,
-    QTabBar,
+    QTabBar, QInputDialog,
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
@@ -2212,6 +2212,35 @@ class AddIntensitiesMultipleExp(QMainWindow):
         compress = self.compress_chk.isChecked()
         rotation_mode = 'absolute' if self.radio_rot_absolute.isChecked() else 'diff'
 
+        # Build index groups from COL_INDEX column (always groups by frame index)
+        from collections import defaultdict
+        index_groups = defaultdict(list)
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, self.COL_INDEX)
+            if item is not None:
+                index_groups[item.data(Qt.DisplayRole)].append(row)
+
+        # Compute common prefix from all active image basenames to use as default
+        all_basenames = []
+        for rows in index_groups.values():
+            for r in rows:
+                if r not in self._ignored_rows:
+                    name = self._name_for_row(r)
+                    all_basenames.append(os.path.splitext(os.path.basename(name))[0])
+        default_base = os.path.commonprefix(all_basenames).rstrip('_') if all_basenames else "output"
+
+        # Ask user for the output base name before starting any heavy work
+        base_name, ok = QInputDialog.getText(
+            self,
+            "Output Base Name",
+            "Enter the base name for output files.\n"
+            "Files will be named:  <base>_00001.tif,  <base>_00002.tif, …",
+            text=default_base,
+        )
+        if not ok:
+            return
+        base_name = base_name.strip() or default_base
+
         # Blank config (loaded once, shared across all groups)
         blank_mask_config = self.workspace.get_blank_mask_config()
         apply_blank = blank_mask_config['apply_blank']
@@ -2238,14 +2267,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._in_sum_batch = True
         self.sumTaskManager.clear()
 
-        # Build index groups from COL_INDEX column (always groups by frame index)
-        from collections import defaultdict
-        index_groups = defaultdict(list)
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, self.COL_INDEX)
-            if item is not None:
-                index_groups[item.data(Qt.DisplayRole)].append(row)
-
         jobs_submitted = 0
         for group_num, rows in sorted(index_groups.items()):
             active_rows = [r for r in rows if r not in self._ignored_rows]
@@ -2270,19 +2291,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
                     rotation,
                 ))
 
-            first = os.path.basename(img_names[0])
-            last = os.path.basename(img_names[-1])
-            f_ind1 = first.rfind('_')
-            f_ind2 = first.rfind('.')
-            l_ind1 = last.rfind('_')
-            l_ind2 = last.rfind('.')
-            if (f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1
-                    or first[:f_ind1] != last[:l_ind1]):
-                filename = "group_" + str(group_num).zfill(5) + '.tif'
-            else:
-                filename = (first[:f_ind1] + "_"
-                            + first[f_ind1 + 1:f_ind2] + "_"
-                            + last[l_ind1 + 1:l_ind2] + '.tif')
+            filename = f"{base_name}_{str(group_num).zfill(5)}.tif"
             output_path = os.path.join(output_dir, filename)
 
             job_args = (group_num, "", img_names, specs,
