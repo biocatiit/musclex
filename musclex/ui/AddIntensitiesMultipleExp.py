@@ -834,9 +834,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         )
 
         # Size and diff
-        base = os.path.basename(name)
-        size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
-        self.table.fill_size(row, size_str, self._most_common_size)
+        self.table.fill_size(row, self._img_sizes.get(name, ""), self._most_common_size)
 
         diff_val = sm.get_image_diff(name)
         self.table.fill_diff(row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value)
