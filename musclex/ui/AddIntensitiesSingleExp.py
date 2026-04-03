@@ -794,7 +794,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             item.setToolTip(name)
             self.table.setItem(row, self.table.col(ColKey.FRAME), item)
             self._update_row_data(row, name)
-            if sm.has_ignore(os.path.basename(name)):
+            if sm.has_ignore(name):
                 self._apply_ignore(row)
         self.table.resizeColumnsToContents()
 
@@ -812,18 +812,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         if row < 0 or row >= self.table.rowCount():
             return
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
 
         # Center
-        c_key = base if sm.has_manual_center(base) else name
-        manual_c = sm.get_center(c_key)
+        manual_c = sm.get_center(name)
         if manual_c is not None:
             self.table.fill_center(row, manual_c, "Manual")
         else:
-            auto_c = sm.get_auto_center(c_key) or sm.get_auto_center(base)
+            auto_c = sm.get_auto_center(name)
             self.table.fill_center(row, auto_c, "Auto" if auto_c else None)
 
-        auto_center = sm.get_auto_center(base) or sm.get_auto_center(name)
+        auto_center = sm.get_auto_center(name)
         self.table.fill_auto_center(row, auto_center)
 
         effective_center = self._get_effective_center(name)
@@ -833,15 +831,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         )
 
         # Rotation
-        r_key = base if sm.has_manual_rotation(base) else name
-        manual_r = sm.get_rotation(r_key)
+        manual_r = sm.get_rotation(name)
         if manual_r is not None:
             self.table.fill_rotation(row, manual_r, "Manual")
         else:
-            auto_r = sm.get_auto_rotation(r_key) or sm.get_auto_rotation(base)
+            auto_r = sm.get_auto_rotation(name)
             self.table.fill_rotation(row, auto_r, "Auto" if auto_r else None)
 
-        auto_rotation = sm.get_auto_rotation(base) or sm.get_auto_rotation(name)
+        auto_rotation = sm.get_auto_rotation(name)
         self.table.fill_auto_rotation(row, auto_rotation)
 
         effective_rotation = self._get_effective_rotation(name)
@@ -857,10 +854,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         )
 
         # Size and diff
-        size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
-        self.table.fill_size(row, size_str, self._most_common_size)
+        self.table.fill_size(row, self._img_sizes.get(name, ""), self._most_common_size)
 
-        diff_val = sm.get_image_diff(base)
+        diff_val = sm.get_image_diff(name)
         self.table.fill_diff(row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value)
 
         # Visual markers
@@ -877,16 +873,12 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _get_effective_center(self, name):
         """Return (cx, cy) for *name* — manual if present, else auto, else None."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        key = base if sm.has_manual_center(base) else name
-        return sm.get_center(key) or sm.get_auto_center(key) or sm.get_auto_center(base)
+        return sm.get_center(name) or sm.get_auto_center(name)
 
     def _get_effective_rotation(self, name):
         """Return rotation angle for *name* — manual if present, else auto, else None."""
         sm = self.workspace.settings_manager
-        base = os.path.basename(name)
-        key = base if sm.has_manual_rotation(base) else name
-        return sm.get_rotation(key) or sm.get_auto_rotation(key) or sm.get_auto_rotation(base)
+        return sm.get_rotation(name) or sm.get_auto_rotation(name)
 
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""
@@ -899,7 +891,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         Updates self._diff_percentile_threshold and syncs the spinbox to the computed value."""
         sm = self.workspace.settings_manager
         values = [
-            sm.get_image_diff(os.path.basename(self._row_mapper.name_for_row(r)))
+            sm.get_image_diff(self._row_mapper.name_for_row(r))
             for r in range(self._row_mapper.row_count())
             if self._row_mapper.name_for_row(r) is not None
         ]
@@ -1179,11 +1171,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         if name is None:
             return
         self._ignored_rows.add(row)
-        base = os.path.basename(name)
         sm = self.workspace.settings_manager
-        sm.set_ignore(base)
+        sm.set_ignore(name)
         sm.save_ignore()
-        print(f"Ignore: {base}")
+        print(f"Ignore: {name}")
         self.table.dim_row(row)
 
     def _clear_ignore(self, row):
@@ -1192,11 +1183,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         if name is None:
             return
         self._ignored_rows.discard(row)
-        base = os.path.basename(name)
         sm = self.workspace.settings_manager
-        sm.clear_ignore(base)
+        sm.clear_ignore(name)
         sm.save_ignore()
-        print(f"Cancel Ignore: {base}")
+        print(f"Cancel Ignore: {name}")
         normal = QBrush(self.table.palette().color(self.table.foregroundRole()))
         for col in range(1, self.table.columnCount()):
             item = self.table.item(row, col)
@@ -1736,13 +1726,12 @@ class AddIntensitiesSingleExp(QMainWindow):
                 print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
             elif name_b is not None:
                 sm = self.workspace.settings_manager
-                sm.set_image_diff(os.path.basename(name_b), result['diff'])
+                sm.set_image_diff(name_b, result['diff'])
                 sm.save_image_diff()
                 self._compute_diff_percentile_threshold()
 
             if name_b is not None and idx_b < self.table.rowCount():
-                diff_val = self.workspace.settings_manager.get_image_diff(
-                    os.path.basename(name_b))
+                diff_val = self.workspace.settings_manager.get_image_diff(name_b)
                 self.table.fill_diff(
                     idx_b, diff_val,
                     self._diff_thresh_enabled, self._diff_thresh_value,
