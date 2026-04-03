@@ -35,7 +35,6 @@ import math
 from os.path import split, splitext
 from pathlib import Path
 import matplotlib.patches as patches
-from matplotlib.colors import LogNorm, Normalize, ListedColormap
 import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
@@ -46,6 +45,7 @@ import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..utils import ImageData
+from ..utils.optimization_cache import get_user_background_configurations, set_user_background_configurations
 from ..modules.QuadrantFolder import QuadrantFolder
 from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
@@ -261,6 +261,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.qf_lock = Lock()
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
+        self._batch_background_configurations = []
 
         # NOTE: setCentDialog and setAngleDialog moved to ImageSettingsPanel
 
@@ -501,46 +502,128 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resProcGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self._init_background_subtraction_dialog()
 
-        self.openBGSettingsButton = QPushButton("Open Background Subtraction Settings")
-        self.currentOptimizationLabel = QLabel("Optimization: Off")
-        self.currentBGMethodLabel = QLabel("Current BG Method: None")
-        self.currentBGSourceLabel = QLabel("Source: None")
+        # ===== Current settings summary =====
+        self.currentBGModeLabel = QLabel("Mode: None")
+        self.currentBGMethodLabel = QLabel("Method: None")
         self.currentBGParamsLabel = QLabel("Parameters: None")
         self.currentBGParamsLabel.setWordWrap(True)
+        self.currentBGLossLabel = QLabel("Loss: None")
 
-        self.bgMetricsLabel = QLabel("Background Metrics")
-        self.bgMetricsLabel.setStyleSheet("font-weight: bold;")
-        self.bgMetricsInfoButton = QToolButton()
-        self.bgMetricsInfoButton.setText("ⓘ")
-        self.bgMetricsInfoButton.setAutoRaise(True)
-        self.bgMetricsInfoButton.setToolTip("Explain background metrics")
-        self.bgMetricsInfoButton.clicked.connect(self._show_bg_metrics_help_dialog)
-        self.bgMetricsTable = QTableWidget(0, 3)
-        self.bgMetricsTable.setHorizontalHeaderLabels(["Metric", "Raw", "Normalized"])
-        self.bgMetricsTable.verticalHeader().setVisible(False)
-        self.bgMetricsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.bgMetricsTable.setSelectionMode(QAbstractItemView.NoSelection)
-        self.bgMetricsTable.setFocusPolicy(Qt.NoFocus)
-        self.bgMetricsTable.setAlternatingRowColors(True)
-        self.bgMetricsTable.setMinimumHeight(250)
-        self.bgMetricsTable.setMaximumHeight(370)
-        self.bgMetricsTable.horizontalHeader().setStretchLastSection(False)
-        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
-        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.bgMetricsTable.setColumnWidth(1, 95)
-        self.bgMetricsTable.setColumnWidth(2, 95)
+        # ===== Section controls =====
+        # Background Subtraction
+        self.applyResultBGButton = QPushButton("Apply Default Optimization")
 
-        self.bgSummaryLayout = QGridLayout()
-        self.bgSummaryLayout.addWidget(self.openBGSettingsButton, 0, 0, 1, 2)
-        self.bgSummaryLayout.addWidget(self.currentOptimizationLabel, 1, 0, 1, 2)
-        self.bgSummaryLayout.addWidget(self.currentBGMethodLabel, 2, 0, 1, 2)
-        self.bgSummaryLayout.addWidget(self.currentBGSourceLabel, 3, 0, 1, 2)
-        self.bgSummaryLayout.addWidget(self.currentBGParamsLabel, 4, 0, 1, 2)
-        self.bgSummaryLayout.addWidget(self.bgMetricsLabel, 5, 0, 1, 1)
-        self.bgSummaryLayout.addWidget(self.bgMetricsInfoButton, 5, 1, 1, 1, alignment=Qt.AlignRight)
-        self.bgSummaryLayout.addWidget(self.bgMetricsTable, 6, 0, 1, 2)
+        # Background Configurations
+        self.openBGSettingsButton = QPushButton("Advanced Background Configuration")
+
+
+        # Current Settings
+        self.addBackgroundConfigButton = QPushButton("Add Background Configuration")
+
+        self.backgroundConfigurations = []
+
+
+        # Folder Processing Settngs
+        self.chooseConfigurationsAutoChkBx = QCheckBox("Choose best configuration for images automatically")
+        self.chooseConfigurationsAutoChkBx.setToolTip("Automatically choose the best background configuration for each image based on background metrics")
+        self.chooseConfigurationsAutoChkBx.setChecked(True)
+        self.createNewConfigurationsChkBx = QCheckBox("Automatically create new configurations for outlier images")
+        self.createNewConfigurationsChkBx.setToolTip("Automatically create new background configurations for images that are considered outliers (based on background metrics) and add them to the Background Configurations table")
+        self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
         
+        
+
+        # self.bgMetricsLabel = QLabel("Background Metrics")
+        # self.bgMetricsLabel.setStyleSheet("font-weight: bold;")
+        # self.bgMetricsInfoButton = QToolButton()
+        # self.bgMetricsInfoButton.setText("ⓘ")
+        # self.bgMetricsInfoButton.setAutoRaise(True)
+        # self.bgMetricsInfoButton.setToolTip("Explain background metrics")
+        # self.bgMetricsInfoButton.clicked.connect(self._show_bg_metrics_help_dialog)
+        # self.bgMetricsTable = QTableWidget(0, 3)
+        # self.bgMetricsTable.setHorizontalHeaderLabels(["Metric", "Raw", "Normalized"])
+        # self.bgMetricsTable.verticalHeader().setVisible(False)
+        # self.bgMetricsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # self.bgMetricsTable.setSelectionMode(QAbstractItemView.NoSelection)
+        # self.bgMetricsTable.setFocusPolicy(Qt.NoFocus)
+        # self.bgMetricsTable.setAlternatingRowColors(True)
+        # self.bgMetricsTable.setMinimumHeight(250)
+        # self.bgMetricsTable.setMaximumHeight(370)
+        # self.bgMetricsTable.horizontalHeader().setStretchLastSection(False)
+        # self.bgMetricsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        # self.bgMetricsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        # self.bgMetricsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        # self.bgMetricsTable.setColumnWidth(1, 95)
+        # self.bgMetricsTable.setColumnWidth(2, 95)
+
+        # ===== Build 4 areas inside Result Processing =====
+        self.bgSummaryLayout = QGridLayout()
+        self.bgSummaryLayout.setContentsMargins(4, 4, 4, 4)
+        self.bgSummaryLayout.setSpacing(8)
+
+        def _make_section(title):
+            section = QWidget()
+            section.setObjectName("sectionContainer")
+            section_layout = QGridLayout(section)
+            section_layout.setContentsMargins(8, 8, 8, 8)
+            section_layout.setSpacing(6)
+            section.setStyleSheet("#sectionContainer { border: 1px solid #666; border-radius: 4px; }")
+
+            title_label = QLabel(title)
+            title_label.setStyleSheet("font-weight: bold; border: none;")
+            section_layout.addWidget(title_label, 0, 0, 1, 3)
+            return section, section_layout
+
+        # 1) Background Subtraction
+        bg_sub_section, bg_sub_layout = _make_section("Background Subtraction")
+        bg_sub_layout.addWidget(self.applyResultBGButton, 1, 0, 1, 1)
+        bg_sub_layout.addWidget(self.openBGSettingsButton, 1, 1, 1, 1)
+
+        # 2) Current Settings
+        current_section, current_layout = _make_section("Current Settings")
+        current_layout.addWidget(self.currentBGModeLabel, 1, 0, 1, 1)
+        current_layout.addWidget(self.currentBGMethodLabel, 2, 0, 1, 1)
+        current_layout.addWidget(self.currentBGParamsLabel, 1, 1, 1, 1)
+        current_layout.addWidget(self.currentBGLossLabel, 2, 1, 1, 1)
+        current_layout.addWidget(self.addBackgroundConfigButton, 3, 0, 1, 1)
+
+        # 3) Background Configurations
+        config_section, config_layout = _make_section("Background Configurations")
+        self.backgroundConfigsTable = QTableWidget(0, 4)
+        self.backgroundConfigsTable.setHorizontalHeaderLabels(["Name", "Method", "Parameters", "Loss"])
+        self.backgroundConfigsTable.verticalHeader().setVisible(False)
+        self.backgroundConfigsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.backgroundConfigsTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.backgroundConfigsTable.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.backgroundConfigsTable.setAlternatingRowColors(True)
+        self.backgroundConfigsTable.setMinimumHeight(50)
+        self.backgroundConfigsTable.setMaximumHeight(150)
+        self.backgroundConfigsTable.horizontalHeader().setStretchLastSection(False)
+        self.backgroundConfigsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.backgroundConfigsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.backgroundConfigsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.backgroundConfigsTable.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.backgroundConfigsTable.setContextMenuPolicy(Qt.CustomContextMenu)
+        config_layout.addWidget(self.backgroundConfigsTable, 1, 0, 1, 3)
+
+        self.deleteBackgroundConfigButton = QPushButton("Delete Selected Configuration")
+        self.deleteBackgroundConfigButton.setEnabled(False)
+        config_layout.addWidget(self.deleteBackgroundConfigButton, 2, 0, 1, 1)
+
+
+        # 4) Folder Processing
+        folder_section, folder_layout = _make_section("Folder Processing")
+        folder_buttons_layout = QGridLayout()
+        folder_layout.addWidget(self.chooseConfigurationsAutoChkBx, 1, 0, 1, 3)
+        folder_layout.addWidget(self.createNewConfigurationsChkBx, 2, 0, 1, 3)
+        folder_layout.addWidget(self.assignConfgurationsManually, 3, 0, 1, 3)
+
+
+        folder_layout.addLayout(folder_buttons_layout, 4, 0, 1, 3) 
+        self.bgSummaryLayout.addWidget(bg_sub_section, 1, 0, 1, 3)
+        self.bgSummaryLayout.addWidget(current_section, 2, 0, 1, 3)
+        self.bgSummaryLayout.addWidget(config_section, 3, 0, 1, 3)
+        self.bgSummaryLayout.addWidget(folder_section, 4, 0, 1, 3)
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
@@ -550,6 +633,289 @@ class QuadrantFoldingGUI(BaseGUI):
         item = QTableWidgetItem(text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
         self.bgMetricsTable.setItem(row, col, item)
+
+    def _set_config_table_item(self, row, col, text):
+        item = QTableWidgetItem(text)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        self.backgroundConfigsTable.setItem(row, col, item)
+
+    def _find_config_row_by_name(self, name):
+        if not hasattr(self, 'backgroundConfigsTable'):
+            return -1
+        for row in range(self.backgroundConfigsTable.rowCount()):
+            item = self.backgroundConfigsTable.item(row, 0)
+            if item is not None and item.text() == name:
+                return row
+        return -1
+
+    def _upsert_background_configuration(self, name, mode, method, params_text, loss_text):
+        row = self._find_config_row_by_name(name)
+        if row < 0:
+            row = self.backgroundConfigsTable.rowCount()
+            self.backgroundConfigsTable.insertRow(row)
+        self._set_config_table_item(row, 0, name)
+        self._set_config_table_item(row, 1, method)
+        self._set_config_table_item(row, 2, params_text)
+        self._set_config_table_item(row, 3, loss_text)
+
+    def _clear_background_configurations_table(self):
+        if hasattr(self, 'backgroundConfigsTable'):
+            self.backgroundConfigsTable.setRowCount(0)
+        self.backgroundConfigurations = []
+        self._on_background_config_selection_changed()
+
+    def _get_optimization_cache_file_and_key(self):
+        """Build shared optimization cache path/key matching QuadrantFolder."""
+        if not self.filePath:
+            return None, None, None
+
+        cache_dir = fullPath(self.filePath, "qf_cache")
+        createFolder(cache_dir)
+        cache_file = fullPath(cache_dir, "background_cache.json")
+
+        flags = self.getFlags()
+        dataset_key = Path(self.filePath).resolve().name
+        additional_info = {
+            'methods': flags.get('methods', []),
+            'steps': flags.get('steps', []),
+            'early_stop': flags.get('early_stop', 0.0),
+            'max_iterations': flags.get('max_iterations', 2),
+            'mean_metric_values': flags.get('mean_metric_values', None),
+            'metric_weights': flags.get('metric_weights', None),
+            'detector': flags.get('detector', None),
+            'orientation_model': flags.get('orientation_model', None),
+        }
+        return cache_file, dataset_key, additional_info
+
+    def _get_background_configuration_context(self):
+        flags = self.getFlags()
+        return {
+            'downsample': int(flags.get('downsample', 1) or 1),
+            'smooth_image': bool(flags.get('smooth_image', False)),
+        }
+
+    def _save_background_configurations_to_cache(self):
+        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        if not cache_file or cache_key is None:
+            return
+
+        try:
+            set_user_background_configurations(
+                cache_file,
+                cache_key,
+                self.backgroundConfigurations,
+                additional_info=additional_info,
+            )
+        except Exception as e:
+            print(f"Failed to save background configurations to cache: {e}")
+
+    def _load_background_configurations_from_cache(self):
+        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        self._clear_background_configurations_table()
+        if not cache_file or cache_key is None:
+            return
+
+        try:
+            configs = get_user_background_configurations(cache_file, cache_key, additional_info=additional_info)
+        except Exception as e:
+            print(f"Failed to load background configurations from cache: {e}")
+            return
+
+        for config in configs:
+            name = str(config.get('name', '') or '').strip()
+            method = str(config.get('method', 'None') or 'None')
+            params = config.get('params', {}) if isinstance(config.get('params', {}), dict) else {}
+            mode = str(config.get('mode', '') or '')
+            loss_value = config.get('loss', None)
+            downsample = int(config.get('downsample', 1) or 1)
+            smooth_image = bool(config.get('smooth_image', False))
+            row_additional_info = config.get('additional_info', additional_info)
+            params_text = self._format_bg_params_text(params)
+            loss_text = "—" if loss_value is None else self._to_metric_text(loss_value)
+
+            if not name:
+                name = f"Config {self.backgroundConfigsTable.rowCount() + 1}"
+
+            self._upsert_background_configuration(
+                name=name,
+                mode=mode,
+                method=method,
+                params_text=params_text,
+                loss_text=loss_text,
+            )
+
+            self.backgroundConfigurations.append({
+                'name': name,
+                'mode': mode,
+                'method': method,
+                'params': params,
+                'loss': loss_value,
+                'downsample': downsample,
+                'smooth_image': smooth_image,
+                'additional_info': row_additional_info,
+            })
+
+        self._on_background_config_selection_changed()
+
+    def _read_background_configurations_for_batch(self):
+        """
+        Read saved user background configurations from cache for the current folder context.
+        Returns only minimally valid rows (method + params dict).
+        """
+        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        if not cache_file or cache_key is None:
+            return []
+
+        try:
+            configs = get_user_background_configurations(cache_file, cache_key, additional_info=additional_info)
+        except Exception as e:
+            print(f"Failed to read background configurations for batch processing: {e}")
+            return []
+
+        cleaned = []
+        for config in configs:
+            if not isinstance(config, dict):
+                continue
+            method = str(config.get('method', '') or '').strip()
+            params = config.get('params', {})
+            if not method or not isinstance(params, dict):
+                continue
+            cleaned.append({
+                'name': str(config.get('name', '') or '').strip(),
+                'method': method,
+                'params': dict(params),
+            })
+        return cleaned
+
+    def _on_background_config_selection_changed(self):
+        if not hasattr(self, 'deleteBackgroundConfigButton'):
+            return
+        has_selection = len(self.backgroundConfigsTable.selectionModel().selectedRows()) > 0
+        self.deleteBackgroundConfigButton.setEnabled(has_selection)
+
+    def _show_background_config_context_menu(self, pos):
+        if not hasattr(self, 'backgroundConfigsTable'):
+            return
+        row = self.backgroundConfigsTable.rowAt(pos.y())
+        if row < 0:
+            return
+        self.backgroundConfigsTable.selectRow(row)
+        menu = QMenu(self)
+        delete_action = menu.addAction("Delete Configuration")
+        chosen = menu.exec_(self.backgroundConfigsTable.viewport().mapToGlobal(pos))
+        if chosen == delete_action:
+            self.deleteSelectedBackgroundConfiguration()
+
+    def deleteSelectedBackgroundConfiguration(self):
+        """Delete selected background configuration row and its in-memory entry."""
+        if not hasattr(self, 'backgroundConfigsTable'):
+            return
+
+        selected_rows = self.backgroundConfigsTable.selectionModel().selectedRows()
+        if len(selected_rows) == 0:
+            QMessageBox.information(self, "Delete Configuration", "Please select a configuration row to delete.")
+            return
+
+        row = selected_rows[0].row()
+        name_item = self.backgroundConfigsTable.item(row, 0)
+        config_name = name_item.text() if name_item is not None else "this configuration"
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Configuration",
+            f"Delete '{config_name}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        self.backgroundConfigsTable.removeRow(row)
+        self.backgroundConfigurations = [
+            c for c in self.backgroundConfigurations if c.get('name') != config_name
+        ]
+        self._on_background_config_selection_changed()
+        self._save_background_configurations_to_cache()
+
+    def applyDefaultOptimization(self):
+        """Force automated optimization mode and process current image."""
+        QApplication.processEvents()
+        if not self.ableToProcess():
+            return
+
+        default_methods = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
+        checked = self.optimizeChkBx.isChecked()
+        if not checked:
+            self.optimizeChkBx.setChecked(True)
+            if hasattr(self, 'processingModeCB'):
+                self.processingModeCB.setCurrentText("Automated Processing")
+            if len(self.optimizationMethodsList.selectedItems()) == 0:
+                self._set_selected_optimization_methods(default_methods)
+
+        self.highlightApply()
+        self.deleteInfo(['bgimg'])
+        self.deleteInfo(['result_bg'])
+        self.deleteImgCache(['BgSubFold'])
+        self.processImage()
+        self.highlightApplyUndo()
+
+        if not checked:
+            self.optimizeChkBx.setChecked(False)
+            if hasattr(self, 'processingModeCB'):
+                self.processingModeCB.setCurrentText("Manual Processing")
+
+    def addBackgroundConfiguration(self):
+        """Add current background method/result into Background Configurations table with a user-defined name."""
+        if not self.ableToProcess():
+            return
+
+        name, ok = QInputDialog.getText(
+            self,
+            "Save Background Configuration",
+            "Enter configuration name:"
+        )
+        name = (name or "").strip()
+        if not ok or not name:
+            return
+
+        result_bg = self.quadFold.info.get('result_bg', {}) or {}
+        method = result_bg.get('method', None)
+        if method in (None, ""):
+            method = self.quadFold.info.get('bgsub', 'None')
+
+        mode = self._detect_bg_source(result_bg)
+        params = result_bg.get('final_params', None)
+        config_context = self._get_background_configuration_context()
+        params_text = self._format_bg_params_text(params)
+        loss_value = result_bg.get('loss', None)
+        loss_text = "—" if loss_value is None else self._to_metric_text(loss_value)
+
+        self._upsert_background_configuration(
+            name=name,
+            mode=mode,
+            method=str(method),
+            params_text=params_text,
+            loss_text=loss_text,
+        )
+
+        _, _, additional_info = self._get_optimization_cache_file_and_key()
+
+        config_entry = {
+            'name': name,
+            'mode': mode,
+            'method': str(method),
+            'params': params if isinstance(params, dict) else None,
+            'loss': loss_value,
+            'downsample': config_context.get('downsample', 1),
+            'smooth_image': config_context.get('smooth_image', False),
+            'additional_info': additional_info or {},
+        }
+        existing_idx = next((i for i, c in enumerate(self.backgroundConfigurations) if c.get('name') == name), -1)
+        if existing_idx >= 0:
+            self.backgroundConfigurations[existing_idx] = config_entry
+        else:
+            self.backgroundConfigurations.append(config_entry)
+        self._save_background_configurations_to_cache()
 
     def _show_bg_metrics_help_dialog(self):
         msg = QMessageBox(self)
@@ -673,8 +1039,9 @@ class QuadrantFoldingGUI(BaseGUI):
             'weightNegConSpnBx',
             'weightSmoothSpnBx',
             'currentMethodLabel',
-            'currentSourceLabel',
-            'currentParamsLabel'
+            'currentModeLabel',
+            'currentParamsLabel',
+            'currentLossLabel',
         ]:
             setattr(self, attr, getattr(self.bgSubDialog, attr))
 
@@ -729,6 +1096,7 @@ class QuadrantFoldingGUI(BaseGUI):
             result_bg = self.quadFold.info.get('result_bg', {}) or {}
             method = result_bg.get('method', None)
             params = result_bg.get('final_params', None)
+            loss = result_bg.get('loss', None)
             source = self._detect_bg_source(result_bg)
 
             if method in (None, ""):
@@ -736,17 +1104,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         method_text = "None" if method in (None, "") else str(method)
         params_text = self._format_bg_params_text(params)
+        loss_text = "—" if loss is None else self._to_metric_text(loss)
 
-        self.currentBGMethodLabel.setText(f"Current BG Method: {method_text}")
-        self.currentBGSourceLabel.setText(f"Source: {source}")
+        self.currentBGMethodLabel.setText(f"Method: {method_text}")
+        self.currentBGModeLabel.setText(f"Mode: {source}")
         self.currentBGParamsLabel.setText(f"Parameters: {params_text}")
-
-        if hasattr(self, 'bgSubDialog'):
-            self.bgSubDialog.update_current_bg_summary(
-                method=method_text,
-                params=params if isinstance(params, dict) else None,
-                source=source,
-            )
+        self.currentBGLossLabel.setText("Loss: " + loss_text)
 
     def _parse_optimization_steps(self):
         """Parse optimization step sizes from UI text."""
@@ -799,12 +1162,42 @@ class QuadrantFoldingGUI(BaseGUI):
     
     def _create_result_canvas(self):
         """Create result canvas for displaying processed image"""
-        self.resultFigure = plt.figure()
-        self.resultAxes = self.resultFigure.add_subplot(111)
-        self.resultAxes.set_aspect('equal', adjustable="box")
-        self.resultVLayout = QVBoxLayout()
-        self.resultCanvas = FigureCanvas(self.resultFigure)
-        self.resultTabLayout.addWidget(self.resultCanvas, 1)  # Add stretch factor to fill space
+        # Reuse shared ImageViewerWidget for result display
+        self.result_viewer = ImageViewerWidget(show_display_panel=True, show_double_zoom=True)
+        
+        # Keep backward-compatible references used across this class
+        self.resultFigure = self.result_viewer.figure
+        self.resultAxes = self.result_viewer.axes
+        self.resultCanvas = self.result_viewer.canvas
+
+        # Keep legacy/manual interaction behavior for Result tab
+        # (disable built-in non-modal pan/scroll handlers in ImageViewerWidget)
+        self.result_viewer._handle_pan_start = lambda event: None
+        self.result_viewer._handle_pan_drag = lambda event: None
+        self.result_viewer._handle_pan_end = lambda event: None
+        self.result_viewer._handle_wheel_zoom = lambda event: None
+
+        # Expose display panel controls for backward compatibility
+        if self.result_viewer.display_panel:
+            self.result_display_panel = self.result_viewer.display_panel
+            self.spResultminInt = self.result_display_panel.minIntSpnBx
+            self.spResultmaxInt = self.result_display_panel.maxIntSpnBx
+            self.resLogScaleIntChkBx = self.result_display_panel.logScaleChkBx
+            self.resPersistIntensity = self.result_display_panel.persistChkBx
+            self.resultZoomInB = self.result_display_panel.zoomInBtn
+            self.resultZoomOutB = self.result_display_panel.zoomOutBtn
+            self.resultminIntLabel = self.result_display_panel.minIntLabel
+            self.resultmaxIntLabel = self.result_display_panel.maxIntLabel
+
+            # QuadrantFolding-specific defaults
+            self.spResultminInt.setDecimals(0)
+            self.spResultmaxInt.setDecimals(0)
+
+            self.checkableButtons.append(self.resultZoomInB)
+
+        self._add_result_display_options()
+
+        self.resultTabLayout.addWidget(self.result_viewer, 1)  # Add stretch factor to fill space
     
     def _create_result_right_panel(self):
         """Create right panel for result tab using CollapsibleRightPanel (same as Image tab)"""
@@ -815,12 +1208,9 @@ class QuadrantFoldingGUI(BaseGUI):
             settings_key="quadrant/result_right_panel",
             start_visible=True
         )
-        
-        # Create display options
-        self._create_result_display_options()
-        
+    
         # Add widgets to panel (same structure as Image tab)
-        self.result_right_panel.add_widget(self.resultDispOptGrp)
+        self.result_right_panel.add_widget(self.result_viewer.display_panel)
         self.result_right_panel.add_widget(self.resProcGrpBx)
         
         # Navigation widget container (added to bottom, navControls moved here dynamically on tab switch)
@@ -840,55 +1230,21 @@ class QuadrantFoldingGUI(BaseGUI):
         self.rightFrame = self.result_right_panel.content_widget
         self.res_scroll_areaImg = self.result_right_panel.scroll_area
     
-    def _create_result_display_options(self):
-        """Create result display options group"""
-        self.resultDispOptGrp = CollapsibleGroupBox("Display Options", start_expanded=True)
-        self.resultDispOptLayout = QGridLayout()
-        
+    def _add_result_display_options(self):
+        """Add result display options (QF-specific)."""
         self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
-        
-        self.spResultmaxInt = QDoubleSpinBox()
-        self.spResultmaxInt.setRange(-1e10, 1e10)
-        self.spResultmaxInt.setToolTip(
-            "Reduction in the maximal intensity shown to allow for more details in the image.")
-        self.spResultmaxInt.setKeyboardTracking(False)
-        self.spResultmaxInt.setSingleStep(5)
-        self.spResultmaxInt.setDecimals(0)
-        
-        self.spResultminInt = QDoubleSpinBox()
-        self.spResultminInt.setRange(-1e10, 1e10)
-        self.spResultminInt.setToolTip(
-            "Increase in the minimal intensity shown to allow for more details in the image.")
-        self.spResultminInt.setKeyboardTracking(False)
-        self.spResultminInt.setSingleStep(5)
-        self.spResultminInt.setDecimals(0)
-        
-        self.resultZoomInB = QPushButton("Zoom In")
-        self.resultZoomInB.setCheckable(True)
-        self.resultZoomOutB = QPushButton("Full")
-        self.checkableButtons.append(self.resultZoomInB)
-        
-        self.resultminIntLabel = QLabel("Min intensity : ")
-        self.resultmaxIntLabel = QLabel("Max intensity : ")
-        self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.resPersistIntensity = QCheckBox("Persist intensities")
-        self.showBackgroundBtn = QPushButton("Show Background")
-        self.showBackgroundBtn.setCheckable(True)
-        self.showBackgroundBtn.setToolTip("Toggle between result image and estimated background")
-        
-        # Layout display options
-        self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.spResultminInt, 2, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 1, 2, 1, 2)
-        self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 2, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 3, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resPersistIntensity, 3, 2, 1, 2)
-        self.resultDispOptLayout.addWidget(self.showBackgroundBtn, 4, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resultZoomInB, 5, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resultZoomOutB, 5, 2, 1, 2)
-        
-        self.resultDispOptGrp.setLayout(self.resultDispOptLayout)
+
+        self.showBackgroundChkBx = QCheckBox("Show Background")
+        self.showBackgroundChkBx.setToolTip("Toggle between result image and estimated background")
+
+        # DisplayOptionsPanel is a QWidget, not a QLayout.
+        # Add QF-specific controls using its slot API.
+        extra_controls = QWidget()
+        extra_layout = QGridLayout(extra_controls)
+        extra_layout.setContentsMargins(0, 0, 0, 0)
+        extra_layout.addWidget(self.rotate90Chkbx, 0, 0, 1, 1)
+        extra_layout.addWidget(self.showBackgroundChkBx, 0, 2, 1, 1)
+        self.result_display_panel.add_to_bottom_slot(extra_controls)
 
     
     def _initialize_patches(self):
@@ -920,7 +1276,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
-        self.showBackgroundBtn.toggled.connect(self._on_show_background_toggled)
+        self.showBackgroundChkBx.stateChanged.connect(self._on_show_background_toggled)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
@@ -975,6 +1331,11 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # Background Subtraction
         self.openBGSettingsButton.clicked.connect(self.openBackgroundSubtractionDialog)
+        self.applyResultBGButton.clicked.connect(self.applyDefaultOptimization)
+        self.addBackgroundConfigButton.clicked.connect(self.addBackgroundConfiguration)
+        self.deleteBackgroundConfigButton.clicked.connect(self.deleteSelectedBackgroundConfiguration)
+        self.backgroundConfigsTable.itemSelectionChanged.connect(self._on_background_config_selection_changed)
+        self.backgroundConfigsTable.customContextMenuRequested.connect(self._show_background_config_context_menu)
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
         self.unsetRoi.clicked.connect(self.unsetRoiClicked)
         self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
@@ -982,12 +1343,10 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
         self.bgChoiceIn.currentIndexChanged.connect(self.highlightApply)
         self.optimizeChkBx.stateChanged.connect(self.highlightApply)
-        self.optimizeChkBx.stateChanged.connect(self._update_optimization_summary)
         self.stepsLineEdit.textChanged.connect(self.highlightApply)
         self.maxIterationsSpnBx.valueChanged.connect(self.highlightApply)
         self.earlyStopSpnBx.valueChanged.connect(self.highlightApply)
         self.optimizationMethodsList.itemSelectionChanged.connect(self.highlightApply)
-        self.optimizationMethodsList.itemSelectionChanged.connect(self._update_optimization_summary)
 
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
@@ -996,13 +1355,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.rminSpnBx.valueChanged.connect(self.RminChanged)
         self.rmaxSpnBx.valueChanged.connect(self.RmaxChanged)
 
-        # self.tranRSpnBx.valueChanged.connect(self.TranRChanged)
-        # self.tranDeltaSpnBx.valueChanged.connect(self.TranDeltaChanged)
-
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         # self.blankImageGrp.clicked.connect(self.blankChecked)
-
 
         # Change Apply Button Color when BG sub arguments are changed
         self.tophat1SpnBx.valueChanged.connect(self.highlightApply)
@@ -1020,21 +1375,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tensionSpnBx.valueChanged.connect(self.highlightApply)
         self.downsampleCB.currentIndexChanged.connect(self.highlightApply)
 
-        self._update_optimization_summary()
-
-        self._update_show_background_button_text()
-
     def _on_show_background_toggled(self, checked):
-        self._update_show_background_button_text()
         self.refreshResultTab()
-
-    def _update_show_background_button_text(self):
-        if not hasattr(self, 'showBackgroundBtn'):
-            return
-        if self.showBackgroundBtn.isChecked():
-            self.showBackgroundBtn.setText("Show Pattern")
-        else:
-            self.showBackgroundBtn.setText("Show Background")
 
 
     # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
@@ -1820,25 +2162,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tensionLabel.setHidden(not choice in ('Roving Window'))
         self.tensionSpnBx.setHidden(not choice in ('Roving Window'))
 
-        self._update_optimization_summary()
-
-        # self.applyBGButton.setHidden(choice == 'None')
-        # self.highlightApply()
-
-    def _update_optimization_summary(self):
-        """Update summary text for optimization state in Result Processing section."""
-        if not hasattr(self, 'currentOptimizationLabel'):
-            return
-
-        if not self.optimizeChkBx.isChecked():
-            self.currentOptimizationLabel.setText("Optimization: Off")
-            return
-
-        selected_methods = self._get_selected_optimization_methods()
-        self.currentOptimizationLabel.setText(
-            f"Optimization: On ({len(selected_methods)} method(s), {self.maxIterationsSpnBx.value()} iter)"
-        )
-
 
     def updateImportedBG(self):
         """
@@ -1961,61 +2284,52 @@ class QuadrantFoldingGUI(BaseGUI):
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
+                self.tophat1SpnBx.setValue(int(info.get('tophat', self.tophat1SpnBx.value())))
+                self.maxPixRange.setValue(float(info.get("cirmax", self.maxPixRange.value())))
+                self.minPixRange.setValue(float(info.get("cirmin", self.minPixRange.value())))
 
-                try:
+                self.radialBinSpnBx.setValue(int(info.get('radial_bin', self.radialBinSpnBx.value())))
+                self.smoothSpnBx.setValue(float(info.get('smooth', self.smoothSpnBx.value())))
+                self.tensionSpnBx.setValue(float(info.get('tension', self.tensionSpnBx.value())))
 
-                    self.tophat1SpnBx.setValue(info['tophat1'])
-                    self.maxPixRange.setValue(info["cirmax"])
-                    self.minPixRange.setValue(info["cirmin"])
+                if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
+                    self.rminSpnBx.setValue(int(info.get('rmin', self.rminSpnBx.value())))
+                else:
+                    self.rminSpnBx.setValue(previnfo['rmin'])
 
-                    self.radialBinSpnBx.setValue(info['radial_bin'])
-                    self.smoothSpnBx.setValue(info['smooth'])
-                    self.tensionSpnBx.setValue(info['tension'])
+                if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
+                    self.rmaxSpnBx.setValue(int(info.get('rmax', self.rmaxSpnBx.value())))
+                else:
+                    self.rmaxSpnBx.setValue(previnfo['rmax'])
 
-                    if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
-                        self.rminSpnBx.setValue(info['rmin'])
-                    else:
-                        self.rminSpnBx.setValue(previnfo['rmin'])
+                self.winSizeX.setValue(int(info.get('win_size_x', self.winSizeX.value())))
+                self.winSizeY.setValue(int(info.get('win_size_y', self.winSizeY.value())))
+                self.winSepX.setValue(int(info.get('win_sep_x', self.winSepX.value())))
+                self.winSepY.setValue(int(info.get('win_sep_y', self.winSepY.value())))
+                self.gaussFWHM.setValue(int(info.get('fwhm', self.gaussFWHM.value())))
+                self.boxcarX.setValue(int(info.get('boxcar_x', self.boxcarX.value())))
+                self.boxcarY.setValue(int(info.get('boxcar_y', self.boxcarY.value())))
+                self.cycle.setValue(int(info.get('cycles', self.cycle.value())))
+                self.deg1CB.setCurrentIndex(1)
 
-                    if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
-                        self.rmaxSpnBx.setValue(info['rmax'])
-                    else:
-                        self.rmaxSpnBx.setValue(previnfo['rmax'])
-
-                    self.winSizeX.setValue(info['win_size_x'])
-                    self.winSizeY.setValue(info['win_size_y'])
-                    self.winSepX.setValue(info['win_sep_x'])
-                    self.winSepY.setValue(info['win_sep_y'])
-                    self.gaussFWHM.setValue(info['fwhm'])
-                    self.boxcarX.setValue(info['boxcar_x'])
-                    self.boxcarY.setValue(info['boxcar_y'])
-                    self.cycle.setValue(info['cycles'])
-                    self.deg1CB.setCurrentIndex(1)
-
-                    if 'optimize' in info:
-                        self.optimizeChkBx.setChecked(bool(info['optimize']))
-                    if 'equator_y_height' in info:
-                        self.equatorYLengthSpnBx.setValue(int(info['equator_y_height']))
-                    if 'equator_center_beam_width' in info:
-                        self.equatorCenterBeamSpnBx.setValue(int(info['equator_center_beam_width']))
-                    if 'm1' in info:
-                        self.m1SpnBx.setValue(int(info['m1']))
-                    if 'layer_line_width' in info:
-                        self.layerLineWidthSpnBx.setValue(int(info['layer_line_width']))
-                    if 'steps' in info and isinstance(info['steps'], (list, tuple)):
-                        self.stepsLineEdit.setText(", ".join([str(v) for v in info['steps']]))
-                    if 'max_iterations' in info:
-                        self.maxIterationsSpnBx.setValue(int(info['max_iterations']))
-                    if 'early_stop' in info:
-                        self.earlyStopSpnBx.setValue(float(info['early_stop']))
-                    if 'methods' in info and isinstance(info['methods'], (list, tuple)):
-                        self._set_selected_optimization_methods(info['methods'])
-
-                except:
-
-                    pass
-
-        self._update_optimization_summary()
+            if 'optimize' in info:
+                self.optimizeChkBx.setChecked(bool(info['optimize']))
+            if 'equator_y_height' in info:
+                self.equatorYLengthSpnBx.setValue(int(info['equator_y_height']))
+            if 'equator_center_beam_width' in info:
+                self.equatorCenterBeamSpnBx.setValue(int(info['equator_center_beam_width']))
+            if 'm1' in info:
+                self.m1SpnBx.setValue(int(info['m1']))
+            if 'layer_line_width' in info:
+                self.layerLineWidthSpnBx.setValue(int(info['layer_line_width']))
+            if 'steps' in info and isinstance(info['steps'], (list, tuple)):
+                self.stepsLineEdit.setText(", ".join([str(v) for v in info['steps']]))
+            if 'max_iterations' in info:
+                self.maxIterationsSpnBx.setValue(int(info['max_iterations']))
+            if 'early_stop' in info:
+                self.earlyStopSpnBx.setValue(float(info['early_stop']))
+            if 'methods' in info and isinstance(info['methods'], (list, tuple)):
+                self._set_selected_optimization_methods(info['methods'])
 
 
         # Range is already set to allow any value at spinbox creation
@@ -2246,7 +2560,7 @@ class QuadrantFoldingGUI(BaseGUI):
         if not self.updated['result']:
             self.uiUpdating = True
             img = self.quadFold.imgCache['resultImg']
-            if self.showBackgroundBtn.isChecked():
+            if self.showBackgroundChkBx.isChecked():
                 try:
                     avg_fold = self.quadFold.info['avg_fold']
                     bg_sub_fold = self.quadFold.imgCache.get('BgSubFold', None)
@@ -2275,17 +2589,21 @@ class QuadrantFoldingGUI(BaseGUI):
 
             # convert image for displaying
             # img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
+            # Get current colormap from image viewer display panel (fallback to gray)
+            current_cmap = 'gray'
+            if self.image_viewer.display_panel:
+                current_cmap = self.image_viewer.display_panel.get_color_map()
+
+            # Use ImageViewerWidget to render the result image
+            self.result_viewer.set_display_options(
+                vmin=self.spResultminInt.value(),
+                vmax=self.spResultmaxInt.value(),
+                log_scale=self.resLogScaleIntChkBx.isChecked(),
+                colormap=current_cmap
+            )
+            self.result_viewer.display_image(img)
+
             ax = self.resultAxes
-            ax.cla()
-            
-            # Get current colormap from display panel
-            current_cmap = self.image_viewer.display_panel.get_color_map()
-            
-            if self.resLogScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap=current_cmap, norm=LogNorm(vmin=max(1, self.spResultminInt.value()), vmax=self.spResultmaxInt.value()))
-            else:
-                ax.imshow(img, cmap=current_cmap, norm=Normalize(vmin=self.spResultminInt.value(), vmax=self.spResultmaxInt.value()))
-            ax.set_facecolor('black')
 
             if self.showResultMaskChkBx.isChecked():
                 self.quadFold.createMask()
@@ -2348,8 +2666,7 @@ class QuadrantFoldingGUI(BaseGUI):
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags()
-            if flags.get('optimize', False) and hasattr(self, 'currentOptimizationLabel'):
-                self.currentOptimizationLabel.setText("Optimization: Running...")
+            if flags.get('optimize', False) and hasattr(self, 'currentBGModeLabel'):
                 QApplication.processEvents()
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
@@ -2735,6 +3052,20 @@ class QuadrantFoldingGUI(BaseGUI):
             'Share_Neg_Connected': float(self.weightNegConSpnBx.value()),
             'Smoothness': float(self.weightSmoothSpnBx.value()),
         }
+
+        # Explicit runtime mode flag (True only while folder/H5 batch processing is active)
+        flags['is_batch_processing'] = bool(self.batchProcessing)
+
+        # Auto-select from saved user background configurations (used mainly in batch processing)
+        flags['choose_configurations_auto'] = self.chooseConfigurationsAutoChkBx.isChecked()
+        if flags['choose_configurations_auto']:
+            batch_configs = self._batch_background_configurations if isinstance(self._batch_background_configurations, list) else []
+            if len(batch_configs) == 0 and isinstance(self.backgroundConfigurations, list):
+                # Fallback for non-batch/manual runs
+                batch_configs = self.backgroundConfigurations
+            flags['background_configurations'] = copy.deepcopy(batch_configs)
+        else:
+            flags['background_configurations'] = []
         
 
 
@@ -2856,6 +3187,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # Do not keep a reference to a current task that may be finishing
         # It will still signal finished; we just won't schedule more
         self.currentTask = None
+        self._batch_background_configurations = []
         
     def h5batchProcBtnToggled(self):
         """
@@ -2885,6 +3217,23 @@ class QuadrantFoldingGUI(BaseGUI):
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
 
         flags = self.getFlags()
+
+        # If auto-choosing saved configurations is enabled, require cache-backed configs.
+        if self.chooseConfigurationsAutoChkBx.isChecked():
+            self._batch_background_configurations = self._read_background_configurations_for_batch()
+            if len(self._batch_background_configurations) == 0:
+                QMessageBox.warning(
+                    self,
+                    "No Saved Background Configurations",
+                    "Automatic configuration selection is enabled, but no saved background configurations were found in the cache for this folder/context. Batch processing was stopped."
+                )
+                self.navControls.processFolderButton.setChecked(False)
+                self.navControls.processH5Button.setChecked(False)
+                self.highlightApplyUndo()
+                return
+            flags['background_configurations'] = copy.deepcopy(self._batch_background_configurations)
+        else:
+            self._batch_background_configurations = []
         text += "\nCurrent Settings"
 
         if len(self.ignoreFolds) > 0:
@@ -2914,43 +3263,9 @@ class QuadrantFoldingGUI(BaseGUI):
                 text += "\n  - Empty Cell Image : Enabled"
 
     
-
-        if flags.get('optimize', False):
-            text += "\n  - Automated Processing : Enabled"
-            text += "\n  - Optimization Methods : " + ", ".join(flags.get('methods', []))
-            text += "\n  - Step Sizes : " + ", ".join([str(s) for s in flags.get('steps', [])])
-            text += "\n  - Max Iterations : " + str(flags.get('max_iterations', 10))
-            text += "\n  - Early Stop : " + str(flags.get('early_stop', 0.001))
-            text += "\n - Downsample : " + str(flags.get('downsample', 1))
-            text += "\n - Smooth Image : " + str(flags.get('smooth_image', False))
-        else:
-            text += "\n  - Automated Processing : Disabled"
-
-        if not flags.get('optimize', False):
-            text += "\n  - Background Subtraction Method : "+ str(self.bgChoiceIn.currentText())
-
-            if  flags['bgsub'] != 'None':
-
-                if 'fixed_rmin' in flags:
-                    text += "\n  - R-min : " + str(flags["fixed_rmin"])
-
-                if flags['bgsub'] in ['Circularly-symmetric', 'Roving Window']:
-                    text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin"]) + "% - "+str(flags["cirmax"])+"%"
-
-                if flags['bgsub'] == 'Circularly-symmetric':
-                    text += "\n  - Radial Bin : " + str(flags["radial_bin"])
-                    text += "\n  - Smooth : " + str(flags["smooth"])
-                elif flags['bgsub'] == '2D Convexhull':
-                    text += "\n  - Step (degree) : " + str(flags["degree"])
-                elif flags['bgsub'] == 'White-top-hats':
-                    text += "\n  - Tophat (inside R-max) : " + str(flags["tophat"])
-                elif flags['bgsub'] == 'Smoothed-Gaussian':
-                    text += "\n  - FWHM : " + str(flags["fwhm"])
-                    text += "\n  - Number of cycle : " + str(flags["cycles"])
-                elif flags['bgsub'] == 'Smoothed-BoxCar':
-                    text += "\n  - Box car width : " + str(flags["boxcar_x"])
-                    text += "\n  - Box car height : " + str(flags["boxcar_y"])
-                    text += "\n  - Number of cycle : " + str(flags["cycles"])
+        if self.chooseConfigurationsAutoChkBx.isChecked():
+            text += "\n  - Auto Configuration Selection : Enabled"
+            text += f"\n  - Saved Configurations Loaded : {len(self._batch_background_configurations)}"
 
         text += '\n\nAre you sure you want to process ' + str(len(img_ids)) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
@@ -3040,6 +3355,7 @@ class QuadrantFoldingGUI(BaseGUI):
                     
                     # Update left widget width
                     self.updateLeftWidgetWidth()
+                    self._load_background_configurations_from_cache()
                     
                 except Exception as e:
                     print("Exception occurred while creating CSVManager:", e)

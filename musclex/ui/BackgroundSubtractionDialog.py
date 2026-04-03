@@ -25,8 +25,9 @@ class BackgroundSubtractionDialog(QDialog):
         self.autoGroup = QGroupBox("Automated Processing")
 
         self.currentMethodLabel = QLabel("Method: None")
-        self.currentSourceLabel = QLabel("Source: None")
+        self.currentModeLabel = QLabel("Mode: None")
         self.currentParamsLabel = QLabel("Parameters: None")
+        self.currentLossLabel = QLabel("Loss: None")
         self.currentParamsLabel.setWordWrap(True)
 
         self.processingModeLabel = QLabel("Processing Mode:")
@@ -437,8 +438,9 @@ class BackgroundSubtractionDialog(QDialog):
         currentLayout = QVBoxLayout(self.currentGroup)
         currentLayout.setContentsMargins(8, 8, 8, 8)
         currentLayout.addWidget(self.currentMethodLabel)
-        currentLayout.addWidget(self.currentSourceLabel)
+        currentLayout.addWidget(self.currentModeLabel)
         currentLayout.addWidget(self.currentParamsLabel)
+        currentLayout.addWidget(self.currentLossLabel)
 
         commonLayout = QGridLayout(self.commonGroup)
         commonLayout.setContentsMargins(8, 8, 8, 8)
@@ -566,24 +568,3 @@ class BackgroundSubtractionDialog(QDialog):
         scroll_area.setWidget(container)
         main_layout.addWidget(scroll_area)
         main_layout.addWidget(self.applyBGButton)
-
-    def update_current_bg_summary(self, method=None, params=None, source=None):
-        method_text = "None" if method in (None, "") else str(method)
-        source_text = "None" if source in (None, "") else str(source)
-
-        if isinstance(params, dict) and len(params) > 0:
-            parts = []
-            for key in sorted(params.keys()):
-                value = params[key]
-                try:
-                    value_text = f"{float(value):.6g}"
-                except Exception:
-                    value_text = str(value)
-                parts.append(f"{key}={value_text}")
-            params_text = ", ".join(parts)
-        else:
-            params_text = "None"
-
-        self.currentMethodLabel.setText(f"Method: {method_text}")
-        self.currentSourceLabel.setText(f"Source: {source_text}")
-        self.currentParamsLabel.setText(f"Parameters: {params_text}")

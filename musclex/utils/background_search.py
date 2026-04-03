@@ -504,6 +504,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mea
             "loss": normalized_metrics["Loss"],
             "metrics_normalized": normalized_metrics,
             "metrics_raw": raw_metrics,
+            "metric_weights": metric_weights,
         }
 
     return normalized_metrics["Loss"]
@@ -803,12 +804,12 @@ def optimize(method, **kwargs):
         # log(f"Best value for param {param_idx+1}: {best_value}, Loss: {best_loss:.6f}")
 
     # --- Final refinement: grid search with last three step sizes ---
-    log("\n>_ Refining best parameters with small grid search.")
     final_steps = steps[-2:]  # last two step sizes
     best_params = cur_params.copy()
     best_loss, result = process_file_with_timeout(best_params, method=method, **kwargs)
     improved = False
 
+    log("\n>_ Refining best parameters with small grid search.")
     if refine_params != 0:
         for step in final_steps:
             from itertools import product

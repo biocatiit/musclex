@@ -48,7 +48,12 @@ class QF_CSVManager:
         if not exists(result_path):
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
-        self.colnames = ['Filename', 'centerX', 'centerY', 'rotationAngle', 'backgroundMethod', 'parameters', 'optimized', 'reuseCache', 'downsampled', 'loss', 'bgSum', 'hash', 'comment']
+        self.colnames = [
+            'Filename', 'centerX', 'centerY', 'rotationAngle',
+            'backgroundMethod', 'backgroundConfigName',
+            'parameters', 'optimized', 'reuseCache', 'downsampled',
+            'loss', 'bgSum', 'hash', 'comment'
+        ]
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
@@ -74,6 +79,9 @@ class QF_CSVManager:
             self.dataframe = pd.DataFrame(columns = self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
+            for col in self.colnames:
+                if col not in self.dataframe.columns:
+                    self.dataframe[col] = '-'
 
 
     def writeNewData(self, quadFold):
@@ -118,6 +126,7 @@ class QF_CSVManager:
                 data['hash'] = '-'
 
             data['backgroundMethod'] = quadFold.info['result_bg'].get('method', '-')
+            data['backgroundConfigName'] = quadFold.info['result_bg'].get('selected_configuration_name', '-')
             data['parameters'] = quadFold.info['result_bg'].get('final_params', '-')
             data['optimized'] = quadFold.info['result_bg'].get('optimized', '-')
             data['reuseCache'] = quadFold.info['result_bg'].get('reused_cache', '-')

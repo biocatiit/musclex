@@ -46,7 +46,6 @@ try:
     from ..utils.image_processor import *
     from ..utils.background_search import *
     from ..utils.image_data import ImageData
-    from ..utils.optimization_cache import get_cached_best_result, publish_optimization_result, update_optimization_cache, should_rerun_optimization
 except: # for coverage
     from modules import QF_utilities as qfu
     from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
@@ -54,7 +53,6 @@ except: # for coverage
     from utils.image_processor import *
     from utils.background_search import *
     from utils.image_data import ImageData
-    from utils.optimization_cache import get_cached_best_result, publish_optimization_result, update_optimization_cache, should_rerun_optimization
 
 # Make sure the cython part is compiled
 # from subprocess import call
@@ -134,18 +132,26 @@ class QuadrantFolder:
         self._optimization_cache_min_images = int(optimization_cache_min_images)
 
     def _get_optimization_cache_key(self):
-        key_data = {
+        dataset_name = os.path.basename(os.path.normpath(self.img_path))
+        return str(dataset_name) if dataset_name else "__default_dataset__"
+
+    def _get_optimization_cache_additional_info(self):
+        return {
             'methods': self.info.get('methods', []),
             'steps': self.info.get('steps', []),
             'early_stop': self.info.get('early_stop', 0.0),
             'max_iterations': self.info.get('max_iterations', 10),
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
-            'downsample': self.info.get('downsample', 1),
             'detector': self.info.get('detector', None),
             'orientation_model': self.info.get('orientation_model', None),
         }
-        return json.dumps(key_data, sort_keys=True)
+
+    def _get_optimization_configuration_context(self):
+        return {
+            'downsample': int(self.info.get('downsample', 1) or 1),
+            'smooth_image': bool(self.info.get('smooth_image', False)),
+        }
 
     def cacheInfo(self):
         """
@@ -322,6 +328,8 @@ class QuadrantFolder:
             self.info['result_bg'].setdefault('loss', None)
             self.info['result_bg'].setdefault('metrics_normalized', None)
             self.info['result_bg'].setdefault('metrics_raw', None)
+            self.info['result_bg'].setdefault('metric_weights', None)
+            self.info['result_bg'].setdefault('selected_configuration_name', None)
 
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
@@ -1198,129 +1206,82 @@ class QuadrantFolder:
 
 
 
-        if 'optimize' in self.info and self.info['optimize']:
-            self.parent.statusPrint(f"Background subtraction methods to optimize: {self.info['methods']}")
-            self.parent.statusPrint(f"Looking through historical data for optimization...")
-            cached_best = get_cached_best_result(
-                cache_file,
-                cache_key,
-                min_samples=self._optimization_cache_min_images,
-            )
-            if cached_best is not None:
-                sample_size = cached_best.get('n', 0)
-                candidates = []
-                if cached_best.get('best_method') is not None and cached_best.get('best_params') is not None:
-                    candidates.append({
-                        'label': 'best',
-                        'method': cached_best.get('best_method'),
-                        'params': cached_best.get('best_params', {}),
-                        'cached_loss': cached_best.get('best_loss', np.inf),
-                    })
-                if cached_best.get('second_best_method') is not None and cached_best.get('second_best_params') is not None:
-                    candidates.append({
-                        'label': 'second-best',
-                        'method': cached_best.get('second_best_method'),
-                        'params': cached_best.get('second_best_params', {}),
-                        'cached_loss': cached_best.get('second_best_loss', np.inf),
-                    })
+        best_method = None
+        auto_configs = self.info.get('background_configurations', [])
+        use_auto_configs = (
+            bool(self.info.get('is_batch_processing', False))
+            and bool(self.info.get('choose_configurations_auto', False))
+            and isinstance(auto_configs, list)
+            and len(auto_configs) > 0
+        )
 
-                if len(candidates) > 0:
-                    cand_text = ", ".join([
-                        f"{c['label']}={c['method']} (loss={c['cached_loss']})" for c in candidates
-                    ])
-                    print(f"Found shared optimization cache from {sample_size} images: {cand_text}")
+        if use_auto_configs:
+            self.parent.statusPrint("Evaluating saved background configurations...")
+            best_loss = np.inf
+            best_params = None
+            best_method = None
+            best_name = None
 
-                candidate_results = []
-                for candidate in candidates:
-                    method_name = candidate['method']
-                    params = candidate['params']
+            for cfg in auto_configs:
+                if not isinstance(cfg, dict):
+                    continue
+                method = str(cfg.get('method', '') or '').strip()
+                if method not in method_params:
+                    continue
+
+                cfg_name = str(cfg.get('name', '') or '').strip()
+                cfg_params = cfg.get('params', {}) if isinstance(cfg.get('params', {}), dict) else {}
+
+                # Fill missing parameters from defaults and coerce types.
+                eval_params = {}
+                for key, default_value in method_params[method].items():
+                    value = cfg_params.get(key, default_value)
                     try:
-                        cached_values = _values_from_params(method_name, params)
-                        current_loss, _ = process_file(cached_values, method=method_name, **kwargs)
-                        if not np.isfinite(current_loss):
-                            print(f"{candidate['label'].capitalize()} cached candidate produced non-finite loss ({current_loss}); skipping.")
-                            continue
-                        print(f"{candidate['label'].capitalize()} cached candidate evaluated: {method_name}, loss={current_loss:.4f}.")
-                        candidate_results.append((current_loss, method_name, params, candidate['label']))
+                        if isinstance(default_value, int):
+                            value = int(round(float(value)))
+                        elif isinstance(default_value, float):
+                            value = float(value)
                     except Exception:
-                        print(f"Failed to evaluate {candidate['label']} cached candidate ({method_name}).")
+                        value = default_value
+                    eval_params[key] = value
 
+                values = [eval_params[key] for key in method_params[method].keys()]
+                try:
+                    loss, _ = process_file(values=values, method=method, **kwargs)
+                except Exception as e:
+                    print(f"Skipping invalid background configuration '{cfg_name or method}': {e}")
+                    continue
 
-                accepted_candidate = None
-                if len(candidate_results) > 0:
-                    candidate_results.sort(key=lambda x: x[0])
-                    best_candidate_loss, best_method, best_params, best_label = candidate_results[0]
-                    print(f"Selected lowest-loss cached candidate: {best_label}={best_method}, loss={best_candidate_loss:.4f}.")
+                print(f"Configuration '{cfg_name or method}' -> method: {method}, loss: {loss}")
+                if loss < best_loss:
+                    best_loss = loss
+                    best_params = eval_params
+                    best_method = method
+                    best_name = cfg_name
 
-                    should_rerun, stats = should_rerun_optimization(
-                        cache_file,
-                        cache_key,
-                        best_candidate_loss,
-                        min_samples=self._optimization_cache_min_images,
-                        stddev_multiplier=2.0,
-                    )
+            if best_method is not None and best_params is not None:
+                print(f"Best saved configuration: {best_name or '-'} ({best_method}) with loss {best_loss}")
+                for key, value in best_params.items():
+                    self.info[f"{key}"] = value
+                self.info['result_bg']['final_params'] = best_params
+                self.info['result_bg']['optimized'] = False
+                self.info['result_bg']['reused_cache'] = False
+                self.info['result_bg']['method'] = best_method
+                self.info['result_bg']['loss'] = best_loss
+                self.info['result_bg']['selected_configuration_name'] = best_name if best_name else '-'
+                self.info['bgsub'] = best_method
+            else:
+                # Fallback to existing behavior if provided configs are invalid.
+                print("No valid saved background configuration found. Falling back to existing processing mode.")
+                self.info['result_bg']['selected_configuration_name'] = '-'
 
-                    if should_rerun:
-                        if stats is not None:
-                            print(
-                                f"Selected cached candidate rejected ({best_candidate_loss:.4f} > avg+2*std {stats['threshold_loss']:.4f}); rerunning optimization."
-                            )
-                        else:
-                            print(f"Selected cached candidate rejected ({best_candidate_loss:.4f}); rerunning optimization.")
-                    else:
-                        if stats is not None:
-                            print(
-                                f"Selected cached candidate accepted: {best_method}, loss={best_candidate_loss:.4f}, threshold={stats['threshold_loss']:.4f}."
-                            )
-                        else:
-                            print(
-                                f"Selected cached candidate accepted: {best_method}, loss={best_candidate_loss:.4f}."
-                            )
-                        accepted_candidate = (best_method, best_params, best_candidate_loss)
-                        if self._optimization_results_queue is not None:
-                            publish_optimization_result(
-                                self._optimization_results_queue,
-                                {
-                                    'cache_path': cache_file,
-                                    'cache_key': cache_key,
-                                    'method': best_method,
-                                    'params': best_params,
-                                    'loss': best_candidate_loss,
-                                },
-                            )
-                        else:
-                            update_optimization_cache(
-                                cache_file,
-                                cache_key,
-                                best_method,
-                                best_params,
-                                best_candidate_loss,
-                            )
-
-                if accepted_candidate is not None:
-                    self.parent.statusPrint(f"Using cached candidate for background subtraction: {best_method}...")
-                    best_method, best_params, _ = accepted_candidate
-                    for key, value in best_params.items():
-                        self.info[f"{key}"] = value
-
-                    self.info['result_bg']['final_params'] = best_params
-                    self.info['result_bg']['optimized'] = False
-                    self.info['result_bg']['reused_cache'] = True
-                    self.info['result_bg']['method'] = best_method
-                    self.info['bgsub'] = best_method
-                        
-                    self.applyBackgroundSubtraction()
-                    self.applyBackgroundSubtractionSynthetic()
-                    return
-
-                self.parent.statusPrint(f"Cached candidates not suitable.")
-
+        if best_method is None and 'optimize' in self.info and self.info['optimize']:
+            self.parent.statusPrint(f"Background subtraction methods to optimize: {self.info['methods']}")
             self.parent.statusPrint(f"Running optimization...")
 
             n_proc = mp.cpu_count()
             n_proc = len(self.info['methods']) if len(self.info['methods']) < n_proc else n_proc
                 
-
             from functools import partial
             outputs = []
             func = partial(optimize_mp_wrapper, **kwargs)
@@ -1348,6 +1309,8 @@ class QuadrantFolder:
     
 
             best_loss = np.inf
+            best_params = None
+            best_method = None
             for i, result in enumerate(outputs):
                 loss = result['best_loss']
                 params = result['best_params']
@@ -1363,33 +1326,14 @@ class QuadrantFolder:
                     best_method = method
             
             print(f"Best params: {best_params}.  {best_loss} for method {best_method}")
-
             
             self.info['result_bg']['final_params'] = best_params
             self.info['result_bg']['optimized'] = True
             self.info['result_bg']['reused_cache'] = False
             self.info['result_bg']['method'] = best_method
+            self.info['result_bg']['loss'] = best_loss
+            self.info['result_bg']['selected_configuration_name'] = '-'
             self.info['bgsub'] = best_method
-
-            if self._optimization_results_queue is not None:
-                publish_optimization_result(
-                    self._optimization_results_queue,
-                    {
-                        'cache_path': cache_file,
-                        'cache_key': cache_key,
-                        'method': best_method,
-                        'params': best_params,
-                        'loss': best_loss,
-                    },
-                )
-            else:
-                update_optimization_cache(
-                    cache_file,
-                    cache_key,
-                    best_method,
-                    best_params,
-                    best_loss,
-                )
 
 
         else:
@@ -1400,10 +1344,13 @@ class QuadrantFolder:
                 for key, value in params.items():
                     self.info[f"{key}"] = value
                 self.info['bgsub'] = method
+                if 'selected_configuration_name' not in self.info['result_bg']:
+                    self.info['result_bg']['selected_configuration_name'] = '-'
             else:
                 self.info['result_bg']['optimized'] = False
                 self.info['result_bg']['reused_cache'] = False
                 self.info['result_bg']['method'] = self.info['bgsub']
+                self.info['result_bg']['selected_configuration_name'] = '-'
 
                 params_keys = list(method_params[self.info['bgsub']].keys())
                 params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
@@ -1571,6 +1518,7 @@ class QuadrantFolder:
         self.info['result_bg']['loss'] = eval_result.get('loss', None)
         self.info['result_bg']['metrics_normalized'] = eval_result.get('metrics_normalized', {})
         self.info['result_bg']['metrics_raw'] = eval_result.get('metrics_raw', {})
+        self.info['result_bg']['metric_weights'] = eval_result.get('metric_weights', None)
         self.info['result_bg']['intensity'] = np.sum(bg)
 
 
