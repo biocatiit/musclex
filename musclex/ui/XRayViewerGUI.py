@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 from matplotlib.text import Text
 from PIL import Image
 from musclex import __version__
-from ..utils.misc_utils import inverseNmFromCenter
+from ..utils.misc_utils import qFromCenter
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.XRayViewer import XRayViewer
@@ -376,18 +376,19 @@ class XRayViewerGUI(QMainWindow):
         if not self.ableToProcess() or not self.xrayViewer:
             return
         
-        # Display coordinates with calibrated q-value
-        if 'center' not in self.xrayViewer.info:
-            q, units = [-1, ""]
-        elif self.calSettings and 'scale' in self.calSettings:
-            q, units = inverseNmFromCenter([x, y], 
-                                          self.xrayViewer.info['center'], 
-                                          self.calSettings['scale'])
+        # Display coordinates with calibrated q-values (X, Y, R)
+        if 'center' in self.xrayViewer.info and self.calSettings and 'scale' in self.calSettings:
+            q_x, q_y, q_R, unit = qFromCenter(
+                [x, y], self.xrayViewer.info['center'], self.calSettings['scale']
+            )
+            self.imgCoordOnStatusBar.setText(
+                f"x={x:.2f}, y={y:.2f}, value={value:.2f}, "
+                f"qX={q_x:.4f} {unit}, qY={q_y:.4f} {unit}, qR={q_R:.4f} {unit}"
+            )
         else:
-            q, units = [-1, ""]
-        
-        self.imgCoordOnStatusBar.setText(
-            f"x={x:.2f}, y={y:.2f}, value={value:.2f}, distance={q:.2f}{units}")
+            self.imgCoordOnStatusBar.setText(
+                f"x={x:.2f}, y={y:.2f}, value={value:.2f}"
+            )
 
     def _on_mouse_moved_for_preview(self, event):
         """

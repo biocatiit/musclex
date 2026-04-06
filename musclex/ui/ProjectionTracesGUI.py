@@ -44,7 +44,7 @@ from queue import Queue
 import fabio
 import tifffile
 from musclex import __version__
-from ..utils.misc_utils import inverseNmFromCenter
+from ..utils.misc_utils import qFromCenter
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
 from ..utils.image_data import ImageData
@@ -1865,25 +1865,21 @@ class ProjectionTracesGUI(BaseGUI):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
-            unit = "px"
             calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
-            if calSettings is not None and 'scale' in calSettings:
-                if 'center' in calSettings and calSettings['center'] is not None:
-                    center = calSettings['center']
-                else:
-                    center = self.projProc.center
-                q, unit = inverseNmFromCenter([x, y], center, calSettings['scale'])
-                # constant = calSettings["silverB"] * calSettings["radius"]
-                # calib_distance = mouse_distance * 1.0/constant
-                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
                 if calSettings is not None and 'scale' in calSettings:
-                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
+                    center = self.projProc.center
+                    q_x, q_y, q_R, unit = qFromCenter([x, y], center, calSettings['scale'])
+                    self.imgCoordOnStatusBar.setText(
+                        f"x={x}, y={y}, value={img[y][x]}, "
+                        f"qX={q_x:.4f} {unit}, qY={q_y:.4f} {unit}, qR={q_R:.4f} {unit}"
+                    )
                 else:
                     center = self.projProc.center
                     mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
-                    mouse_distance = f"{mouse_distance:.4f}"
-                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
+                    self.imgCoordOnStatusBar.setText(
+                        f"x={x}, y={y}, value={img[y][x]}, distance={mouse_distance:.4f} px"
+                    )
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:

@@ -33,24 +33,41 @@ import numpy as np
 from musclex import __version__
 
 
-def inverseNmFromCenter(point, center, scale, unit="nm^-1"):
-    """ Takes a point, center coordinates, a scale, and a unit.
-    Returns the point's inverse distance from center in nanometers and the unit"""
+def qFromCenter(point, center, scale):
+    """Compute calibrated reciprocal-space coordinates from a pixel position.
 
+    Args:
+        point:  (x, y) pixel coordinates of the cursor/picked point.
+        center: (cx, cy) pixel coordinates of the beam center.
+        scale:  pixels per nm⁻¹  (= radius_px × d_spacing_nm  for image
+                calibration, or  λ·SDD / pixel_size  for instrument params).
+
+    Returns:
+        (q_x, q_y, q_R, unit) where
+            q_x  = signed distance from the meridian  [nm⁻¹]
+            q_y  = signed distance from the equator   [nm⁻¹]
+            q_R  = radial distance from center         [nm⁻¹]
+            unit = "nm\u207b\u00b9"  (nm⁻¹)
+    """
+    unit = "nm\u207b\u00b9"
     try:
-        #Calculate inverse nm from center
-        x,y = point
-        distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
-        d = distance / scale
-        if (d > 0.01):
-            q = 1.0/d
-        else:
-            q = distance
-        q = f"{q:.4f}"
+        x, y = point
+        q_x = (x - center[0]) / scale
+        q_y = (y - center[1]) / scale
+        q_R = np.sqrt(q_x ** 2 + q_y ** 2)
     except Exception as e:
-        #Return error indicating values and print error to console if there is an error
-        print("Error caluclating the inverse nm from center: ", e)
+        print("Error calculating q from center:", e)
+        return None, None, None, unit
+    return q_x, q_y, q_R, unit
+
+
+def inverseNmFromCenter(point, center, scale, unit="nm^-1"):
+    """Deprecated wrapper — use qFromCenter instead.
+
+    Kept for backward compatibility with any external callers.
+    Returns (q_R, unit) where q_R is the radial distance in nm⁻¹.
+    """
+    q_x, q_y, q_R, u = qFromCenter(point, center, scale)
+    if q_R is None:
         return -1, unit
-    else:
-        #return values if there is no error.
-        return q, unit
+    return f"{q_R:.4f}", u
