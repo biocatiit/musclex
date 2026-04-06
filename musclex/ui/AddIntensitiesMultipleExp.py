@@ -5,29 +5,27 @@ import cv2
 import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
-    QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
+    QPushButton, QHeaderView, QAbstractItemView, QLabel,
+    QSizePolicy, QRadioButton, QSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
     QProgressDialog, QMessageBox,
     QTabBar, QInputDialog,
 )
-from PySide6.QtCore import Qt, QObject, QThreadPool, QTimer
-from PySide6.QtGui import QColor, QBrush, QFont
+from PySide6.QtCore import Qt, QThreadPool, QTimer
+from PySide6.QtGui import QColor
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
 from musclex.ui.widgets.image_viewer_widget import ImageViewerWidget
-from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
 from musclex.utils.file_manager import load_image_via_spec
 from musclex.ui.add_intensities_row_mapper import CartesianRowMapper
 from musclex.ui.add_intensities_common import (
-    _compute_image_diff,
-    _compute_geometry,
     _sum_group_worker,
     _GeometryWorkerSignals,
     _GeometryWorker,
 )
-from musclex.ui.widgets.image_alignment_table import ImageAlignmentTable, ColKey
+from musclex.ui.widgets.image_alignment_table import ColKey
+from musclex.ui.widgets.image_alignment_widget import ImageAlignmentWidget
 
 
 class AddIntensitiesMultipleExp(QMainWindow):
@@ -43,74 +41,41 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Muscle X Add Intensities Multiple Experiments v." + __version__)
-        self._current_inv_transform = None  # inverse affine (2x3) from display → original coords
+        self._current_inv_transform = None
         self.workspace = ProcessingWorkspace(
             settings_dir="",
             coord_transform_func=self._display_to_original_coords,
         )
-        self.misaligned_names = set()
-        self._img_sizes: dict = {}  # img_name -> "WxH" string
-        self._most_common_size: str = ""  # most frequent size across all images
         self._current_center = None
         self._current_rotation = None
-        self._base_image_filename = None
-        self._overlay_lines = []  # lines added by _redraw_overlays (global center crosshair)
-        self._navigating_from_table = False  # guard against re-entrant navigation
+        self._overlay_lines = []
 
-        self._span_col = self.COL_INDEX  # which column drives setSpan merge
+        self._span_col = self.COL_INDEX
 
-        # Track rows that have been ignored
-        self._ignored_rows: set = set()
-
-        # Background thread pool for single-image geometry (keeps UI responsive)
+        # Background thread pool for single-image geometry
         self._threadPool = QThreadPool()
         self._threadPool.setMaxThreadCount(1)
 
-        # Debounce timer: delays image loading after selection changes (avoids
-        # blocking the main thread on every intermediate row during drag-select)
-        self._nav_debounce_timer = QTimer(self)
-        self._nav_debounce_timer.setSingleShot(True)
-        self._nav_debounce_timer.setInterval(120)
-        self._nav_debounce_timer.timeout.connect(self._do_navigate_to_selected_row)
-
-        # Multiprocessing batch detection
-        self.taskManager = ProcessingTaskManager()
-        self.processExecutor = None
-        self._in_batch = False
-        self.stop_process = False
-
-        # Multiprocessing image-diff calculation
-        self.diffTaskManager = ProcessingTaskManager()
-        self.diffExecutor = None
-        self._diff_pairs_in_flight: set = set()  # (idx_a, idx_b) pairs currently submitted
-        self._row_geometry_cache: dict = {}  # row → (center, rotation) at last update
-
         # Multiprocessing sum-images
+        from musclex.utils.task_manager import ProcessingTaskManager
         self.sumTaskManager = ProcessingTaskManager()
         self.sumExecutor = None
         self._in_sum_batch = False
+        self.stop_process = False
         self._sum_csv_rows = []
         self._sum_nonmasked_pixels = 0
         self._sum_blank_weight = 1.0
 
         # Result tab state
         self._result_entries: list = []
-        # Each entry: {'filename': str, 'n_images': int, 'total_intensity': float, 'date': str}
         self._parent_dir: str = ""
-
-        # Threshold highlighting
-        self._dist_threshold_enabled = True
-        self._dist_threshold = 5.0
-        self._rot_diff_threshold_enabled = True
-        self._rot_diff_threshold = 2.0
-        self._diff_percentile_threshold: float = None  # 80th pct of all diff values (auto-computed)
-        self._diff_thresh_enabled = True
-        self._diff_thresh_value = 0.0
 
         self._cr_dialog = None
 
         self._build_ui()
-        self._row_mapper = CartesianRowMapper(self.table, self.COL_INDEX, self.workspace)
+        self._row_mapper = CartesianRowMapper(
+            self.panel.table, self.COL_INDEX, self.COL_EXP, self.workspace)
+        self.panel.set_row_mapper(self._row_mapper)
         self.resize(1400, 800)
         self.show()
 
@@ -125,45 +90,50 @@ class AddIntensitiesMultipleExp(QMainWindow):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
 
-        # Status bar at the bottom of the window (like EquatorWindow)
-        self._statusBar = QStatusBar()
-        self.statusLabel = QLabel("")
-        self.progressBar = QProgressBar()
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        self._statusBar.addWidget(self.statusLabel)
-        self._statusBar.addPermanentWidget(self.progressBar)
-        self.setStatusBar(self._statusBar)
-
-        # Table
-        self.table = ImageAlignmentTable(
-            col_map={
-                ColKey.FRAME: 2, ColKey.CENTER: 3, ColKey.CENTER_MODE: 4,
-                ColKey.CENTER_DIST: 5, ColKey.AUTO_CENTER: 6,
-                ColKey.AUTO_MANUAL_DIST: 7, ColKey.ROTATION: 8,
-                ColKey.ROTATION_MODE: 9, ColKey.ROTATION_DIFF: 10,
-                ColKey.AUTO_ROTATION: 11, ColKey.AUTO_ROT_DIFF: 12,
-                ColKey.SIZE: 13, ColKey.IMAGE_DIFF: 14,
-            },
-            headers=[
-                "Index", "Experiment", "Frame", "Original Center",
-                "Center\nMode", "Dist\nfrom Base", "Auto\nCenter",
-                "Auto Center\nDifference", "Rotation", "Rotation\nMode",
-                "Rot Diff\nfrom Base", "Auto\nRotation",
-                "Auto Rot\nDifference", "Size", "Image\nDifference",
-            ],
+        # Alignment panel (owns table, detection controls, multiprocessing)
+        col_map = {
+            ColKey.FRAME: 2, ColKey.CENTER: 3, ColKey.CENTER_MODE: 4,
+            ColKey.CENTER_DIST: 5, ColKey.AUTO_CENTER: 6,
+            ColKey.AUTO_MANUAL_DIST: 7, ColKey.ROTATION: 8,
+            ColKey.ROTATION_MODE: 9, ColKey.ROTATION_DIFF: 10,
+            ColKey.AUTO_ROTATION: 11, ColKey.AUTO_ROT_DIFF: 12,
+            ColKey.SIZE: 13, ColKey.IMAGE_DIFF: 14,
+        }
+        headers = [
+            "Index", "Experiment", "Frame", "Original Center",
+            "Center\nMode", "Dist\nfrom Base", "Auto\nCenter",
+            "Auto Center\nDifference", "Rotation", "Rotation\nMode",
+            "Rot Diff\nfrom Base", "Auto\nRotation",
+            "Auto Rot\nDifference", "Size", "Image\nDifference",
+        ]
+        self.panel = ImageAlignmentWidget(
+            workspace=self.workspace,
+            row_mapper=None,  # set after _build_ui (needs table reference)
+            col_map=col_map,
+            headers=headers,
+            worker_dir_path="",
         )
-        header = self.table.horizontalHeader()
+        # Column sizing
+        header = self.panel.table.horizontalHeader()
         header.setSectionResizeMode(self.COL_INDEX, QHeaderView.Fixed)
-        self.table.setColumnWidth(self.COL_INDEX, 52)
+        self.panel.table.setColumnWidth(self.COL_INDEX, 52)
         header.setSectionResizeMode(self.COL_EXP, QHeaderView.Interactive)
-        self.table.setColumnWidth(self.COL_EXP, 120)
+        self.panel.table.setColumnWidth(self.COL_EXP, 120)
 
-        # Context menu for grouping / ungrouping
-        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self._on_context_menu)
-        self.table.itemSelectionChanged.connect(self._on_table_selection_changed)
+        # Multiple uses the default context menu (no extra items like Group)
+        self.panel.connect_default_context_menu()
+
+        # Connect panel signals
+        self.panel.rowSelected.connect(self._on_panel_row_selected)
+        self.panel.requestSetCenterRotation.connect(
+            self._open_center_rotation_dialog)
+        self.panel.globalBaseChanged.connect(self._on_global_base_changed)
+
+        # Status bar
+        self._statusBar = QStatusBar()
+        self._statusBar.addWidget(self.panel.statusLabel)
+        self._statusBar.addPermanentWidget(self.panel.progressBar)
+        self.setStatusBar(self._statusBar)
 
         # Parent directory and pending experiment sources
         self._parent_dir_path: str = ""
@@ -229,15 +199,15 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # Left side of splitter: select_panel (before load) / table (after load)
         self._left_stack = QStackedWidget()
-        self._left_stack.addWidget(self._select_panel)  # index 0
-        self._left_stack.addWidget(self.table)           # index 1
+        self._left_stack.addWidget(self._select_panel)
+        self._left_stack.addWidget(self.panel.table)
         self._left_stack.setCurrentIndex(0)
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
         self.workspace.needsReprocess.connect(
             lambda: self._on_image_data_ready(self.workspace._current_image_data)
             if self.workspace._current_image_data is not None else None
         )
-        self.workspace.batchSettingsChanged.connect(self._update_table_data)
+        self.workspace.batchSettingsChanged.connect(self.panel.refresh_all_rows)
         # Right panel container (global settings group box + scrollable panel)
         right_container = QWidget()
         right_container_layout = QVBoxLayout(right_container)
@@ -257,81 +227,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._viewer_container_layout.addWidget(self.image_viewer)
         right_container_layout.addWidget(self._viewer_container, 0)
 
-        # Misaligned Detection group box
-        self.misaligned_detection_group = CollapsibleGroupBox("Detect Misaligned Images")
-        misaligned_detection_layout = QVBoxLayout()
-        misaligned_detection_layout.setContentsMargins(8, 6, 8, 6)
-        misaligned_detection_layout.setSpacing(4)
-
-        # Row 1: Start Detection button
-        detection_row = QHBoxLayout()
-        self.start_detection_btn = QPushButton("Detect Centers && Rotations")
-        self.start_detection_btn.setCheckable(True)
-        self.start_detection_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        detection_row.addWidget(self.start_detection_btn)
-        misaligned_detection_layout.addLayout(detection_row)
-
-        # Row 3: Auto difference threshold
-        dist_thresh_row = QHBoxLayout()
-        dist_thresh_row.setSpacing(6)
-        self._dist_thresh_chk = QCheckBox("Auto Diff threshold:")
-        self._dist_thresh_chk.setChecked(True)
-        dist_thresh_row.addWidget(self._dist_thresh_chk)
-        self._dist_thresh_spin = QDoubleSpinBox()
-        self._dist_thresh_spin.setRange(0.0, 10000.0)
-        self._dist_thresh_spin.setDecimals(2)
-        self._dist_thresh_spin.setSingleStep(0.5)
-        self._dist_thresh_spin.setValue(self._dist_threshold)
-        self._dist_thresh_spin.setSuffix(" px")
-        self._dist_thresh_spin.setEnabled(True)
-        self._dist_thresh_spin.setFixedWidth(100)
-        dist_thresh_row.addWidget(self._dist_thresh_spin)
-        dist_thresh_row.addStretch()
-        misaligned_detection_layout.addLayout(dist_thresh_row)
-
-        # Row 4: Auto-Rot Diff threshold
-        dev_thresh_row = QHBoxLayout()
-        dev_thresh_row.setSpacing(6)
-        self._rot_diff_thresh_chk = QCheckBox("Auto-Rot Diff threshold:")
-        self._rot_diff_thresh_chk.setChecked(True)
-        dev_thresh_row.addWidget(self._rot_diff_thresh_chk)
-        self._rot_diff_thresh_spin = QDoubleSpinBox()
-        self._rot_diff_thresh_spin.setRange(0.0, 360.0)
-        self._rot_diff_thresh_spin.setDecimals(2)
-        self._rot_diff_thresh_spin.setSingleStep(0.5)
-        self._rot_diff_thresh_spin.setValue(self._rot_diff_threshold)
-        self._rot_diff_thresh_spin.setSuffix(" °")
-        self._rot_diff_thresh_spin.setEnabled(True)
-        self._rot_diff_thresh_spin.setFixedWidth(100)
-        dev_thresh_row.addWidget(self._rot_diff_thresh_spin)
-        dev_thresh_row.addStretch()
-        misaligned_detection_layout.addLayout(dev_thresh_row)
-
-        # Row 5: Image diff threshold (80th pct, user-adjustable)
-        diff_thresh_row = QHBoxLayout()
-        diff_thresh_row.setSpacing(6)
-        self._diff_thresh_chk = QCheckBox("Image diff threshold (default: 80th pct):")
-        self._diff_thresh_chk.setChecked(True)
-        diff_thresh_row.addWidget(self._diff_thresh_chk)
-        self._diff_thresh_spin = QDoubleSpinBox()
-        self._diff_thresh_spin.setRange(0.0, 1e9)
-        self._diff_thresh_spin.setDecimals(1)
-        self._diff_thresh_spin.setSingleStep(1.0)
-        self._diff_thresh_spin.setValue(self._diff_thresh_value)
-        self._diff_thresh_spin.setEnabled(True)
-        self._diff_thresh_spin.setFixedWidth(120)
-        diff_thresh_row.addWidget(self._diff_thresh_spin)
-        diff_thresh_row.addStretch()
-        misaligned_detection_layout.addLayout(diff_thresh_row)
-
-        self._dist_thresh_chk.toggled.connect(self._on_dist_threshold_toggled)
-        self._dist_thresh_spin.valueChanged.connect(self._on_dist_threshold_changed)
-        self._rot_diff_thresh_chk.toggled.connect(self._on_rot_diff_threshold_toggled)
-        self._rot_diff_thresh_spin.valueChanged.connect(self._on_rot_diff_threshold_changed)
-        self._diff_thresh_chk.toggled.connect(self._on_diff_thresh_toggled)
-        self._diff_thresh_spin.valueChanged.connect(self._on_diff_thresh_changed)
-
-        self.misaligned_detection_group.set_content_layout(misaligned_detection_layout)
+        # (Detection controls are inside self.panel — no manual UI building needed)
 
 
 
@@ -382,7 +278,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._movable_settings_layout.addWidget(self.workspace._blank_mask_widget)
         self._right_panel_layout.addWidget(self._movable_settings_container)
 
-        self._right_panel_layout.addWidget(self.misaligned_detection_group)
+        self._right_panel_layout.addWidget(self.panel)
         self.centerChkBx = QCheckBox("Original Center")
         self.centerChkBx.setChecked(False)
         self.centerChkBx.stateChanged.connect(self._redraw_overlays)
@@ -444,7 +340,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
             "QPushButton { color: #ededed; background-color: #af6207 }")
         self._right_panel_layout.addWidget(self.sum_images_btn)
 
-        self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
         self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
 
     # ------------------------------------------------------------------
@@ -500,8 +395,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self._main_stack.setCurrentIndex(0)
             self._span_col = self.COL_INDEX if index == 0 else self.COL_EXP
             secondary = self.COL_EXP if index == 0 else self.COL_INDEX
-            self.table.sortItems(secondary, Qt.AscendingOrder)
-            self.table.sortItems(self._span_col, Qt.AscendingOrder)
+            self.panel.table.sortItems(secondary, Qt.AscendingOrder)
+            self.panel.table.sortItems(self._span_col, Qt.AscendingOrder)
             self._rebuild_spans()
         else:
             self._main_stack.setCurrentIndex(1)
@@ -572,40 +467,18 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_global_base_changed(self):
-        self._sync_global_settings_state()
-        self._update_table_data()
-
-    # ------------------------------------------------------------------
-    # FM index ↔ table row helpers (delegated to self._row_mapper)
-    # ------------------------------------------------------------------
-
-    def _sync_global_settings_state(self):
-        """Read the saved global base and update _base_image_filename."""
-        base = self.workspace.settings_manager.get_global_base()
-        self._base_image_filename = base.get('base_image')
+        self.panel.on_global_base_changed()
 
     def _auto_set_global_base_if_missing(self):
         """If no global base is recorded yet, set the first image as the default."""
-        if self._base_image_filename:
+        if self.panel._base_image_filename:
             return
         first_name = self._row_mapper.name_for_row(0)
         if first_name is None:
             return
         self.workspace.settings_manager.set_global_base(first_name)
         self.workspace.settings_manager.save_global_base()
-        self._base_image_filename = first_name
-
-    def _get_base_center(self):
-        """Return the effective center of the global base image, or None."""
-        if not self._base_image_filename:
-            return None
-        return self._get_effective_center(self._base_image_filename)
-
-    def _get_base_rotation(self):
-        """Return the effective rotation of the global base image, or None."""
-        if not self._base_image_filename:
-            return None
-        return self._get_effective_rotation(self._base_image_filename)
+        self.panel.set_base_image(first_name)
 
     # ------------------------------------------------------------------
     # Experiment selection (AIME)
@@ -686,301 +559,23 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._exp_dirs = dir_paths
         fm = self.workspace.navigator.file_manager
 
-        self.misaligned_names = set()
-        self._img_sizes = fm.image_sizes
-        self._compute_most_common_size()
-        self._compute_diff_percentile_threshold()
-        self._sync_global_settings_state()
+        self._row_mapper.set_sources(dir_paths)
+        self.panel.set_img_sizes(fm.image_sizes)
+        self.panel._compute_diff_percentile_threshold()
+        self.panel.on_global_base_changed()
 
-        # Reset result state
         self._result_entries = []
 
-        self._init_table()
+        self.panel.init_table()
         self._auto_set_global_base_if_missing()
         self._left_stack.setCurrentIndex(1)
-        # Explicitly trigger the navigator so imageChanged → imageDataReady fires
-        # (_sync_table_selection uses blockSignals so it won't drive the viewer)
         self.workspace.navigator.switch_to_image_by_index(0)
         self._sync_table_selection()
 
-    # ------------------------------------------------------------------
-    # Data population
-    # ------------------------------------------------------------------
-
-    def _init_table(self):
-        """Fully rebuild the table from FileManager data.
-
-        Each row's COL_INDEX item stores the absolute FileManager index as Qt.UserRole
-        so every other method can look up the correct name/spec via _name_for_row /
-        _fm_index_for_row.
-
-        After filling all rows, two stable sorts are applied (EXP then INDEX) to
-        achieve "primary sort by INDEX, secondary by EXP".  _rebuild_spans() then
-        merges consecutive equal cells in the active span column.
-        """
-        self._ignored_rows = set()
-        self._row_geometry_cache = {}
-        self.table.setRowCount(0)
-
-        fm = self.workspace.navigator.file_manager
-        dir_paths = getattr(self, '_exp_dirs', [])
-        if fm is None or not dir_paths:
-            return
-
-        index_map = {
-            dp: fm.source_index_map[dp]
-            for dp in dir_paths
-            if dp in (fm.source_index_map or {})
-        }
-        if not index_map:
-            return
-
-        ranges = list(index_map.values())
-        n_indices = min(end - start + 1 for start, end in ranges)
-        n_exps = len([dp for dp in dir_paths if dp in index_map])
-        total_rows = n_indices * n_exps
-        self.table.setSortingEnabled(False)
-        self.table.setRowCount(total_rows)
-
-        sm = self.workspace.settings_manager
-        row = 0
-        for dp in dir_paths:
-            if dp not in index_map:
-                continue
-            start, _ = index_map[dp]
-            if fm.source_labels and start < len(fm.source_labels):
-                exp_label = fm.source_labels[start]
-            else:
-                exp_label = os.path.basename(dp.rstrip('/\\'))
-            for idx in range(n_indices):
-                fm_idx = start + idx
-                name = fm.names[fm_idx]
-
-                idx_item = QTableWidgetItem()
-                idx_item.setData(Qt.DisplayRole, idx + 1)
-                idx_item.setTextAlignment(Qt.AlignCenter)
-                idx_item.setData(Qt.UserRole, fm_idx)
-                self.table.setItem(row, self.COL_INDEX, idx_item)
-
-                exp_item = QTableWidgetItem(exp_label)
-                exp_item.setToolTip(name)
-                self.table.setItem(row, self.COL_EXP, exp_item)
-
-                frame_item = QTableWidgetItem(os.path.basename(name))
-                frame_item.setToolTip(name)
-                self.table.setItem(row, self.table.col(ColKey.FRAME), frame_item)
-
-                self._update_row_data(row, name)
-                if sm.has_ignore(name):
-                    self._apply_ignore(row)
-                row += 1
-
-        self.table.sortItems(self.COL_EXP, Qt.AscendingOrder)
-        self.table.sortItems(self.COL_INDEX, Qt.AscendingOrder)
-        self._rebuild_spans()
-        self.table.resizeColumnsToContents()
-
-    def _update_table_data(self):
-        """Refresh center/rotation data columns for all existing rows (preserves selection and groups)."""
-        for row in range(self.table.rowCount()):
-            name = self._row_mapper.name_for_row(row)
-            if name:
-                self._update_row_data(row, name)
-
-    def _update_row_data(self, row, name):
-        """Refresh center/rotation data columns for a single row."""
-        if row < 0 or row >= self.table.rowCount():
-            return
-        sm = self.workspace.settings_manager
-
-        # Center
-        manual_c = sm.get_center(name)
-        if manual_c is not None:
-            self.table.fill_center(row, manual_c, "Manual")
-        else:
-            auto_c = sm.get_auto_center(name)
-            self.table.fill_center(row, auto_c, "Auto" if auto_c else None)
-
-        auto_center = sm.get_auto_center(name)
-        self.table.fill_auto_center(row, auto_center)
-
-        effective_center = self._get_effective_center(name)
-        self.table.fill_auto_manual_dist(
-            row, auto_center, effective_center,
-            self._dist_threshold_enabled, self._dist_threshold,
-        )
-
-        # Rotation
-        manual_r = sm.get_rotation(name)
-        if manual_r is not None:
-            self.table.fill_rotation(row, manual_r, "Manual")
-        else:
-            auto_r = sm.get_auto_rotation(name)
-            self.table.fill_rotation(row, auto_r, "Auto" if auto_r else None)
-
-        auto_rotation = sm.get_auto_rotation(name)
-        self.table.fill_auto_rotation(row, auto_rotation)
-
-        effective_rotation = self._get_effective_rotation(name)
-        self.table.fill_auto_rot_diff(
-            row, auto_rotation, effective_rotation,
-            self._rot_diff_threshold_enabled, self._rot_diff_threshold,
-        )
-
-        # Distance / rotation deviation from base
-        self.table.fill_distance_deviation(
-            row, effective_center, effective_rotation,
-            self._get_base_center(), self._get_base_rotation(),
-        )
-
-        # Size and diff
-        self.table.fill_size(row, self._img_sizes.get(name, ""), self._most_common_size)
-
-        diff_val = sm.get_image_diff(name)
-        self.table.fill_diff(row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value)
-
-        # Visual markers
-        self.table.apply_misaligned_highlight(row, name, self.misaligned_names)
-        self.table.apply_base_marker(row, name, self._base_image_filename)
-        if row in self._ignored_rows:
-            self.table.dim_row(row)
-
-        new_geom = (effective_center, effective_rotation)
-        if self._row_geometry_cache.get(row) != new_geom:
-            self._row_geometry_cache[row] = new_geom
-            self._trigger_diff_for_row(row)
-
-    def _get_effective_center(self, name):
-        """Return (cx, cy) for *name* — manual if present, else auto, else None."""
-        sm = self.workspace.settings_manager
-        return sm.get_center(name) or sm.get_auto_center(name)
-
-    def _get_effective_rotation(self, name):
-        """Return rotation angle for *name* — manual if present, else auto, else None."""
-        sm = self.workspace.settings_manager
-        return sm.get_rotation(name) or sm.get_auto_rotation(name)
-
-    def _compute_most_common_size(self):
-        """Count image sizes and cache the most frequent one."""
-        from collections import Counter
-        counts = Counter(s for s in self._img_sizes.values() if s)
-        self._most_common_size = counts.most_common(1)[0][0] if counts else ""
-
-    def _compute_diff_percentile_threshold(self):
-        """Compute the 80th-percentile of all cached diff values (mirrors old detectImages logic).
-        Updates self._diff_percentile_threshold and syncs the spinbox to the computed value."""
-        sm = self.workspace.settings_manager
-        values = [
-            sm.get_image_diff(self._row_mapper.name_for_row(row))
-            for row in range(self.table.rowCount())
-            if self._row_mapper.name_for_row(row) is not None
-        ]
-        values = [v for v in values if v is not None]
-        if len(values) >= 2:
-            self._diff_percentile_threshold = float(np.percentile(values, 80))
-            self._diff_thresh_spin.blockSignals(True)
-            self._diff_thresh_spin.setValue(self._diff_percentile_threshold)
-            self._diff_thresh_spin.blockSignals(False)
-            self._diff_thresh_value = self._diff_percentile_threshold
-        else:
-            self._diff_percentile_threshold = None
-
-    # ------------------------------------------------------------------
-    # Grouping helpers
-    # ------------------------------------------------------------------
-
     def _rebuild_spans(self):
-        """Merge consecutive rows that share the same value in ``_span_col``.
-
-        Resets any existing spans on COL_INDEX and COL_EXP first, then scans
-        ``_span_col`` and applies ``setSpan`` + blue styling to each run of
-        equal values.
-        """
-        for row in range(self.table.rowCount()):
-            for c in (self.COL_INDEX, self.COL_EXP):
-                if self.table.rowSpan(row, c) > 1:
-                    self.table.setSpan(row, c, 1, 1)
-            item = self.table.item(row, self.COL_INDEX)
-            if item:
-                item.setBackground(QBrush())
-                item.setForeground(QBrush())
-            item_exp = self.table.item(row, self.COL_EXP)
-            if item_exp:
-                item_exp.setBackground(QBrush())
-                item_exp.setForeground(QBrush())
-
-        col = self._span_col
-        i = 0
-        while i < self.table.rowCount():
-            item = self.table.item(i, col)
-            if item is None:
-                i += 1
-                continue
-            val = item.text()
-            j = i + 1
-            while j < self.table.rowCount():
-                jitem = self.table.item(j, col)
-                if jitem is None or jitem.text() != val:
-                    break
-                j += 1
-            if j - i > 1:
-                self.table.setSpan(i, col, j - i, 1)
-            span_item = self.table.item(i, col)
-            if span_item:
-                span_item.setBackground(QBrush(self._GROUP_BG))
-                span_item.setForeground(QBrush(self._GROUP_FG))
-            i = j
-
-    # ------------------------------------------------------------------
-    # Context menu
-    # ------------------------------------------------------------------
-
-    def _on_context_menu(self, pos):
-        row = self.table.rowAt(pos.y())
-        if row < 0:
-            return
-
-        global_pos = self.table.viewport().mapToGlobal(pos)
-        menu = QMenu(self)
-
-        selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
-
-        # Single-row actions
-        set_cr_act = None
-        set_global_act = None
-        if len(selected_rows) == 1:
-            set_cr_act = menu.addAction("Set Center and Rotation")
-            set_global_act = menu.addAction("Set as Global Base")
-            menu.addSeparator()
-
-        # Ignore actions (any selection)
-        n = len(selected_rows)
-        label_suffix = f" ({n} images)" if n > 1 else ""
-        all_ignored = all(r in self._ignored_rows for r in selected_rows)
-        if all_ignored:
-            ignore_act = menu.addAction(f"Cancel Ignore{label_suffix}")
-        else:
-            ignore_act = menu.addAction(f"Ignore{label_suffix}")
-
-        chosen = menu.exec(global_pos)
-        if chosen is None:
-            return
-        if chosen == ignore_act:
-            if all_ignored:
-                for r in selected_rows:
-                    self._clear_ignore(r)
-            else:
-                for r in selected_rows:
-                    self._apply_ignore(r)
-        elif chosen == set_cr_act:
-            self._open_center_rotation_dialog(selected_rows[0])
-        elif chosen == set_global_act:
-            row = selected_rows[0]
-            img_name = self._row_mapper.name_for_row(row)
-            if img_name:
-                self.workspace.settings_manager.set_global_base(img_name)
-                self.workspace.settings_manager.save_global_base()
-                self._on_global_base_changed()
+        """Delegate span rebuilding to the CartesianRowMapper."""
+        self._row_mapper.rebuild_spans(
+            self.panel.table, self._span_col)
 
     # ------------------------------------------------------------------
     # Center/Rotation dialog (reparent viewer + settings into popup)
@@ -1081,7 +676,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         display_img = np.copy(image_data.img)
         if center is not None and rotation is not None and rotation != 0:
             display_img = rotateImageAboutPoint(display_img, center, rotation)
-        base_center = self._get_base_center()
+        base_center = self.panel.get_base_center()
         table_row = self._row_mapper.row_for_fm_index(fm_idx)
         if table_row is not None:
             name = self._row_mapper.name_for_row(table_row)
@@ -1093,78 +688,20 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.image_viewer.display_image(display_img)
         self._redraw_overlays()
 
-    def _apply_ignore(self, row):
-        """Mark row as ignored: dim its text and add to ignored set."""
-        if row < 0 or row >= self.table.rowCount():
-            return
-        name = self._row_mapper.name_for_row(row)
-        if name is None:
-            return
-        self._ignored_rows.add(row)
-        sm = self.workspace.settings_manager
-        sm.set_ignore(name)
-        sm.save_ignore()
-        print(f"Ignore: {name}")
-        self.table.dim_row(row)
-
-    def _clear_ignore(self, row):
-        """Remove the ignore flag from the row and restore normal text colour."""
-        if row < 0 or row >= self.table.rowCount():
-            return
-        name = self._row_mapper.name_for_row(row)
-        if name is None:
-            return
-        self._ignored_rows.discard(row)
-        sm = self.workspace.settings_manager
-        sm.clear_ignore(name)
-        sm.save_ignore()
-        print(f"Cancel Ignore: {name}")
-        normal = QBrush(self.table.palette().color(self.table.foregroundRole()))
-        for col in range(1, self.table.columnCount()):
-            item = self.table.item(row, col)
-            if item is not None:
-                item.setForeground(normal)
-
     # ------------------------------------------------------------------
-    # Public helpers
+    # Panel row selection → navigate to image
     # ------------------------------------------------------------------
 
-    def setMisalignedNames(self, misaligned_names):
-        self.misaligned_names = set(misaligned_names)
-        self._init_table()
-
-    # ------------------------------------------------------------------
-    # Table selection → navigate to image
-    # ------------------------------------------------------------------
-
-    def _on_table_selection_changed(self):
-        """Restart debounce timer on every selection change.
-
-        The actual navigation fires 120 ms after the last change, so rapid
-        drag-select passes through intermediate rows without triggering I/O.
-        """
-        if self._navigating_from_table:
-            return
-        self._nav_debounce_timer.start()
-
-    def _do_navigate_to_selected_row(self):
-        """Called by debounce timer: navigate only when exactly 1 row is selected."""
-        if self._navigating_from_table:
-            return
-        selected_rows = set(idx.row() for idx in self.table.selectedIndexes())
-        if len(selected_rows) != 1:
-            return
-        row = self.table.currentRow()
-        if row < 0 or row >= self.table.rowCount():
-            return
+    def _on_panel_row_selected(self, row):
+        """Navigate to the image corresponding to the selected row."""
         fm_idx = self._row_mapper.fm_index_for_row(row)
         if fm_idx is None:
             return
-        self._navigating_from_table = True
+        self.panel.set_navigating(True)
         try:
             self.workspace.navigator.switch_to_image_by_index(fm_idx)
         finally:
-            self._navigating_from_table = False
+            self.panel.set_navigating(False)
 
     # ------------------------------------------------------------------
     # Image data ready → display image and refresh table
@@ -1186,9 +723,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._threadPool.start(worker)
 
     def _on_geometry_ready(self, center, rotation, table_row, image_data=None):
-        """Callback (main thread) after background geometry calculation finishes.
-        *table_row* is the table row index (not the FM index).
-        """
+        """Callback (main thread) after background geometry calculation finishes."""
         self._current_center = center
         self._current_rotation = rotation
         if image_data is not None:
@@ -1196,7 +731,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
             display_img = image_data.get_working_image()
             if center is not None and rotation is not None and rotation != 0:
                 display_img = rotateImageAboutPoint(display_img, center, rotation)
-            base_center = self._get_base_center()
+            base_center = self.panel.get_base_center()
             if table_row is not None and table_row >= 0:
                 name = self._row_mapper.name_for_row(table_row)
                 if name:
@@ -1209,25 +744,20 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if table_row is not None and table_row >= 0:
             name = self._row_mapper.name_for_row(table_row)
             if name:
-                self._update_row_data(table_row, name)
+                self.panel.update_row(table_row, name)
 
     def _sync_table_selection(self):
         """Highlight the table row that matches the navigator's current FM index."""
         fm_idx = self.workspace.navigator.current_index
         row = self._row_mapper.row_for_fm_index(fm_idx)
-        if row is not None and 0 <= row < self.table.rowCount():
-            self.table.blockSignals(True)
-            self.table.selectRow(row)
-            self.table.scrollTo(self.table.model().index(row, 0))
-            self.table.blockSignals(False)
+        if row is not None:
+            self.panel.select_row(row)
 
     def _apply_center_shift_if_needed(self, img, center, img_name):
-        """Translate image so its center aligns with the global base center
-        (same approach as QuadrantFolder.transformImage).
-        Returns the (possibly shifted) image array."""
+        """Translate image so its center aligns with the global base center."""
         if center is None:
             return img
-        base_center = self._get_base_center()
+        base_center = self.panel.get_base_center()
         if base_center is None:
             return img
         tx = base_center[0] - center[0]
@@ -1304,7 +834,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
             ax.add_patch(circle)
 
         if self.baseCenterChkBx.isChecked():
-            base_center = self._get_base_center()
+            base_center = self.panel.get_base_center()
             if base_center is not None:
                 bx, by = base_center
                 arm = 20
@@ -1313,372 +843,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 self._overlay_lines.extend([h_line, v_line])
 
         self.image_viewer.canvas.draw_idle()
-
-    # ------------------------------------------------------------------
-    # Batch detection (multiprocessing)
-    # ------------------------------------------------------------------
-
-    def _init_process_executor(self):
-        """Create a persistent ProcessPoolExecutor for batch detection."""
-        from concurrent.futures import ProcessPoolExecutor
-        import multiprocessing as _mp
-        worker_count = max(1, (os.cpu_count() or 2) - 2)
-        try:
-            mp_ctx = _mp.get_context('spawn')
-            self.processExecutor = ProcessPoolExecutor(max_workers=worker_count, mp_context=mp_ctx)
-            print(f"Process pool initialised with {worker_count} workers (spawn)")
-        except Exception as e:
-            print(f"Failed to create process pool: {e}")
-            self.processExecutor = None
-
-    # ------------------------------------------------------------------
-    # Threshold highlighting
-    # ------------------------------------------------------------------
-
-    def _on_dist_threshold_toggled(self, checked):
-        self._dist_thresh_spin.setEnabled(checked)
-        self._dist_threshold_enabled = checked
-        self._apply_threshold_highlighting()
-
-    def _on_dist_threshold_changed(self, value):
-        self._dist_threshold = value
-        if self._dist_threshold_enabled:
-            self._apply_threshold_highlighting()
-
-    def _on_rot_diff_threshold_toggled(self, checked):
-        self._rot_diff_thresh_spin.setEnabled(checked)
-        self._rot_diff_threshold_enabled = checked
-        self._apply_threshold_highlighting()
-
-    def _on_rot_diff_threshold_changed(self, value):
-        self._rot_diff_threshold = value
-        if self._rot_diff_threshold_enabled:
-            self._apply_threshold_highlighting()
-
-    def _on_diff_thresh_toggled(self, checked):
-        self._diff_thresh_spin.setEnabled(checked)
-        self._diff_thresh_enabled = checked
-        self._apply_threshold_highlighting()
-
-    def _on_diff_thresh_changed(self, value):
-        self._diff_thresh_value = value
-        if self._diff_thresh_enabled:
-            self._apply_threshold_highlighting()
-
-    def _apply_threshold_highlighting(self):
-        """Delegate threshold highlighting to the table widget."""
-        self.table.apply_threshold_highlighting(
-            self._dist_threshold_enabled, self._dist_threshold,
-            self._rot_diff_threshold_enabled, self._rot_diff_threshold,
-            self._diff_thresh_enabled, self._diff_thresh_value,
-        )
-
-    def _on_detection_btn_toggled(self, checked):
-        """Handle the Start Detection / Stop toggle button."""
-        if checked:
-            if not self._in_batch:
-                self.start_detection_btn.setText("Stop")
-                self._start_detection()
-        else:
-            self.stopProcess()
-
-    def stopProcess(self):
-        """Cancel the running batch and wait for in-flight workers to finish."""
-        self.stop_process = True
-        if self.processExecutor:
-            self.processExecutor.shutdown(wait=False, cancel_futures=True)
-        running_count = self.taskManager.get_running_count()
-
-        msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
-        self._stopProgress = QProgressDialog(msg, None, 0, 0, self)
-        self._stopProgress.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        self._stopProgress.setModal(False)
-        self._stopProgress.show()
-
-        self._stopMsgTimer = QTimer(self)
-        self._stopMsgTimer.setInterval(300)
-        self._stopMsgTimer.timeout.connect(self._updateStopProgress)
-        self._stopMsgTimer.start()
-
-    def _updateStopProgress(self):
-        if not hasattr(self, '_stopProgress') or self._stopProgress is None:
-            return
-        running_count = self.taskManager.get_running_count()
-        msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
-        self._stopProgress.setLabelText(msg)
-
-        if running_count == 0:
-            self._stopMsgTimer.stop()
-            self._stopProgress.close()
-            self._stopProgress = None
-            self._on_batch_complete(stopped=True)
-
-    def _start_detection(self):
-        """Submit all images to the process pool for center/rotation calculation.
-
-        Only lightweight metadata (file specs) is sent to workers — images are
-        loaded inside each subprocess to keep the main thread responsive.
-        """
-        if self._in_batch:
-            return
-        if self.table.rowCount() == 0:
-            return
-
-        fm = self.workspace.navigator.file_manager
-        if fm is None or not fm.specs:
-            return
-
-        if self.processExecutor is None:
-            self._init_process_executor()
-        if self.processExecutor is None:
-            return
-
-        self._in_batch = True
-        self.stop_process = False
-        self.taskManager.clear()
-
-        n = self.table.rowCount()
-        self.progressBar.setMaximum(n)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setValue(0)
-        self.progressBar.setVisible(True)
-        self.statusLabel.setText("Detecting center/rotation...")
-
-        orientation_model = getattr(self.workspace, '_orientation_model', 0)
-
-        for row in range(n):
-            fm_idx = self._row_mapper.fm_index_for_row(row)
-            if fm_idx is None:
-                continue
-            img_name = fm.names[fm_idx]
-            spec = fm.specs[fm_idx] if fm_idx < len(fm.specs) else None
-            manual_center, manual_rotation = self.workspace.get_manual_settings(img_name)
-            job_args = (
-                "",
-                img_name,
-                spec,
-                manual_center,
-                manual_rotation,
-                orientation_model,
-            )
-            future = self.processExecutor.submit(_compute_geometry, job_args)
-            self.taskManager.submit_task(img_name, row, future)
-            future.add_done_callback(self._on_future_done)
-
-        print(f"Batch detection started: {n} images submitted")
-
-    def _on_future_done(self, future):
-        """Route future callback to the main thread via QTimer."""
-        QTimer.singleShot(0, self, lambda f=future: self._on_batch_result(f))
-
-    def _on_batch_result(self, future):
-        """Handle a single completed future in the main thread."""
-        try:
-            try:
-                result = future.result()
-                error = result.get('error')
-            except Exception as fut_exc:
-                error = str(fut_exc)
-                result = {'img_name': None, 'center': None, 'rotation': None, 'error': error}
-            task = self.taskManager.complete_task(future, result, error)
-            if task is None:
-                return
-
-            if self.stop_process:
-                return
-
-            if error:
-                print(f"Detection error for {task.filename}: {error}")
-            else:
-                sm = self.workspace.settings_manager
-                sm.set_auto_cache(
-                    task.filename,
-                    result['center'],
-                    result['rotation'],
-                )
-
-            stats = self.taskManager.get_statistics()
-            self.progressBar.setValue(stats['completed'] + stats['failed'])
-            self.statusLabel.setText(
-                f"Detecting: {stats['completed'] + stats['failed']}/{stats['total']}"
-            )
-
-            if 0 <= task.job_index < self.table.rowCount():
-                name = self._row_mapper.name_for_row(task.job_index)
-                if name:
-                    self._update_row_data(task.job_index, name)
-
-            if stats['pending'] == 0:
-                self._on_batch_complete()
-
-        except Exception as e:
-            print(f"Batch result callback error: {e}")
-            traceback.print_exc()
-
-    def _on_batch_complete(self, stopped=False):
-        """Clean up after all batch tasks have finished or been stopped."""
-        stats = self.taskManager.get_statistics()
-
-        if not stopped:
-            self.workspace.settings_manager.save_auto_cache()
-
-        if self.processExecutor:
-            self.processExecutor.shutdown(wait=False)
-            self.processExecutor = None
-
-        self._in_batch = False
-        self.stop_process = False
-        self.progressBar.setVisible(False)
-
-        self.start_detection_btn.blockSignals(True)
-        self.start_detection_btn.setChecked(False)
-        self.start_detection_btn.setText("Start Detection")
-        self.start_detection_btn.blockSignals(False)
-
-        if stopped:
-            msg = (
-                f"Detection stopped: {stats['completed']}/{stats['total']} completed, "
-                f"{stats['failed']} failed"
-            )
-        else:
-            msg = (
-                f"Detection complete: {stats['completed']}/{stats['total']} succeeded, "
-                f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/image"
-            )
-        self.statusLabel.setText(msg)
-        print(msg)
-
-    # ------------------------------------------------------------------
-    # Image difference calculation (triggered automatically on row update)
-    # ------------------------------------------------------------------
-
-    def _row_has_geometry(self, row):
-        """Return True if *row* has a usable center (auto or manual)."""
-        if row < 0 or row >= self.table.rowCount():
-            return False
-        name = self._row_mapper.name_for_row(row)
-        return name is not None and self._get_effective_center(name) is not None
-
-    def _trigger_diff_for_row(self, row):
-        """Recompute the (at most) two diff pairs that involve *row*.
-
-        Pair (prev_active, row)  → diff stored on row
-        Pair (row, next_active)  → diff stored on next_active
-
-        All callbacks run in the main thread (via QTimer.singleShot), so
-        _diff_pairs_in_flight is safe to mutate here without a lock.
-        """
-        active = [i for i in range(self.table.rowCount()) if i not in self._ignored_rows]
-        if row not in active:
-            return
-
-        pos = active.index(row)
-        pairs = []
-        if pos > 0:
-            pairs.append((active[pos - 1], active[pos]))
-        if pos < len(active) - 1:
-            pairs.append((active[pos], active[pos + 1]))
-
-        for idx_a, idx_b in pairs:
-            if (idx_a, idx_b) in self._diff_pairs_in_flight:
-                continue
-            if not self._row_has_geometry(idx_a) or not self._row_has_geometry(idx_b):
-                continue
-            self._diff_pairs_in_flight.add((idx_a, idx_b))
-            self._submit_diff_pair(idx_a, idx_b)
-
-    def _submit_diff_pair(self, idx_a, idx_b):
-        """Build args and submit a single (idx_a, idx_b) diff job."""
-        from concurrent.futures import ProcessPoolExecutor
-        import multiprocessing as _mp
-
-        fm = self.workspace.navigator.file_manager
-        if fm is None or not fm.specs:
-            self._diff_pairs_in_flight.discard((idx_a, idx_b))
-            return
-
-        if self.diffExecutor is None:
-            worker_count = max(1, (os.cpu_count() or 2) - 2)
-            try:
-                mp_ctx = _mp.get_context('spawn')
-                self.diffExecutor = ProcessPoolExecutor(
-                    max_workers=worker_count, mp_context=mp_ctx)
-                print(f"Diff process pool initialised with {worker_count} workers (spawn)")
-            except Exception as e:
-                print(f"Failed to create diff process pool: {e}")
-                self.diffExecutor = None
-
-        if self.diffExecutor is None:
-            self._diff_pairs_in_flight.discard((idx_a, idx_b))
-            return
-
-        name_a = self._row_mapper.name_for_row(idx_a)
-        name_b = self._row_mapper.name_for_row(idx_b)
-        if name_a is None or name_b is None:
-            self._diff_pairs_in_flight.discard((idx_a, idx_b))
-            return
-        fm_idx_a = self._row_mapper.fm_index_for_row(idx_a)
-        fm_idx_b = self._row_mapper.fm_index_for_row(idx_b)
-        base_center = self._get_base_center()
-        base_rotation = self._get_base_rotation()
-
-        job_args = (
-            "",
-            name_a, name_b,
-            fm.specs[fm_idx_a] if fm_idx_a is not None and fm_idx_a < len(fm.specs) else None,
-            fm.specs[fm_idx_b] if fm_idx_b is not None and fm_idx_b < len(fm.specs) else None,
-            self._get_effective_center(name_a),
-            self._get_effective_rotation(name_a),
-            self._get_effective_center(name_b),
-            self._get_effective_rotation(name_b),
-            list(base_center) if base_center else None,
-            base_rotation,
-            idx_b,  # job_index → table row whose diff column gets updated
-        )
-        future = self.diffExecutor.submit(_compute_image_diff, job_args)
-        self.diffTaskManager.submit_task(name_b, idx_b, future)
-        future.add_done_callback(
-            lambda f, a=idx_a, b=idx_b: QTimer.singleShot(
-                0, self, lambda: self._on_diff_result(f, a, b)
-            )
-        )
-
-    def _on_diff_result(self, future, idx_a, idx_b):
-        """Handle a completed diff future in the main thread."""
-        self._diff_pairs_in_flight.discard((idx_a, idx_b))
-        try:
-            try:
-                result = future.result()
-                error = result.get('error')
-            except Exception as fut_exc:
-                error = str(fut_exc)
-                result = {'pair_index': None, 'diff': None, 'error': error}
-
-            self.diffTaskManager.complete_task(future, result, error)
-
-            name_b = self._row_mapper.name_for_row(idx_b) if idx_b < self.table.rowCount() else None
-            if error:
-                print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
-            elif name_b is not None:
-                sm = self.workspace.settings_manager
-                sm.set_image_diff(name_b, result['diff'])
-                sm.save_image_diff()
-                self._compute_diff_percentile_threshold()
-
-            if name_b is not None and idx_b < self.table.rowCount():
-                diff_val = self.workspace.settings_manager.get_image_diff(name_b)
-                self.table.fill_diff(
-                    idx_b, diff_val,
-                    self._diff_thresh_enabled, self._diff_thresh_value,
-                )
-
-            if not self._diff_pairs_in_flight and self.diffExecutor is not None:
-                self.diffExecutor.shutdown(wait=False)
-                self.diffExecutor = None
-
-        except Exception as e:
-            print(f"Diff result callback error: {e}")
-            traceback.print_exc()
 
     # ------------------------------------------------------------------
     # Sum images (multiprocessing)
@@ -1700,7 +864,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if checked:
             if self._in_sum_batch:
                 return
-            if self.table.rowCount() == 0:
+            if self.panel.table.rowCount() == 0:
                 QMessageBox.information(self, "Sum Images",
                                         "No images loaded.")
                 self.sum_images_btn.blockSignals(True)
@@ -1753,7 +917,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def _on_sum_images_clicked(self):
         if self._in_sum_batch:
             return
-        if self.table.rowCount() == 0:
+        if self.panel.table.rowCount() == 0:
             QMessageBox.information(self, "Sum Images",
                                     "No images loaded.")
             return
@@ -1779,8 +943,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         # Build index groups from COL_INDEX column (always groups by frame index)
         from collections import defaultdict
         index_groups = defaultdict(list)
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, self.COL_INDEX)
+        for row in range(self.panel.table.rowCount()):
+            item = self.panel.table.item(row, self.COL_INDEX)
             if item is not None:
                 index_groups[item.data(Qt.DisplayRole)].append(row)
 
@@ -1788,7 +952,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         all_basenames = []
         for rows in index_groups.values():
             for r in rows:
-                if r not in self._ignored_rows:
+                if r not in self.panel.ignored_rows:
                     name = self._row_mapper.name_for_row(r)
                     all_basenames.append(os.path.splitext(os.path.basename(name))[0])
         default_base = os.path.commonprefix(all_basenames).rstrip('_') if all_basenames else "output"
@@ -1824,16 +988,16 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._sum_csv_rows = []
 
         # Transform base
-        _bc = self._get_base_center()
+        _bc = self.panel.get_base_center()
         base_center = list(_bc) if _bc else None
-        base_rotation = self._get_base_rotation()
+        base_rotation = self.panel.get_base_rotation()
 
         self._in_sum_batch = True
         self.sumTaskManager.clear()
 
         jobs_submitted = 0
         for group_num, rows in sorted(index_groups.items()):
-            active_rows = [r for r in rows if r not in self._ignored_rows]
+            active_rows = [r for r in rows if r not in self.panel.ignored_rows]
             if not active_rows:
                 print(f"Group {group_num}: all images ignored, skipping.")
                 continue
@@ -1848,8 +1012,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
             per_img_transforms = []
             for r in active_rows:
                 name = self._row_mapper.name_for_row(r)
-                center = self._get_effective_center(name)
-                rotation = self._get_effective_rotation(name)
+                center = self.panel.get_effective_center(name)
+                rotation = self.panel.get_effective_rotation(name)
                 per_img_transforms.append((
                     list(center) if center else None,
                     rotation,
@@ -1881,12 +1045,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
                                     "All groups have every image ignored — nothing to sum.")
             return
 
-        self.progressBar.setMaximum(jobs_submitted)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setValue(0)
-        self.progressBar.setVisible(True)
+        self.panel.progressBar.setMaximum(jobs_submitted)
+        self.panel.progressBar.setMinimum(0)
+        self.panel.progressBar.setValue(0)
+        self.panel.progressBar.setVisible(True)
         op = "Averaging" if do_average else "Summing"
-        self.statusLabel.setText(f"{op} images: 0/{jobs_submitted} groups...")
+        self.panel.statusLabel.setText(f"{op} images: 0/{jobs_submitted} groups...")
         print(f"Sum batch started: {jobs_submitted} group(s) submitted")
 
     def _on_sum_future_done(self, future):
@@ -1940,9 +1104,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
             stats = self.sumTaskManager.get_statistics()
             done = stats['completed'] + stats['failed']
-            self.progressBar.setValue(done)
+            self.panel.progressBar.setValue(done)
             op = "Averaging" if self.avg_instead_of_sum_chk.isChecked() else "Summing"
-            self.statusLabel.setText(f"{op} images: {done}/{stats['total']} groups...")
+            self.panel.statusLabel.setText(f"{op} images: {done}/{stats['total']} groups...")
 
             if stats['pending'] == 0:
                 self._on_sum_batch_complete()
@@ -1984,7 +1148,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         self._in_sum_batch = False
         self.stop_process = False
-        self.progressBar.setVisible(False)
+        self.panel.progressBar.setVisible(False)
 
         self.sum_images_btn.blockSignals(True)
         self.sum_images_btn.setChecked(False)
@@ -2002,7 +1166,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         else:
             msg = (f"{op} complete: {stats['completed']}/{stats['total']} group(s) saved, "
                    f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/group")
-        self.statusLabel.setText(msg)
+        self.panel.statusLabel.setText(msg)
         print(msg)
 
     # ------------------------------------------------------------------
@@ -2010,4 +1174,4 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def setStatus(self, text):
-        self.statusLabel.setText(text)
+        self.panel.statusLabel.setText(text)
