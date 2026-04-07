@@ -1453,6 +1453,31 @@ class QuadrantFolder:
             if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
                 # print(f"Upsampling background from downsampled version by factor {self.info['downsample']}...")
                 bg = self.upsampleImage(bg)
+
+            # Ensure background matches avg_fold shape before subtraction
+            if bg.shape != avg_fold.shape:
+                target_h, target_w = avg_fold.shape
+                bg_h, bg_w = bg.shape
+
+                # Center-crop if background is larger
+                if bg_h > target_h or bg_w > target_w:
+                    bg = bg[:target_h, :target_w]
+
+                # Pad with zeros if background is smaller
+                if bg.shape != avg_fold.shape:
+                    bg_h, bg_w = bg.shape
+                    pad_y = max(target_h - bg_h, 0)
+                    pad_x = max(target_w - bg_w, 0)
+                    pad_top = pad_y // 2
+                    pad_bottom = pad_y - pad_top
+                    pad_left = pad_x // 2
+                    pad_right = pad_x - pad_left
+                    bg = np.pad(
+                        bg,
+                        ((pad_top, pad_bottom), (pad_left, pad_right)),
+                        mode='constant',
+                        constant_values=0
+                    )
             
             if method != 'None':
                 result = np.array(avg_fold - bg, dtype=np.float32)
@@ -1498,6 +1523,31 @@ class QuadrantFolder:
         
         if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
             bg_syn = self.upsampleImage(bg_syn)
+
+        # Ensure background matches avg_fold_with_syn shape before subtraction
+        if bg_syn.shape != avg_fold_with_syn.shape:
+            target_h, target_w = avg_fold_with_syn.shape
+            bg_h, bg_w = bg_syn.shape
+
+            # Center-crop if background is larger
+            if bg_h > target_h or bg_w > target_w:
+                bg_syn = bg_syn[:target_h, :target_w]
+
+            # Pad with zeros if background is smaller
+            if bg_syn.shape != avg_fold_with_syn.shape:
+                bg_h, bg_w = bg_syn.shape
+                pad_y = max(target_h - bg_h, 0)
+                pad_x = max(target_w - bg_w, 0)
+                pad_top = pad_y // 2
+                pad_bottom = pad_y - pad_top
+                pad_left = pad_x // 2
+                pad_right = pad_x - pad_left
+                bg_syn = np.pad(
+                    bg_syn,
+                    ((pad_top, pad_bottom), (pad_left, pad_right)),
+                    mode='constant',
+                    constant_values=0
+                )
         
         if method != 'None':
             result = np.array(avg_fold_with_syn - bg_syn, dtype=np.float32)
