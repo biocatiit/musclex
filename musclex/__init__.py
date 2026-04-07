@@ -26,4 +26,17 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__version__ = '1.28.0(dev)'
+import subprocess as _subprocess
+
+def _get_version():
+    _base = '1.28.0'
+    try:
+        _branch = _subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            stderr=_subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        _branch = ''
+    return f'{_base}(dev)' if _branch == 'dev' else _base
+
+__version__ = _get_version()
