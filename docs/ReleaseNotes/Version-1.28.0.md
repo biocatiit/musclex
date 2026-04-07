@@ -22,6 +22,7 @@ Release Date : February 2026
 - Tab-based experiment management with per-tab table views
 - Base name input dialog for naming output files
 - Shared helper functions with AISE for geometry computation and image summation
+- Workflow guide dialog (shared with AISE) accessible via a "Workflow Guide" button; can be suppressed for future sessions
 
 ### Equator Window – Refactored
 - `EquatorImage` now accepts an `ImageData` container instead of raw arrays, consolidating blank/mask application and center/rotation resolution
@@ -40,6 +41,8 @@ Release Date : February 2026
 - `ProjectionTracesGUI`, `QuadrantFoldingGUI`, `XRayViewerGUI`: early return on invalid HDF5 frame range to prevent crashes
 - `ProjectionTracesGUI`, `QuadrantFoldingGUI`: folder selection button removed from image navigator (not currently used)
 - `ProcessingWorkspace`: improved message box parent handling; display updates streamlined
+- **Status bar enhancements**: cursor coordinates and radial distance (r_px) from center displayed in the status bar across all modules
+- **Calibrated q-coordinates**: `ProjectionTracesGUI` and `XRayViewerGUI` status bar now shows qX, qY, qR (reciprocal-space coordinates) when calibration is available, replacing the deprecated `inverseNmFromCenter` function
 
 ---
 
