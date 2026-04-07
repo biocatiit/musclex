@@ -58,6 +58,7 @@ from .widgets.double_zoom_widget import DoubleZoomWidget
 from .ImageBlankDialog import ImageBlankDialog
 from .ImageMaskDialog import ImageMaskDialog
 from .BackgroundSubtractionDialog import BackgroundSubtractionDialog
+from .ManualBackgroundAssignmentDialog import ManualBackgroundAssignmentDialog
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 from scipy.ndimage import rotate
@@ -262,6 +263,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
         self._batch_background_configurations = []
+        self.manualBackgroundAssignments = {}
+        self._batch_manual_background_assignments = {}
 
         # NOTE: setCentDialog and setAngleDialog moved to ImageSettingsPanel
 
@@ -792,6 +795,65 @@ class QuadrantFoldingGUI(BaseGUI):
             return
         has_selection = len(self.backgroundConfigsTable.selectionModel().selectedRows()) > 0
         self.deleteBackgroundConfigButton.setEnabled(has_selection)
+
+    def openManualBackgroundAssignmentsDialog(self):
+        """Open dialog to manually assign saved background configurations to images."""
+        if self.file_manager is None or not self.file_manager.names:
+            QMessageBox.information(self, "Manual Assignment", "Please load a folder with images first.")
+            return
+
+        config_names = [str(c.get('name', '') or '').strip() for c in self.backgroundConfigurations]
+        config_names = [n for n in config_names if n]
+        if len(config_names) == 0:
+            QMessageBox.information(
+                self,
+                "Manual Assignment",
+                "No saved background configurations are available. Add configurations first."
+            )
+            return
+
+        dialog = ManualBackgroundAssignmentDialog(
+            image_names=self.file_manager.names,
+            configuration_names=config_names,
+            current_assignments=self.manualBackgroundAssignments,
+            parent=self,
+        )
+        if dialog.exec_() == QDialog.Accepted:
+            self.manualBackgroundAssignments = dialog.get_assignments()
+            QMessageBox.information(
+                self,
+                "Manual Assignment",
+                f"Saved manual assignments for {len(self.manualBackgroundAssignments)} image(s)."
+            )
+
+    def _resolve_manual_background_assignments_for_batch(self, configurations):
+        """
+        Resolve manual image->configuration-name selections into image->configuration records.
+        """
+        if not isinstance(configurations, list) or len(configurations) == 0:
+            return {}
+
+        config_by_name = {}
+        for config in configurations:
+            if not isinstance(config, dict):
+                continue
+            name = str(config.get('name', '') or '').strip()
+            method = str(config.get('method', '') or '').strip()
+            params = config.get('params', {})
+            if not name or not method or not isinstance(params, dict):
+                continue
+            config_by_name[name] = {
+                'name': name,
+                'method': method,
+                'params': dict(params),
+            }
+
+        resolved = {}
+        for img_name, cfg_name in (self.manualBackgroundAssignments or {}).items():
+            cfg_key = str(cfg_name or '').strip()
+            if cfg_key in config_by_name:
+                resolved[str(img_name)] = copy.deepcopy(config_by_name[cfg_key])
+        return resolved
 
     def _show_background_config_context_menu(self, pos):
         if not hasattr(self, 'backgroundConfigsTable'):
@@ -1334,6 +1396,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.applyResultBGButton.clicked.connect(self.applyDefaultOptimization)
         self.addBackgroundConfigButton.clicked.connect(self.addBackgroundConfiguration)
         self.deleteBackgroundConfigButton.clicked.connect(self.deleteSelectedBackgroundConfiguration)
+        self.assignConfgurationsManually.clicked.connect(self.openManualBackgroundAssignmentsDialog)
         self.backgroundConfigsTable.itemSelectionChanged.connect(self._on_background_config_selection_changed)
         self.backgroundConfigsTable.customContextMenuRequested.connect(self._show_background_config_context_menu)
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -2752,6 +2815,8 @@ class QuadrantFoldingGUI(BaseGUI):
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
                 print("All threads are complete")
                 self.batchProcessing = False  # Disable batch processing mode
+                self._batch_background_configurations = []
+                self._batch_manual_background_assignments = {}
                 self.progressBar.setVisible(False)
                 self.navControls.filenameLineEdit.setEnabled(True)
                 
@@ -3066,6 +3131,11 @@ class QuadrantFoldingGUI(BaseGUI):
             flags['background_configurations'] = copy.deepcopy(batch_configs)
         else:
             flags['background_configurations'] = []
+
+        if flags['is_batch_processing']:
+            flags['manual_background_assignments'] = copy.deepcopy(self._batch_manual_background_assignments)
+        else:
+            flags['manual_background_assignments'] = {}
         
 
 
@@ -3188,6 +3258,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # It will still signal finished; we just won't schedule more
         self.currentTask = None
         self._batch_background_configurations = []
+        self._batch_manual_background_assignments = {}
         
     def h5batchProcBtnToggled(self):
         """
@@ -3218,22 +3289,40 @@ class QuadrantFoldingGUI(BaseGUI):
 
         flags = self.getFlags()
 
-        # If auto-choosing saved configurations is enabled, require cache-backed configs.
-        if self.chooseConfigurationsAutoChkBx.isChecked():
+        has_manual_assignments = isinstance(self.manualBackgroundAssignments, dict) and len(self.manualBackgroundAssignments) > 0
+
+        # Manual assignments and auto selection both depend on saved configurations.
+        if self.chooseConfigurationsAutoChkBx.isChecked() or has_manual_assignments:
             self._batch_background_configurations = self._read_background_configurations_for_batch()
             if len(self._batch_background_configurations) == 0:
                 QMessageBox.warning(
                     self,
                     "No Saved Background Configurations",
-                    "Automatic configuration selection is enabled, but no saved background configurations were found in the cache for this folder/context. Batch processing was stopped."
+                    "Batch processing requires saved background configurations, but none were found in the cache for this folder/context. Batch processing was stopped."
                 )
                 self.navControls.processFolderButton.setChecked(False)
                 self.navControls.processH5Button.setChecked(False)
                 self.highlightApplyUndo()
                 return
+
+            self._batch_manual_background_assignments = self._resolve_manual_background_assignments_for_batch(
+                self._batch_background_configurations
+            )
+            if has_manual_assignments and len(self._batch_manual_background_assignments) == 0:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Manual Assignments",
+                    "Manual assignments were set, but none match the current saved configurations. Batch processing was stopped."
+                )
+                self.navControls.processFolderButton.setChecked(False)
+                self.navControls.processH5Button.setChecked(False)
+                self.highlightApplyUndo()
+                return
+
             flags['background_configurations'] = copy.deepcopy(self._batch_background_configurations)
         else:
             self._batch_background_configurations = []
+            self._batch_manual_background_assignments = {}
         text += "\nCurrent Settings"
 
         if len(self.ignoreFolds) > 0:
@@ -3266,6 +3355,8 @@ class QuadrantFoldingGUI(BaseGUI):
         if self.chooseConfigurationsAutoChkBx.isChecked():
             text += "\n  - Auto Configuration Selection : Enabled"
             text += f"\n  - Saved Configurations Loaded : {len(self._batch_background_configurations)}"
+        if len(self._batch_manual_background_assignments) > 0:
+            text += f"\n  - Manual Assignments : {len(self._batch_manual_background_assignments)} image(s)"
 
         text += '\n\nAre you sure you want to process ' + str(len(img_ids)) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
@@ -3352,6 +3443,9 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.csvManager = QF_CSVManager(self.filePath)
                     self.ignoreFolds = set()
                     self.resetWidgets()
+                    self.manualBackgroundAssignments = {}
+                    self._batch_background_configurations = []
+                    self._batch_manual_background_assignments = {}
                     
                     # Update left widget width
                     self.updateLeftWidgetWidth()

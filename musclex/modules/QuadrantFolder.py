@@ -1204,18 +1204,79 @@ class QuadrantFolder:
                 ordered_values[pos] = params[key]
             return ordered_values
 
+        def _normalize_params(method, cfg_params):
+            params = {}
+            cfg_params = cfg_params if isinstance(cfg_params, dict) else {}
+            for key, default_value in method_params[method].items():
+                value = cfg_params.get(key, default_value)
+                try:
+                    if isinstance(default_value, int):
+                        value = int(round(float(value)))
+                    elif isinstance(default_value, float):
+                        value = float(value)
+                except Exception:
+                    value = default_value
+                params[key] = value
+            return params
+
+        def _apply_selected_configuration(method, params, loss_value, config_name='-'):
+            for key, value in params.items():
+                self.info[f"{key}"] = value
+            self.info['result_bg']['final_params'] = params
+            self.info['result_bg']['optimized'] = False
+            self.info['result_bg']['reused_cache'] = False
+            self.info['result_bg']['method'] = method
+            self.info['result_bg']['loss'] = loss_value
+            self.info['result_bg']['selected_configuration_name'] = config_name if config_name else '-'
+            self.info['bgsub'] = method
+
 
 
         best_method = None
+
+
+        # 1) Manual image->configuration assignment (batch mode only)
+        manual_assignments = self.info.get('manual_background_assignments', {})
         auto_configs = self.info.get('background_configurations', [])
+        batch_processing = bool(self.info.get('is_batch_processing', False)) or bool(self.info.get('batchProcessing', False))
         use_auto_configs = (
-            bool(self.info.get('is_batch_processing', False))
+            batch_processing
             and bool(self.info.get('choose_configurations_auto', False))
             and isinstance(auto_configs, list)
             and len(auto_configs) > 0
         )
 
-        if use_auto_configs:
+        assigned_cfg = manual_assignments.get(self.img_name, None)
+        use_manual_assignment = batch_processing and isinstance(manual_assignments, dict) and assigned_cfg is not None
+
+        if use_manual_assignment:
+            if isinstance(assigned_cfg, dict):
+                assigned_method = str(assigned_cfg.get('method', '') or '').strip()
+                assigned_name = str(assigned_cfg.get('name', '') or '').strip()
+                assigned_params = assigned_cfg.get('params', {})
+
+                if assigned_method in method_params and isinstance(assigned_params, dict):
+                    eval_params = _normalize_params(assigned_method, assigned_params)
+                    values = _values_from_params(assigned_method, eval_params)
+                    try:
+                        loss, _ = process_file(values=values, method=assigned_method, **kwargs)
+                    except Exception as e:
+                        print(f"Manual assigned configuration for '{self.img_name}' is invalid: {e}")
+                    else:
+                        print(
+                            f"Using manually assigned configuration for '{self.img_name}': "
+                            f"{assigned_name or assigned_method} (method: {assigned_method}, loss: {loss})"
+                        )
+                        _apply_selected_configuration(
+                            assigned_method,
+                            eval_params,
+                            loss,
+                            config_name=assigned_name if assigned_name else '-'
+                        )
+                        best_method = assigned_method
+
+
+        elif use_auto_configs:
             self.parent.statusPrint("Evaluating saved background configurations...")
             best_loss = np.inf
             best_params = None
@@ -1233,19 +1294,9 @@ class QuadrantFolder:
                 cfg_params = cfg.get('params', {}) if isinstance(cfg.get('params', {}), dict) else {}
 
                 # Fill missing parameters from defaults and coerce types.
-                eval_params = {}
-                for key, default_value in method_params[method].items():
-                    value = cfg_params.get(key, default_value)
-                    try:
-                        if isinstance(default_value, int):
-                            value = int(round(float(value)))
-                        elif isinstance(default_value, float):
-                            value = float(value)
-                    except Exception:
-                        value = default_value
-                    eval_params[key] = value
+                eval_params = _normalize_params(method, cfg_params)
 
-                values = [eval_params[key] for key in method_params[method].keys()]
+                values = _values_from_params(method, eval_params)
                 try:
                     loss, _ = process_file(values=values, method=method, **kwargs)
                 except Exception as e:
@@ -1261,15 +1312,12 @@ class QuadrantFolder:
 
             if best_method is not None and best_params is not None:
                 print(f"Best saved configuration: {best_name or '-'} ({best_method}) with loss {best_loss}")
-                for key, value in best_params.items():
-                    self.info[f"{key}"] = value
-                self.info['result_bg']['final_params'] = best_params
-                self.info['result_bg']['optimized'] = False
-                self.info['result_bg']['reused_cache'] = False
-                self.info['result_bg']['method'] = best_method
-                self.info['result_bg']['loss'] = best_loss
-                self.info['result_bg']['selected_configuration_name'] = best_name if best_name else '-'
-                self.info['bgsub'] = best_method
+                _apply_selected_configuration(
+                    best_method,
+                    best_params,
+                    best_loss,
+                    config_name=best_name if best_name else '-'
+                )
             else:
                 # Fallback to existing behavior if provided configs are invalid.
                 print("No valid saved background configuration found. Falling back to existing processing mode.")
