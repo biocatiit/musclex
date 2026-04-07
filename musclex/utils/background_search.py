@@ -742,7 +742,7 @@ def optimize(method, **kwargs):
     
     steps = kwargs.get('steps', [10, 7, 5, 3, 1])
     early_stop = kwargs.get('early_stop', 0.0001)
-    max_iterations = kwargs.get('max_iterations', 10)
+    max_iterations = kwargs.get('max_iterations', 30)
     refine_params = kwargs.get('refine_params', -1)
 
     log(f">_ Optimizing with method: {method}")

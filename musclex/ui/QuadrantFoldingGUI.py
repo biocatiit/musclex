@@ -682,7 +682,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'methods': flags.get('methods', []),
             'steps': flags.get('steps', []),
             'early_stop': flags.get('early_stop', 0.0),
-            'max_iterations': flags.get('max_iterations', 2),
+            'max_iterations': flags.get('max_iterations', 30),
             'mean_metric_values': flags.get('mean_metric_values', None),
             'metric_weights': flags.get('metric_weights', None),
             'detector': flags.get('detector', None),

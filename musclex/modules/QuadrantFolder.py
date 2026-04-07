@@ -140,7 +140,7 @@ class QuadrantFolder:
             'methods': self.info.get('methods', []),
             'steps': self.info.get('steps', []),
             'early_stop': self.info.get('early_stop', 0.0),
-            'max_iterations': self.info.get('max_iterations', 10),
+            'max_iterations': self.info.get('max_iterations', 30),
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
             'detector': self.info.get('detector', None),
