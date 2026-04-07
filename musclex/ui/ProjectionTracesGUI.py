@@ -1872,8 +1872,8 @@ class ProjectionTracesGUI(BaseGUI):
                     q_x, q_y, q_R, unit = qFromCenter([x, y], center, calSettings['scale'])
                     r_px = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
                     self.imgCoordOnStatusBar.setText(
-                        f"x={x}, y={y}, r={r_px:.1f} px, value={img[y][x]}, "
-                        f"qX={q_x:.4f} {unit}, qY={q_y:.4f} {unit}, qR={q_R:.4f} {unit}"
+                        f"x={x}, y={y}, r={r_px:.1f} px, "
+                        f"qX={q_x:.4f} {unit}, qY={q_y:.4f} {unit}, qR={q_R:.4f} {unit}, value={img[y][x]}"
                     )
                 else:
                     center = self.projProc.center
