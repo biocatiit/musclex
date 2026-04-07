@@ -409,7 +409,45 @@ def full_eval_metrics(dimg, dbg, syn_img, syn_str, syn_mask, gen_mask, baseline_
 
 
 
+def _match_shape_to_mask(arr, mask_shape):
+    if arr is None:
+        return None
+    if arr.shape == mask_shape:
+        return arr
+
+    target_h, target_w = mask_shape
+    src_h, src_w = arr.shape
+
+    # Center-crop if larger
+    if src_h > target_h or src_w > target_w:
+        start_y = max((src_h - target_h) // 2, 0)
+        start_x = max((src_w - target_w) // 2, 0)
+        end_y = start_y + target_h
+        end_x = start_x + target_w
+        arr = arr[start_y:end_y, start_x:end_x]
+
+    # Pad if smaller
+    if arr.shape != mask_shape:
+        src_h, src_w = arr.shape
+        pad_y = max(target_h - src_h, 0)
+        pad_x = max(target_w - src_w, 0)
+        pad_top = pad_y // 2
+        pad_bottom = pad_y - pad_top
+        pad_left = pad_x // 2
+        pad_right = pad_x - pad_left
+        arr = np.pad(
+            arr,
+            ((pad_top, pad_bottom), (pad_left, pad_right)),
+            mode='constant',
+            constant_values=0
+        )
+
+    return arr
+
+
 def artificial_data_mse(dimg, syn_str, syn_mask, gen_mask=None, normalize=True):
+    dimg = _match_shape_to_mask(dimg, syn_mask.shape)
+    syn_str = _match_shape_to_mask(syn_str, syn_mask.shape)
     dimg = dimg * syn_mask
     syn_str = syn_str * syn_mask    
     
@@ -420,6 +458,8 @@ def artificial_data_mse(dimg, syn_str, syn_mask, gen_mask=None, normalize=True):
 
 
 def share_neg_syn(dimg, syn_str, syn_mask):
+    dimg = _match_shape_to_mask(dimg, syn_mask.shape)
+    syn_str = _match_shape_to_mask(syn_str, syn_mask.shape)
     dimg = dimg * syn_mask
     syn_str = syn_str * syn_mask
     neg_pixels = np.sum((dimg - syn_str) < 0)
@@ -697,6 +737,18 @@ def applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
         # print(f"Upsampling background from downsampled version by factor {downsample_factor}...")
         bg = upsampleImage(bg, factor=downsample_factor)
 
+    if bg.shape != avg_fold.shape:
+        target_h = min(bg.shape[0], avg_fold.shape[0])
+        target_w = min(bg.shape[1], avg_fold.shape[1])
+
+        print(f"Warning: Background shape {bg.shape} does not match average fold shape {avg_fold.shape}. Cropping to {target_h}x{target_w}.")
+
+        if bg.shape[0] != target_h or bg.shape[1] != target_w:
+            bg = bg[:target_h, :target_w]
+
+        if avg_fold.shape[0] != target_h or avg_fold.shape[1] != target_w:
+            avg_fold = avg_fold[:target_h, :target_w]
+
     if method != 'None':
         result = np.array(avg_fold - bg, dtype=np.float32)
         result = replaceRmin(result, int(rmin), 0.)
@@ -742,7 +794,7 @@ def optimize(method, **kwargs):
     
     steps = kwargs.get('steps', [10, 7, 5, 3, 1])
     early_stop = kwargs.get('early_stop', 0.0001)
-    max_iterations = kwargs.get('max_iterations', 30)
+    max_iterations = kwargs.get('max_iterations', 15)
     refine_params = kwargs.get('refine_params', -1)
 
     log(f">_ Optimizing with method: {method}")
@@ -804,7 +856,7 @@ def optimize(method, **kwargs):
         # log(f"Best value for param {param_idx+1}: {best_value}, Loss: {best_loss:.6f}")
 
     # --- Final refinement: grid search with last three step sizes ---
-    final_steps = steps[-2:]  # last two step sizes
+    final_steps = steps[-2:-1]  # last two step sizes
     best_params = cur_params.copy()
     best_loss, result = process_file_with_timeout(best_params, method=method, **kwargs)
     improved = False
@@ -909,7 +961,12 @@ def process_file(values=None, **kwargs):
 
     dimg = makeFullImage(dimg_fold)
     syn_dimg = makeFullImage(dimg_fold_syn)
-    dbg = kwargs['orig_img'] - dimg
+    orig_img = kwargs['orig_img']
+
+    # Align generated image to original image shape before subtraction
+    dimg = _match_shape_to_mask(dimg, orig_img.shape)
+
+    dbg = orig_img - dimg
     baseline = get_radial_average_rmax(dimg+dbg, kwargs['rmax'], band_width=30)*0.2
     syn_srt = kwargs.get('synthetic_data', None)
     syn_mask = kwargs.get('synthetic_mask', None)

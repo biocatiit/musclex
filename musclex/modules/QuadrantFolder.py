@@ -140,7 +140,7 @@ class QuadrantFolder:
             'methods': self.info.get('methods', []),
             'steps': self.info.get('steps', []),
             'early_stop': self.info.get('early_stop', 0.0),
-            'max_iterations': self.info.get('max_iterations', 30),
+            'max_iterations': self.info.get('max_iterations', 15),
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
             'detector': self.info.get('detector', None),
@@ -1546,6 +1546,36 @@ class QuadrantFolder:
             return
         
         result = self.imgCache['resultImg']
+
+        # Ensure result and original image have matching shapes
+        if result.shape != self.orig_img.shape:
+            target_h, target_w = self.orig_img.shape
+            res_h, res_w = result.shape
+
+            # Center-crop if result is larger
+            if res_h > target_h or res_w > target_w:
+                start_y = max((res_h - target_h) // 2, 0)
+                start_x = max((res_w - target_w) // 2, 0)
+                end_y = start_y + target_h
+                end_x = start_x + target_w
+                result = result[start_y:end_y, start_x:end_x]
+
+            # Pad with zeros if result is smaller
+            if result.shape != self.orig_img.shape:
+                res_h, res_w = result.shape
+                pad_y = max(target_h - res_h, 0)
+                pad_x = max(target_w - res_w, 0)
+                pad_top = pad_y // 2
+                pad_bottom = pad_y - pad_top
+                pad_left = pad_x // 2
+                pad_right = pad_x - pad_left
+                result = np.pad(
+                    result,
+                    ((pad_top, pad_bottom), (pad_left, pad_right)),
+                    mode='constant',
+                    constant_values=0
+                )
+
         bg = self.orig_img - result
         baseline = get_radial_average_rmax(result+bg, self.info['rmax'], band_width=30)*0.2
         syn_srt = self.info.get('synthetic_data', None)
