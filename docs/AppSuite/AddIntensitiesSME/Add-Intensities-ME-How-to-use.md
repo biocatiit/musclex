@@ -9,6 +9,18 @@ When the program opens, a **Select Experiments** panel is shown. Use it to choos
 
 Once loaded, the program switches to the main table view.
 
+## Workflow Overview
+
+A **Workflow Guide** dialog is shown on first launch (and can be reopened at any time via the **Workflow Guide** button in the top bar). The recommended steps are:
+
+1. **Browse and select experiments** — click *Browse Folder…* to choose a parent directory, select one or more experiments from the list, then click *Load*.
+2. **Set the global (reference) image** — by default the first image is the reference. Right-click a row and choose *Set as Global Base* to change it.
+3. **Detect misalignment** — click *Detect Centers & Rotations* in the alignment panel. The table highlights rows whose center distance or rotation difference exceeds the configured thresholds. Use *Compute Image Difference* to add pixel-level comparison scores.
+4. **Correct misaligned images** — select a misaligned row and adjust its center/rotation. Right-click → *Apply to Subsequent Images* for progressive drift, or *Ignore* to exclude an image entirely.
+5. **Choose a grouping mode** — switch between **Group by Index** and **Group by Exp** using the top tab bar. Summing always produces one output file per frame index.
+6. **Sum Images** — choose *Average* or *Sum* in *Image Operations*, then click **Sum Images by Index**.
+7. **Inspect results** — switch to the **Result** tab to browse and preview the output images.
+
 ## Table View
 
 The alignment table lists every image across all loaded experiments. Each row corresponds to one image from one experiment. The table has two view modes, selectable via the top tab bar:
