@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QTabBar, QInputDialog,
 )
 from PySide6.QtCore import Qt, QThreadPool, QTimer
+
 from PySide6.QtGui import QColor
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
@@ -23,9 +24,90 @@ from musclex.ui.add_intensities_common import (
     _sum_group_worker,
     _GeometryWorkerSignals,
     _GeometryWorker,
+    WorkflowGuideDialog,
 )
 from musclex.ui.widgets.image_alignment_table import ColKey
 from musclex.ui.widgets.image_alignment_widget import ImageAlignmentWidget
+
+
+_AIME_WORKFLOW_HTML = """
+<html>
+<head>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 10px 16px; color: #222; }
+  h2   { color: #2c5f9e; margin-bottom: 4px; }
+  p.intro { margin-top: 0; color: #555; font-style: italic; }
+  ol   { padding-left: 20px; }
+  li   { margin-bottom: 10px; line-height: 1.5; }
+  .step-title { font-weight: bold; color: #1a3d6b; }
+  .hint { font-size: 12px; color: #666; margin-left: 4px; }
+  hr   { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
+</style>
+</head>
+<body>
+<h2>AIME Workflow Guide</h2>
+<p class="intro">
+  Follow these steps to load, align and sum images across multiple experiments.
+  The <b>global image</b> is the reference to which all other images are aligned.
+</p>
+<hr/>
+<ol>
+  <li>
+    <span class="step-title">Browse and select experiments</span><br/>
+    <span class="hint">
+      Click <i>Browse Folder&hellip;</i> to choose a parent directory.
+      Select one or more experiments (subdirectories or H5 files) from the list,
+      then click <i>Load</i>.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Set the global (reference) image</span><br/>
+    <span class="hint">
+      By default the first image is the global image.
+      Right-click a row in the table and choose <i>Set as Global Image</i> to change it.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Detect misalignment</span><br/>
+    <span class="hint">
+      Click <i>Detect Centers &amp; Rotations</i>.
+      The table highlights rows whose center distance or rotation difference
+      exceeds the configured thresholds.
+      Use <i>Compute Image Difference</i> to add pixel-level comparison scores.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Correct misaligned images</span><br/>
+    <span class="hint">
+      Select a misaligned row and adjust its center / rotation.
+      Right-click &rarr; <i>Apply to Subsequent Images</i> for progressive drift.
+      Right-click &rarr; <i>Ignore Image</i> to exclude an image from summation.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Choose a grouping mode</span><br/>
+    <span class="hint">
+      <b>Group by Index:</b> frames are grouped and summed by their index across experiments
+      &mdash; frame&nbsp;1 from all experiments is summed together, frame&nbsp;2 from all experiments, and so on.<br/>
+      <b>Group by Exp:</b> reorders the table to group rows by experiment for easier visual inspection;
+      summing still produces one output file per frame index.
+    </span>
+  </li>
+  <li>
+    <span class="step-title">Apply operation and inspect results</span><br/>
+    <span class="hint">
+      Choose <i>Average</i> or <i>Sum</i> in the <i>Image Operations</i> panel,
+      then click <i>Sum Images</i>.
+      Switch to the <b>Result</b> tab to browse and inspect the output images.
+    </span>
+  </li>
+</ol>
+</body>
+</html>
+"""
+
+_AIME_SETTINGS_KEY = "aime/hide_workflow_guide"
+_AIME_WORKFLOW_TITLE = "AIME Workflow Guide"
 
 
 class AddIntensitiesMultipleExp(QMainWindow):
@@ -78,6 +160,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.panel.set_row_mapper(self._row_mapper)
         self.resize(1400, 800)
         self.show()
+        QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(
+            _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self))
 
     # ------------------------------------------------------------------
     # UI construction
@@ -255,13 +339,29 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.splitter.setSizes([900, 500])
         right_container.setMinimumWidth(400)
 
-        # ── Tab bar ────────────────────────────────────────────────────────
+        # ── Top bar: workflow guide button + tab bar ───────────────────────
+        top_bar = QHBoxLayout()
+        top_bar.setContentsMargins(0, 0, 0, 0)
+        top_bar.setSpacing(8)
+
         self._tab_bar = QTabBar()
         self._tab_bar.addTab("Group by Index")
         self._tab_bar.addTab("Group by Exp")
         self._tab_bar.addTab("Result")
         self._tab_bar.setExpanding(False)
-        root.addWidget(self._tab_bar)
+        top_bar.addWidget(self._tab_bar)
+        top_bar.addStretch()
+
+        self._workflow_btn = QPushButton("Workflow Guide")
+        self._workflow_btn.setToolTip("Show the step-by-step workflow guide")
+        self._workflow_btn.setFixedHeight(26)
+        self._workflow_btn.clicked.connect(lambda: WorkflowGuideDialog.show_always(
+            _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self))
+        top_bar.addWidget(self._workflow_btn)
+
+        top_bar_widget = QWidget()
+        top_bar_widget.setLayout(top_bar)
+        root.addWidget(top_bar_widget)
 
         # Main stack: page 0 = splitter (Origin), page 1 = Result page
         self._result_page = self._build_result_page()

@@ -6,8 +6,70 @@ workers via the standard top-level import mechanism.
 
 import traceback
 
-from PySide6.QtCore import Qt, Signal, QRunnable, QObject
-from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem
+from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QSettings
+from PySide6.QtWidgets import (
+    QStyledItemDelegate, QStyleOptionViewItem,
+    QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QTextBrowser,
+)
+
+
+class WorkflowGuideDialog(QDialog):
+    """Reusable workflow-guide dialog.
+
+    Parameters
+    ----------
+    title        : Window / heading title string.
+    html         : HTML content to display in the browser widget.
+    settings_key : QSettings key used to persist the "don't show again" choice.
+    parent       : Optional parent widget.
+    """
+
+    def __init__(self, title: str, html: str, settings_key: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self._settings_key = settings_key
+        self.resize(600, 540)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        browser = QTextBrowser()
+        browser.setHtml(html)
+        browser.setOpenExternalLinks(False)
+        browser.setReadOnly(True)
+        layout.addWidget(browser, 1)
+
+        bottom_row = QHBoxLayout()
+        self._dont_show_chk = QCheckBox("Don't show this again")
+        bottom_row.addWidget(self._dont_show_chk)
+        bottom_row.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.setDefault(True)
+        close_btn.clicked.connect(self._on_close)
+        bottom_row.addWidget(close_btn)
+        layout.addLayout(bottom_row)
+
+    @staticmethod
+    def _settings():
+        return QSettings("BioCAT", "MuscleX")
+
+    def _on_close(self):
+        if self._dont_show_chk.isChecked():
+            self._settings().setValue(self._settings_key, True)
+        self.accept()
+
+    @staticmethod
+    def show_if_needed(title: str, html: str, settings_key: str, parent=None):
+        """Show the dialog unless the user has previously suppressed it."""
+        if WorkflowGuideDialog._settings().value(settings_key, False, type=bool):
+            return
+        WorkflowGuideDialog(title, html, settings_key, parent).exec()
+
+    @staticmethod
+    def show_always(title: str, html: str, settings_key: str, parent=None):
+        """Show the dialog unconditionally (e.g. triggered by a toolbar button)."""
+        WorkflowGuideDialog(title, html, settings_key, parent).exec()
 
 
 class _ElideMiddleDelegate(QStyledItemDelegate):

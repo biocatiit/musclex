@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
     QProgressDialog, QMessageBox,
-    QTabBar, QDialog, QTextBrowser,
+    QTabBar,
 )
-from PySide6.QtCore import Qt, QThreadPool, QTimer, QSettings
+from PySide6.QtCore import Qt, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
@@ -23,6 +23,7 @@ from musclex.ui.add_intensities_common import (
     _sum_group_worker,
     _GeometryWorkerSignals,
     _GeometryWorker,
+    WorkflowGuideDialog,
 )
 from musclex.ui.widgets.image_alignment_table import ColKey
 from musclex.ui.widgets.image_alignment_widget import ImageAlignmentWidget
@@ -129,58 +130,7 @@ _WORKFLOW_HTML = """
 """
 
 _AISE_SETTINGS_KEY = "aise/hide_workflow_guide"
-
-
-class WorkflowGuideDialog(QDialog):
-    """Modal dialog showing the AISE workflow with a 'don't show again' checkbox."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("AISE Workflow Guide")
-        self.resize(600, 580)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
-
-        browser = QTextBrowser()
-        browser.setHtml(_WORKFLOW_HTML)
-        browser.setOpenExternalLinks(False)
-        browser.setReadOnly(True)
-        layout.addWidget(browser, 1)
-
-        bottom_row = QHBoxLayout()
-        self._dont_show_chk = QCheckBox("Don't show this again")
-        bottom_row.addWidget(self._dont_show_chk)
-        bottom_row.addStretch()
-        close_btn = QPushButton("Close")
-        close_btn.setDefault(True)
-        close_btn.clicked.connect(self._on_close)
-        bottom_row.addWidget(close_btn)
-        layout.addLayout(bottom_row)
-
-    @staticmethod
-    def _settings():
-        return QSettings("BioCAT", "MuscleX")
-
-    def _on_close(self):
-        if self._dont_show_chk.isChecked():
-            self._settings().setValue(_AISE_SETTINGS_KEY, True)
-        self.accept()
-
-    @staticmethod
-    def show_if_needed(parent=None):
-        """Show the dialog unless the user has suppressed it."""
-        if WorkflowGuideDialog._settings().value(_AISE_SETTINGS_KEY, False, type=bool):
-            return
-        dlg = WorkflowGuideDialog(parent)
-        dlg.exec()
-
-    @staticmethod
-    def show_always(parent=None):
-        """Show the dialog unconditionally (triggered by the toolbar button)."""
-        dlg = WorkflowGuideDialog(parent)
-        dlg.exec()
+_AISE_WORKFLOW_TITLE = "AISE Workflow Guide"
 
 
 class AddIntensitiesSingleExp(QMainWindow):
@@ -232,7 +182,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._build_ui()
         self.resize(1400, 800)
         self.show()
-        QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(self))
+        QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(
+            _AISE_WORKFLOW_TITLE, _WORKFLOW_HTML, _AISE_SETTINGS_KEY, self))
 
     # ------------------------------------------------------------------
     # UI construction
@@ -360,7 +311,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._workflow_btn = QPushButton("Workflow Guide")
         self._workflow_btn.setToolTip("Show the step-by-step workflow guide")
         self._workflow_btn.setFixedHeight(26)
-        self._workflow_btn.clicked.connect(lambda: WorkflowGuideDialog.show_always(self))
+        self._workflow_btn.clicked.connect(lambda: WorkflowGuideDialog.show_always(
+            _AISE_WORKFLOW_TITLE, _WORKFLOW_HTML, _AISE_SETTINGS_KEY, self))
         top_bar.addWidget(self._workflow_btn)
 
         top_bar_widget = QWidget()
