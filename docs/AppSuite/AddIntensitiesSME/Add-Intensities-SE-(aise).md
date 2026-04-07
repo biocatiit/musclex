@@ -2,9 +2,9 @@
 
 _This program is available on Muscle X version 1.7 or higher_
 
-Add Intensities Single Experiment (former Image Merger) is a program which is designed to be used with a series of images with sequential file names taken in a time resolved experiment. It averages a user-selected number of images in an input directory together and saves the new image in an output directory. It does this for the rest of the images in the input directory without user intervention. The user selects an input directory or input h5 file, the number of frames to sum together and an output directory named `aise_results` is created at the root of the input. It is possible to calibrate, average instead of summing, and see the grouped images and their result.
+Add Intensities Single Experiment (AISE) is designed for time-resolved experiments where a series of sequentially named images from a single folder or HDF5 file need to be summed or averaged together. Images are grouped into bins — either by a fixed binning factor or by manually selecting rows in the alignment table — and the resulting summed/averaged images are saved to an `aise_results` folder.
 
-![-](../../images/AISE/aise_images.png)
+The program provides a table-driven workflow for inspecting, aligning, and grouping images before processing. Each image's diffraction center and rotation can be detected automatically or set manually, and misaligned images can be excluded from summation.
 
 ### More Details
 * [How to use](Add-Intensities-SE-How-to-use.html)

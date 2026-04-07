@@ -1,63 +1,144 @@
 # How to use
 
-Once the program runs, you will have to select a folder containing multiple rounds or images from different experiments (it goes from 2 to 8 experiments simultaneously). The program will automatically, based on the files names, select the first image of each experiment. You will see a new window as below:
+When the program opens, a **Select Experiments** panel is shown. Use it to choose the experiments to load:
 
-![-](../../images/AIME/aime_images.png)
+1. Click **Browse Folder…** to pick a parent directory containing your experiment subdirectories and/or HDF5 files.
+2. The list of available experiments (subdirectories and `.h5`/`.hdf5` files found in the parent folder) is populated automatically. System folders such as `aime_results`, `aise_results`, and `calibration` are excluded.
+3. Select the experiments to include using Ctrl/Shift-click, or use **Select All** / **Select None**.
+4. Click **Load** to build the alignment table.
 
-Auto grouping is performed automatically and the images you see on the screen are directly processed and saved into `aime_results`.
+Once loaded, the program switches to the main table view.
 
-* Select an input directory by pressing "Select Folder"
+## Table View
 
-* What is displayed has been processed and is accessible in the `aime_results` folder. You can see the result in the 'Result' tab.
-![-](../../images/AIME/aime_result.png)
+The alignment table lists every image across all loaded experiments. Each row corresponds to one image from one experiment. The table has two view modes, selectable via the top tab bar:
 
-* You can change the display options in order to have visually better images (won't affect the true result).
+- **Group by Index** — rows are sorted and grouped by frame index (one group per frame number, containing one row per experiment). This is the primary view for summing corresponding frames.
+- **Group by Exp** — rows are sorted and grouped by experiment, showing all frames within each experiment together.
 
-* You can also change the processing options: the number of exposures you want to add simultaneously, averaging the images instead of summing them, calibrating the center and the rotation of each image (can be done automatically or manually for each image).
+Each row shows:
 
-```eval_rst
-.. note:: After clicking on a calibration button, you need to select an image by clicking on it before using the calibration function on this image.
-```
+| Column | Description |
+|---|---|
+| Index | Frame index (shared across experiments) |
+| Experiment | Experiment directory or file basename |
+| Frame | Image filename |
+| Original Center | Manually or automatically detected diffraction center |
+| Center Mode | Whether the center was set manually or detected automatically |
+| Dist from Base | Distance of this image's center from the global base center |
+| Auto Center | Automatically computed center |
+| Auto Center Difference | Distance between the manual and auto centers |
+| Rotation | Rotation angle |
+| Rotation Mode | Manual or automatic |
+| Rot Diff from Base | Rotation difference from the global base |
+| Auto Rotation | Automatically computed rotation |
+| Auto Rot Difference | Difference between manual and auto rotations |
+| Size | Image dimensions |
+| Image Difference | Pixel-level difference score vs. the global base (computed on demand) |
 
-* Use the arrows to go from one group of exposure to the other and process the results groups by groups, use the spinbox `Images #` to jump to a specific group of exposures, or click on `Process Current Folder` to process everything.
+Click a row to display that image in the viewer. Use the right-click context menu for per-row actions.
 
-## File Format
+### Context Menu
 
-When you want to add the intensities of different experiments grouped as h5 files you need to make sure that the files are in a same folder and that they have a name containing a number and the word data, each element being separated by the character `_`. An example is `P2_F5_849_1_094_data_000001.h5`.
+Right-clicking a row (or a selection of rows) provides:
 
-For folders with tiff images, it will take the last number as the frame number within an experiment, and the rest of the name corresponds to the experiment. The elements in the file name must be separated by `_` (underscore). For example `P2_F5_849_1_094_data_000001.tif`, the frame number will be `000001` amd the experiment group will be `P2_F5_849_1_094_data`.
+- **Set Center and Rotation** — opens a dialog to interactively set the center and rotation for the selected image.
+- **Set as Global Base** — designates the selected image as the reference for all distance/rotation comparisons.
+- **Ignore / Cancel Ignore** — excludes or re-includes the selected image(s) from summation and alignment detection.
+- **Apply to Subsequent Images** — propagates the current image's center/rotation to all following images.
 
 ## Display Options
 
-All options in Display Options will not affect any processing. These options allow users to see more detail in the image by setting minimal intensity, maximum intensity, and zooming. You can also choose whether or not to see the meridional and equatorial axes. To zoom in, the user needs to simply press the Zoom in button, and select the zoom region by drawing a rectangle as shown below. Once 'Zoom in' or 'Full' button is clicked, the current zoom level is persisted when moved to the next image. The check box 'Persist intensities' is used to persist the max and the min intensities when we move to the next image.
+The display panel (right side, above the settings) controls how the image is rendered. These options do not affect processing:
 
-## Calibration options
-
-#### Set Rotation and Center
-Before setting manual rotation and center, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.<br/>
-![-](../../images/AIME/center.png)
-
-#### Set Center By Chords
-Before setting center by chords, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. This method is used to find the diffraction center and uses the fact that "All perpendiculars to the chords in a circle intersect at the center". On clicking this button, you will be prompted to select points along the circumference of the diffraction patter. As you select these points, perpendicular lines to the chords formed using these points start to appear on the image in blue color.  Once you finish selecting the points, click the same button again to start processing. The diffraction center will then be calculated by taking the average of the intersection points of the perpendicular lines (blue lines in the figure).<br/>
-![-](../../images/AIME/chords.png)
-
-#### Set Center By Perpendiculars
-Before setting center by perpendiculars, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. This method finds the center of diffraction using intersection of perpendicular lines. On clicking this button, you are prompted to select multiple positions in the image. You can start by clicking the first reflection peak on one side of the equator and the second will be the corresponding (opposite) reflection peak on the other side of the equator. This forms one horizontal line. You can continue drawing as many horizontal lines using this process of selecting reflection peaks. Next, you can click the reflection peak vertically above the equator and the following point symmetrically below the equator. Again, you can draw multiple such lines. Once you finish selecting the points, click the same button (Set Center By Perpendiculars) again to start processing. The diffraction center will then be calculated by taking the average of the intersection points obtained by the horizontal and vertical lines plotted.<br/>
-![-](../../images/AIME/perpendiculars.png)
-
-#### Set Rotation Angle
-This assumes that the center of diffraction is correct. After the button is clicked, the program will allow users to select an angle by moving a line. Clicking on image when the line is on the equator of the diffraction will set manual rotation angle. To cancel, press ESC.<br/>
-![-](../../images/AIME/rotation.png)
-
-
-The Mask Threshold is used for excluding certain pixel values when calculating the folded image. The program will ignore pixels with intensity below mask threshold. This can be used to remove the dark gaps in images resulting from the gaps between detector elements in Pilatus detectors, as well as other detector abnormalities.
-
-To fix the center position to a user supplied value, you can check Fix Center check box, specify the coordinates of the beam center (before rotation). The image will be reprocessed when x, or y is changed. This will affect the next image if it’s still checked.
+- **Min / Max Intensity** — clamp the displayed intensity range.
+- **Zoom In / Full** — draw a rectangle to zoom; the zoom level persists when navigating between images.
+- **Persist Intensities** — keep the current min/max when moving to the next image.
+- **Original Center** checkbox — overlays a green circle at the image's current center.
+- **Global Base Center** checkbox — overlays a red crosshair at the global base center.
 
 ##### Double Zoom
-This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
-![-](../../images/AIME/DoubleZoom.png)
+Checking the **Double Zoom** box creates a 10× magnified inset in the top-right corner of the viewer, centred on the mouse pointer (20 × 20 pixels). This is useful for placing calibration points at sub-pixel accuracy. Click the image to freeze the inset, then click the exact point inside the inset to register it in the main image. Uncheck the box to hide the inset.
 
-#### Set Region of Interest
-This feature is used to select part of the image and perform AIME on that part. For example, we would want to ignore the artefacts on the edges of the image. On clicking this button, a default rectangle appears around the center of diffraction. As you move the mouse pointer into the image area, the vertical edges of the rectangle move to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current width of the region. Next, as you move the pointer, the horizontal edges of the rectangle start moving to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current height of the fitting region. Once the width and height is fixed, the resultant image will be cropped to the region selected by the rectangle following which we process AIME on the resultant image. Therefore, any artefacts present outside the selected region are ignored while adding or averaging. One can only select the region of interest about the center of diffraction.
-![-](../../images/AIME/SetRegionOfInterest.png)
+## Image Operations
+
+The **Image Operations** collapsible panel controls processing options.
+
+#### Compute Average Instead of Sum
+
+When checked, each index group produces the pixel-wise average of its images rather than the sum.
+
+#### Compress the Resulting Images
+
+When checked, output files are written with a `_compressed` suffix and reduced file size.
+
+#### Rotation Transform Mode
+
+Controls how each image is rotated before summation:
+
+- **Align to Make Equator Horizontal** — each image is rotated so that its equator is horizontal (absolute rotation correction).
+- **Align to Base Image Rotation** — each image is rotated by the difference between its rotation and the global base rotation (relative correction).
+
+## Alignment Panel
+
+The alignment panel (below the image viewer settings) provides tools for detecting and correcting misalignment across experiments.
+
+#### Detect Centers & Rotations
+
+Automatically computes the diffraction center and rotation for every image. Results are written to the *Auto Center* and *Auto Rotation* columns. Rows where the detected values differ from the global base by more than the configured thresholds are highlighted.
+
+#### Compute Image Difference
+
+Computes a pixel-level similarity score between each image and the global base. Results appear in the *Image Difference* column.
+
+#### Set Center and Rotation Dialog
+
+Opened via right-click → *Set Center and Rotation* or the panel button. The dialog contains the image viewer and the following calibration tools:
+
+##### Set Rotation and Center
+Click two corresponding reflection peaks on opposite sides of the equator to define both the center and the rotation angle simultaneously. Press ESC to cancel.
+
+##### Set Center By Chords
+Click points along the circumference of the diffraction ring. Perpendicular bisectors of the chords are drawn in blue; their average intersection is taken as the center. Click the button again to confirm.
+
+##### Set Center By Perpendiculars
+Click pairs of symmetric reflection peaks (horizontal pairs first, then vertical pairs) to draw perpendicular lines. The average intersection is taken as the center. Click the button again to confirm.
+
+##### Set Rotation Angle
+Assumes the center is already correct. Move a line over the equator of the diffraction pattern and click to set the rotation. Press ESC to cancel.
+
+##### Compute Center / Compute Orientation
+The program can automatically compute the center or orientation without user input. The *Compute Center* and *Set Calibration Center* checkboxes are mutually exclusive, as are *Compute Orientation* and *Set Orientation*.
+
+##### Apply to Subsequent Images
+Propagates the center and/or rotation of the current image to all images that follow it in the table.
+
+## Blank / Mask Settings
+
+The **Blank & Mask** widget (below the display options) allows specifying an empty-cell image to subtract and/or a mask to apply before summation.
+
+- **Select Empty Cell Image(s)** — choose a blank-cell image file.
+- **Blank Image Weight** — multiplier applied to the blank image before subtraction.
+- **Subtract Empty Cell Image** — enables subtraction during processing.
+- **Draw Mask** — opens a pyFAI mask-drawing dialog.
+- **Mask Threshold** — automatically masks pixels at or below the specified value (default −1).
+- **Show Empty Cell Image / Show Mask** — toggles the viewer to display the blank or mask image.
+- **Clamp Negative Values to 0** — replaces negative pixel values with 0 after blank subtraction (enabled only when negative values are detected).
+
+## Summing Images
+
+Click **Sum Images by Index** to start processing. Before the batch begins, a dialog prompts for an **output base name**. The program suggests a common prefix derived from the loaded image filenames; you can accept or change it. Output files are named `<base>_00001.tif`, `<base>_00002.tif`, etc., one per frame index group.
+
+Images marked as *Ignored* are excluded from their group. If all images in a group are ignored, that group is skipped. The button changes to **Stop** during processing; clicking it again cancels the remaining jobs.
+
+## File Format
+
+For HDF5 sources, files must be in the same parent folder and their names must contain a number and the word `data`, with elements separated by `_`. For example: `P2_F5_849_1_094_data_000001.h5`.
+
+For folders containing TIFF images, the last underscore-separated number in the filename is used as the frame index, and the preceding part identifies the experiment. For example, in `P2_F5_849_1_094_data_000001.tif`, the frame index is `000001` and the experiment group is `P2_F5_849_1_094_data`.
+
+## Result Tab
+
+Switch to the **Result** tab (top tab bar) after processing to inspect output images. The tab shows a table listing each result file with its filename, number of source images, total intensity, and processing date. Selecting a row displays the corresponding image in the viewer with the same display options as the main view.
+
+Results are saved to `aime_results/` inside the parent directory. An `intensities.csv` file is also written there with per-file statistics (total intensity, number of pixels not masked, blank image weight, etc.).
