@@ -191,16 +191,16 @@ class BaseGUI(QMainWindow):
         
         # Add widgets to status bar
         self.statusBar.addPermanentWidget(self.statusReport)
-        self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
         self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addWidget(QLabel("    "))
         self.statusBar.addWidget(self.imgPathOnStatusBar)
         
-        # Lower status bar
+        # Lower status bar — coordinates on the left, operation messages on the right
         self.lowerStatusBar = QStatusBar()
         self.left_status = QLabel()
-        self.lowerStatusBar.addWidget(self.left_status)
+        self.lowerStatusBar.addWidget(self.imgCoordOnStatusBar, 1)
+        self.lowerStatusBar.addPermanentWidget(self.left_status)
         
         # Add status bars to main layout
         self.mainVLayout.addWidget(self.statusBar)
