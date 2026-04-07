@@ -1870,8 +1870,9 @@ class ProjectionTracesGUI(BaseGUI):
                 if calSettings is not None and 'scale' in calSettings:
                     center = self.projProc.center
                     q_x, q_y, q_R, unit = qFromCenter([x, y], center, calSettings['scale'])
+                    r_px = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
                     self.imgCoordOnStatusBar.setText(
-                        f"x={x}, y={y}, value={img[y][x]}, "
+                        f"x={x}, y={y}, r={r_px:.1f} px, value={img[y][x]}, "
                         f"qX={q_x:.4f} {unit}, qY={q_y:.4f} {unit}, qR={q_R:.4f} {unit}"
                     )
                 else:
