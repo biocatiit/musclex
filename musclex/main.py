@@ -468,4 +468,6 @@ def main(arguments=None):
         print("Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n")
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     main(sys.argv)
