@@ -43,6 +43,7 @@ Release Date : February 2026
 - `ProcessingWorkspace`: improved message box parent handling; display updates streamlined
 - **Status bar enhancements**: cursor coordinates and radial distance (r_px) from center displayed in the status bar across all modules
 - **Calibrated q-coordinates**: `ProjectionTracesGUI` and `XRayViewerGUI` status bar now shows qX, qY, qR (reciprocal-space coordinates) when calibration is available, replacing the deprecated `inverseNmFromCenter` function
+- **macOS installer**: macOS `.dmg` builds restored and included in releases; `multiprocessing.freeze_support()` added for compatibility with frozen apps
 
 ---
 
