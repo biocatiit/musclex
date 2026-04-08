@@ -80,7 +80,6 @@ jobs:
             dist/*.tar.gz
 
   build-macos:
-    if: false  # Temporarily disabled due to macOS issues
     strategy:
       matrix:
         include:
@@ -259,7 +258,7 @@ jobs:
           path: dist/musclex-*-Windows-Setup.exe
 
   create-release:
-    needs: [build-linux, build-windows]  # build-macos temporarily disabled
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -275,8 +274,8 @@ jobs:
           echo "=== Artifacts directory structure ==="
           ls -R artifacts
           echo ""
-          echo "=== Checking for expected files (macOS build temporarily disabled) ==="
-          find artifacts -name "*.deb" -o -name "*.tar.gz" -o -name "*.exe"
+          echo "=== Checking for expected files ==="
+          find artifacts -name "*.deb" -o -name "*.tar.gz" -o -name "*.exe" -o -name "*.dmg"
       
       - name: Delete existing release (if exists)
         continue-on-error: true
@@ -291,6 +290,8 @@ jobs:
           files: |
             artifacts/musclex-linux/*.deb
             artifacts/musclex-linux/*.tar.gz
+            artifacts/musclex-macos-arm64/*.dmg
+            artifacts/musclex-macos-x86_64/*.dmg
             artifacts/musclex-windows/*-Setup.exe
           draft: true
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc') }}
