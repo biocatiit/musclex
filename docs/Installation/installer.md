@@ -30,12 +30,13 @@ For older versions (1.23.2 and earlier), macOS builds are not signed, so you may
 
 2. Open the `.dmg` and drag the MuscleX app into the **Applications** folder
 
-3. If you see an error message like "damaged app":
+3. If you see an error message like "damaged app" or an "unidentified developer" warning, run in Terminal:
 
    ```bash
-   cd /path/to/MuscleX
-   xattr -cr musclex.app
+   xattr -cr /Applications/MuscleX.app
    ```
+
+   Alternatively, right-click the app → hold the **Option** key → click **Open** → confirm.
 
 4. Eject and delete the `.dmg` after installation
 
