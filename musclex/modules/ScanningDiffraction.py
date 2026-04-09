@@ -43,11 +43,13 @@ from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
 try:
-    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+    from ..utils.settings_manager import SettingsManager
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
 except: # for coverage
-    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+    from utils.settings_manager import SettingsManager
     from utils.histogram_processor import *
     from utils.image_processor import *
 
@@ -193,9 +195,9 @@ class ScanningDiffraction:
         """
         if not self.masked:
             img = np.array(self.original_image, 'float32')
-            blank, mask = getBlankImageAndMask(self.filepath)
-
-            maskOnly = getMaskOnly(self.filepath)
+            sm = SettingsManager(self.filepath)
+            blank, mask, _ = sm.load_blank_and_mask()
+            maskOnly = sm.load_mask_only()
 
 
             if blank is not None:
@@ -224,7 +226,7 @@ class ScanningDiffraction:
         :return:
         """
         if '2dintegration' not in self.info.keys():
-            blank, mask = getBlankImageAndMask(self.filepath)
+            blank, mask, _ = SettingsManager(self.filepath).load_blank_and_mask()
             img = copy.copy(self.original_image)
             noBGImg = copy.copy(self.noBGImg)
             if blank is not None:
@@ -496,7 +498,7 @@ class ScanningDiffraction:
         ranges.extend([(x, x + ref_angle) for x in range(int(ref_angle / 2), 360 + int(ref_angle / 2), ref_angle)])
         ranges = sorted(ranges, key=lambda se: se[0])
 
-        blank, mask = getBlankImageAndMask(self.filepath)
+        blank, mask, _ = SettingsManager(self.filepath).load_blank_and_mask()
         img = copy.copy(self.original_image)
         if blank is not None:
             img = img - blank

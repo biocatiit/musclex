@@ -276,6 +276,56 @@ class SettingsManager:
             self.settings_path.mkdir(exist_ok=True)
             flag.touch()
 
+    # ----- image loading -----
+
+    def load_blank_and_mask(self):
+        """Load blank image and mask from ``settings/``.
+
+        Returns:
+            tuple: ``(blank_img, mask, weight)`` where each image is a
+            numpy array or *None*, and *weight* is a float (default 1.0).
+        """
+        import fabio
+
+        mask = None
+        blank_img = None
+        blank_weight = 1.0
+
+        if self.mask_tif_path.exists():
+            mask = fabio.open(str(self.mask_tif_path)).data
+
+        blank_config_file = self.blank_config_path
+        if blank_config_file.exists():
+            try:
+                with open(blank_config_file, 'r') as f:
+                    config = json.load(f)
+                file_path = Path(config.get('file_path', ''))
+                blank_weight = config.get('weight', 1.0)
+                if file_path.exists():
+                    blank_img = fabio.open(str(file_path)).data
+            except Exception as e:
+                print(f"Failed to load blank image from JSON config: {e}")
+
+        # Legacy fallback: blank.tif
+        if blank_img is None:
+            legacy = self.settings_path / "blank.tif"
+            if legacy.exists():
+                blank_img = fabio.open(str(legacy)).data
+
+        return blank_img, mask, blank_weight
+
+    def load_mask_only(self):
+        """Load only ``mask.tif``.
+
+        Returns:
+            numpy array or *None*.
+        """
+        import fabio
+
+        if self.mask_tif_path.exists():
+            return fabio.open(str(self.mask_tif_path)).data
+        return None
+
     # ===== Calibration =====
 
     def load_calibration_cache(self) -> Optional[dict]:

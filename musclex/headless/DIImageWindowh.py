@@ -413,7 +413,8 @@ class DIImageWindowh():
         recordedFileNames = set(csvDF['File Name'].values)
 
         # Compute the average pixel value and number of pixels outside rmin/mask
-        _, mask = getBlankImageAndMask(self.filePath)
+        from ..utils.settings_manager import SettingsManager
+        _, mask, _ = SettingsManager(self.filePath).load_blank_and_mask()
         img = copy.copy(self.cirProj.original_image)
         if mask is not None:
             numberOfPixels = np.count_nonzero(mask == 0)

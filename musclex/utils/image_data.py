@@ -34,7 +34,6 @@ import numpy as np
 from typing import Optional, Tuple, Dict, Any
 from pathlib import Path
 
-from .file_manager import getBlankImageAndMask, getMaskOnly
 from .image_processor import getCenter, getRotationAngle
 
 
@@ -467,8 +466,13 @@ class ImageData:
         if self._blank_mask_loaded:
             return
         
-        blank, mask, weight = getBlankImageAndMask(str(self.img_path), return_weight=True)
-        mask_only = getMaskOnly(str(self.img_path))
+        sm = self._settings_manager
+        if sm is not None:
+            blank, mask, weight = sm.load_blank_and_mask()
+            mask_only = sm.load_mask_only()
+        else:
+            blank, mask, weight = None, None, 1.0
+            mask_only = None
         
         self._blank_img = blank
         self._mask = mask

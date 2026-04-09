@@ -1114,13 +1114,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         blank_mask_config = self.workspace.get_blank_mask_config()
         apply_blank = blank_mask_config['apply_blank']
         blank_weight = blank_mask_config['blank_weight']
-        blank_img = None
-        mask_for_csv = None
-        from musclex.utils.file_manager import getBlankImageAndMask
-        if apply_blank:
-            blank_img, mask_for_csv, _ = getBlankImageAndMask(dir_path, return_weight=True)
-        else:
-            _, mask_for_csv, _ = getBlankImageAndMask(dir_path, return_weight=True)
+        sm = self.workspace.settings_manager
+        loaded_blank, mask_for_csv, _ = sm.load_blank_and_mask()
+        blank_img = loaded_blank if apply_blank else None
 
         self._sum_blank_weight = blank_weight if apply_blank else 0.0
         self._sum_nonmasked_pixels = (

@@ -245,8 +245,10 @@ class TotalDisplayIntensity(QMainWindow):
     def buildMask(self):
         self.mask = np.ones_like(self.img)
 
-        blank, mask = getBlankImageAndMask(self.dir_path)
-        maskOnly = getMaskOnly(self.dir_path)
+        from ..utils.settings_manager import SettingsManager
+        sm = SettingsManager(self.dir_path)
+        blank, mask, _ = sm.load_blank_and_mask()
+        maskOnly = sm.load_mask_only()
 
         for m in [blank, mask, maskOnly]:
             if m is not None:

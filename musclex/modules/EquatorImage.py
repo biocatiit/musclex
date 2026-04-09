@@ -41,12 +41,12 @@ from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import fabio
 from musclex import __version__
 try:
-    from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from ..utils.file_manager import fullPath, ifHdfReadConvertless
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
     from ..utils.image_data import ImageData
 except: # for coverage
-    from utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from utils.file_manager import fullPath, ifHdfReadConvertless
     from utils.histogram_processor import *
     from utils.image_processor import *
     from utils.image_data import ImageData

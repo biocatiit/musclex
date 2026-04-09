@@ -38,13 +38,13 @@ from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
 try:
     from . import QF_utilities as qfu
-    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
+    from ..utils.file_manager import fullPath, createFolder
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
     from ..utils.image_data import ImageData
 except: # for coverage
     from modules import QF_utilities as qfu
-    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
+    from utils.file_manager import fullPath, createFolder
     from utils.histogram_processor import *
     from utils.image_processor import *
     from utils.image_data import ImageData

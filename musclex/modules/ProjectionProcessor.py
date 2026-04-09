@@ -38,12 +38,12 @@ from sklearn.metrics import r2_score
 import fabio
 from musclex import __version__
 try:
-    from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
+    from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
     from ..utils.histogram_processor import getPeakInformations, convexHull
     from ..utils.image_processor import *
     from ..utils.image_data import ImageData
 except: # for coverage
-    from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
+    from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
     from utils.histogram_processor import getPeakInformations, convexHull
     from utils.image_processor import *
     from utils.image_data import ImageData
