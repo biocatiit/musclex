@@ -55,55 +55,58 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
     def update_from_directory(self, settings_dir_path):
         """
         Check settings directory and update checkbox states automatically.
-        This is the main method for other modules to use.
         
         Args:
-            settings_dir_path: Path to the settings directory (Path or str)
-        
-        Example:
-            widget.update_from_directory(Path("/path/to/settings"))
+            settings_dir_path: Path to the settings directory (Path or str).
+                               May also be a SettingsManager instance.
         """
         if not settings_dir_path:
             return
         
-        settings_dir = Path(settings_dir_path)
+        from ...utils.settings_manager import SettingsManager
+        if isinstance(settings_dir_path, SettingsManager):
+            sm = settings_dir_path
+            self.update_checkbox_states(
+                blank_exists=sm.has_blank_config(),
+                blank_enabled=sm.blank_enabled,
+                mask_exists=sm.has_mask_file(),
+                mask_enabled=sm.mask_enabled,
+            )
+            return
         
-        # Check settings status
-        status = self.check_settings_status(settings_dir)
-        
-        # Update UI
+        status = self.check_settings_status(settings_dir_path)
         self.update_checkbox_states(
             blank_exists=status['blank_exists'],
             blank_enabled=status['blank_enabled'],
             mask_exists=status['mask_exists'],
-            mask_enabled=status['mask_enabled']
+            mask_enabled=status['mask_enabled'],
         )
     
     @staticmethod
     def check_settings_status(settings_dir):
         """
         Check the status of empty cell image and mask settings.
-        Static method - can be called without widget instance.
+        
+        Prefer ``update_from_directory(settings_manager)`` when a
+        :class:`SettingsManager` is available.
         
         Args:
             settings_dir: Path to the settings directory (Path or str)
             
         Returns:
             dict with keys:
-                - blank_exists: bool - Whether empty cell image settings file exists
-                - blank_enabled: bool - Whether empty cell image is enabled (not disabled by flag)
-                - mask_exists: bool - Whether mask file exists
-                - mask_enabled: bool - Whether mask is enabled (not disabled by flag)
+                - blank_exists: bool
+                - blank_enabled: bool
+                - mask_exists: bool
+                - mask_enabled: bool
         """
         settings_dir = Path(settings_dir)
         
-        # Check empty cell image settings
         blank_config_path = settings_dir / "blank_image_settings.json"
         blank_exists = blank_config_path.exists()
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
         blank_enabled = not blank_disabled_flag.exists()
         
-        # Check mask settings
         mask_file_path = settings_dir / "mask.tif"
         mask_exists = mask_file_path.exists()
         mask_disabled_flag = settings_dir / ".mask_disabled"
@@ -113,7 +116,7 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
             'blank_exists': blank_exists,
             'blank_enabled': blank_enabled,
             'mask_exists': mask_exists,
-            'mask_enabled': mask_enabled
+            'mask_enabled': mask_enabled,
         }
     
     def update_checkbox_states(self, blank_exists, blank_enabled, mask_exists, mask_enabled):

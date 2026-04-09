@@ -63,33 +63,37 @@ def getFilesAndHdf(dir_path):
 
     return imgList, hdfList
 
-def getBlankImageAndMask(path, return_weight=False):
+def getBlankImageAndMask(path, return_weight=False, settings_path=None):
     """
     Give the blank image and mask saved in settings.
     Note: Mask.tif is created by ImageMaskDialog and shared by both blank and mask-only operations.
     
     Supports both old method (blank.tif) and new method (JSON config)
     
-    :param path: directory path
+    :param path: directory path (used to derive settings/ when *settings_path* is None)
     :param return_weight: if True, returns (blank_img, mask, weight), else (blank_img, mask)
+    :param settings_path: explicit Path to the settings directory; skips path construction
     :return: blankImage, mask, [weight if return_weight=True]
     """
     import json
     from pathlib import Path
     
-    mask_file = join(join(path, 'settings'), 'mask.tif')
-    blank_file = join(join(path, 'settings'), 'blank.tif')
-    blank_config_file = Path(path) / "settings" / "blank_image_settings.json"
+    if settings_path is not None:
+        sdir = Path(settings_path)
+    else:
+        sdir = Path(path) / "settings"
+    
+    mask_file = str(sdir / "mask.tif")
+    blank_file = str(sdir / "blank.tif")
+    blank_config_file = sdir / "blank_image_settings.json"
     
     mask = None
     blank_img = None
     blank_weight = 1.0
     
-    # Try to load mask (created by ImageMaskDialog)
     if exists(mask_file):
         mask = fabio.open(mask_file).data
     
-    # Try new JSON-based configuration first
     if blank_config_file.exists():
         try:
             with open(blank_config_file, "r") as f:
@@ -102,7 +106,6 @@ def getBlankImageAndMask(path, return_weight=False):
         except Exception as e:
             print(f"Failed to load blank image from JSON config: {e}")
     
-    # Fall back to old method if JSON config not found or failed
     if blank_img is None and exists(blank_file):
         blank_img = fabio.open(blank_file).data
         print(f"Loaded blank image from: {blank_file}")
@@ -112,14 +115,19 @@ def getBlankImageAndMask(path, return_weight=False):
     else:
         return blank_img, mask
 
-def getMaskOnly(path):
+def getMaskOnly(path, settings_path=None):
     """
-    Give only the mask threshold
-    :param path: file path
+    Give only the mask threshold.
+
+    :param path: file path (used to derive settings/ when *settings_path* is None)
+    :param settings_path: explicit Path to the settings directory
     :return: mask threshold
     """
-    # Read the mask.tif file created by ImageMaskDialog
-    mask_file = join(join(path, 'settings'), 'mask.tif')
+    from pathlib import Path
+    if settings_path is not None:
+        mask_file = str(Path(settings_path) / "mask.tif")
+    else:
+        mask_file = join(join(path, 'settings'), 'mask.tif')
     if exists(mask_file):
         return fabio.open(mask_file).data
     return None

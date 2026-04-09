@@ -2929,16 +2929,9 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['orientation_model'] = self.workspace._orientation_model
         flags["ignore_folds"] = self.ignoreFolds
 
-        # Check if empty cell image settings exist and is enabled
-        settings_dir = Path(self.filePath) / "settings"
-        blank_config_path = settings_dir / "blank_image_settings.json"
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        flags['blank_mask'] = blank_config_path.exists() and not blank_disabled_flag.exists()
-        
-        # Check if mask settings exist and is enabled
-        mask_file_path = settings_dir / "mask.tif"
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        flags['apply_mask'] = mask_file_path.exists() and not mask_disabled_flag.exists()
+        sm = self.workspace.settings_manager
+        flags['blank_mask'] = sm.blank_enabled
+        flags['apply_mask'] = sm.mask_enabled
         
         flags['fold_image'] = self.toggleFoldImage.isChecked()
 
@@ -3148,10 +3141,10 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Show empty cell image configuration if exists
         if flags.get('blank_mask', False):
-            blank_config_path = Path(self.filePath) / "settings" / "blank_image_settings.json"
+            sm = self.workspace.settings_manager
             try:
                 import json
-                with open(blank_config_path, "r") as f:
+                with open(sm.blank_config_path, "r") as f:
                     blank_config = json.load(f)
                 blank_file = Path(blank_config.get("file_path", "")).name
                 blank_weight = blank_config.get("weight", 1.0)

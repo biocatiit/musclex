@@ -1250,36 +1250,11 @@ class ProcessingWorkspace(QWidget):
         Returns:
             dict: {'apply_blank': bool, 'apply_mask': bool, 'blank_weight': float}
         """
-        if not self._settings_dir:
-            return {'apply_blank': False, 'apply_mask': False, 'blank_weight': 1.0}
-        
-        settings_dir = Path(self._settings_dir) / "settings"
-        
-        # Check blank image status
-        blank_config_path = settings_dir / "blank_image_settings.json"
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        apply_blank = blank_config_path.exists() and not blank_disabled_flag.exists()
-        
-        # Check mask status
-        mask_file_path = settings_dir / "mask.tif"
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        apply_mask = mask_file_path.exists() and not mask_disabled_flag.exists()
-        
-        # Get blank weight from config
-        blank_weight = 1.0
-        if apply_blank and blank_config_path.exists():
-            try:
-                import json
-                with open(blank_config_path) as f:
-                    config = json.load(f)
-                    blank_weight = config.get('weight', 1.0)
-            except Exception as e:
-                print(f"Error reading blank weight: {e}")
-        
+        sm = self.settings_manager
         return {
-            'apply_blank': apply_blank,
-            'apply_mask': apply_mask,
-            'blank_weight': blank_weight
+            'apply_blank': sm.blank_enabled,
+            'apply_mask': sm.mask_enabled,
+            'blank_weight': sm.blank_weight,
         }
     
     def update_blank_mask_states(self):
@@ -1292,8 +1267,7 @@ class ProcessingWorkspace(QWidget):
         if not self._settings_dir:
             return
         
-        settings_dir = Path(self._settings_dir) / "settings"
-        self._blank_mask_widget.update_from_directory(settings_dir)
+        self._blank_mask_widget.update_from_directory(self.settings_manager.settings_path)
     
     # ==================== Public API for Inpainting ====================
 
@@ -1391,7 +1365,7 @@ class ProcessingWorkspace(QWidget):
             return
         
         image = self._file_manager.current_image.copy()
-        settings_dir_path = Path(self._settings_dir) / "settings"
+        settings_dir_path = self.settings_manager.settings_path
         
         try:
             settings_dir_path.mkdir(parents=True, exist_ok=True)
@@ -1416,15 +1390,12 @@ class ProcessingWorkspace(QWidget):
         dialog_code = dialog.exec()
         
         if dialog_code == QDialog.Accepted:
-            # Update checkbox states (signals are blocked inside, so stateChanged won't fire)
             self._blank_mask_widget.update_from_directory(settings_dir_path)
-            # Sync apply_blank and invalidate cache, since signals were blocked during update
             if self._current_image_data:
                 self._current_image_data.apply_blank = self._blank_mask_widget.applyBlankImageChkBx.isChecked()
                 self._current_image_data.invalidate_blank_mask_cache()
             self.needsReprocess.emit()
         else:
-            # Still update checkbox states in case settings were deleted
             self._blank_mask_widget.update_from_directory(settings_dir_path)
     
     def _on_blank_checkbox_changed(self, state):
@@ -1435,30 +1406,15 @@ class ProcessingWorkspace(QWidget):
         if not self._settings_dir:
             return
         
-        settings_dir = Path(self._settings_dir) / "settings"
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        
-        # Qt.CheckState.Checked = 2, Qt.CheckState.Unchecked = 0
         is_checked = (state == 2)
+        self.settings_manager.set_blank_enabled(is_checked)
+        print(f"{'Enabled' if is_checked else 'Disabled'} blank image application")
         
-        if is_checked:
-            # Remove the disabled flag if it exists
-            if blank_disabled_flag.exists():
-                blank_disabled_flag.unlink()
-                print("Enabled blank image application")
-        else:
-            # Create the disabled flag
-            settings_dir.mkdir(exist_ok=True)
-            blank_disabled_flag.touch()
-            print("Disabled blank image application")
-        
-        # Update ImageData's apply_blank flag
         if self._current_image_data:
             self._current_image_data.apply_blank = is_checked
             self._current_image_data.reset_preprocessing()
             print(f"Updated ImageData.apply_blank = {is_checked}")
         
-        # QuadrantFolder.updateInfo() will get fresh image from ImageData on next process()
         self.needsReprocess.emit()
     
     def _on_mask_checkbox_changed(self, state):
@@ -1469,30 +1425,15 @@ class ProcessingWorkspace(QWidget):
         if not self._settings_dir:
             return
         
-        settings_dir = Path(self._settings_dir) / "settings"
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        
-        # Qt.CheckState.Checked = 2, Qt.CheckState.Unchecked = 0
         is_checked = (state == 2)
+        self.settings_manager.set_mask_enabled(is_checked)
+        print(f"{'Enabled' if is_checked else 'Disabled'} mask application")
         
-        if is_checked:
-            # Remove the disabled flag if it exists
-            if mask_disabled_flag.exists():
-                mask_disabled_flag.unlink()
-                print("Enabled mask application")
-        else:
-            # Create the disabled flag
-            settings_dir.mkdir(exist_ok=True)
-            mask_disabled_flag.touch()
-            print("Disabled mask application")
-        
-        # Update ImageData's apply_mask flag
         if self._current_image_data:
             self._current_image_data.apply_mask = is_checked
             self._current_image_data.reset_preprocessing()
             print(f"Updated ImageData.apply_mask = {is_checked}")
         
-        # QuadrantFolder.updateInfo() will get fresh image from ImageData on next process()
         self.needsReprocess.emit()
     
     def _on_mask_setting_clicked(self):
@@ -1501,7 +1442,7 @@ class ProcessingWorkspace(QWidget):
             return
         
         image = self._file_manager.current_image.copy()
-        settings_dir_path = Path(self._settings_dir) / "settings"
+        settings_dir_path = self.settings_manager.settings_path
         
         try:
             settings_dir_path.mkdir(parents=True, exist_ok=True)
@@ -1741,30 +1682,11 @@ class ProcessingWorkspace(QWidget):
         """
         Load calibration cache from settings directory.
         
-        This is a separate method to check for cached calibration settings
-        without creating the CalibrationSettings dialog.
-        
         Returns:
             dict or None: Cache dictionary with 'path', 'settings', 'version' if exists,
                          None otherwise
         """
-        import pickle
-        from pathlib import Path
-        from ...utils.file_manager import fullPath
-        from os.path import exists, isfile
-        
-        cache_path = fullPath(self._settings_dir, "settings")
-        cache_file = fullPath(cache_path, "calibration.info")
-        
-        if exists(cache_path) and isfile(cache_file):
-            try:
-                cache = pickle.load(open(cache_file, "rb"))
-                if cache is not None and "version" in cache:
-                    return cache
-            except Exception as e:
-                print(f"Warning: Failed to load calibration cache: {e}")
-        
-        return None
+        return self.settings_manager.load_calibration_cache()
     
     def show_calibration_dialog(self, image_data, force=False):
         """
@@ -1795,12 +1717,12 @@ class ProcessingWorkspace(QWidget):
         if cache is None and not force:
             return False  # No cache and not forced, don't show
         
-        # Create dialog with cached settings (only when needed)
         cal_dialog = CalibrationSettings(
             str(self._settings_dir),
             center=image_data.center,
             quadrant_folded=image_data.is_quadrant_folded,
-            initial_settings=cache  # Pass entire cache dict
+            initial_settings=cache,
+            settings_manager=self.settings_manager,
         )
         
         cal_dialog.recalculate = False

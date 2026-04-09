@@ -26,8 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import pickle
-from os.path import isfile, exists
+from os.path import exists
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import fabio
@@ -35,14 +34,16 @@ import musclex
 import numpy as np
 from pyFAI.detectors import Detector
 from ..ui.pyqt_utils import *
-from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+from ..utils.file_manager import fullPath, ifHdfReadConvertless
 from ..utils.image_processor import *
 
 class CalibrationSettings(QDialog):
     """
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
-    def __init__(self, dir_path, center=None, quadrant_folded=False, initial_settings=None):
+    def __init__(self, dir_path, center=None, quadrant_folded=False, initial_settings=None,
+                 settings_manager=None):
+        # settings_manager is required for load/save; every caller must supply one.
         """
         Initialize CalibrationSettings dialog.
         
@@ -62,6 +63,7 @@ class CalibrationSettings(QDialog):
         self.editableVars = {}
         self.logMsgs = []
         self.dir_path = str(dir_path)
+        self._settings_manager = settings_manager
         self.manualCalPoints = None
         self.doubleZoomMode = False
         self.dontShowAgainDoubleZoomMessageResult = False
@@ -537,16 +539,8 @@ class CalibrationSettings(QDialog):
             self.calibrate()
 
     def loadSettings(self):
-        """
-        Load the 'settings' folder containing the previous calibration made.
-        """
-        cache_path = fullPath(self.dir_path, "settings")
-        cache_file = fullPath(cache_path, "calibration.info")
-        if exists(cache_path) and isfile(cache_file):
-            cache = pickle.load(open(cache_file, "rb"))
-            if cache is not None and "version" in cache :
-                return cache
-        return None
+        """Load cached calibration from the settings directory."""
+        return self._settings_manager.load_calibration_cache()
 
     def keyPressEvent(self, event):
         """
@@ -561,9 +555,6 @@ class CalibrationSettings(QDialog):
         """
         Save the calibration settings made in the window in the 'settings' folder.
         """
-        cache_path = fullPath(self.dir_path, "settings")
-        createFolder(cache_path)
-        cache_file = fullPath(cache_path, "calibration.info")
         if self.calSettings is None:
             self.calSettings = {}
 
@@ -579,7 +570,6 @@ class CalibrationSettings(QDialog):
             self.calSettings["silverB"] = self.silverBehenate.value()
             self.calSettings["type"] = "img"
 
-        # For quadrant folded images, don't save center (always use geometric center)
         if not self.quadrant_folded:
             self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
 
@@ -591,7 +581,7 @@ class CalibrationSettings(QDialog):
             "settings": self.calSettings,
             "version": self.version
         }
-        pickle.dump(cache, open(cache_file, "wb"))
+        self._settings_manager.save_calibration_cache(cache)
 
     def refine_point_on_ring(self, img, center, user_point, search_radius=20):
         """

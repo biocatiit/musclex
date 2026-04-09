@@ -1,8 +1,15 @@
 """
 SettingsManager: Centralized manager for the settings/ directory.
 
-Phase 1 covers geometry (manual center / rotation) and auto-geometry cache.
-Future phases will add calibration and blank/mask management.
+Owns all file I/O under ``<dataset>/settings/``:
+
+* **Geometry** – center, rotation, auto-geometry cache, global base
+* **Flags** – transform, ignore, image-diff cache
+* **Blank / mask state** – enable/disable flags, blank config JSON
+* **Calibration** – ``calibration.info`` (pickle), ``calibrationDialog.json``
+
+The class is pure Python (no Qt dependency) so it can be used in
+headless / batch processing contexts.
 
 Copyright 1999 Illinois Institute of Technology
 
@@ -32,6 +39,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import json
+import pickle
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -39,11 +47,7 @@ from typing import Optional, Tuple
 class SettingsManager:
     """Centralized manager for the ``settings/`` directory.
 
-    Holds in-memory caches and owns all JSON I/O for:
-
-    * **Manual geometry** – ``center_settings.json``, ``rotation_settings.json``
-    * **Auto-geometry cache** – ``auto_geometry_cache.json``
-
+    Single owner of all file I/O under ``<dataset>/settings/``.
     The class is pure Python (no Qt dependency) so it can be used in
     headless / batch processing contexts.
     """
@@ -74,6 +78,11 @@ class SettingsManager:
     @property
     def settings_dir(self) -> str:
         return self._settings_dir
+
+    @property
+    def settings_path(self) -> Path:
+        """Absolute path to the ``settings/`` sub-directory."""
+        return Path(self._settings_dir) / "settings"
 
     @property
     def center_settings(self) -> dict:
@@ -206,10 +215,118 @@ class SettingsManager:
     def clear_global_base(self):
         self._global_base = {}
 
-    # ===== I/O =====
+    # ===== Blank / mask state =====
 
-    def _settings_path(self) -> Path:
-        return Path(self._settings_dir) / "settings"
+    @property
+    def blank_config_path(self) -> Path:
+        return self.settings_path / "blank_image_settings.json"
+
+    @property
+    def mask_tif_path(self) -> Path:
+        return self.settings_path / "mask.tif"
+
+    def has_blank_config(self) -> bool:
+        """True when ``blank_image_settings.json`` exists on disk."""
+        return self.blank_config_path.exists()
+
+    def has_mask_file(self) -> bool:
+        """True when ``mask.tif`` exists on disk."""
+        return self.mask_tif_path.exists()
+
+    @property
+    def blank_enabled(self) -> bool:
+        """Config exists AND the disabled-flag is absent."""
+        return (self.has_blank_config()
+                and not (self.settings_path / ".blank_image_disabled").exists())
+
+    @property
+    def mask_enabled(self) -> bool:
+        """mask.tif exists AND the disabled-flag is absent."""
+        return (self.has_mask_file()
+                and not (self.settings_path / ".mask_disabled").exists())
+
+    @property
+    def blank_weight(self) -> float:
+        """Read the weight from ``blank_image_settings.json`` (default 1.0)."""
+        if not self.has_blank_config():
+            return 1.0
+        try:
+            with open(self.blank_config_path, 'r') as f:
+                return json.load(f).get('weight', 1.0)
+        except Exception:
+            return 1.0
+
+    def set_blank_enabled(self, enabled: bool):
+        """Create or remove the ``.blank_image_disabled`` flag file."""
+        flag = self.settings_path / ".blank_image_disabled"
+        if enabled:
+            if flag.exists():
+                flag.unlink()
+        else:
+            self.settings_path.mkdir(exist_ok=True)
+            flag.touch()
+
+    def set_mask_enabled(self, enabled: bool):
+        """Create or remove the ``.mask_disabled`` flag file."""
+        flag = self.settings_path / ".mask_disabled"
+        if enabled:
+            if flag.exists():
+                flag.unlink()
+        else:
+            self.settings_path.mkdir(exist_ok=True)
+            flag.touch()
+
+    # ===== Calibration =====
+
+    def load_calibration_cache(self) -> Optional[dict]:
+        """Load ``calibration.info`` (pickle). Returns the cache dict or None."""
+        path = self.settings_path / "calibration.info"
+        if path.exists():
+            try:
+                with open(path, 'rb') as f:
+                    cache = pickle.load(f)
+                if cache is not None and "version" in cache:
+                    return cache
+            except Exception as e:
+                print(f"Warning: Failed to load calibration cache: {e}")
+        return None
+
+    def save_calibration_cache(self, cache: dict):
+        """Write ``calibration.info`` (pickle)."""
+        if not self._settings_dir:
+            return
+        d = self.settings_path
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "calibration.info", 'wb') as f:
+                pickle.dump(cache, f)
+        except Exception as e:
+            print(f"Error saving calibration cache: {e}")
+
+    def load_calibration_dialog(self) -> Optional[dict]:
+        """Load ``calibrationDialog.json``. Returns the dict or None."""
+        path = self.settings_path / "calibrationDialog.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Error loading calibrationDialog.json: {e}")
+        return None
+
+    def save_calibration_dialog(self, info: dict):
+        """Write ``calibrationDialog.json``."""
+        if not self._settings_dir:
+            return
+        d = self.settings_path
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "calibrationDialog.json", 'w') as f:
+                json.dump(info, f)
+        except Exception as e:
+            print(f"Error saving calibrationDialog.json: {e}")
+
+    # ===== I/O =====
 
     def load(self):
         """Load all JSON files from disk into memory."""
@@ -222,7 +339,7 @@ class SettingsManager:
         self._load_image_diff()
 
     def _load_center(self):
-        path = self._settings_path() / "center_settings.json"
+        path = self.settings_path / "center_settings.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -235,7 +352,7 @@ class SettingsManager:
             self._center = {}
 
     def _load_rotation(self):
-        path = self._settings_path() / "rotation_settings.json"
+        path = self.settings_path / "rotation_settings.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -248,7 +365,7 @@ class SettingsManager:
             self._rotation = {}
 
     def _load_auto_cache(self):
-        path = self._settings_path() / "auto_geometry_cache.json"
+        path = self.settings_path / "auto_geometry_cache.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -260,7 +377,7 @@ class SettingsManager:
             self._auto_cache = {}
 
     def _load_global_base(self):
-        path = self._settings_path() / "global_base.json"
+        path = self.settings_path / "global_base.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -274,7 +391,7 @@ class SettingsManager:
     def save_center(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
             with open(d / "center_settings.json", 'w') as f:
@@ -286,7 +403,7 @@ class SettingsManager:
     def save_rotation(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
             with open(d / "rotation_settings.json", 'w') as f:
@@ -298,7 +415,7 @@ class SettingsManager:
     def save_auto_cache(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(parents=True, exist_ok=True)
         try:
             with open(d / "auto_geometry_cache.json", 'w') as f:
@@ -309,7 +426,7 @@ class SettingsManager:
     def save_global_base(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
             with open(d / "global_base.json", 'w') as f:
@@ -318,7 +435,7 @@ class SettingsManager:
             print(f"Error saving global base settings: {e}")
 
     def _load_transform(self):
-        path = self._settings_path() / "transform_settings.json"
+        path = self.settings_path / "transform_settings.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -332,7 +449,7 @@ class SettingsManager:
     def save_transform(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
             with open(d / "transform_settings.json", 'w') as f:
@@ -341,7 +458,7 @@ class SettingsManager:
             print(f"Error saving transform settings: {e}")
 
     def _load_ignore(self):
-        path = self._settings_path() / "ignore_settings.json"
+        path = self.settings_path / "ignore_settings.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -356,7 +473,7 @@ class SettingsManager:
     def save_ignore(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
             with open(d / "ignore_settings.json", 'w') as f:
@@ -365,7 +482,7 @@ class SettingsManager:
             print(f"Error saving ignore settings: {e}")
 
     def _load_image_diff(self):
-        path = self._settings_path() / "image_diff_cache.json"
+        path = self.settings_path / "image_diff_cache.json"
         if path.exists():
             try:
                 with open(path, 'r') as f:
@@ -379,7 +496,7 @@ class SettingsManager:
     def save_image_diff(self):
         if not self._settings_dir:
             return
-        d = self._settings_path()
+        d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
             with open(d / "image_diff_cache.json", 'w') as f:

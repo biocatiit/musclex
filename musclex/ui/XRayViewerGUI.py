@@ -642,9 +642,14 @@ class XRayViewerGUI(QMainWindow):
         """
 
         if self.calSettingsDialog is None:
+            from ..utils.settings_manager import SettingsManager
             dir_path = getattr(self.file_manager, 'dir_path', None)
-            self.calSettingsDialog = CalibrationSettings(dir_path) if dir_path is None else \
-                CalibrationSettings(dir_path, center=self.xrayViewer.orig_image_center)
+            sm = SettingsManager(dir_path) if dir_path else SettingsManager()
+            self.calSettingsDialog = CalibrationSettings(
+                dir_path,
+                center=self.xrayViewer.orig_image_center,
+                settings_manager=sm,
+            )
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:

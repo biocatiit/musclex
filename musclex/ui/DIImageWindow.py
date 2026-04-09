@@ -983,7 +983,11 @@ class DIImageWindow(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.filePath)
+        from ..utils.settings_manager import SettingsManager
+        settingDialog = CalibrationSettings(
+            self.filePath,
+            settings_manager=SettingsManager(self.filePath),
+        )
         self.calSettings = None
         cal_setting = settingDialog.calSettings
         if cal_setting is not None or force:
