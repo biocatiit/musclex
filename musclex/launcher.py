@@ -26,7 +26,6 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import configparser
 import unittest
 import time
 import sys
@@ -84,19 +83,9 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         self.ui.testButton.clicked.connect(self.test)
         self.ui.stackedWidget.currentChanged['int'].connect(self.select)
 
-        # Read the config file
-        config = configparser.RawConfigParser()
-        config.optionxform = lambda option: option
-        ininame = os.path.join(os.path.expanduser('~'), 'musclex.ini')
-        print('Config file at ' + ininame)
-        if os.path.exists(ininame):
-            config.read(ininame)
-            if 'Launcher' in config and 'ShowMessage' in config['Launcher']:
-                self.popupMsg.checkBox().setChecked(not config['Launcher'].getboolean('ShowMessage'))
-        else:
-            open(ininame, 'a').close()
-        self.config = config
-        self.ininame = ininame
+        settings = QSettings("BioCAT", "MuscleX")
+        if settings.value("launcher/hide_popup", False, type=bool):
+            self.popupMsg.checkBox().setChecked(True)
         if getattr(sys, 'frozen', False):
             self.test_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "test.log")
             self.release_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "release.log")
@@ -152,13 +141,7 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         if not self.popupMsg.checkBox().isChecked():
             self.popupMsg.exec_()
             if self.popupMsg.checkBox().isChecked():
-                if 'Launcher' not in self.config:
-                    self.config['Launcher'] = {}
-                if 'ShowMessage' not in self.config['Launcher']:
-                    self.config['Launcher']['ShowMessage'] = str(1)
-                self.config['Launcher']['ShowMessage'] = str(0)
-                with open(self.ininame, 'w') as configfile:
-                    self.config.write(configfile)
+                QSettings("BioCAT", "MuscleX").setValue("launcher/hide_popup", True)
 
     @staticmethod
     def main():

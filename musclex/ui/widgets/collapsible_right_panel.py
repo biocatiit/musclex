@@ -217,7 +217,7 @@ class CollapsibleRightPanel(QWidget):
         
         # Save state
         if self.settings_key:
-            settings = QSettings()
+            settings = QSettings("BioCAT", "MuscleX")
             settings.setValue(self.settings_key, visible)
         
         # Emit signal

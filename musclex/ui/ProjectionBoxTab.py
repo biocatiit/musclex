@@ -80,10 +80,9 @@ class ProjectionBoxTab(QWidget):
         self.clearSettingsFirstLaunch()
         
     def clearSettingsFirstLaunch(self):
-        settings = QSettings("Checkboxes", "PeakDetails")
-        if not settings.contains("initial_setup_done"):
-            settings.clear()
-            settings.setValue("initial_setup_done", True)
+        settings = QSettings("BioCAT", "MuscleX")
+        if not settings.contains("projboxTab/initial_setup_done"):
+            settings.setValue("projboxTab/initial_setup_done", True)
     
     def get_box(self):
         """
