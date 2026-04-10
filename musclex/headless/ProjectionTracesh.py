@@ -54,7 +54,7 @@ class ProjectionTracesh:
     Note: Box configurations are now managed directly by ProcessingBox objects
     in self.projProc.boxes, following the same architecture as the GUI.
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'ptsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'ptsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, output_dir=None):
         self.lock = lock
         self.current_file = 0
         self.calSettings = None
@@ -78,10 +78,11 @@ class ProjectionTracesh:
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
+        self.output_dir = output_dir if output_dir else self.dir_path
 
         fileName = self.imgList[self.current_file]
         file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "qf_cache", file)
+        cache_path = os.path.join(self.output_dir, "qf_cache", file)
         cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if cache_exist:
@@ -141,7 +142,7 @@ class ProjectionTracesh:
         image_data = ImageData(img, self.dir_path, img_name)
         
         # Create ProjectionProcessor with ImageData
-        self.projProc = ProjectionProcessor(image_data)
+        self.projProc = ProjectionProcessor(image_data, output_dir=self.output_dir)
         # Headless mode: Use the same rotation as GUI
         # Box coordinates in ptsettings.json are based on the rotated image displayed in GUI
         # ImageData will automatically load rotation from auto_geometry cache if it exists
@@ -246,7 +247,7 @@ class ProjectionTracesh:
         self.cacheBoxesAndPeaks()
         
         # Use boxes directly from projProc - no conversion needed
-        self.csvManager = PT_CSVManager(self.dir_path, self.projProc.boxes)
+        self.csvManager = PT_CSVManager(self.output_dir, self.projProc.boxes)
         self.csvManager.loadSummary()
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
@@ -261,7 +262,7 @@ class ProjectionTracesh:
         :return:
         """
         if self.projProc:
-            path = fullPath(self.dir_path, os.path.join('pt_results', '1d_projections'))
+            path = fullPath(self.output_dir, os.path.join('pt_results', '1d_projections'))
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
@@ -309,7 +310,7 @@ class ProjectionTracesh:
             'centery': self.centery,
             'mask_thres': self.mask_thres
         }
-        cache_dir = fullPath(self.dir_path, 'pt_cache')
+        cache_dir = fullPath(self.output_dir, 'pt_cache')
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, 'boxes_peaks.info')
         pickle.dump(cache, open(cache_file, "wb"))
@@ -318,7 +319,7 @@ class ProjectionTracesh:
         """
         Load the boxes and peaks stored in the cache file, if it exists
         """
-        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_peaks.info')
+        cache_file = fullPath(fullPath(self.output_dir, 'pt_cache'), 'boxes_peaks.info')
         if exists(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
             if cache is not None:

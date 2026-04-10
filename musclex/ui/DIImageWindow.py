@@ -188,7 +188,11 @@ class DIImageWindow(QMainWindow):
         self.fileName = image_name
         self.filePath = dir_path
         self.fullPath = os.path.join(dir_path, image_name)
-        self.csvManager = DI_CSVManager(dir_path)
+        from .widgets.output_dir_dialog import resolve_output_directory
+        from ..utils.directory_context import DirectoryContext
+        ctx = resolve_output_directory(dir_path, parent=self)
+        self.dir_context = ctx if ctx else DirectoryContext.colocated(dir_path)
+        self.csvManager = DI_CSVManager(self.dir_context.output_dir)
         self.imgList = []
         self.numberOfFiles = 0
         self.currentFileNumber = 0
@@ -639,8 +643,9 @@ class DIImageWindow(QMainWindow):
         except:
             print("ERROR WITH SAVING THE IMAGE")
         
+        di_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
         imageMaskingTool = ImageMaskerWindow(self.filePath, 
-                                             os.path.join(self.filePath, "settings/tempMaskFile_di.tif"), 
+                                             os.path.join(di_out, "settings/tempMaskFile_di.tif"), 
                                              self.minInt.value(),
                                              self.maxInt.value(),
                                              max_val,
@@ -984,9 +989,10 @@ class DIImageWindow(QMainWindow):
         :return: True if calibration set, False otherwise
         """
         from ..utils.settings_manager import SettingsManager
+        settings_dir = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
         settingDialog = CalibrationSettings(
             self.filePath,
-            settings_manager=SettingsManager(self.filePath),
+            settings_manager=SettingsManager(settings_dir),
         )
         self.calSettings = None
         cal_setting = settingDialog.calSettings
@@ -1050,7 +1056,8 @@ class DIImageWindow(QMainWindow):
             self.progressBar.setMinimum(0)
             self.progressBar.setVisible(True)
 
-            log_path = fullPath(self.filePath, 'log')
+            di_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+            log_path = fullPath(di_out, 'log')
             if not exists(log_path):
                 os.makedirs(log_path)
 
@@ -1198,7 +1205,8 @@ class DIImageWindow(QMainWindow):
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
 
         try:
-            self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger)
+            di_output = self.dir_context.output_dir if hasattr(self, 'dir_context') else None
+            self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger, output_dir=di_output)
         except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error trying to open " + str(fileName))
@@ -1247,7 +1255,8 @@ class DIImageWindow(QMainWindow):
         Add pixel data to csv
         """
         if self.pixelDataFile is None:
-            self.pixelDataFile = os.path.join(self.filePath, 'di_results', 'BackgroundSummary.csv')
+            di_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+            self.pixelDataFile = os.path.join(di_out, 'di_results', 'BackgroundSummary.csv')
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
                 f = open(self.pixelDataFile, 'a')
@@ -1260,7 +1269,8 @@ class DIImageWindow(QMainWindow):
 
         # Compute the average pixel value and number of pixels outside rmin/mask
         from ..utils.settings_manager import SettingsManager
-        _, mask, _ = SettingsManager(self.filePath).load_blank_and_mask()
+        settings_dir = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+        _, mask, _ = SettingsManager(settings_dir).load_blank_and_mask()
         img = copy.copy(self.cirProj.original_image)
         if mask is not None:
             numberOfPixels = np.count_nonzero(mask == 0)
@@ -1641,7 +1651,8 @@ class DIImageWindow(QMainWindow):
             img = copy.copy(self.cirProj.original_image)
             if self.blankChkBx.isChecked():
                 from ..utils.settings_manager import SettingsManager
-                blank, mask, _ = SettingsManager(self.filePath).load_blank_and_mask()
+                settings_dir = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+                blank, mask, _ = SettingsManager(settings_dir).load_blank_and_mask()
                 if blank is not None:
                     img = img - blank
 

@@ -195,6 +195,7 @@ def main(arguments=None):
         run=True
         i=3
         settingspath="empty"
+        output_dir=None
         while i < len(arguments):
             if arguments[i]=='-s':
                 inputsetting=True
@@ -208,6 +209,9 @@ def main(arguments=None):
                         run=False
             elif arguments[i]=='-d':
                 delcache=True
+            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
+                i=i+1
+                output_dir=arguments[i]
             elif arguments[i]=='-i' or arguments[i]=='-f':
                 i=i+1
                 filename=arguments[i]
@@ -217,7 +221,7 @@ def main(arguments=None):
             i=i+1
         if run:
             from musclex.headless.EQStartWindowh import EQStartWindowh
-            EQStartWindowh(filename, inputsetting, delcache, settingspath)
+            EQStartWindowh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
             sys.exit()
 
     elif len(arguments)>=5 and arguments[1]=='di' and arguments[2]=='-h':
@@ -227,6 +231,7 @@ def main(arguments=None):
         i=3
         settingspath='empty'
         processFolder=False
+        output_dir=None
         while i < len(arguments):
             if arguments[i]=='-s':
                 inputsetting=True
@@ -240,6 +245,9 @@ def main(arguments=None):
                         run=False
             elif arguments[i]=='-d':
                 delcache=True
+            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
+                i=i+1
+                output_dir=arguments[i]
             elif arguments[i]=='-i' or arguments[i]=='-f':
                 if arguments[i]=='-f':
                     processFolder=True
@@ -257,11 +265,11 @@ def main(arguments=None):
         if run:
             if not processFolder and not is_hdf5:
                 from musclex.headless.DIImageWindowh import DIImageWindowh
-                DIImageWindowh(str(fileName), str(filePath), inputsetting, delcache, settingspath)
+                DIImageWindowh(str(fileName), str(filePath), inputsetting, delcache, settingspath, output_dir=output_dir)
                 sys.exit()
             else:
                 from musclex.headless.DIBatchWindowh import DIBatchWindowh
-                DIBatchWindowh(str(filePath), inputsetting, delcache, settingspath)
+                DIBatchWindowh(str(filePath), inputsetting, delcache, settingspath, output_dir=output_dir)
                 sys.exit()
 
     elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':
@@ -270,6 +278,7 @@ def main(arguments=None):
         run=True
         i=3
         settingspath="empty"
+        output_dir=None
         while i < len(arguments):
             if arguments[i]=='-s':
                 inputsetting=True
@@ -283,6 +292,9 @@ def main(arguments=None):
                         run=False
             elif arguments[i]=='-d':
                 delcache=True
+            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
+                i=i+1
+                output_dir=arguments[i]
             elif arguments[i]=='-i' or arguments[i]=='-f':
                 is_file = arguments[i]=='-i'
                 i=i+1
@@ -294,7 +306,7 @@ def main(arguments=None):
         if run:
             from musclex.headless.QuadrantFoldingh import QuadrantFoldingh
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
-                QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
+                QuadrantFoldingh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
             else:
                 from multiprocessing import Lock, Process, cpu_count
                 lock = Lock()
@@ -307,15 +319,14 @@ def main(arguments=None):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
                             print("filename is", file_name)
-                            # QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
-                            proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock,))
+                            proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock), kwargs={'output_dir': output_dir})
                             procs.append(proc)
                             proc.start()
                         elif ext in h5_types:
                             hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
                             for ind in range(len(himgList)):
                                 print("filename is", himgList[ind])
-                                proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext,))
+                                proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext), kwargs={'output_dir': output_dir})
                                 procs.append(proc)
                                 proc.start()
                                 if len(procs) % cpu_count() == 0:
@@ -335,6 +346,7 @@ def main(arguments=None):
         run=True
         i=3
         settingspath="empty"
+        output_dir=None
         while i < len(arguments):
             if arguments[i]=='-s':
                 inputsetting=True
@@ -348,6 +360,9 @@ def main(arguments=None):
                         run=False
             elif arguments[i]=='-d':
                 delcache=True
+            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
+                i=i+1
+                output_dir=arguments[i]
             elif arguments[i]=='-i' or arguments[i]=='-f':
                 is_file = arguments[i]=='-i'
                 i=i+1
@@ -359,7 +374,7 @@ def main(arguments=None):
         if run:
             from musclex.headless.ProjectionTracesh import ProjectionTracesh
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
-                ProjectionTracesh(filename, inputsetting, delcache, settingspath)
+                ProjectionTracesh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
             else:
                 from multiprocessing import Lock, Process, cpu_count
                 lock = Lock()
@@ -372,15 +387,14 @@ def main(arguments=None):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
                             print("filename is", file_name)
-                            # QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
-                            proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock,))
+                            proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock), kwargs={'output_dir': output_dir})
                             procs.append(proc)
                             proc.start()
                         elif ext in h5_types:
                             hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
                             for ind in range(len(himgList)):
                                 print("filename is", himgList[ind])
-                                proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext,))
+                                proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext), kwargs={'output_dir': output_dir})
                                 procs.append(proc)
                                 proc.start()
                                 if len(procs) % cpu_count() == 0:
@@ -455,11 +469,12 @@ def main(arguments=None):
         print("\t$ musclex eq -h -i test.tif -s config.json")
         print("")
         print("** Musclex headless arguments (works for eq, di, qf and pt):")
-        print("    $ musclex eq|di|qf|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d] ")
+        print("    $ musclex eq|di|qf|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d] [-o output_dir]")
         print("arguments:")
         print("-f <foldername> or -i <filename>")
         print("-d (optional) delete existing cache")
         print("-s (optional) <input setting file>")
+        print("-o / --output-dir (optional) <output directory for results, cache, and settings>")
         print("")
         print("Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. \nThis will create the necessary setting file. If a setting file is not provided, default settings will be used")
         print("Note: If a hdf file does not exist, the program will use the default file. You can generate a hdf step size file using the interactive version (set step size, click ok, the file will be automaticly saved)")

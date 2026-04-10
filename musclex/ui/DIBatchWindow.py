@@ -269,7 +269,11 @@ class DIBatchWindow(QMainWindow):
         self.vec_UV = []
         self.vec_quiver = None
 
-        self.csvManager = DI_CSVManager(self.filePath)
+        from .widgets.output_dir_dialog import resolve_output_directory
+        from ..utils.directory_context import DirectoryContext
+        ctx = resolve_output_directory(self.filePath, parent=self)
+        self.dir_context = ctx if ctx else DirectoryContext.colocated(self.filePath)
+        self.csvManager = DI_CSVManager(self.dir_context.output_dir)
         self.initUI()
         self.setConnections()
         self.processFolder(self.filePath)
@@ -584,7 +588,8 @@ class DIBatchWindow(QMainWindow):
         """
         Triggered when the save button is clicked
         """
-        filename = getSaveFile(join(self.filePath, 'di_results'))
+        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+        filename = getSaveFile(join(out, 'di_results'))
         _, extension = os.path.splitext(filename)
         if extension == 'svg':
             self.mapFigure.savefig(filename, format='svg')
@@ -1084,7 +1089,8 @@ class DIBatchWindow(QMainWindow):
         VN = V * speed
         self.vec_quiver.set_UVC(UN, VN)
         self.vectorFieldMapCanvas.draw_idle()
-        self.vectorFieldMapFigure.savefig(fullPath(self.filePath, os.path.join('di_results', 'vector_field.png')))
+        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+        self.vectorFieldMapFigure.savefig(fullPath(out, os.path.join('di_results', 'vector_field.png')))
 
     def updateEllipticalMap(self):
         """
@@ -1222,10 +1228,10 @@ class DIBatchWindow(QMainWindow):
         df_rings=df_rings.loc[(df_rings['d']>=minv) &(df_rings['d']<=maxv)]
         self.angle_sigma=self.aSigmaSpnBx.value()
         df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
-        dir_path=self.filePath
+        out_path = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
         unit = str(self.unitChoice.currentText())
         csvname=f'rings_({minv}-{maxv}){unit}_anglesigma{self.angle_sigma}.csv'
-        csvfilepath=os.path.join(dir_path,'di_results',csvname)
+        csvfilepath=os.path.join(out_path,'di_results',csvname)
         print(df_rings.shape)
         filename=getSaveFile(csvfilepath,None)
         if filename!="":
@@ -1480,10 +1486,11 @@ class DIBatchWindow(QMainWindow):
         Process the folder selected
         """
         imgList, hdfList = getFilesAndHdf(dir_path)
-        createFolder(fullPath(dir_path, 'di_results'))
+        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else dir_path
+        createFolder(fullPath(out, 'di_results'))
 
         if len(imgList) == 0:
-            if exists(fullPath(dir_path, os.path.join('di_results', 'summary.csv'))):
+            if exists(fullPath(out, os.path.join('di_results', 'summary.csv'))):
                 self.browseHDF(dir_path, hdfList)
             else:
                 errMsg = QMessageBox()

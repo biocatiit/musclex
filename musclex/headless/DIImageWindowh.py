@@ -181,7 +181,7 @@ class DIImageWindowh():
     """
     A class to process Scanning diffraction on a file
     """
-    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath=os.path.join('musclex', 'settings', 'disettings.json'), lock=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, process_folder=False):
+    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath=os.path.join('musclex', 'settings', 'disettings.json'), lock=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, process_folder=False, output_dir=None):
         self.fileName = image_name
         self.filePath = dir_path
         self.fullPath = os.path.join(dir_path, image_name)
@@ -189,6 +189,7 @@ class DIImageWindowh():
         self.delcache=delcache
         self.inputflagfile=inputflagpath
         self.lock = lock
+        self.output_dir = output_dir if output_dir else dir_path
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()
@@ -267,7 +268,7 @@ class DIImageWindowh():
             text += "\n - R-min & R-max : "+ str(flags['fixed_hull'])
         text += '\n\nAre you sure you want to process ' + str(nImg) + ' image(s) in this Folder? \nThis might take a long time.'
 
-        log_path = fullPath(self.filePath, 'log')
+        log_path = fullPath(self.output_dir, 'log')
         if not exists(log_path):
             os.makedirs(log_path)
 
@@ -342,7 +343,7 @@ class DIImageWindowh():
         When the image is changed, process the scanning diffraction again
         """
         file=self.fileName+'.info'
-        cache_path = os.path.join(self.filePath, "di_cache",file)
+        cache_path = os.path.join(self.output_dir, "di_cache",file)
         cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
@@ -350,7 +351,7 @@ class DIImageWindowh():
                 os.remove(cache_path)
         fileName = self.imgList[self.currentFileNumber]
         self.statusPrint("current file is "+fileName)
-        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger, parent=self)
+        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger, parent=self, output_dir=self.output_dir)
         self.processImage()
         self.statusPrint('---------------------------------------------------')
 
@@ -377,7 +378,7 @@ class DIImageWindowh():
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
-            self.csvManager = DI_CSVManager(self.filePath)
+            self.csvManager = DI_CSVManager(self.output_dir)
             self.csvManager.write_new_data(self.cirProj)
             # release the lock
             if self.lock is not None:
@@ -401,7 +402,7 @@ class DIImageWindowh():
         if self.lock is not None:
             self.lock.acquire()
         if self.pixelDataFile is None:
-            self.pixelDataFile = os.path.join(self.filePath, 'di_results', 'BackgroundSummary.csv')
+            self.pixelDataFile = os.path.join(self.output_dir, 'di_results', 'BackgroundSummary.csv')
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
                 f = open(self.pixelDataFile, 'a')
@@ -414,7 +415,7 @@ class DIImageWindowh():
 
         # Compute the average pixel value and number of pixels outside rmin/mask
         from ..utils.settings_manager import SettingsManager
-        _, mask, _ = SettingsManager(self.filePath).load_blank_and_mask()
+        _, mask, _ = SettingsManager(self.output_dir).load_blank_and_mask()
         img = copy.copy(self.cirProj.original_image)
         if mask is not None:
             numberOfPixels = np.count_nonzero(mask == 0)

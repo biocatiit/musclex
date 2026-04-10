@@ -178,7 +178,8 @@ class EquatorWindow(QMainWindow):
         if self.file_manager.names is None or len(self.file_manager.names) == 0:
             self.inputerror()
             return
-        self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
+        csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        self.csvManager = EQ_CSVManager(csv_dir)
         self.setWindowTitle("Muscle X Equator v." + __version__)
         self.onImageChanged(first_run=True)
         
@@ -1703,7 +1704,8 @@ class EquatorWindow(QMainWindow):
         """
         Delete all caches in a directory
         """
-        cache_path = fullPath(self.dir_path, "eq_cache")
+        cache_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_path = fullPath(cache_dir, "eq_cache")
         shutil.rmtree(cache_path)
 
     def nPeakChanged(self):
@@ -2133,7 +2135,8 @@ class EquatorWindow(QMainWindow):
         self.current_image_data = self.workspace.create_image_data(
             self.file_manager.current_image, fileName
         )
-        self.bioImg = EquatorImage(self.current_image_data, self)
+        eq_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
+        self.bioImg = EquatorImage(self.current_image_data, self, output_dir=eq_output)
         if reprocess:
             self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
@@ -2902,7 +2905,8 @@ class EquatorWindow(QMainWindow):
             )
         
         # Create EquatorImage with ImageData
-        self.bioImg = EquatorImage(self.current_image_data, self)
+        eq_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
+        self.bioImg = EquatorImage(self.current_image_data, self, output_dir=eq_output)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         
@@ -3192,7 +3196,8 @@ class EquatorWindow(QMainWindow):
         
         # Create ImageData and EquatorImage with correct filename from task
         image_data = self.workspace.create_image_data(img, filename)
-        bioImg = EquatorImage(image_data, self)
+        eq_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
+        bioImg = EquatorImage(image_data, self, output_dir=eq_output)
         bioImg.info = result['info']
         
         # Write cache (main thread only)

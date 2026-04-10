@@ -62,16 +62,18 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, image_data: ImageData, parent=None):
+    def __init__(self, image_data: ImageData, parent=None, output_dir=None):
         """
         Initialize QuadrantFolder with ImageData container.
         
         :param image_data: ImageData container with image data and preprocessing
         :param parent: GUI/owner for status updates
+        :param output_dir: directory for cache/results writes (defaults to input dir)
         """
         # Get working image from ImageData (with blank/mask already applied)
         self.orig_img = image_data.get_working_image()
         self.img_path = str(image_data.img_path)
+        self.output_dir = output_dir if output_dir else self.img_path
         self.img_name = image_data.img_name
         
         # Store reference to ImageData for fingerprint checking
@@ -129,8 +131,8 @@ class QuadrantFolder:
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
         :return: -
         """
-        cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name + ".info")
-        createFolder(fullPath(self.img_path, "qf_cache"))
+        cache_file = fullPath(fullPath(self.output_dir, "qf_cache"), self.img_name + ".info")
+        createFolder(fullPath(self.output_dir, "qf_cache"))
         self.info['program_version'] = self.version
         
         # Save processing fingerprint for cache validation
@@ -147,7 +149,7 @@ class QuadrantFolder:
         
         :return: cached info (dict) or None if cache doesn't exist or version mismatch
         """
-        cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name+".info")
+        cache_file = fullPath(fullPath(self.output_dir, "qf_cache"), self.img_name+".info")
         if os.path.isfile(cache_file):
             with open(cache_file, "rb") as c:
                 info = pickle.load(c)
@@ -175,7 +177,7 @@ class QuadrantFolder:
         Delete cache
         :return: -
         """
-        cache_path = fullPath(self.img_path, "qf_cache")
+        cache_path = fullPath(self.output_dir, "qf_cache")
         cache_file = fullPath(cache_path, self.img_name + '.info')
         if os.path.exists(cache_path) and os.path.isfile(cache_file):
             os.remove(cache_file)

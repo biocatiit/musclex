@@ -139,7 +139,11 @@ class Worker(QRunnable):
                 )
                 
                 # Create ProjectionProcessor with ImageData
-                self.projProc = ProjectionProcessor(image_data)
+                pt_output = None
+                ws = getattr(self.params.gui, 'workspace', None)
+                if ws and ws.dir_context:
+                    pt_output = ws.dir_context.output_dir
+                self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
                 
                 # Transfer folder template boxes to processor if cache is empty
                 if len(self.projProc.boxes) == 0 and self.params.boxes_copy:
@@ -2128,8 +2132,9 @@ class ProjectionTracesGUI(BaseGUI):
         else:
             self.boxes = {}
         
-        # Create CSV manager for this folder
-        self.csvManager = PT_CSVManager(self.dir_path, self.boxes)
+        # Create CSV manager for this folder (write to output dir)
+        csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        self.csvManager = PT_CSVManager(csv_dir, self.boxes)
         
         # Add box tabs for loaded boxes
         self.addBoxTabs()
@@ -2154,7 +2159,8 @@ class ProjectionTracesGUI(BaseGUI):
         """
         try:
             # Create ProjectionProcessor (automatically loads image cache in __init__)
-            self.projProc = ProjectionProcessor(image_data)
+            pt_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
+            self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
             
             # Check if image-level cache was loaded
             image_cache_loaded = len(self.projProc.boxes) > 0
@@ -2646,7 +2652,8 @@ class ProjectionTracesGUI(BaseGUI):
         :return:
         """
         if self.exportChkBx.isChecked() and self.projProc:
-            path = fullPath(self.dir_path, os.path.join('pt_results', '1d_projections'))
+            pt_out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+            path = fullPath(pt_out, os.path.join('pt_results', '1d_projections'))
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
@@ -2750,7 +2757,8 @@ class ProjectionTracesGUI(BaseGUI):
             'centery': self.centery,
             'mask_thres': self.maskThresSpnBx.value()
         }
-        cache_dir = fullPath(self.dir_path, 'pt_cache')
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_dir = fullPath(out, 'pt_cache')
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, 'boxes_config.json')
         with open(cache_file, "w") as f:
@@ -2761,7 +2769,8 @@ class ProjectionTracesGUI(BaseGUI):
         Load folder-level box configuration from cache.
         Returns dict with 'boxes', 'centerx', 'centery', 'mask_thres' or None.
         """
-        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_config.json')
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_file = fullPath(fullPath(out, 'pt_cache'), 'boxes_config.json')
         if exists(cache_file):
             try:
                 with open(cache_file, "r") as f:
@@ -2852,8 +2861,8 @@ class ProjectionTracesGUI(BaseGUI):
             print("Warning: No directory loaded")
             return
         
-        # Copy template to current folder's cache
-        cache_dir = fullPath(self.dir_path, 'pt_cache')
+        pt_out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_dir = fullPath(pt_out, 'pt_cache')
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, 'boxes_config.json')
         shutil.copyfile(filename, cache_file)
@@ -2906,9 +2915,10 @@ class ProjectionTracesGUI(BaseGUI):
         for name, box in self.boxes.items():
             self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
         
-        # Update CSV manager with new boxes
+        # Update CSV manager with new boxes (write to output dir)
         if self.csvManager is not None:
-            self.csvManager = PT_CSVManager(self.dir_path, self.boxes)
+            csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+            self.csvManager = PT_CSVManager(csv_dir, self.boxes)
         
         # Redraw image with new boxes
         if hasattr(self, 'displayImgCanvas'):

@@ -49,7 +49,7 @@ class EquatorWindowh:
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, filename, inputsettings, delcache, lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, settingspath=os.path.join('musclex', 'settings', 'eqsettings.json')):
+    def __init__(self, filename, inputsettings, delcache, lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, settingspath=os.path.join('musclex', 'settings', 'eqsettings.json'), output_dir=None):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -79,6 +79,7 @@ class EquatorWindowh:
         self.delcache=delcache
         self.settingspath=settingspath
         self.lock = lock
+        self.output_dir = output_dir if output_dir else self.dir_path
 
         self.onImageChanged() # Toggle window to process current image
 
@@ -96,7 +97,7 @@ class EquatorWindowh:
         """
         fileName = self.imgList[self.currentImg]
         file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "eq_cache", file)
+        cache_path = os.path.join(self.output_dir, "eq_cache", file)
         cache_exist = os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
@@ -112,7 +113,7 @@ class EquatorWindowh:
             import fabio
             img = fabio.open(fullPath(self.dir_path, fileName)).data
         image_data = ImageData(img=img, img_path=self.dir_path, img_name=fileName)
-        self.bioImg = EquatorImage(image_data, self)
+        self.bioImg = EquatorImage(image_data, self, output_dir=self.output_dir)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
 
@@ -166,7 +167,7 @@ class EquatorWindowh:
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()
-        self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
+        self.csvManager = EQ_CSVManager(self.output_dir)
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager.writeNewData2(self.bioImg)
         # release the lock

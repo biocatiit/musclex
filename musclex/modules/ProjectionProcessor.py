@@ -152,13 +152,15 @@ class ProjectionProcessor:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, image_data: ImageData):
+    def __init__(self, image_data: ImageData, output_dir=None):
         """
         Initialize ProjectionProcessor with ImageData container.
         
         :param image_data: ImageData container with image data and preprocessing
+        :param output_dir: directory for cache/results writes (defaults to input dir)
         """
         self.dir_path = str(image_data.img_path)
+        self.output_dir = output_dir if output_dir else self.dir_path
         self.filename = image_data.img_name
         
         # Get working image from ImageData (with blank/mask already applied)
@@ -1042,7 +1044,7 @@ class ProjectionProcessor:
         Load ProcessingState from cache. Cache file will be filename.cache in folder "pt_cache"
         :return: cached ProcessingState or None
         """
-        cache_path = fullPath(self.dir_path, "pt_cache")
+        cache_path = fullPath(self.output_dir, "pt_cache")
         cache_file = fullPath(cache_path, self.filename + '.cache')
         
         if not exists(cache_file):
@@ -1069,7 +1071,7 @@ class ProjectionProcessor:
         Save ProcessingState to cache. Cache file will be saved as filename.cache in folder "pt_cache"
         :return: -
         """
-        cache_path = fullPath(self.dir_path, 'pt_cache')
+        cache_path = fullPath(self.output_dir, 'pt_cache')
         createFolder(cache_path)
         cache_file = fullPath(cache_path, self.filename + '.cache')
         

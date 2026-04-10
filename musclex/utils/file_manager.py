@@ -265,37 +265,44 @@ def _specs_to_absolute(dir_path, specs):
     return result
 
 
-def _load_scan_cache_from_disk(dir_path, sig):
-    try:
-        cfile = _disk_cache_file(dir_path)
-        if cfile and exists(cfile):
-            with open(cfile, "rb") as f:
-                data = pickle.load(f)
-            if isinstance(data, dict) and data.get("sig") == sig and isinstance(data.get("payload"), tuple):
-                payload = data.get("payload")
-                # Restore absolute paths from relative (v2 format)
-                if payload and len(payload) >= 2:
-                    payload = (payload[0], _specs_to_absolute(dir_path, payload[1])) + payload[2:]
-                return payload
-    except Exception:
-        pass
+def _load_scan_cache_from_disk(dir_path, sig, fallback_dir=None):
+    """Try loading scan cache from *dir_path*; fall back to *fallback_dir*."""
+    for d in (dir_path, fallback_dir):
+        if d is None:
+            continue
+        try:
+            cfile = _disk_cache_file(d)
+            if cfile and exists(cfile):
+                with open(cfile, "rb") as f:
+                    data = pickle.load(f)
+                if isinstance(data, dict) and data.get("sig") == sig and isinstance(data.get("payload"), tuple):
+                    payload = data.get("payload")
+                    if payload and len(payload) >= 2:
+                        payload = (payload[0], _specs_to_absolute(dir_path, payload[1])) + payload[2:]
+                    return payload
+        except Exception:
+            pass
     return None
 
-def _save_scan_cache_to_disk(dir_path, sig, payload):
-    try:
-        cdir = _disk_cache_dir(dir_path)
-        if cdir and not exists(cdir):
-            os.makedirs(cdir, exist_ok=True)
-        cfile = _disk_cache_file(dir_path)
-        if cfile:
-            # Store specs with relative paths so cache is portable across machines
-            if payload and len(payload) >= 2:
-                payload = (payload[0], _specs_to_relative(payload[1])) + payload[2:]
-            with open(cfile, "wb") as f:
-                pickle.dump({"sig": sig, "payload": payload}, f)
-    except Exception:
-        # best-effort; ignore failures
-        pass
+def _save_scan_cache_to_disk(dir_path, sig, payload, fallback_dir=None):
+    """Try saving scan cache to *dir_path*; fall back to *fallback_dir*."""
+    rel_payload = payload
+    if rel_payload and len(rel_payload) >= 2:
+        rel_payload = (rel_payload[0], _specs_to_relative(rel_payload[1])) + rel_payload[2:]
+    for d in (dir_path, fallback_dir):
+        if d is None:
+            continue
+        try:
+            cdir = _disk_cache_dir(d)
+            if cdir and not exists(cdir):
+                os.makedirs(cdir, exist_ok=True)
+            cfile = _disk_cache_file(d)
+            if cfile:
+                with open(cfile, "wb") as f:
+                    pickle.dump({"sig": sig, "payload": rel_payload}, f)
+                return  # written successfully
+        except Exception:
+            continue  # try fallback
 
 def _dir_signature(dir_path):
     try:
@@ -319,19 +326,27 @@ def _dir_signature(dir_path):
     except Exception:
         return None
 
-def _write_error_log(dir_path, error_msg, exception=None):
-    """Write a timestamped error entry to musclex_error.log in dir_path. Safe to call from any thread or subprocess."""
-    try:
-        log_path = os.path.join(dir_path, "musclex_error.log")
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(log_path, "a", encoding="utf-8") as lf:
-            lf.write(f"[{ts}] {error_msg}\n")
-            if exception is not None:
-                tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-                lf.write(tb)
-            lf.write("\n")
-    except Exception:
-        pass
+def _write_error_log(dir_path, error_msg, exception=None, fallback_dir=None):
+    """Write a timestamped error entry to musclex_error.log. Safe to call from any thread or subprocess.
+
+    Tries *dir_path* first; falls back to *fallback_dir* if the write fails
+    (e.g. when the input directory is read-only).
+    """
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for d in (dir_path, fallback_dir):
+        if d is None:
+            continue
+        try:
+            log_path = os.path.join(d, "musclex_error.log")
+            with open(log_path, "a", encoding="utf-8") as lf:
+                lf.write(f"[{ts}] {error_msg}\n")
+                if exception is not None:
+                    tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+                    lf.write(tb)
+                lf.write("\n")
+            return
+        except Exception:
+            continue
 
 def _h5_nframes(path):
     """Return (nframes, (height, width)) for an HDF5 file, or (0, None) on error."""
@@ -381,7 +396,7 @@ def _tiff_size(path):
     return None
 
 
-def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None):
+def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None, fallback_cache_dir=None):
     """
     Scan a directory for TIFF and HDF5 images and return unified
     (imgList, loader_specs, source_index_map, size_map).
@@ -394,6 +409,7 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
     Args:
         max_workers: Number of workers for parallel HDF5 frame counting
         progress_dict: Optional dict to track progress. Will set 'h5_total' and 'h5_done'
+        fallback_cache_dir: If the input dir is read-only, try this dir for cache I/O
 
     Returns:
         imgList:          List of ALL display names (complete list)
@@ -411,7 +427,7 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
                 return cached + ({},)
             return cached
         # try disk cache
-        disk_payload = _load_scan_cache_from_disk(dir_path, sig)
+        disk_payload = _load_scan_cache_from_disk(dir_path, sig, fallback_dir=fallback_cache_dir)
         if disk_payload is not None:
             _SCAN_CACHE[dir_path] = (sig, disk_payload)
             if len(disk_payload) == 3:
@@ -523,7 +539,7 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
     if sig is not None:
         payload = (imgList, specs, source_index_map, size_map)
         _SCAN_CACHE[dir_path] = (sig, payload)
-        _save_scan_cache_to_disk(dir_path, sig, payload)
+        _save_scan_cache_to_disk(dir_path, sig, payload, fallback_dir=fallback_cache_dir)
 
     return imgList, specs, source_index_map, size_map
 # --------------------- Unified image loader for GUI specs ---------------------
@@ -612,6 +628,7 @@ class FileManager:
     """
     def __init__(self):
         self.dir_path = ''
+        self.output_dir = ''  # writable directory for scan cache fallback
         self.failedcases = None  # List of filenames to filter (from failedcases.txt)
         # File layer (fast, for navigation)
         self.file_list = []  # [(filename, type, full_path), ...]
@@ -806,10 +823,11 @@ class FileManager:
         self._scan_errors = []  # Reset skipped-file list
 
         def _worker():
-            # Get complete list from cache
+            fallback = self.output_dir if self.output_dir and self.output_dir != self.dir_path else None
             imgList, specs, source_index_map, size_map = scan_directory_images_cached(
                 self.dir_path,
-                progress_dict=self._h5_progress
+                progress_dict=self._h5_progress,
+                fallback_cache_dir=fallback,
             )
             self._scan_errors = self._h5_progress.get('skipped_files', [])
             

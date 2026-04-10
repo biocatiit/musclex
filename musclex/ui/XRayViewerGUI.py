@@ -323,9 +323,10 @@ class XRayViewerGUI(QMainWindow):
         Called when navigator loads a new image.
         This is the ONLY entry point for image changes.
         """
-        # Initialize CSV manager if needed
+        # Initialize CSV manager if needed (write to output dir)
         if not hasattr(self, 'csv_manager'):
-            self.csv_manager = XV_CSVManager(dir_path)
+            csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else dir_path
+            self.csv_manager = XV_CSVManager(csv_dir)
         
         # Create XRayViewer
         try:

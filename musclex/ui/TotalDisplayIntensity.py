@@ -178,6 +178,12 @@ class TotalDisplayIntensity(QMainWindow):
     def onNewFileSelected(self, file_name):
         # Retrieve directory and file list info
         self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(file_name))
+        # Resolve output directory (only on first load or dir change)
+        if not hasattr(self, 'dir_context') or self.dir_context.input_dir != self.dir_path:
+            from .widgets.output_dir_dialog import resolve_output_directory
+            from ..utils.directory_context import DirectoryContext
+            ctx = resolve_output_directory(self.dir_path, parent=self)
+            self.dir_context = ctx if ctx else DirectoryContext.colocated(self.dir_path)
         # Clear any previous HDF5 list and set mode
         self.h5List = []
         self.setH5Mode(str(file_name))
@@ -254,7 +260,8 @@ class TotalDisplayIntensity(QMainWindow):
             if m is not None:
                 self.mask = self.mask * m
 
-        result_path = join(self.dir_path, 'tdi_results')
+        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.dir_path
+        result_path = join(out, 'tdi_results')
         if not exists(result_path):
             os.makedirs(result_path)
         fabio.tifimage.tifimage(data=self.mask).write(join(result_path, 'tdi_mask.tif'))
@@ -300,7 +307,8 @@ class TotalDisplayIntensity(QMainWindow):
                 self.refreshImage()
 
     def makeCSV(self):
-        result_path = fullPath(self.dir_path, "tdi_results")
+        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.dir_path
+        result_path = fullPath(out, "tdi_results")
         if not exists(result_path):
             os.makedirs(result_path)
 

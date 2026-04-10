@@ -40,12 +40,13 @@ class EQStartWindowh:
     """
     A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath):
+    def __init__(self, filename, inputsettings, delcache, settingspath, output_dir=None):
 
         self.dir_path = filename
         self.inputFlag=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
+        self.output_dir = output_dir
         is_hdf5 = os.path.splitext(self.dir_path)[1] in ['.h5', '.hdf5', ".txt"]
         if os.path.isfile(self.dir_path) and not is_hdf5:
             self.browseFile() # start program by browse a file
@@ -72,9 +73,9 @@ class EQStartWindowh:
                 if ext in input_types:
                     print("filename is", file_name)
                     if self.settingspath == 'empty':
-                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock,))
+                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock), kwargs={'output_dir': self.output_dir})
                     else:
-                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, None, None, None, None, None, self.settingspath,))
+                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, None, None, None, None, None, self.settingspath), kwargs={'output_dir': self.output_dir})
                     procs.append(proc)
                     proc.start()
                 elif ext in ['.h5', '.hdf5', '.txt']:
@@ -82,9 +83,9 @@ class EQStartWindowh:
                     for ind in range(len(himgList)):
                         print("filename is", himgList[ind])
                         if self.settingspath == 'empty':
-                            proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext,))
+                            proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext), kwargs={'output_dir': self.output_dir})
                         else:
-                            proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext, self.settingspath,))
+                            proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext, self.settingspath), kwargs={'output_dir': self.output_dir})
                         procs.append(proc)
                         proc.start()
                         if len(procs) % cpu_count() == 0:
@@ -124,7 +125,7 @@ class EQStartWindowh:
         """
         settingspath=self.settingspath
         if settingspath is None:
-            EquatorWindowh(filename, self.inputFlag, self.delcache)
+            EquatorWindowh(filename, self.inputFlag, self.delcache, output_dir=self.output_dir)
         else:
-            EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath=settingspath)
+            EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath=settingspath, output_dir=self.output_dir)
        

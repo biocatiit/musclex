@@ -60,18 +60,20 @@ class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, image_data: ImageData, parent):
+    def __init__(self, image_data: ImageData, parent, output_dir=None):
         """
         Initialize EquatorImage with ImageData container.
         
         :param image_data: ImageData container with image data and preprocessing
         :param parent: owner/GUI for status updates
+        :param output_dir: directory for cache/results writes (defaults to input dir)
         """
         # Store reference to ImageData
         self._image_data = image_data
         
         self.sigmaS = 0.0001
         self.dir_path = str(image_data.img_path)
+        self.output_dir = output_dir if output_dir else self.dir_path
         self.filename = image_data.img_name
         self.orig_img = image_data.img.astype("float32")
         self.image = None
@@ -1121,7 +1123,7 @@ class EquatorImage:
         Load info dict from cache. Cache file will be filename.info in folder "eq_cache"
         :return: cached info (dict)
         """
-        cache_path = fullPath(self.dir_path, "eq_cache")
+        cache_path = fullPath(self.output_dir, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
 
         if exists(cache_path) and isfile(cache_file):
@@ -1146,7 +1148,7 @@ class EquatorImage:
         Save info dict to cache. Cache file will be save as filename.info in folder "eq_cache"
         :return: -
         """
-        cache_path = fullPath(self.dir_path, "eq_cache")
+        cache_path = fullPath(self.output_dir, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
 
         # Create cache path if it does not exist
@@ -1162,7 +1164,7 @@ class EquatorImage:
         Delete cache
         :return: -
         """
-        cache_path = fullPath(self.dir_path, "eq_cache")
+        cache_path = fullPath(self.output_dir, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
         if exists(cache_path) and isfile(cache_file):
             os.remove(cache_file)

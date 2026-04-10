@@ -127,7 +127,11 @@ class Worker(QRunnable):
                 self.params.parent.workspace
             )
 
-            self.quadFold = QuadrantFolder(img_data, self.params.parent)
+            qf_output = None
+            ws = getattr(self.params.parent, 'workspace', None)
+            if ws and ws.dir_context:
+                qf_output = ws.dir_context.output_dir
+            self.quadFold = QuadrantFolder(img_data, self.params.parent, output_dir=qf_output)
             
             # Don't clear info - let cache work!
             # Only set specific fields that need to be set
@@ -169,7 +173,8 @@ class Worker(QRunnable):
         if method != 'None':
 
             filename = self.params.file_manager.names[self.params.index]
-            file_path = self.params.file_manager.dir_path
+            ws = getattr(self.params.parent, 'workspace', None)
+            file_path = ws.dir_context.output_dir if ws and ws.dir_context else self.params.file_manager.dir_path
             bg_path = fullPath(file_path, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
 
@@ -2399,7 +2404,8 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         from datetime import datetime
         
-        result_path = join(self.filePath, 'qf_results')
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+        result_path = join(out, 'qf_results')
         os.makedirs(result_path, exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2601,7 +2607,8 @@ class QuadrantFoldingGUI(BaseGUI):
     def thread_done(self, quadFold):
         # Write to tasks_done.txt (safely in main thread, no lock needed)
         try:
-            with open(quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
+            out = self.workspace.dir_context.output_dir if self.workspace.dir_context else quadFold.img_path
+            with open(out + "/qf_results/tasks_done.txt", "a") as file:
                 file.write(quadFold.img_name + " saving image\n")
         except (OSError, IOError) as e:
             print(f"Warning: Failed to write to tasks_done.txt for {quadFold.img_name}: {e}")
@@ -2687,9 +2694,10 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
                 
                 self.csvManager.sortCSV()
-                os.makedirs(join(self.filePath, 'qf_results'), exist_ok=True) #Makes qf_results folder if it doesn't already exist.
-                os.makedirs(join(self.filePath, 'qf_results/bg'), exist_ok=True) #Makes bg subfolder if it doesn't already exist.
-                with open(join(self.filePath, 'qf_results/bg/background_sum.csv'), 'w', newline='') as csvfile:
+                out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+                os.makedirs(join(out, 'qf_results'), exist_ok=True)
+                os.makedirs(join(out, 'qf_results/bg'), exist_ok=True)
+                with open(join(out, 'qf_results/bg/background_sum.csv'), 'w', newline='') as csvfile:
                     writer = csv.writer(csvfile)
 
                     writer.writerow(['Name', 'Sum'])
@@ -2743,7 +2751,8 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         print("SAVE RESULTS")
         if 'resultImg' in self.quadFold.imgCache:
-            result_path = fullPath(self.filePath, 'qf_results')
+            out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+            result_path = fullPath(out, 'qf_results')
             createFolder(result_path)
 
             result_file = str(join(result_path, self.quadFold.img_name))
@@ -2819,7 +2828,8 @@ class QuadrantFoldingGUI(BaseGUI):
         if method != 'None':
             
             filename = self.file_manager.current_image_name
-            bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
+            out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+            bg_path = fullPath(out, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
 
             # create bg folder
@@ -3294,7 +3304,8 @@ class QuadrantFoldingGUI(BaseGUI):
             # Initialize CSV Manager (QF-specific, folder-level)
             if self.file_manager.dir_path and self.file_manager.names:
                 try:
-                    self.csvManager = QF_CSVManager(self.filePath)
+                    csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+                    self.csvManager = QF_CSVManager(csv_dir)
                     self.ignoreFolds = set()
                     self.resetWidgets()
                     
@@ -3347,7 +3358,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.current_image_data = image_data
         
         # Create QuadrantFolder processor
-        self.quadFold = QuadrantFolder(self.current_image_data, self)
+        qf_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
+        self.quadFold = QuadrantFolder(self.current_image_data, self, output_dir=qf_output)
         
         # Update UI for new image
         self._update_ui_for_image()

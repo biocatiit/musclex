@@ -978,7 +978,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         if 'off_meridian' in settings:
             self.off_mer = settings['off_meridian']
 
-        self.csvManager = DC_CSVManager(dir_path, settings['group'], self.fixRanges) # create CSV manager
+        from .widgets.output_dir_dialog import resolve_output_directory
+        from ..utils.directory_context import DirectoryContext
+        ctx = resolve_output_directory(dir_path, parent=self)
+        self.dir_context = ctx if ctx else DirectoryContext.colocated(dir_path)
+        self.csvManager = DC_CSVManager(self.dir_context.output_dir, settings['group'], self.fixRanges)
         self.initUI(settings['group'] > 0)
         QApplication.processEvents()
         self.setConnections()
@@ -1920,7 +1924,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         Create a new DiffractionCentroids object and process it
         """
         imgList = self.groupList[self.currentGroup]
-        self.difCent = DiffractionCentroids(self.dir_path, imgList, self.currentGroup, self.fixRanges, self.off_mer)
+        mw = self.mainWindow
+        dc_out = mw.dir_context.output_dir if hasattr(mw, 'dir_context') and mw.dir_context else self.dir_path
+        self.difCent = DiffractionCentroids(self.dir_path, imgList, self.currentGroup, self.fixRanges, self.off_mer, output_dir=dc_out)
         img = self.difCent.avgImg
         self.right_status.setText(str(img.shape[0])+"x"+str(img.shape[1])+" "+str(img.dtype))
         self.initMinMaxIntensities(self.difCent.avgImg)
@@ -2442,7 +2448,8 @@ class DiffractionCentroidStartWindow(QMainWindow):
         """
         Load the cached settings if they exist
         """
-        file = fullPath(fullPath(dir_path, "dc_cache"), "settings.cache")
+        dc_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else dir_path
+        file = fullPath(fullPath(dc_out, "dc_cache"), "settings.cache")
         if exists(file):
             settings = pickle.load(open(file, "rb"))
             return settings
@@ -2608,8 +2615,9 @@ class DiffractionCentroidStartWindow(QMainWindow):
             }
             settings["off_meridian"] = off_mer
 
-        cache_path = fullPath(dir_path, 'dc_cache')
-        self.delete_old_results(dir_path, cache_path, settings)
+        dc_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else dir_path
+        cache_path = fullPath(dc_out, 'dc_cache')
+        self.delete_old_results(dc_out, cache_path, settings)
         createFolder(cache_path)
         pickle.dump(settings, open(fullPath(cache_path,"settings.cache"), "wb"))
 

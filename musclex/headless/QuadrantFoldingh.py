@@ -51,7 +51,7 @@ class QuadrantFoldingh:
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'qfsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'qfsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, output_dir=None):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -85,9 +85,10 @@ class QuadrantFoldingh:
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
+        self.output_dir = output_dir if output_dir else self.dir_path
         fileName = self.imgList[self.currentFileNumber]
         file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "qf_cache", file)
+        cache_path = os.path.join(self.output_dir, "qf_cache", file)
         cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if cache_exist:
@@ -114,7 +115,7 @@ class QuadrantFoldingh:
         image_data = ImageData(img, self.dir_path, fileName, center=center)
         
         # Create QuadrantFolder with ImageData
-        self.quadFold = QuadrantFolder(image_data, self)
+        self.quadFold = QuadrantFolder(image_data, self, output_dir=self.output_dir)
 
         self.onImageChanged()
 
@@ -149,7 +150,7 @@ class QuadrantFoldingh:
         """
         fileName = self.imgList[self.currentFileNumber]
         file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "qf_cache", file)
+        cache_path = os.path.join(self.output_dir, "qf_cache", file)
         cache_exist=os.path.isfile(cache_path)
 
         if 'ignore_folds' in self.quadFold.info:
@@ -221,7 +222,7 @@ class QuadrantFoldingh:
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
-            self.csvManager = QF_CSVManager(self.dir_path)
+            self.csvManager = QF_CSVManager(self.output_dir)
             self.csvManager.writeNewData(self.quadFold)
             # release the lock
             if self.lock is not None:
@@ -229,7 +230,7 @@ class QuadrantFoldingh:
 
             # Save result to folder qf_results
             if 'resultImg' in self.quadFold.imgCache:
-                result_path = fullPath(self.dir_path, 'qf_results')
+                result_path = fullPath(self.output_dir, 'qf_results')
                 createFolder(result_path)
 
                 result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
@@ -262,7 +263,7 @@ class QuadrantFoldingh:
             resultImg = np.rot90(resultImg)
 
         filename = self.imgList[self.currentFileNumber]
-        bg_path = fullPath(self.dir_path, os.path.join("qf_results", "bg"))
+        bg_path = fullPath(self.output_dir, os.path.join("qf_results", "bg"))
         result_path = fullPath(bg_path, filename + ".bg.tif")
 
         # create bg folder

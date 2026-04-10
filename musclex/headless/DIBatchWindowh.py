@@ -107,7 +107,7 @@ class DIBatchWindowh():
     """
     A class to process Scanning diffraction on folders (headless)
     """
-    def __init__(self, dir_path="",inputsetting=False,delcache=False,settingspath=None):
+    def __init__(self, dir_path="",inputsetting=False,delcache=False,settingspath=None, output_dir=None):
         if os.path.isfile(dir_path):
             self.filePath, self.fileName = os.path.split(dir_path)
         else:
@@ -117,8 +117,9 @@ class DIBatchWindowh():
         self.delcache=delcache
         self.settingspath=settingspath
         self.hdf_filename = ""
+        self.output_dir = output_dir if output_dir else self.filePath
 
-        self.csvManager = DI_CSVManager(self.filePath)
+        self.csvManager = DI_CSVManager(self.output_dir)
 
         self.processFolder()
 
@@ -210,7 +211,7 @@ class DIBatchWindowh():
         """
         Process the folder selected
         """
-        hdf_path=fullPath(self.filePath,'settings')
+        hdf_path=fullPath(self.output_dir,'settings')
         if os.path.exists(hdf_path):
             if os.path.exists(fullPath(hdf_path,'file.hdf')):
                 os.remove(fullPath(hdf_path,'file.hdf'))
@@ -230,14 +231,14 @@ class DIBatchWindowh():
                 _, ext = os.path.splitext(str(file_name))
                 if ext in inpt_types:
                     # DIImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
-                    proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock,))
+                    proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock), kwargs={'output_dir': self.output_dir})
                     procs.append(proc)
                     proc.start()
                 elif ext in ['.h5', '.hdf5']:
                     _, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
                     for ind in range(len(himgList)):
                         print("filename is", himgList[ind])
-                        proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock, himgList, ind, hfileList, ext,))
+                        proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock, himgList, ind, hfileList, ext), kwargs={'output_dir': self.output_dir})
                         procs.append(proc)
                         proc.start()
                         if len(procs) % cpu_count() == 0:

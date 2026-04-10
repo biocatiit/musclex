@@ -34,6 +34,7 @@ from PySide6.QtCore import Signal
 
 from ...utils.image_data import ImageData
 from ...utils.settings_manager import SettingsManager
+from ...utils.directory_context import DirectoryContext
 from .image_navigator_widget import ImageNavigatorWidget
 from .collapsible_right_panel import CollapsibleRightPanel
 from .center_settings_widget import CenterSettingsWidget
@@ -131,6 +132,9 @@ class ProcessingWorkspace(QWidget):
         self._get_display_center_func = get_display_center_func
         self._current_filename = None
         self._current_image_data = None
+        
+        # Read/write directory context (set on folder load)
+        self.dir_context: DirectoryContext = DirectoryContext.colocated(settings_dir) if settings_dir else None
         
         # Orientation model and mode rotation state
         self._orientation_model = 0  # Default: Max Intensity
@@ -1485,14 +1489,26 @@ class ProcessingWorkspace(QWidget):
         """
         Called when a new file/folder is loaded (BEFORE first image loads).
         
-        Updates settings directory and reloads persistent settings.
+        Resolves the output directory (via association store or user dialog),
+        updates settings directory, and reloads persistent settings.
         This is the right place for folder-level initialization.
         
         Args:
             dir_path: Directory path of the loaded file/folder
         """
-        # Update settings directory (triggers load via settings_manager)
-        self.set_settings_dir(dir_path)
+        # Resolve output directory for this input
+        from .output_dir_dialog import resolve_output_directory
+        ctx = resolve_output_directory(dir_path, parent=self)
+        if ctx is None:
+            # User cancelled — keep previous context unchanged
+            return
+        self.dir_context = ctx
+        
+        # Let FileManager know the output dir for scan cache fallback
+        self.navigator.file_manager.output_dir = ctx.output_dir
+        
+        # Settings live under the output directory
+        self.set_settings_dir(ctx.output_dir)
         
         # Update blank/mask checkbox states based on new directory
         self.update_blank_mask_states()

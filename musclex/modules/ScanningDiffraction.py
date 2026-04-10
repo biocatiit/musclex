@@ -57,7 +57,7 @@ class ScanningDiffraction:
     """
     A class for Scanning Diffraction processing - go to process() to see all processing steps
     """
-    def __init__(self, filepath, filename, file_list=None, extension='', logger=None, parent=None):
+    def __init__(self, filepath, filename, file_list=None, extension='', logger=None, parent=None, output_dir=None):
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
             original_image = file_list[1][index]
@@ -70,6 +70,7 @@ class ScanningDiffraction:
         else:
             self.parent = self
         self.filepath = filepath
+        self.output_dir = output_dir if output_dir else filepath
         self.filename = filename
         self.logger = logger
         self.version = __version__
@@ -82,7 +83,7 @@ class ScanningDiffraction:
         Load the cache and return it if it exists, else return an empty dict.
         :return: cache info
         """
-        cache_path = fullPath(self.filepath, "di_cache")
+        cache_path = fullPath(self.output_dir, "di_cache")
         cache_file = fullPath(cache_path, self.filename+'.info')
         if exists(cache_file):
             info = pickle.load(open(cache_file, "rb"))
@@ -95,7 +96,7 @@ class ScanningDiffraction:
         Save the cache info in a file named di_cache to help execute the prrgram
         faster the next time a same image is processed.
         """
-        cache_path = fullPath(self.filepath, 'di_cache')
+        cache_path = fullPath(self.output_dir, 'di_cache')
         createFolder(cache_path)
         cache_file = fullPath(cache_path, self.filename + '.info')
         self.info['program_version'] = self.version

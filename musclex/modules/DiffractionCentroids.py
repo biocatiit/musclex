@@ -49,7 +49,7 @@ class DiffractionCentroids:
     """
     A class for Diffraction Centroids processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, imgList, grp_number, fixRanges, off_mer):
+    def __init__(self, dir_path, imgList, grp_number, fixRanges, off_mer, output_dir=None):
         """
         Initial value for DiffractionCentroids object
         :param dir_path: directory path of input images (str)
@@ -57,10 +57,12 @@ class DiffractionCentroids:
         :param grp_number: image group number - used for writing csv (int)
         :param fixRanges: fixed peak ranges configured my users
         :param off_mer: configuration of off-meridian peaks configured my users
+        :param output_dir: optional output directory for cache writes
         """
         self.avgImg = self.mergeImages(dir_path, imgList) # average all image in a group
         self.mask_thres = getMaskThreshold(self.avgImg)
         self.dir_path = dir_path
+        self.output_dir = output_dir if output_dir else dir_path
         self.version = __version__
         self.info = {
             "reject" : {"top":[], "bottom": [] }
@@ -95,9 +97,14 @@ class DiffractionCentroids:
         :param imgList: input images
         :return: cached info (dict)
         """
-        cache_path = fullPath(dir_path, 'dc_cache')
+        cache_path = fullPath(self.output_dir, 'dc_cache')
         cache_filename = imgList[0]+'_'+ imgList[-1]+ '.info'
         cachefile = fullPath(cache_path, cache_filename)
+        if not isfile(cachefile):
+            fallback_cache = fullPath(dir_path, 'dc_cache')
+            fallback_file = fullPath(fallback_cache, cache_filename)
+            if isfile(fallback_file):
+                cachefile = fallback_file
         info = {}
 
         if isfile(cachefile):
@@ -718,7 +725,7 @@ class DiffractionCentroids:
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
         :return: -
         """
-        cache_path = fullPath(self.dir_path, 'dc_cache')
+        cache_path = fullPath(self.output_dir, 'dc_cache')
 
         if not exists(cache_path):
             makedirs(cache_path)

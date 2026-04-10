@@ -580,7 +580,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
         self._result_entries = []
-        self._aise_results_dir = os.path.join(str(dir_path), "aise_results")
+        ctx = self.workspace.dir_context
+        out = ctx.output_dir if ctx else str(dir_path)
+        self._aise_results_dir = os.path.join(out, "aise_results")
 
     def _on_scan_complete(self):
         """Refresh the file list once the background scan finishes."""
