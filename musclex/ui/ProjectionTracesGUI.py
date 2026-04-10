@@ -3054,7 +3054,8 @@ class ProjectionTracesGUI(BaseGUI):
         if calSettings is not None:
             if 'type' in calSettings:
                 if calSettings["type"] == "img":
-                    self.projProc.state.lambda_sdd = calSettings["silverB"] * calSettings["radius"]
+                    if "silverB" in calSettings and "radius" in calSettings:
+                        self.projProc.state.lambda_sdd = calSettings["silverB"] * calSettings["radius"]
                 elif calSettings["type"] == "cont":
                     self.projProc.state.lambda_sdd = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
 
@@ -3075,7 +3076,8 @@ class ProjectionTracesGUI(BaseGUI):
         if calSettings is not None:
             if 'type' in calSettings:
                 if calSettings["type"] == "img":
-                    settings["lambda_sdd"] = calSettings["silverB"] * calSettings["radius"]
+                    if "silverB" in calSettings and "radius" in calSettings:
+                        settings["lambda_sdd"] = calSettings["silverB"] * calSettings["radius"]
                 elif calSettings["type"] == "cont":
                     settings["lambda_sdd"] = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
         
