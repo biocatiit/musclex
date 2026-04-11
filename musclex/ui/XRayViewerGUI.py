@@ -1280,6 +1280,8 @@ class XRayViewerGUI(QMainWindow):
         idx = self.file_manager.current
         img_ids = list(range(idx, len(self.file_manager.names))) + list(range(0, idx))
         self._process_image_list(img_ids)
+        # Return to the starting image after playback
+        self._navigate_to(idx)
         self.navControls.processFolderButton.setChecked(False)
         self.navControls.processFolderButton.setText("Play Current Folder")
 
@@ -1293,9 +1295,18 @@ class XRayViewerGUI(QMainWindow):
         idx = self.file_manager.current
         img_ids = list(range(idx + 1, end_idx + 1)) + list(range(start_idx, idx + 1))
         self._process_image_list(img_ids)
+        # Return to the starting image after playback
+        self._navigate_to(idx)
         self.navControls.processH5Button.setChecked(False)
         self.navControls.processH5Button.setText("Play Current H5 File")
 
+
+    def _navigate_to(self, idx):
+        """Switch to image at idx and display it."""
+        self.file_manager.switch_image_by_index(idx)
+        img = self.file_manager.current_image
+        if img is not None:
+            self._on_image_changed(img, self.file_manager.current_image_name, self.file_manager.dir_path)
 
     def _process_image_list(self, img_ids):
         self.stop_process = False
