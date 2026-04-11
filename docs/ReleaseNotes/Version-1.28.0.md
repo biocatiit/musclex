@@ -37,6 +37,11 @@ Release Date : February 2026
 - `FileManager` extended with `load_from_sources()` and `load_from_directories()` for loading from multiple directories; common parent directory used as `dir_path`
 - Cache file naming now uses relative paths; cache file version updated
 
+### Bug Fixes v1.28.0-beta.6
+- **X-Ray Viewer – inpainting**: image was not redisplayed when inpainting was not applied; fixed to always display the current (possibly inpainted) image on load
+- **X-Ray Viewer – playback**: after "Play Current Folder" or "Play Current H5 File" completes, the viewer now returns to the image it started on
+- **Projection Traces – calibration crash**: fixed `KeyError` when `silverB` or `radius` keys are missing from calibration settings during `lambda_sdd` calculation
+
 ### Other Improvements
 - `ProjectionTracesGUI`, `QuadrantFoldingGUI`, `XRayViewerGUI`: early return on invalid HDF5 frame range to prevent crashes
 - `ProjectionTracesGUI`, `QuadrantFoldingGUI`: folder selection button removed from image navigator (not currently used)
