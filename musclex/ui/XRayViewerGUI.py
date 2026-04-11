@@ -344,8 +344,9 @@ class XRayViewerGUI(QMainWindow):
             self.statusPrint("Inpainting...")
             self.xrayViewer.orig_img = inpaint_img(self.xrayViewer.orig_img)
             self.statusPrint("")
-            # Redisplay the inpainted image
-            self.navigator.image_viewer.display_image(self.xrayViewer.orig_img)
+        
+        # Always display the (possibly inpainted) image
+        self.navigator.image_viewer.display_image(self.xrayViewer.orig_img)
         
         # Update status bar with image info
         original_image = self.xrayViewer.orig_img
