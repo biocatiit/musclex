@@ -37,10 +37,15 @@ Release Date : February 2026
 - `FileManager` extended with `load_from_sources()` and `load_from_directories()` for loading from multiple directories; common parent directory used as `dir_path`
 - Cache file naming now uses relative paths; cache file version updated
 
-### Bug Fixes v1.28.0-beta.6
+### v1.28.0-beta.6 Bug Fixes 
 - **X-Ray Viewer – inpainting**: image was not redisplayed when inpainting was not applied; fixed to always display the current (possibly inpainted) image on load
 - **X-Ray Viewer – playback**: after "Play Current Folder" or "Play Current H5 File" completes, the viewer now returns to the image it started on
 - **Projection Traces – calibration crash**: fixed `KeyError` when `silverB` or `radius` keys are missing from calibration settings during `lambda_sdd` calculation
+
+### v1.28.0-beta.7 Improvements
+- **AIME (Add Intensities Multiple Experiments)**: output base name dialog is shown before initializing the sum process pool—lighter path when the user cancels or changes their mind
+- **AIME**: default suggested output base name appends `_folded` when every selected source filename contains `folded`
+- **AIME**: "Sum Images by Index" button state is reset correctly if the base name dialog is cancelled or the sum executor cannot be created
 
 ### Other Improvements
 - `ProjectionTracesGUI`, `QuadrantFoldingGUI`, `XRayViewerGUI`: early return on invalid HDF5 frame range to prevent crashes

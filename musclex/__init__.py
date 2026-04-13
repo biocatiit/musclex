@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 import subprocess as _subprocess
 
 def _get_version():
-    _base = '1.28.0-beta.6'
+    _base = '1.28.0-beta.7'
     try:
         _branch = _subprocess.check_output(
             ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
