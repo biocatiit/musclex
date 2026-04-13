@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt, QThreadPool, QTimer
 from PySide6.QtGui import QColor
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
+from musclex.ui.widgets import output_dir_dialog
 from musclex.ui.widgets.image_viewer_widget import ImageViewerWidget
 from musclex.utils.image_processor import rotateImageAboutPoint
 from musclex.utils.file_manager import load_image_via_spec
@@ -151,6 +152,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         # Result tab state
         self._result_entries: list = []
         self._parent_dir: str = ""
+        self.dir_context = None
 
         self._cr_dialog = None
 
@@ -504,7 +506,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
     def _refresh_result_tab(self):
         """Populate the result table from memory or CSV."""
-        aime_results_dir = os.path.join(self._parent_dir, "aime_results") if self._parent_dir else ""
+        out = self.dir_context.output_dir if self.dir_context else self._parent_dir
+        aime_results_dir = os.path.join(out, "aime_results") if out else ""
         if not self._result_entries and aime_results_dir:
             csv_path = os.path.join(aime_results_dir, 'intensities.csv')
             if os.path.exists(csv_path):
@@ -544,7 +547,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if row < 0 or row >= len(self._result_entries):
             return
         entry = self._result_entries[row]
-        aime_results_dir = os.path.join(self._parent_dir, "aime_results") if self._parent_dir else ""
+        out = self.dir_context.output_dir if self.dir_context else self._parent_dir
+        aime_results_dir = os.path.join(out, "aime_results") if out else ""
         if not aime_results_dir:
             return
         full_path = os.path.join(aime_results_dir, entry['filename'])
@@ -647,9 +651,14 @@ class AddIntensitiesMultipleExp(QMainWindow):
         sources = [item.toolTip() for item in selected_items]
         self._pending_sources = sources
 
+        ctx = output_dir_dialog.resolve_output_directory(self._parent_dir_path, parent=self)
+        if ctx is None:
+            return
+        self.dir_context = ctx
+
         fm = self.workspace.navigator.file_manager
         fm.load_from_sources(sources)
-        self.workspace.set_settings_dir(self._parent_dir_path)
+        self.workspace.set_settings_dir(ctx.output_dir)
 
         self._on_directories_loaded(self._parent_dir_path, sources)
 
@@ -1027,8 +1036,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
             QMessageBox.warning(self, "Sum Images", "No folder loaded.")
             return
 
-        parent_dir = getattr(self, '_parent_dir', str(fm.dir_path))
-        output_dir = os.path.join(parent_dir, "aime_results")
+        out = self.dir_context.output_dir if self.dir_context else getattr(self, '_parent_dir', str(fm.dir_path))
+        output_dir = os.path.join(out, "aime_results")
         os.makedirs(output_dir, exist_ok=True)
 
         do_average = self.avg_instead_of_sum_chk.isChecked()
@@ -1262,7 +1271,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.sum_images_btn.blockSignals(False)
 
         if self._parent_dir and self._sum_csv_rows:
-            output_dir = os.path.join(self._parent_dir, "aime_results")
+            out = self.dir_context.output_dir if self.dir_context else self._parent_dir
+            output_dir = os.path.join(out, "aime_results")
             self._write_sum_csv(output_dir)
 
         op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"

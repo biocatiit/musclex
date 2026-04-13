@@ -1316,7 +1316,9 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         fm = self.workspace.navigator.file_manager
         if fm is not None and self._sum_csv_rows:
-            output_dir = os.path.join(str(fm.dir_path), "aise_results")
+            ctx = self.workspace.dir_context
+            base = ctx.output_dir if ctx else str(fm.dir_path)
+            output_dir = os.path.join(base, "aise_results")
             self._write_sum_csv(output_dir)
 
         op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"
