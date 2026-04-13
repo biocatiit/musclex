@@ -1056,6 +1056,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
                     name = self._row_mapper.name_for_row(r)
                     all_basenames.append(os.path.splitext(os.path.basename(name))[0])
         default_base = os.path.commonprefix(all_basenames).rstrip('_') if all_basenames else "output"
+        if all_basenames and all('folded' in b for b in all_basenames):
+            default_base += '_folded'
 
         # Ask user for the output base name before starting any heavy work
         base_name, ok = QInputDialog.getText(
