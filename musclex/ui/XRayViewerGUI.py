@@ -43,6 +43,7 @@ from ..CalibrationSettings import CalibrationSettings
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
 from .widgets.image_navigator_widget import ImageNavigatorWidget
+from .widgets import output_dir_dialog
 
 
 class XRayViewerGUI(QMainWindow):
@@ -93,7 +94,11 @@ class XRayViewerGUI(QMainWindow):
         self.imageFigure = self.navigator.image_viewer.figure
         self.navControls = self.navigator.nav_controls
         
+        self.dir_context = None
+        self.csv_manager = None
+
         # Connect navigator's signals
+        self.navigator.fileLoaded.connect(self._on_file_loaded)
         self.navigator.imageChanged.connect(self._on_image_changed)
         
         # Connect ImageViewer's interaction signals (high-level, cleaner than matplotlib events)
@@ -317,15 +322,25 @@ class XRayViewerGUI(QMainWindow):
         self.checkableButtons.append(self.measureDist2)
 
     # ========== Navigator Signal Handlers ==========
-    
+
+    def _on_file_loaded(self, dir_path):
+        """
+        Called when a new folder is loaded. Resolves the output directory.
+        """
+        ctx = output_dir_dialog.resolve_output_directory(dir_path, parent=self)
+        if ctx is None:
+            return
+        self.dir_context = ctx
+        self.csv_manager = None  # reset so it's recreated with the new output dir
+
     def _on_image_changed(self, img, filename, dir_path):
         """
         Called when navigator loads a new image.
         This is the ONLY entry point for image changes.
         """
         # Initialize CSV manager if needed (write to output dir)
-        if not hasattr(self, 'csv_manager'):
-            csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else dir_path
+        if not hasattr(self, 'csv_manager') or self.csv_manager is None:
+            csv_dir = self.dir_context.output_dir if self.dir_context else dir_path
             self.csv_manager = XV_CSVManager(csv_dir)
         
         # Create XRayViewer
