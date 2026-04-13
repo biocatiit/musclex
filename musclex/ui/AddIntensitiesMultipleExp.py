@@ -1031,11 +1031,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
         output_dir = os.path.join(parent_dir, "aime_results")
         os.makedirs(output_dir, exist_ok=True)
 
-        if self.sumExecutor is None:
-            self._init_sum_executor()
-        if self.sumExecutor is None:
-            return
-
         do_average = self.avg_instead_of_sum_chk.isChecked()
         compress = self.compress_chk.isChecked()
         rotation_mode = 'absolute' if self.radio_rot_absolute.isChecked() else 'diff'
@@ -1059,7 +1054,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if all_basenames and all('folded' in b for b in all_basenames):
             default_base += '_folded'
 
-        # Ask user for the output base name before starting any heavy work
+        # Ask user for the output base name before any heavy work or pool init
         base_name, ok = QInputDialog.getText(
             self,
             "Output Base Name",
@@ -1068,15 +1063,21 @@ class AddIntensitiesMultipleExp(QMainWindow):
             text=default_base,
         )
         if not ok:
-            if self.sumExecutor:
-                self.sumExecutor.shutdown(wait=False)
-                self.sumExecutor = None
             self.sum_images_btn.blockSignals(True)
             self.sum_images_btn.setChecked(False)
             self.sum_images_btn.setText("Sum Images by Index")
             self.sum_images_btn.blockSignals(False)
             return
         base_name = base_name.strip() or default_base
+
+        if self.sumExecutor is None:
+            self._init_sum_executor()
+        if self.sumExecutor is None:
+            self.sum_images_btn.blockSignals(True)
+            self.sum_images_btn.setChecked(False)
+            self.sum_images_btn.setText("Sum Images by Index")
+            self.sum_images_btn.blockSignals(False)
+            return
 
         # Blank config (loaded once, shared across all groups)
         blank_mask_config = self.workspace.get_blank_mask_config()
