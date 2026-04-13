@@ -1068,6 +1068,13 @@ class AddIntensitiesMultipleExp(QMainWindow):
             text=default_base,
         )
         if not ok:
+            if self.sumExecutor:
+                self.sumExecutor.shutdown(wait=False)
+                self.sumExecutor = None
+            self.sum_images_btn.blockSignals(True)
+            self.sum_images_btn.setChecked(False)
+            self.sum_images_btn.setText("Sum Images by Index")
+            self.sum_images_btn.blockSignals(False)
             return
         base_name = base_name.strip() or default_base
 
