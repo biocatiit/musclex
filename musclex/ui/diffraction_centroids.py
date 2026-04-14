@@ -984,9 +984,32 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.dir_context = ctx if ctx else DirectoryContext.colocated(dir_path)
         self.csvManager = DC_CSVManager(self.dir_context.output_dir, settings['group'], self.fixRanges)
         self.initUI(settings['group'] > 0)
+        self._create_menu_bar()
         QApplication.processEvents()
         self.setConnections()
         self.onImageChanged()
+
+    def _create_menu_bar(self):
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self._change_output_directory)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(changeOutputDirAction)
+
+    def _change_output_directory(self):
+        """Let the user pick a new output directory."""
+        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from ..utils.directory_context import DirectoryContext
+
+        input_dir = self.dir_context.input_dir
+        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        self.csvManager = DC_CSVManager(new_output, len(self.groupList[0]), self.fixRanges)
 
     def getCurrentDifCent(self):
         """
@@ -2135,7 +2158,9 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.setWindowTitle("Muscle X Diffraction Centroids v."+__version__)
         self.fixRanges = []
         self.fixRangeNames = []
+        self.dir_context = None
         self.initUI()
+        self._create_menu_bar()
         self.setConnections()
 
     def initUI(self):
@@ -2299,6 +2324,33 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.resize(1100,100)
         self.show()
 
+    def _create_menu_bar(self):
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self._change_output_directory)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(changeOutputDirAction)
+
+    def _change_output_directory(self):
+        """Let the user pick a new output directory."""
+        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from ..utils.directory_context import DirectoryContext
+
+        if not self.dir_context:
+            QMessageBox.information(
+                self, "No folder loaded",
+                "Please load a folder before changing the output directory.")
+            return
+
+        input_dir = self.dir_context.input_dir
+        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+
     def setConnections(self):
         """
         Set all connections for interactive widget
@@ -2437,9 +2489,13 @@ class DiffractionCentroidStartWindow(QMainWindow):
         """
         Popup folder selection dialog
         """
-        dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder") #jiranun test
+        dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
         if dir_path != "":
             dir_path = str(dir_path)
+            from .widgets.output_dir_dialog import resolve_output_directory
+            from ..utils.directory_context import DirectoryContext
+            ctx = resolve_output_directory(dir_path, parent=self)
+            self.dir_context = ctx if ctx else DirectoryContext.colocated(dir_path)
             self.selectedFolderTextField.setText(dir_path)
             self.preprocessFolder(dir_path)
             self.initSettings(dir_path)

@@ -236,6 +236,28 @@ class DIImageWindow(QMainWindow):
         elif len(self.imgList) > 0:
             self.onImageChanged()
 
+    def _change_output_directory(self):
+        """Let the user pick a new output directory."""
+        from PySide6.QtWidgets import QDialog, QMessageBox
+        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from ..utils.directory_context import DirectoryContext
+
+        if not hasattr(self, 'dir_context') or not self.dir_context:
+            QMessageBox.information(
+                self, "No folder loaded",
+                "Please load a file before changing the output directory.")
+            return
+
+        input_dir = self.dir_context.input_dir
+        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        self.csvManager = DI_CSVManager(new_output)
+
     def generateRingColors(self):
         """
         Generate colors for the rings
@@ -266,9 +288,14 @@ class DIImageWindow(QMainWindow):
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
         saveSettingsAction.triggered.connect(self.saveSettings)
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self._change_output_directory)
+
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(saveSettingsAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(changeOutputDirAction)
 
         ### Image mode tabs
         ## IMAGE MODE 1 : Image tab

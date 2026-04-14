@@ -269,11 +269,16 @@ class XRayViewerGUI(QMainWindow):
         exportViewAction.setShortcut('Ctrl+E')
         exportViewAction.triggered.connect(self.exportCurrentViewToPNG)
 
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self._change_output_directory)
+
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(exportViewAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(changeOutputDirAction)
         aboutAct = QAction('About', self)
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
@@ -332,6 +337,28 @@ class XRayViewerGUI(QMainWindow):
             return
         self.dir_context = ctx
         self.csv_manager = None  # reset so it's recreated with the new output dir
+
+    def _change_output_directory(self):
+        """Let the user pick a new output directory."""
+        from PySide6.QtWidgets import QDialog, QMessageBox
+        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from ..utils.directory_context import DirectoryContext
+
+        if not self.dir_context:
+            QMessageBox.information(
+                self, "No folder loaded",
+                "Please load a folder before changing the output directory.")
+            return
+
+        input_dir = self.dir_context.input_dir
+        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        self.csv_manager = None  # recreated on next image
 
     def _on_image_changed(self, img, filename, dir_path):
         """

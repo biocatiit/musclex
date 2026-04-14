@@ -275,9 +275,33 @@ class DIBatchWindow(QMainWindow):
         self.dir_context = ctx if ctx else DirectoryContext.colocated(self.filePath)
         self.csvManager = DI_CSVManager(self.dir_context.output_dir)
         self.initUI()
+        self._create_menu_bar()
         self.setConnections()
         self.processFolder(self.filePath)
         self.angle_sigma=1
+
+    def _create_menu_bar(self):
+        from PySide6.QtGui import QAction
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self._change_output_directory)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(changeOutputDirAction)
+
+    def _change_output_directory(self):
+        """Let the user pick a new output directory."""
+        from PySide6.QtWidgets import QDialog, QMessageBox
+        from .widgets.output_dir_dialog import OutputDirDialog, _store
+
+        input_dir = self.dir_context.input_dir
+        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        self.csvManager = DI_CSVManager(new_output)
 
     def initUI(self):
         """

@@ -671,12 +671,17 @@ class ProjectionTracesGUI(BaseGUI):
         loadSettingAction.triggered.connect(self.loadSettings)
 
 
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
+
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(saveSettingAction)
         fileMenu.addAction(loadSettingAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(changeOutputDirAction)
 
         aboutAct = QAction('About', self)
         aboutAct.triggered.connect(self.showAbout)
@@ -723,7 +728,15 @@ class ProjectionTracesGUI(BaseGUI):
         
         # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
-    
+
+        # Output directory changed -> reset CSV manager
+        self.workspace.outputDirChanged.connect(self._on_output_dir_changed)
+
+    def _on_output_dir_changed(self, new_output_dir):
+        """Reset CSV manager when the output directory changes."""
+        if self.csvManager is not None:
+            self.csvManager = PT_CSVManager(new_output_dir, self.boxes)
+
     def _show_oriented_box_warning(self):
         """
         Show a warning dialog about non-axis aligned (oriented) boxes.

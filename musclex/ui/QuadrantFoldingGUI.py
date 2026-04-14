@@ -372,10 +372,15 @@ class QuadrantFoldingGUI(BaseGUI):
         aboutAct = QAction('About', self)
         aboutAct.triggered.connect(self.showAbout)
         
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
+
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(saveSettingsAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(changeOutputDirAction)
         
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
@@ -406,7 +411,15 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
-    
+
+        # Output directory changed -> reset CSV manager
+        self.workspace.outputDirChanged.connect(self._on_output_dir_changed)
+
+    def _on_output_dir_changed(self, new_output_dir):
+        """Reset CSV manager when the output directory changes."""
+        if self.csvManager is not None:
+            self.csvManager = QF_CSVManager(new_output_dir)
+
     def _finalize_ui(self):
         """Final UI setup - set window constraints"""
         # Set minimum size for central widget to ensure usable UI

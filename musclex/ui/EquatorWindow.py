@@ -762,12 +762,18 @@ class EquatorWindow(QMainWindow):
         processFolderAction = QAction('Process Current Folder', self)
         processFolderAction.setShortcut('Ctrl+F')
         processFolderAction.triggered.connect(self.processFolder)
+
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
+
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(processFolderAction)
         fileMenu.addAction(clearCacheAction)
         fileMenu.addAction(saveSettingsAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(changeOutputDirAction)
 
         shortcutKeysAct = QAction('Shortcut keys', self)
         # shortcutKeysAct.setShortcut('Ctrl+K')
@@ -952,7 +958,14 @@ class EquatorWindow(QMainWindow):
         # Scan progress (for HDF5 files)
         self.workspace.scanComplete.connect(self._on_scan_complete)
         self.workspace.scanProgressChanged.connect(self._on_scan_progress)
-    
+
+        # Output directory changed -> reset CSV manager
+        self.workspace.outputDirChanged.connect(self._on_output_dir_changed)
+
+    def _on_output_dir_changed(self, new_output_dir):
+        """Reset CSV manager when the output directory changes."""
+        self.csvManager = EQ_CSVManager(new_output_dir)
+
     def _coord_transform_func(self, x, y):
         """
         Transform coordinates from displayed (rotated) image to original image.

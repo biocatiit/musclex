@@ -180,10 +180,23 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._cr_dialog = None
 
         self._build_ui()
+        self._create_menu_bar()
         self.resize(1400, 800)
         self.show()
         QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(
             _AISE_WORKFLOW_TITLE, _WORKFLOW_HTML, _AISE_SETTINGS_KEY, self))
+
+    def _create_menu_bar(self):
+        from PySide6.QtGui import QAction
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(changeOutputDirAction)
+
+    def _on_output_dir_changed(self, new_output_dir):
+        """Reset results directory when the output directory changes."""
+        self._aise_results_dir = os.path.join(new_output_dir, "aise_results")
 
     # ------------------------------------------------------------------
     # UI construction
@@ -253,6 +266,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             if self.workspace._current_image_data is not None else None
         )
         self.workspace.batchSettingsChanged.connect(self.panel.refresh_all_rows)
+        self.workspace.outputDirChanged.connect(self._on_output_dir_changed)
 
         # Right panel container
         right_container = QWidget()

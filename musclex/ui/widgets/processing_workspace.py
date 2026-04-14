@@ -103,6 +103,7 @@ class ProcessingWorkspace(QWidget):
     needsReprocess = Signal()  # Settings changed, need to reprocess
     statusTextRequested = Signal(str)  # Request GUI to update status bar text
     batchSettingsChanged = Signal()  # Emitted after batch apply/restore of center or rotation
+    outputDirChanged = Signal(str)  # Emitted when output directory is changed via menu
     
     def __init__(self, settings_dir: str, coord_transform_func=None, get_display_center_func=None):
         """
@@ -1515,8 +1516,37 @@ class ProcessingWorkspace(QWidget):
         
         # Mark that next image will be the first in this folder
         self._first_image_in_folder = True
-        
-    
+
+    def change_output_directory(self):
+        """Let the user pick a new output directory for the current input.
+
+        Opens the OutputDirDialog pre-filled with the current output path.
+        On success, updates dir_context, association store, settings dir,
+        and emits outputDirChanged so GUIs can reset CSV managers etc.
+        """
+        from .output_dir_dialog import OutputDirDialog, _store, _is_writable
+        from PySide6.QtWidgets import QDialog, QMessageBox
+
+        if not self.dir_context:
+            QMessageBox.information(
+                self, "No folder loaded",
+                "Please load a folder before changing the output directory.")
+            return
+
+        input_dir = self.dir_context.input_dir
+        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        from ...utils.directory_context import DirectoryContext
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        self.navigator.file_manager.output_dir = new_output
+        self.set_settings_dir(new_output)
+        self.update_blank_mask_states()
+        self.outputDirChanged.emit(new_output)
+
     def on_image_changed(self, img, filename: str, dir_path: str):
         """
         Called when a new image is loaded.

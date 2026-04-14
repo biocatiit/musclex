@@ -157,6 +157,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._cr_dialog = None
 
         self._build_ui()
+        self._create_menu_bar()
         self._row_mapper = CartesianRowMapper(
             self.panel.table, self.COL_INDEX, self.COL_EXP, self.workspace)
         self.panel.set_row_mapper(self._row_mapper)
@@ -164,6 +165,36 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.show()
         QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(
             _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self))
+
+    def _create_menu_bar(self):
+        from PySide6.QtGui import QAction
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.triggered.connect(self._change_output_directory)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(changeOutputDirAction)
+
+    def _change_output_directory(self):
+        """Let the user pick a new output directory for AIME results."""
+        from PySide6.QtWidgets import QDialog, QMessageBox
+        from musclex.ui.widgets.output_dir_dialog import OutputDirDialog, _store
+        from musclex.utils.directory_context import DirectoryContext
+
+        input_dir = self._parent_dir
+        if not input_dir:
+            QMessageBox.information(
+                self, "No folder loaded",
+                "Please load experiments before changing the output directory.")
+            return
+
+        current_output = self.dir_context.output_dir if self.dir_context else input_dir
+        dlg = OutputDirDialog(input_dir, current_output, parent=self)
+        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+            return
+
+        new_output = dlg.chosen_output
+        _store.save(input_dir, new_output)
+        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
 
     # ------------------------------------------------------------------
     # UI construction
