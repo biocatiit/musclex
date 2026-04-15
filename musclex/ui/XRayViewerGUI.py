@@ -1495,10 +1495,7 @@ class XRayViewerGUI(QMainWindow):
             temp_fig.savefig(save_path, dpi=150, bbox_inches='tight', 
                            pad_inches=0, facecolor='black')
             
-            # Show success message
-            self.statusPrint(f"View exported to {save_path}")
-            
-            # Optional: show success dialog
+            # Show success dialog
             infMsg = QMessageBox()
             infMsg.setText("Export Successful")
             infMsg.setInformativeText(f"Current view has been saved to:\n{save_path}")
