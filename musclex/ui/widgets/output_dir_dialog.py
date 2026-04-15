@@ -138,20 +138,26 @@ def resolve_output_directory(input_dir: str,
     """Look up or ask the user for an output directory.
 
     Returns a :class:`DirectoryContext`, or ``None`` if the user cancels.
+
+    If a stored association exists and is writable, it is used silently.
+    If no association exists and the input directory is writable, it is
+    used directly (co-located) without showing a dialog.  The dialog
+    only appears when the input directory is not writable or a stored
+    association has become invalid.
     """
     stored = _store.lookup(input_dir)
 
     if stored is not None:
-        # Verify it is still writable
         if _is_writable(stored):
             return DirectoryContext(input_dir=input_dir, output_dir=stored)
-        # Stored path is gone / not writable — fall through to dialog
         info = (f"The previously associated output directory no longer "
                 f"exists or is not writable:\n{stored}")
     else:
-        info = ""
+        if _is_writable(input_dir):
+            return DirectoryContext.colocated(input_dir)
+        info = f"The input directory is not writable:\n{input_dir}"
 
-    suggested = stored if stored and os.path.isdir(stored) else input_dir
+    suggested = stored if stored and os.path.isdir(stored) else ""
 
     dlg = OutputDirDialog(input_dir, suggested, parent=parent, info_text=info)
     if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
