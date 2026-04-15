@@ -1473,8 +1473,11 @@ class XRayViewerGUI(QMainWindow):
             log_scale = display_options['log_scale']
             colormap = display_options['colormap']
             
-            # Create a temporary figure to export just the image without overlays
-            temp_fig = plt.figure(figsize=(10, 10))
+            # Create an off-screen figure (bypass pyplot/Qt to avoid window resize side effects)
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_agg import FigureCanvasAgg
+            temp_fig = Figure(figsize=(10, 10))
+            FigureCanvasAgg(temp_fig)
             temp_ax = temp_fig.add_subplot(111)
             
             # Display the cropped image with current settings
@@ -1491,7 +1494,6 @@ class XRayViewerGUI(QMainWindow):
             # Save with tight layout
             temp_fig.savefig(save_path, dpi=150, bbox_inches='tight', 
                            pad_inches=0, facecolor='black')
-            plt.close(temp_fig)
             
             # Show success message
             self.statusPrint(f"View exported to {save_path}")
