@@ -284,12 +284,16 @@ class ProjectionBoxTab(QWidget):
         self.hullRangeButton.setHidden(box.bgsub != 1 if box else True)
         width = int(np.ceil(abs(box.coordinates[0][0]-box.coordinates[0][1])/2.)) if box else 100
 
-        self.startHull = QSpinBox()
+        self.startHull = QDoubleSpinBox()
         self.startHull.setRange(0, width)
+        self.startHull.setDecimals(1)
+        self.startHull.setSingleStep(0.5)
         self.startHull.setKeyboardTracking(False)
         self.startHull.setHidden(box.bgsub != 1 if box else True)
-        self.endHull = QSpinBox()
+        self.endHull = QDoubleSpinBox()
         self.endHull.setRange(0, width)
+        self.endHull.setDecimals(1)
+        self.endHull.setSingleStep(0.5)
         self.endHull.setKeyboardTracking(False)
         self.endHull.setHidden(box.bgsub != 1 if box else True)
         self.checkableButtons.append(self.hullRangeButton)
@@ -860,7 +864,7 @@ class ProjectionBoxTab(QWidget):
         # type = self.parent.boxtypes[self.name]
         center = self.getCenterX()
 
-        distance = int(round(abs(center - x)))
+        distance = abs(center - x)
 
         if func[0] == 'single_peak':
             peaks = func[1]

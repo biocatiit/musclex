@@ -560,7 +560,6 @@ class ProjectionProcessor:
             else:
                 init_center = self.center[1] - start_y
 
-            init_center = int(round(init_center))
             int_vars['centerX'] = init_center
 
             if box.bgsub == 1:

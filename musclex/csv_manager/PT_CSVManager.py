@@ -48,8 +48,11 @@ class PT_CSVManager:
         result_path = fullPath(dir_path, "pt_results")
         createFolder(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
+        self.center_filename = fullPath(result_path, 'center_log.csv')
+        self.center_dataframe = None
         self.setColumnNames(boxes=boxes)
         self.loadSummary()
+        self.loadCenterLog()
 
     def setColumnNames(self, boxes):
         """
@@ -100,6 +103,15 @@ class PT_CSVManager:
             self.dataframe = pd.DataFrame(columns = self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
+
+    def loadCenterLog(self):
+        """
+        Load center_log.csv into self.center_dataframe.
+        """
+        if not exists(self.center_filename):
+            self.center_dataframe = pd.DataFrame(columns=["Filename"])
+        else:
+            self.center_dataframe = pd.read_csv(self.center_filename)
 
     def writeNewData(self, projProc):
         """
@@ -170,6 +182,50 @@ class PT_CSVManager:
         self.dataframe.reset_index()
         self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
 
+        self.writeCenterData(projProc)
+
+    def writeCenterData(self, projProc):
+        """
+        Write one row to center_log.csv recording the center and per-box centerX.
+
+        Columns: Filename, center_x, center_y, Box <name> centerX (per box)
+        """
+        file_name = projProc.filename
+        cx, cy = projProc.center
+
+        row = {
+            "Filename": file_name,
+            "center_x": cx,
+            "center_y": cy,
+        }
+
+        for bn, box in projProc.boxes.items():
+            coords = box.coordinates
+            if box.type == 'h':
+                start_x = coords[0][0]
+                box_centerX = cx - start_x
+            elif box.type == 'oriented':
+                start_x = coords[0][0]
+                box_centerX = coords[6][0] - start_x
+            else:
+                if box.type == 'v':
+                    start_y = coords[1][0]
+                else:
+                    start_y = coords[0][1]
+                box_centerX = cy - start_y
+            row[f"Box {bn} centerX"] = box_centerX
+
+        if "Filename" in self.center_dataframe.columns:
+            self.center_dataframe = self.center_dataframe[
+                self.center_dataframe["Filename"] != file_name
+            ]
+
+        self.center_dataframe = pd.concat(
+            [self.center_dataframe, pd.DataFrame([row])],
+            ignore_index=True
+        )
+        self.center_dataframe.to_csv(self.center_filename, index=False)
+
     def removeData(self, file_name):
         """
         Remove data from dataframe
@@ -183,3 +239,7 @@ class PT_CSVManager:
             df = pd.read_csv(self.filename)
             df.sort_values(by='Filename', inplace=True)
             df.to_csv(self.filename, index=False)
+        if exists(self.center_filename):
+            df = pd.read_csv(self.center_filename)
+            df.sort_values(by='Filename', inplace=True)
+            df.to_csv(self.center_filename, index=False)
