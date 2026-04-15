@@ -195,6 +195,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         new_output = dlg.chosen_output
         _store.save(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        self.workspace.set_settings_dir(new_output)
 
     # ------------------------------------------------------------------
     # UI construction
