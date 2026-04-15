@@ -1025,6 +1025,16 @@ class XRayViewerGUI(QMainWindow):
     def updateMeasureDistBoxOkClicked(self):
         self.measureDist.setChecked(False)
         self.measureDist2.setChecked(False)
+        ax = self.imageAxes
+        for i in range(len(ax.lines)-1, -1, -1):
+            ax.lines[i].remove()
+        for i in range(len(ax.patches)-1, -1, -1):
+            ax.patches[i].remove()
+        for i in range(len(ax.artists)-1, -1, -1):
+            ax.artists[i].remove()
+        for i in range(len(ax.texts)-1, -1, -1):
+            ax.texts[i].remove()
+        self.imageCanvas.draw_idle()
         self.refreshAllTabs()
 
     def updateMeasureDistBox(self):
