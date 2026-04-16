@@ -176,7 +176,7 @@ class DisplayOptionsPanel(CollapsibleGroupBox):
         if self._show_colormap:
             self.colorMapLabel = QLabel("Color Map:")
             self.colorMapCombo = QComboBox()
-            self.colorMapCombo.addItems(['gray', 'viridis', 'plasma', 'inferno', 
+            self.colorMapCombo.addItems(['gray', 'gray_r', 'viridis', 'plasma', 'inferno', 
                                          'magma', 'cividis', 'hot', 'cool', 'jet'])
         
         # Log scale checkbox
