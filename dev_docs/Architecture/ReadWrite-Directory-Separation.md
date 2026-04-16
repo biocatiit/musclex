@@ -74,12 +74,11 @@ Persists a JSON map of `realpath(input_dir) → realpath(output_dir)` in
 
 #### `OutputDirDialog`
 
-A modal `QDialog` that surfaces whenever the output directory must be
-confirmed or chosen.  It shows:
+A modal `QDialog` that surfaces **only when needed** (see flow below).
+It shows:
 
 - The input directory (read-only label)
-- An editable path field pre-filled with the stored suggestion or the
-  input directory
+- An editable path field (pre-filled with a suggested path or blank)
 - A *Browse* button
 - OK / Cancel — OK validates existence and writability before accepting
 
@@ -103,21 +102,30 @@ flowchart TD
 
     C -->|"found  ✓  exists + writable"| D["Use stored output_dir\n(no dialog shown)"]
     C -->|"found  ✗  missing / unwritable"| E["OutputDirDialog\n(info: previous dir gone)"]
-    C -->|"not found"| F["OutputDirDialog\n(pre-fill: input_dir)"]
+    C -->|"not found"| F{"input_dir writable?"}
 
-    E --> G["User confirms or browses"]
-    F --> G
+    F -->|"yes"| G["Use input_dir (co-located)\n(no dialog shown)"]
+    F -->|"no"| H["OutputDirDialog\n(info: input dir read-only)"]
 
-    G -->|"OK"| H["Validate: exists + writable\n(create if needed)"]
-    H -->|"pass"| I["AssociationStore.save\nBuild DirectoryContext"]
-    H -->|"fail"| J["Show reason\nLet user pick again"]
-    J --> G
+    E --> I["User confirms or browses"]
+    H --> I
 
-    D --> I
-    I --> K["Continue: settings / CSV / modules\nall write to output_dir"]
+    I -->|"OK"| J["Validate: exists + writable\n(create if needed)"]
+    J -->|"pass"| K["AssociationStore.save\nBuild DirectoryContext"]
+    J -->|"fail"| L["Show reason\nLet user pick again"]
+    L --> I
 
-    G -->|"Cancel"| L["Abort folder load"]
+    D --> K
+    G --> K
+    K --> M["Continue: settings / CSV / modules\nall write to output_dir"]
+
+    I -->|"Cancel"| N["Abort folder load"]
 ```
+
+**Summary:** the dialog is shown only in two cases — the input directory
+is not writable, or a previously stored output directory is no longer
+valid.  For the common case (writable input, first visit), the app
+silently falls back to co-located behaviour.
 
 ### CLI (headless / `--output-dir`)
 
@@ -135,6 +143,47 @@ flowchart TD
     G --> I
     I --> J["Headless processing"]
 ```
+
+---
+
+## Changing the Output Directory at Runtime
+
+Every GUI module exposes a **"Change Output Directory..."** action in its
+File menu.  This lets the user switch the output directory for the
+currently loaded folder without having to re-open it.
+
+### Navigator-based GUIs (Equator, QF, PT, AISE)
+
+The action is wired to `ProcessingWorkspace.change_output_directory()`:
+
+```python
+# ProcessingWorkspace
+def change_output_directory(self):
+    dlg = OutputDirDialog(input_dir, current_output_dir, parent=self)
+    # on accept:
+    _store.save(input_dir, new_output)
+    self.dir_context = DirectoryContext(input_dir, new_output)
+    self.navigator.file_manager.output_dir = new_output
+    self.set_settings_dir(new_output)
+    self.update_blank_mask_states()
+    self.outputDirChanged.emit(new_output)   # ← Signal
+```
+
+Each GUI connects `outputDirChanged` to reset its CSV manager:
+
+```python
+# e.g. EquatorWindow
+self.workspace.outputDirChanged.connect(self._on_output_dir_changed)
+
+def _on_output_dir_changed(self, new_output_dir):
+    self.csvManager = EQ_CSVManager(new_output_dir)
+```
+
+### Legacy GUIs (XV, DI, TDI, DC, AIME)
+
+Each window implements its own `_change_output_directory()` that opens
+`OutputDirDialog` directly, updates `self.dir_context`, the association
+store, and any CSV managers it owns.
 
 ---
 
@@ -165,7 +214,7 @@ Each window resolves the context immediately after `browseFile` sets its
 ```python
 # e.g. DIImageWindow.__init__
 ctx = resolve_output_directory(self.filePath, parent=self)
-self.dir_context = ctx
+self.dir_context = ctx if ctx else DirectoryContext.colocated(self.filePath)
 ```
 
 ### XRayViewerGUI
@@ -181,6 +230,15 @@ def _on_file_loaded(self, dir_path):
     self.dir_context = ctx
     self.csv_manager = None   # reset for new output dir
 ```
+
+### AddIntensitiesMultipleExp (AIME)
+
+AIME's "input" is a *parent* directory containing multiple experiment
+sub-directories — not a single image folder.  It therefore cannot reuse
+`ProcessingWorkspace.change_output_directory()` (which would show the
+wrong input path).  Instead it implements its own
+`_change_output_directory()` keyed on `self._parent_dir`, and explicitly
+calls `workspace.set_settings_dir(new_output)` to keep settings in sync.
 
 ---
 
@@ -268,7 +326,8 @@ musclex qf -f /data/my_experiment
 
 | Scenario | Behaviour |
 |---|---|
-| User confirms the default (co-located) | Identical to legacy |
+| Writable input, no stored association | Co-located silently — identical to legacy, no dialog |
+| User previously confirmed co-located | Association stored; reused silently on next open |
 | Existing datasets with co-located results | Left untouched; no migration |
 | Module without `output_dir` kwarg caller | Defaults to input dir |
 | `DirectoryContext` with `input_dir == output_dir` | Degenerate case = legacy |
@@ -283,15 +342,17 @@ musclex qf -f /data/my_experiment
 | `musclex/utils/directory_context.py` | **New** | `DirectoryContext` dataclass |
 | `musclex/utils/association_store.py` | **New** | `AssociationStore` — persistent JSON map |
 | `musclex/ui/widgets/output_dir_dialog.py` | **New** | `OutputDirDialog` + `resolve_output_directory[_headless]` |
-| `musclex/ui/widgets/processing_workspace.py` | Modified | `on_file_loaded` resolves + stores `DirectoryContext` |
-| `musclex/ui/XRayViewerGUI.py` | Modified | `_on_file_loaded` signal handler; `self.dir_context` |
-| `musclex/ui/DIImageWindow.py` | Modified | Resolves context after browse; all write paths use `dir_context.output_dir` |
-| `musclex/ui/DIBatchWindow.py` | Modified | Same pattern as `DIImageWindow` |
-| `musclex/ui/EquatorWindow.py` | Modified | Passes `output_dir` to `EquatorImage` and `EQ_CSVManager` |
-| `musclex/ui/QuadrantFoldingGUI.py` | Modified | Passes `output_dir` to `QuadrantFolder` and `QF_CSVManager` |
-| `musclex/ui/ProjectionTracesGUI.py` | Modified | Passes `output_dir` to `ProjectionProcessor` and `PT_CSVManager` |
-| `musclex/ui/diffraction_centroids.py` | Modified | Passes `output_dir` to `DiffractionCentroids` and `DC_CSVManager` |
-| `musclex/ui/TotalDisplayIntensity.py` | Modified | Uses `dir_context.output_dir` for `tdi_results/` |
+| `musclex/ui/widgets/processing_workspace.py` | Modified | `on_file_loaded` resolves + stores `DirectoryContext`; `change_output_directory()` method; `outputDirChanged` signal |
+| `musclex/ui/XRayViewerGUI.py` | Modified | `_on_file_loaded` signal handler; `self.dir_context`; File menu action |
+| `musclex/ui/DIImageWindow.py` | Modified | Resolves context after browse; all write paths use `dir_context.output_dir`; File menu action |
+| `musclex/ui/DIBatchWindow.py` | Modified | Same pattern as `DIImageWindow`; File menu created |
+| `musclex/ui/EquatorWindow.py` | Modified | Passes `output_dir` to `EquatorImage` and `EQ_CSVManager`; File menu action; resets CSV on `outputDirChanged` |
+| `musclex/ui/QuadrantFoldingGUI.py` | Modified | Passes `output_dir` to `QuadrantFolder` and `QF_CSVManager`; File menu action; resets CSV on `outputDirChanged` |
+| `musclex/ui/ProjectionTracesGUI.py` | Modified | Passes `output_dir` to `ProjectionProcessor` and `PT_CSVManager`; File menu action; resets CSV on `outputDirChanged` |
+| `musclex/ui/AddIntensitiesSingleExp.py` | Modified | Uses `dir_context.output_dir` for `aise_results/`; File menu created; resets results path on `outputDirChanged` |
+| `musclex/ui/AddIntensitiesMultipleExp.py` | Modified | Uses `dir_context.output_dir` for `aime_results/`; File menu created; own `_change_output_directory()` keyed on parent dir |
+| `musclex/ui/diffraction_centroids.py` | Modified | Passes `output_dir` to `DiffractionCentroids` and `DC_CSVManager`; File menu on both start and process windows |
+| `musclex/ui/TotalDisplayIntensity.py` | Modified | Uses `dir_context.output_dir` for `tdi_results/`; File menu action |
 | `musclex/utils/file_manager.py` | Modified | Scan-cache fallback; `self.output_dir`; log fallback |
 | `musclex/utils/settings_manager.py` | Modified | Callers pass `output_dir` to `switch_dir` |
 | `musclex/modules/EquatorImage.py` | Modified | `output_dir` param; cache writes use it |
