@@ -18,34 +18,33 @@ class BackgroundSubtractionDialog(QDialog):
         self._create_layout()
 
     def _create_widgets(self):
-        # ===== Section Groups =====
-        self.currentGroup = QGroupBox("Current Background Subtraction")
-        self.commonGroup = QGroupBox("Common Settings")
-        self.manualGroup = QGroupBox("Manual Processing")
-        self.autoGroup = QGroupBox("Automated Processing")
-
-        self.currentMethodLabel = QLabel("Method: None")
-        self.currentModeLabel = QLabel("Mode: None")
-        self.currentParamsLabel = QLabel("Parameters: None")
-        self.currentLossLabel = QLabel("Loss: None")
-        self.currentParamsLabel.setWordWrap(True)
+        self.currentBGMethodLabel = QLabel("None")
+        self.currentBGModeLabel = QLabel("None")
+        self.currentBGParamsLabel = QLabel("None")
+        self.currentBGLossLabel = QLabel("None")
+        self.currentBGParamsLabel.setWordWrap(True)
+        # Backward-compat aliases
+        self.currentMethodLabel = self.currentBGMethodLabel
+        self.currentModeLabel = self.currentBGModeLabel
+        self.currentParamsLabel = self.currentBGParamsLabel
+        self.currentLossLabel = self.currentBGLossLabel
 
         self.processingModeLabel = QLabel("Processing Mode:")
         self.processingModeCB = QComboBox()
-        self.processingModeCB.addItems(["Manual Processing", "Automated Processing"])
+        self.processingModeCB.addItems(["Manual", "Automated"])
         self.processingModeCB.setCurrentIndex(0)
 
         # ===== ROI Settings =====
-        self.setFitRoi = QPushButton("Set Crop ROI")
-        self.setFitRoi.setCheckable(True)
-        self.unsetRoi = QPushButton("Unset ROI")
-        self.fixedRoiChkBx = QCheckBox("Fixed ROI Radius:")
-        self.fixedRoiChkBx.setChecked(False)
-        self.fixedRoi = QSpinBox()
-        self.fixedRoi.setObjectName('fixedRoi')
-        self.fixedRoi.setKeyboardTracking(False)
-        self.fixedRoi.setRange(1, 10000)
-        self.fixedRoi.setEnabled(False)
+        # self.setFitRoi = QPushButton("Set Crop ROI")
+        # self.setFitRoi.setCheckable(True)
+        # self.unsetRoi = QPushButton("Unset ROI")
+        # self.fixedRoiChkBx = QCheckBox("Fixed ROI Radius:")
+        # self.fixedRoiChkBx.setChecked(False)
+        # self.fixedRoi = QSpinBox()
+        # self.fixedRoi.setObjectName('fixedRoi')
+        # self.fixedRoi.setKeyboardTracking(False)
+        # self.fixedRoi.setRange(1, 10000)
+        # self.fixedRoi.setEnabled(False)
 
         # ===== Background Choice Dropdown =====
         self.allBGChoices = [
@@ -88,22 +87,22 @@ class BackgroundSubtractionDialog(QDialog):
         self.smoothImageChkbx = QCheckBox("Smooth Image")
         self.smoothImageChkbx.setChecked(False)
 
-        self.showResultMaskChkBx = QCheckBox("Show Eval Mask")
+        self.showResultMaskChkBx = QCheckBox("Show Evaluation Mask")
         self.showRminRmaxChkBx = QCheckBox("Show R-min/max")
         self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min/max")
-        self.equatorYLengthLabel = QLabel("Equator Y Length : ")
+        self.equatorYLengthLabel = QLabel("Equator Height : ")
         self.equatorYLengthSpnBx = QSpinBox()
         self.equatorYLengthSpnBx.setRange(1, 10000)
         self.equatorYLengthSpnBx.setValue(30)
         self.equatorYLengthSpnBx.setKeyboardTracking(False)
 
-        self.equatorCenterBeamLabel = QLabel("Equator Center Beam : ")
+        self.equatorCenterBeamLabel = QLabel("Equator Center Radius : ")
         self.equatorCenterBeamSpnBx = QSpinBox()
         self.equatorCenterBeamSpnBx.setRange(1, 10000)
         self.equatorCenterBeamSpnBx.setValue(20)
         self.equatorCenterBeamSpnBx.setKeyboardTracking(False)
 
-        self.m1Label = QLabel("M1 (Layer line spacing) : ")
+        self.m1Label = QLabel("Layer line spacing : ")
         self.m1SpnBx = QSpinBox()
         self.m1SpnBx.setRange(1, 10000)
         self.m1SpnBx.setValue(50)
@@ -216,8 +215,6 @@ class BackgroundSubtractionDialog(QDialog):
         self.deg1CB.addItems(["0.5", "1", "2", "3", "5", "9", "10", "15"])
         self.deg1CB.setCurrentIndex(1)
 
-        self.applyBGButton = QPushButton("Apply")
-
         # ===== Automated Processing / Optimization =====
         self.optimizeChkBx = QCheckBox("Enable optimization")
         self.optimizeChkBx.setChecked(False)
@@ -226,6 +223,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.optimizationMethodsLabel = QLabel("BG Subtraction Methods:")
         self.optimizationMethodsList = QListWidget()
         self.optimizationMethodsList.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.optimizationMethodsList.setMaximumHeight(120)
         self.optimizationMethods = [
             '2D Convexhull',
             'Circularly-symmetric',
@@ -360,37 +358,95 @@ class BackgroundSubtractionDialog(QDialog):
         self.normalizationMeansHintLabel.setTextFormat(Qt.RichText)
         self.normalizationMeansHintLabel.setWordWrap(True)
 
-        self.rrangeSettingFrame = QFrame()
-        self.rrangeSettingLayout = QGridLayout(self.rrangeSettingFrame)
-        self.rrangeSettingLayout.setContentsMargins(0, 0, 0, 0)
-        self.rrangeSettingLayout.addWidget(self.rminLabel, 2, 0, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rmaxLabel, 2, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rmaxSpnBx, 2, 3, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.setRminRmaxButton, 3, 0, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.showRminRmaxChkBx, 3, 1, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 2, 1, 2)
-        self.rrangeSettingLayout.addWidget(self.smoothImageChkbx, 4, 0, 1, 2)
-        self.rrangeSettingLayout.addWidget(self.downsampleLabel, 4, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.downsampleCB, 4, 3, 1, 1)
+        # ===== Subtraction Evaluation Metrics =====
+        self.bgMetricsTable = QTableWidget(0, 3)
+        self.bgMetricsTable.setHorizontalHeaderLabels(["Metric", "Raw", "Normalized"])
+        self.bgMetricsTable.verticalHeader().setVisible(False)
+        self.bgMetricsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.bgMetricsTable.setSelectionMode(QAbstractItemView.NoSelection)
+        self.bgMetricsTable.setFocusPolicy(Qt.NoFocus)
+        self.bgMetricsTable.setAlternatingRowColors(True)
+        self.bgMetricsTable.setMinimumHeight(250)
+        self.bgMetricsTable.setMaximumHeight(350)
+        self.bgMetricsTable.horizontalHeader().setStretchLastSection(False)
+        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self.bgMetricsTable.setColumnWidth(1, 110)
+        self.bgMetricsTable.setColumnWidth(2, 110)
 
-        self.maskSeparator = QFrame()
-        self.maskSeparator.setFrameShape(QFrame.HLine)
-        self.maskSeparator.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.maskSeparator.setLineWidth(1)
+        # ===== Apply Button =====
+        self.applyBGButton = QPushButton("Apply Selected Subtraction Settings")
+        self.applyBGButton.setStyleSheet("QPushButton { color: #ededed; background-color: #999999; }") # 2986cc  2e7d32
 
-        self.maskSettingsFrame = QFrame()
-        self.maskSettingsLayout = QGridLayout(self.maskSettingsFrame)
-        self.maskSettingsLayout.setContentsMargins(0, 0, 0, 0)
-        self.maskSettingsLayout.addWidget(self.showResultMaskChkBx, 0, 0, 1, 2)
-        self.maskSettingsLayout.addWidget(self.equatorYLengthLabel, 1, 0, 1, 1)
-        self.maskSettingsLayout.addWidget(self.equatorYLengthSpnBx, 1, 1, 1, 1)
-        self.maskSettingsLayout.addWidget(self.equatorCenterBeamLabel, 1, 2, 1, 1)
-        self.maskSettingsLayout.addWidget(self.equatorCenterBeamSpnBx, 1, 3, 1, 1)
-        self.maskSettingsLayout.addWidget(self.m1Label, 2, 0, 1, 1)
-        self.maskSettingsLayout.addWidget(self.m1SpnBx, 2, 1, 1, 1)
-        self.maskSettingsLayout.addWidget(self.layerLineWidthLabel, 2, 2, 1, 1)
-        self.maskSettingsLayout.addWidget(self.layerLineWidthSpnBx, 2, 3, 1, 1)
+        # ===== Section Groups =====
+        # self.currentGroup = QGroupBox("Current Background Subtraction")
+        self.settingsGroup = QGroupBox("Subtraction Settings")
+        self.evaluationGroup = QGroupBox("Subtraction Evaluation Settings")
+        self.evaluationMetricsGroup = QGroupBox("Subtraction Evaluation")
+        self.batchProcessingGroup = QGroupBox("Batch Processing Settings")
+
+
+        self.addBackgroundConfigButton = QPushButton("Add Background Configuration")
+
+        self.backgroundConfigsTable = QTableWidget(0, 4)
+        self.backgroundConfigsTable.setHorizontalHeaderLabels(["Name", "Method", "Parameters", "Loss"])
+        self.backgroundConfigsTable.verticalHeader().setVisible(False)
+        self.backgroundConfigsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.backgroundConfigsTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.backgroundConfigsTable.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.backgroundConfigsTable.setAlternatingRowColors(True)
+        self.backgroundConfigsTable.setMinimumHeight(50)
+        self.backgroundConfigsTable.setMaximumHeight(150)
+        self.backgroundConfigsTable.setStyleSheet(
+            "QTableWidget { font-size: 13px; }"
+            "QHeaderView::section { font-size: 13px; }"
+        )
+        self.backgroundConfigsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.backgroundConfigsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.backgroundConfigsTable.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        self.deleteBackgroundConfigButton = QPushButton("Delete Selected Configuration")
+        self.deleteBackgroundConfigButton.setEnabled(False)
+
+        self.chooseConfigurationsAutoChkBx = QCheckBox("Choose best configuration for images automatically")
+        self.chooseConfigurationsAutoChkBx.setToolTip(
+            "Automatically choose the best background configuration for each image based on background metrics"
+        )
+        self.chooseConfigurationsAutoChkBx.setChecked(True)
+
+        self.createNewConfigurationsChkBx = QCheckBox("Automatically create new configurations for outlier images")
+        self.createNewConfigurationsChkBx.setToolTip(
+            "Automatically create new background configurations for images that are considered outliers "
+            "(based on background metrics) and add them to the Background Configurations table"
+        )
+
+        self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
+
+        self.processFolderWithSelections = QPushButton("Process Folder with Current Selections")
+        self.processFolderWithSelections.setStyleSheet("QPushButton { color: #ededed; background-color: #2e7d32}")
+
+        self.manualGroup = QGroupBox("Manual Processing")
+        self.autoGroup = QGroupBox("Automated Processing")
+        self.manualGroup.setTitle("")
+        self.autoGroup.setTitle("")
+        self.manualGroup.setStyleSheet("QGroupBox { border: 1; margin-top: 0px; }")
+        self.autoGroup.setStyleSheet("QGroupBox { border: 1; margin-top: 0px; }")
+
+
+        self.rminGroup = CollapsibleGroupBox("R-min/R-max", start_expanded=False)
+        self.imageProcGroup = CollapsibleGroupBox("Image Processing", start_expanded=False)
+        self.subtractionGroup = CollapsibleGroupBox("Subtraction", start_expanded=False)
+        self.configurationGroup = CollapsibleGroupBox("Configurations", start_expanded=False)
+        self.folderGroup = CollapsibleGroupBox("Folder Processing", start_expanded=False)
+
+        self.evalGroup = CollapsibleGroupBox("Evaluation Metrics", start_expanded=False)
+
+        self.evalMaskGroup = CollapsibleGroupBox("Evaluation Masks", start_expanded=False)
+        self.metricWeightsGroup = CollapsibleGroupBox("Metric Weights", start_expanded=False)
+        self.normalizationMeansGroup = CollapsibleGroupBox("Normalization Means", start_expanded=False)
+
+
 
         self.optimizeChkBx.stateChanged.connect(self._update_optimization_widgets_state)
         self.processingModeCB.currentIndexChanged.connect(self._update_processing_mode_visibility)
@@ -413,11 +469,11 @@ class BackgroundSubtractionDialog(QDialog):
         self.earlyStopSpnBx.setEnabled(enabled)
 
     def _sync_mode_to_optimization_flag(self):
-        automated = self.processingModeCB.currentText() == "Automated Processing"
+        automated = self.processingModeCB.currentText() == "Automated"
         self.optimizeChkBx.setChecked(automated)
 
     def _update_processing_mode_visibility(self):
-        automated = self.processingModeCB.currentText() == "Automated Processing"
+        automated = self.processingModeCB.currentText() == "Automated"
         self.manualGroup.setVisible(not automated)
         self.autoGroup.setVisible(automated)
 
@@ -432,82 +488,55 @@ class BackgroundSubtractionDialog(QDialog):
         modeWidget = QWidget()
         modeLayout = QGridLayout(modeWidget)
         modeLayout.setContentsMargins(0, 0, 0, 0)
-        modeLayout.addWidget(self.processingModeLabel, 0, 0, 1, 1)
-        modeLayout.addWidget(self.processingModeCB, 0, 1, 1, 1)
+        modeLayout.addWidget(self.processingModeLabel, 0, 0, 1, 2)
+        modeLayout.addWidget(self.processingModeCB, 0, 2, 1, 2) 
 
-        currentLayout = QVBoxLayout(self.currentGroup)
-        currentLayout.setContentsMargins(8, 8, 8, 8)
-        currentLayout.addWidget(self.currentMethodLabel)
-        currentLayout.addWidget(self.currentModeLabel)
-        currentLayout.addWidget(self.currentParamsLabel)
-        currentLayout.addWidget(self.currentLossLabel)
+        # currentLayout = QVBoxLayout(self.currentGroup)
+        # currentLayout.setContentsMargins(8, 8, 8, 8)
+        # currentLayout.addWidget(self.currentMethodLabel)
+        # currentLayout.addWidget(self.currentModeLabel)
+        # currentLayout.addWidget(self.currentParamsLabel)
+        # currentLayout.addWidget(self.currentLossLabel)
 
-        commonLayout = QGridLayout(self.commonGroup)
-        commonLayout.setContentsMargins(8, 8, 8, 8)
+        commonLayout = QVBoxLayout(self.settingsGroup)
+        evaluationLayout = QVBoxLayout(self.evaluationGroup)
+        batchLayout = QVBoxLayout(self.batchProcessingGroup)
 
         manualLayout = QGridLayout(self.manualGroup)
+        autoLayout = QGridLayout(self.autoGroup)
 
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        separator.setLineWidth(1)
 
-        separator_2 = QFrame()
-        separator_2.setFrameShape(QFrame.HLine)
-        separator_2.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        separator_2.setLineWidth(1)
-
-        manualLayout.addWidget(self.setFitRoi, 0, 0, 1, 1)
-        manualLayout.addWidget(self.unsetRoi, 0, 1, 1, 1)
-        manualLayout.addWidget(self.fixedRoiChkBx, 0, 2, 1, 1)
-        manualLayout.addWidget(self.fixedRoi, 0, 3, 1, 1)
-        manualLayout.addWidget(separator_2, 1, 0, 1, 4)
-        manualLayout.addWidget(QLabel("Background Subtraction Method:"), 2, 0, 1, 2)
+        manualLayout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
         manualLayout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
-
-        manualLayout.addWidget(self.gaussFWHMLabel, 3, 0, 1, 1)
-        manualLayout.addWidget(self.gaussFWHM, 3, 1, 1, 1)
-
-        manualLayout.addWidget(self.boxcarLabel, 4, 0, 1, 1)
-        manualLayout.addWidget(self.boxcarX, 4, 1, 1, 1)
-        manualLayout.addWidget(self.boxcarY, 5, 1, 1, 1)
-
+        manualLayout.addWidget(self.gaussFWHMLabel, 4, 2, 1, 1)
+        manualLayout.addWidget(self.gaussFWHM, 4, 3, 1, 1)
+        manualLayout.addWidget(self.boxcarLabel, 4, 2, 1, 1)
+        manualLayout.addWidget(self.boxcarX, 4, 3, 1, 1)
+        manualLayout.addWidget(self.boxcarY, 5, 3, 1, 1)
         manualLayout.addWidget(self.cycleLabel, 3, 2, 1, 1)
         manualLayout.addWidget(self.cycle, 3, 3, 1, 1)
-
-        manualLayout.addWidget(self.thetaBinLabel, 6, 0, 1, 1)
-        manualLayout.addWidget(self.thetabinCB, 6, 1, 1, 1)
-
+        manualLayout.addWidget(self.thetaBinLabel, 6, 2, 1, 1)
+        manualLayout.addWidget(self.thetabinCB, 6, 3, 1, 1)
         manualLayout.addWidget(self.radialBinLabel, 7, 2, 1, 1)
         manualLayout.addWidget(self.radialBinSpnBx, 7, 3, 1, 1)
-
-        manualLayout.addWidget(self.windowSizeLabel, 8, 0, 1, 1)
-        manualLayout.addWidget(self.winSizeX, 8, 1, 1, 1)
-        manualLayout.addWidget(self.winSizeY, 9, 1, 1, 1)
-
+        manualLayout.addWidget(self.windowSizeLabel, 6, 2, 1, 1)
+        manualLayout.addWidget(self.winSizeX, 6, 3, 1, 1)
+        manualLayout.addWidget(self.winSizeY, 7, 3, 1, 1)
         manualLayout.addWidget(self.windowSepLabel, 8, 2, 1, 1)
         manualLayout.addWidget(self.winSepX, 8, 3, 1, 1)
         manualLayout.addWidget(self.winSepY, 9, 3, 1, 1)
-
-        manualLayout.addWidget(self.pixRangeLabel, 10, 0, 1, 1)
-        manualLayout.addWidget(self.minPixRange, 10, 1, 1, 1)
-        manualLayout.addWidget(self.maxPixRange, 11, 1, 1, 1)
-
-        manualLayout.addWidget(self.smoothLabel, 10, 2, 1, 1)
-        manualLayout.addWidget(self.smoothSpnBx, 10, 3, 1, 1)
-
+        manualLayout.addWidget(self.pixRangeLabel, 10, 2, 1, 1)
+        manualLayout.addWidget(self.minPixRange, 10, 3, 1, 1)
+        manualLayout.addWidget(self.maxPixRange, 11, 3, 1, 1)
+        manualLayout.addWidget(self.smoothLabel, 14, 2, 1, 1)
+        manualLayout.addWidget(self.smoothSpnBx, 14, 3, 1, 1)
         manualLayout.addWidget(self.tensionLabel, 11, 2, 1, 1)
         manualLayout.addWidget(self.tensionSpnBx, 11, 3, 1, 1)
-
         manualLayout.addWidget(self.deg1Label, 12, 2, 1, 1)
         manualLayout.addWidget(self.deg1CB, 12, 3, 1, 1)
-
         manualLayout.addWidget(self.tophat1Label, 13, 2, 1, 1)
         manualLayout.addWidget(self.tophat1SpnBx, 13, 3, 1, 1)
 
-        manualLayout.addWidget(separator, 14, 0, 1, 4)
-
-        autoLayout = QGridLayout(self.autoGroup)
         autoLayout.addWidget(self.optimizeChkBx, 0, 0, 1, 2)
         autoLayout.addWidget(self.optimizationMethodsLabel, 1, 0, 1, 2)
         autoLayout.addWidget(self.optimizationMethodsList, 2, 0, 1, 2)
@@ -517,7 +546,7 @@ class BackgroundSubtractionDialog(QDialog):
         autoLayout.addWidget(self.maxIterationsSpnBx, 4, 1, 1, 1)
         autoLayout.addWidget(self.earlyStopLabel, 4, 2, 1, 1)
         autoLayout.addWidget(self.earlyStopSpnBx, 4, 3, 1, 1)
-        self.metricWeightsGroup = CollapsibleGroupBox("Metric Weights", start_expanded=False)
+
         metricWeightsLayout = QGridLayout()
         metricWeightsLayout.addWidget(self.weightMSELabel, 0, 0, 1, 1)
         metricWeightsLayout.addWidget(self.weightMSESpnBx, 0, 1, 1, 1)
@@ -534,7 +563,6 @@ class BackgroundSubtractionDialog(QDialog):
         metricWeightsLayout.addWidget(self.metricWeightsHintLabel, 3, 0, 1, 4)
         self.metricWeightsGroup.setLayout(metricWeightsLayout)
 
-        self.normalizationMeansGroup = CollapsibleGroupBox("Normalization Means", start_expanded=False)
         normalizationMeansLayout = QGridLayout()
         normalizationMeansLayout.addWidget(self.meanMSELabel, 0, 0, 1, 1)
         normalizationMeansLayout.addWidget(self.meanMSESpnBx, 0, 1, 1, 1)
@@ -551,20 +579,147 @@ class BackgroundSubtractionDialog(QDialog):
         normalizationMeansLayout.addWidget(self.normalizationMeansHintLabel, 3, 0, 1, 4)
         self.normalizationMeansGroup.setLayout(normalizationMeansLayout)
 
-        autoLayout.addWidget(self.metricWeightsGroup, 6, 0, 1, 4)
-        autoLayout.addWidget(self.normalizationMeansGroup, 7, 0, 1, 4)
+        rminLayout = QGridLayout()
+        rminLayout.addWidget(self.showRminRmaxChkBx, 0, 0, 1, 2)
+        rminLayout.addWidget(self.rminLabel, 2, 0, 1, 1)
+        rminLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
+        rminLayout.addWidget(self.rmaxLabel, 3, 0, 1, 1)
+        rminLayout.addWidget(self.rmaxSpnBx, 3, 1, 1, 1)
+        rminLayout.addWidget(self.setRminRmaxButton, 3, 2, 1, 2)
+        rminLayout.addWidget(self.fixedRadiusRangeChkBx, 5, 0, 1, 2)
+        self.rminGroup.setLayout(rminLayout)
 
-        commonLayout.addWidget(self.rrangeSettingFrame, 0, 0, 1, 4)
-        commonLayout.addWidget(self.maskSeparator, 1, 0, 1, 4)
-        commonLayout.addWidget(self.maskSettingsFrame, 2, 0, 1, 4)
+        imageProcLayout = QGridLayout()
+        imageProcLayout.addWidget(self.smoothImageChkbx, 4, 3, 1, 2)
+        imageProcLayout.addWidget(self.downsampleLabel, 4, 0, 1, 1)
+        imageProcLayout.addWidget(self.downsampleCB, 4, 1, 1, 1)
+        self.imageProcGroup.setLayout(imageProcLayout)
 
-        container_layout.addWidget(modeWidget)
-        container_layout.addWidget(self.currentGroup)
-        container_layout.addWidget(self.commonGroup)
-        container_layout.addWidget(self.manualGroup)
-        container_layout.addWidget(self.autoGroup)
+        subtractionLayout = QGridLayout()
+        subtractionLayout.setContentsMargins(8, 8, 8, 8)
+        subtractionLayout.addWidget(modeWidget, 0, 0, 1, 4)
+        subtractionLayout.addWidget(self.manualGroup, 1, 0, 1, 4)
+        subtractionLayout.addWidget(self.autoGroup, 2, 0, 1, 4)
+        self.subtractionGroup.setLayout(subtractionLayout)
+
+        current_config_section = QWidget()
+        current_config_layout = QGridLayout(current_config_section)
+        current_config_layout.setContentsMargins(8, 8, 8, 8)
+        current_config_layout.setSpacing(6)
+        saved_configs_section = QWidget()
+        saved_configs_layout = QGridLayout(saved_configs_section)
+        saved_configs_layout.setContentsMargins(8, 8, 8, 8)
+        saved_configs_layout.setSpacing(6)
+        saved_configs_layout.addWidget(self.backgroundConfigsTable, 0, 0, 1, 4)
+        # saved_configs_layout.addWidget(self.deleteBackgroundConfigButton, 1, 0, 1, 2)
+
+        configurationLayout = QGridLayout()
+        configurationLayout.addWidget(current_config_section)
+        configurationLayout.addWidget(saved_configs_section)
+        # configurationLayout.addStretch(1)
+        self.configurationGroup.setLayout(configurationLayout)
+
+        folderLayout = QGridLayout()
+        folderLayout.addWidget(self.chooseConfigurationsAutoChkBx)
+        folderLayout.addWidget(self.createNewConfigurationsChkBx)
+        folderLayout.addWidget(self.assignConfgurationsManually)
+        folderLayout.addWidget(self.processFolderWithSelections)
+        # folderLayout.addStretch(1)
+        self.folderGroup.setLayout(folderLayout)
+
+        batchLayout.addWidget(self.configurationGroup)
+        batchLayout.addWidget(self.folderGroup)
+
+
+        evalMaskLayout = QGridLayout()
+        # evalMaskLayout.addWidget(self.showResultMaskChkBx, 0, 0, 1, 1)
+        evalMaskLayout.addWidget(self.equatorYLengthLabel, 1, 0, 1, 1)
+        evalMaskLayout.addWidget(self.equatorYLengthSpnBx, 1, 1, 1, 1)
+        evalMaskLayout.addWidget(self.equatorCenterBeamLabel, 2, 0, 1, 1)
+        evalMaskLayout.addWidget(self.equatorCenterBeamSpnBx, 2, 1, 1, 1)
+        evalMaskLayout.addWidget(self.m1Label, 1, 2, 1, 1)
+        evalMaskLayout.addWidget(self.m1SpnBx, 1, 3, 1, 1)
+        evalMaskLayout.addWidget(self.layerLineWidthLabel, 2, 2, 1, 1)
+        evalMaskLayout.addWidget(self.layerLineWidthSpnBx, 2, 3, 1, 1)
+        self.evalMaskGroup.setLayout(evalMaskLayout)
+
+        evalGroupLayout = QGridLayout()
+        evalGroupLayout.addWidget(self.bgMetricsTable)
+        self.evalGroup.setLayout(evalGroupLayout)
+
+
+
+
+        current_summary_frame = QFrame()
+        current_summary_frame.setObjectName("bgSummaryFrame")
+        current_summary_frame.setStyleSheet(
+            "#bgSummaryFrame { background: #F7F9FB; border: 1px solid #E6E6E6; border-radius: 4px; }"
+        )
+        current_table_layout = QGridLayout(current_summary_frame)
+        current_table_layout.setContentsMargins(6, 4, 6, 4)
+        current_table_layout.setHorizontalSpacing(10)
+        current_table_layout.setVerticalSpacing(4)
+
+        header_style = "font-weight: 600; color: #444; font-size: 12px;"
+        mode_header = QLabel("Mode")
+        mode_header.setStyleSheet(header_style)
+        method_header = QLabel("Method")
+        method_header.setStyleSheet(header_style)
+        params_header = QLabel("Parameters")
+        params_header.setStyleSheet(header_style)
+        loss_header = QLabel("Loss")
+        loss_header.setStyleSheet(header_style)
+
+        value_style = "font-size: 13px; color: #222;"
+        self.currentBGModeLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.currentBGMethodLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.currentBGParamsLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.currentBGLossLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.currentBGModeLabel.setStyleSheet(value_style)
+        self.currentBGMethodLabel.setStyleSheet(value_style)
+        self.currentBGParamsLabel.setStyleSheet(value_style)
+        self.currentBGLossLabel.setStyleSheet(value_style)
+
+        current_table_layout.addWidget(mode_header, 0, 0)
+        current_table_layout.addWidget(method_header, 0, 1)
+        current_table_layout.addWidget(params_header, 2, 0)
+        current_table_layout.addWidget(loss_header, 2, 1)
+        current_table_layout.addWidget(self.currentBGModeLabel, 1, 0)
+        current_table_layout.addWidget(self.currentBGMethodLabel, 1, 1)
+        current_table_layout.addWidget(self.currentBGParamsLabel, 3, 0)
+        current_table_layout.addWidget(self.currentBGLossLabel, 3, 1)
+
+        current_config_layout.addWidget(current_summary_frame, 0, 0, 1, 4)
+        current_config_layout.addWidget(self.addBackgroundConfigButton, 1, 0, 1, 2)
+
+
+
+
+
+
+        commonLayout.addWidget(self.rminGroup)
+        commonLayout.addWidget(self.imageProcGroup)
+        commonLayout.addWidget(self.subtractionGroup)
+        # commonLayout.addStretch(1)
+
+        evaluationLayout.addWidget(self.evalMaskGroup)
+        evaluationLayout.addWidget(self.metricWeightsGroup)
+        evaluationLayout.addWidget(self.normalizationMeansGroup)
+        # evaluationLayout.addStretch(1)
+
+        evaluationMetricsGroupLayout = QVBoxLayout(self.evaluationMetricsGroup)
+        evaluationMetricsGroupLayout.addWidget(self.evalGroup)
+
+        container_layout.addWidget(self.settingsGroup)
+        container_layout.addWidget(self.evaluationGroup)
+        container_layout.addWidget(self.evaluationMetricsGroup)
+        container_layout.addWidget(self.applyBGButton)
+        
+        container_layout.addWidget(self.batchProcessingGroup)
+
+
         container_layout.addStretch(1)
 
         scroll_area.setWidget(container)
         main_layout.addWidget(scroll_area)
-        main_layout.addWidget(self.applyBGButton)
+        # main_layout.addWidget(self.applyBGButton)
