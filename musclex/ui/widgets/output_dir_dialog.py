@@ -51,7 +51,7 @@ def _is_writable(path: str) -> bool:
 class OutputDirDialog(QDialog):
     """Modal dialog asking the user to confirm or change the output directory."""
 
-    def __init__(self, input_dir: str, suggested_output: str,
+    def __init__(self, input_dir: Optional[str], suggested_output: str,
                  parent=None, info_text: str = ""):
         super().__init__(parent)
         self.setWindowTitle("Select Output Directory")
@@ -59,8 +59,8 @@ class OutputDirDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        # Input directory (read-only display)
-        layout.addWidget(QLabel(f"<b>Input directory:</b>  {input_dir}"))
+        if input_dir is not None:
+            layout.addWidget(QLabel(f"<b>Input directory:</b>  {input_dir}"))
 
         if info_text:
             layout.addWidget(QLabel(info_text))

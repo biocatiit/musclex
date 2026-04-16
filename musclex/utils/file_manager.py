@@ -1210,11 +1210,16 @@ class FileManager:
         self.specs = all_specs
         self.source_labels = all_labels
         self.image_sizes = all_sizes
-        # Set dir_path to the common parent directory of all sources, not the first source
-        # itself (which may be a subdirectory or H5 file). The UI guarantees all sources
-        # share the same parent, so dirname of any source (after stripping trailing sep) is enough.
+        # Set dir_path to the common ancestor of all source parent directories.
+        # Sources may come from different parent folders, so we use os.path.commonpath
+        # rather than assuming a single shared parent.
         if sources:
-            self.dir_path = os.path.dirname(str(sources[0]).rstrip('/\\'))
+            parent_dirs = list({os.path.dirname(str(s).rstrip('/\\')) for s in sources})
+            try:
+                self.dir_path = os.path.commonpath(parent_dirs) if len(parent_dirs) > 1 else parent_dirs[0]
+            except ValueError:
+                # commonpath raises ValueError for mixed drive paths (Windows)
+                self.dir_path = parent_dirs[0]
         else:
             self.dir_path = ""
         self.current = 0

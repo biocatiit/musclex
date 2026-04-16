@@ -56,7 +56,9 @@ _AIME_WORKFLOW_HTML = """
   <li>
     <span class="step-title">Browse and select experiments</span><br/>
     <span class="hint">
-      Click <i>Browse Folder&hellip;</i> to choose a parent directory.
+      Click <i>Add Folder&hellip;</i> to browse for a parent directory.
+      Repeat to collect experiments from multiple different folders &mdash;
+      the list accumulates entries across all browsed folders.
       Select one or more experiments (subdirectories or H5 files) from the list,
       then click <i>Load</i>.
     </span>
@@ -180,21 +182,27 @@ class AddIntensitiesMultipleExp(QMainWindow):
         from musclex.ui.widgets.output_dir_dialog import OutputDirDialog, _store
         from musclex.utils.directory_context import DirectoryContext
 
-        input_dir = self._parent_dir
-        if not input_dir:
+        if not self._exp_dirs:
             QMessageBox.information(
-                self, "No folder loaded",
+                self, "No experiments loaded",
                 "Please load experiments before changing the output directory.")
             return
 
-        current_output = self.dir_context.output_dir if self.dir_context else input_dir
+        # Determine whether all experiments share a single parent (single-parent
+        # case can store an input→output association; multi-parent cannot).
+        parent_dirs = {os.path.dirname(s.rstrip('/\\')) for s in self._exp_dirs}
+        input_dir: str | None = next(iter(parent_dirs)) if len(parent_dirs) == 1 else None
+
+        current_output = self.dir_context.output_dir if self.dir_context else (input_dir or "")
         dlg = OutputDirDialog(input_dir, current_output, parent=self)
         if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
             return
 
         new_output = dlg.chosen_output
-        _store.save(input_dir, new_output)
-        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
+        if input_dir:
+            _store.save(input_dir, new_output)
+        common_parent = input_dir or self._parent_dir or ""
+        self.dir_context = DirectoryContext(input_dir=common_parent, output_dir=new_output)
         self.workspace.set_settings_dir(new_output)
 
     # ------------------------------------------------------------------
@@ -253,8 +261,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._statusBar.addPermanentWidget(self.panel.progressBar)
         self.setStatusBar(self._statusBar)
 
-        # Parent directory and pending experiment sources
-        self._parent_dir_path: str = ""
+        # Last-used parent dir (for browse dialog start location) and pending sources
+        self._last_browse_dir: str = ""
         self._pending_sources: list = []
 
         # Custom select panel for AIME
@@ -268,21 +276,30 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _sel_title.setStyleSheet("font-weight: bold; font-size: 13px;")
         _sel_layout.addWidget(_sel_title)
 
-        # Step 1: pick parent directory
+        # Step 1: browse folders (can add multiple; each browse appends to the list)
         _dir_row = QHBoxLayout()
-        self._parent_dir_label = QLabel("No folder selected")
-        self._parent_dir_label.setStyleSheet("color: gray; font-size: 11px;")
-        self._parent_dir_label.setWordWrap(True)
-        _browse_btn = QPushButton("Browse Folder\u2026")
+        _browse_btn = QPushButton("Add Folder\u2026")
         _browse_btn.setMinimumHeight(32)
+        _browse_btn.setToolTip(
+            "Browse for a folder and append its experiments to the list below.\n"
+            "You can call this multiple times to collect experiments from different folders."
+        )
         _browse_btn.clicked.connect(self._on_browse_parent_dir)
+        _clear_list_btn = QPushButton("Clear List")
+        _clear_list_btn.setMinimumHeight(32)
+        _clear_list_btn.clicked.connect(self._on_clear_source_list)
         _dir_row.addWidget(_browse_btn)
-        _dir_row.addWidget(self._parent_dir_label, 1)
+        _dir_row.addWidget(_clear_list_btn)
+        _dir_row.addStretch()
         _sel_layout.addLayout(_dir_row)
 
         # Step 2: list of available items (H5 files + subdirs) with multi-select
-        _avail_label = QLabel("Available experiments (Use Ctrl/Shift to select multiple):")
+        _avail_label = QLabel(
+            "Available experiments — add one or more folders above, "
+            "then select which experiments to load (Ctrl/Shift for multi-select):"
+        )
         _avail_label.setStyleSheet("font-size: 11px;")
+        _avail_label.setWordWrap(True)
         _sel_layout.addWidget(_avail_label)
 
         from PySide6.QtWidgets import QListWidget
@@ -624,28 +641,39 @@ class AddIntensitiesMultipleExp(QMainWindow):
     _SYSTEM_DIRS = {'aime_results', 'aise_results', 'calibration'}
 
     def _on_browse_parent_dir(self):
-        """Pick a parent directory and populate the available-experiments list."""
+        """Pick a parent directory and append its experiments to the list."""
         from PySide6.QtWidgets import QFileDialog
         folder = QFileDialog.getExistingDirectory(
-            self, "Select Experiment Parent Folder", self._parent_dir_path or "",
+            self, "Select Experiment Folder", self._last_browse_dir or "",
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
         )
         if not folder:
             return
 
-        self._parent_dir_path = folder
-        self._parent_dir_label.setText(folder)
-        self._parent_dir_label.setStyleSheet("color: black; font-size: 11px;")
-        self._populate_available_sources(folder)
+        self._last_browse_dir = folder
+        self._append_available_sources(folder)
 
-    def _populate_available_sources(self, parent_dir: str):
-        """Fill the list widget with H5 files and subdirs found in parent_dir."""
-        from PySide6.QtWidgets import QListWidgetItem
+    def _on_clear_source_list(self):
+        """Remove all items from the available-experiments list."""
         self._source_list_widget.clear()
         self._pending_sources.clear()
         self._load_sources_btn.setEnabled(False)
         self._exp_dirs_label.setText("")
 
+    def _append_available_sources(self, parent_dir: str):
+        """Append H5 files and subdirs found in parent_dir to the list widget.
+
+        Already-listed paths (by full path stored in toolTip) are skipped so
+        that browsing the same folder twice does not produce duplicates.
+        """
+        from PySide6.QtWidgets import QListWidgetItem
+
+        existing_paths = {
+            self._source_list_widget.item(i).toolTip()
+            for i in range(self._source_list_widget.count())
+        }
+
+        added = 0
         try:
             entries = sorted(os.listdir(parent_dir))
         except OSError:
@@ -653,20 +681,30 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         for entry in entries:
             full = os.path.join(parent_dir, entry)
+            if full in existing_paths:
+                continue
             if os.path.isfile(full) and entry.lower().endswith(('.h5', '.hdf5')):
                 item = QListWidgetItem(entry)
                 item.setToolTip(full)
                 self._source_list_widget.addItem(item)
+                added += 1
             elif os.path.isdir(full) and entry not in self._SYSTEM_DIRS:
-                item = QListWidgetItem(entry + "/")
+                # Show as "parent/subdir/" so entries from different folders
+                # are easy to distinguish visually.
+                parent_name = os.path.basename(parent_dir)
+                item = QListWidgetItem(f"{parent_name}/{entry}/")
                 item.setToolTip(full)
                 self._source_list_widget.addItem(item)
+                added += 1
 
         total = self._source_list_widget.count()
-        self._exp_dirs_label.setText(
-            f"{total} item(s) found — select which to use as experiments"
-            if total else "No H5 files or subdirectories found in this folder."
-        )
+        if total == 0:
+            self._exp_dirs_label.setText("No H5 files or subdirectories found.")
+        else:
+            self._exp_dirs_label.setText(
+                f"{total} item(s) listed — select which to use as experiments"
+                + (f" ({added} new from {os.path.basename(parent_dir)})" if added else " (no new items added)")
+            )
 
     def _on_source_selection_changed(self):
         """Enable Load button when at least one item is selected."""
@@ -677,13 +715,37 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def _on_load_sources(self):
         """Load selected items as experiments into FileManager and build the table."""
         selected_items = self._source_list_widget.selectedItems()
-        if not selected_items or not self._parent_dir_path:
+        if not selected_items:
             return
 
         sources = [item.toolTip() for item in selected_items]
         self._pending_sources = sources
 
-        ctx = output_dir_dialog.resolve_output_directory(self._parent_dir_path, parent=self)
+        # Determine the common parent directory of all selected sources (if any).
+        parent_dirs = {os.path.dirname(s.rstrip('/\\')) for s in sources}
+        if len(parent_dirs) == 1:
+            # All experiments share a single parent: use the normal association flow.
+            common_parent = next(iter(parent_dirs))
+            ctx = output_dir_dialog.resolve_output_directory(common_parent, parent=self)
+        else:
+            # Experiments come from different parent folders: there is no meaningful
+            # "input directory" to associate with, so ask for an output directory
+            # directly without recording an input→output association.
+            from PySide6.QtWidgets import QDialog
+            from musclex.ui.widgets.output_dir_dialog import OutputDirDialog
+            from musclex.utils.directory_context import DirectoryContext
+            try:
+                common_parent = os.path.commonpath(list(parent_dirs))
+            except ValueError:
+                common_parent = ""
+            suggested = common_parent or ""
+            dlg = OutputDirDialog(None, suggested, parent=self,
+                                  info_text="Experiments are from multiple folders. "
+                                            "Please choose an output directory.")
+            if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
+                return
+            ctx = DirectoryContext(input_dir=common_parent, output_dir=dlg.chosen_output)
+
         if ctx is None:
             return
         self.dir_context = ctx
@@ -692,7 +754,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         fm.load_from_sources(sources)
         self.workspace.set_settings_dir(ctx.output_dir)
 
-        self._on_directories_loaded(self._parent_dir_path, sources)
+        self._on_directories_loaded(common_parent, sources)
 
     def _on_directories_loaded(self, parent_dir, dir_paths):
         """Build table rows and auto-populate spans."""
