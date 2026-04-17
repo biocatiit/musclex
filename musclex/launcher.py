@@ -168,6 +168,7 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         app = QApplication.instance()
         if app is None:
             app = QApplication(sys.argv)
+        app.setStyle("Fusion")
         window = LauncherForm()
         window.show()
         sys.exit(app.exec_())
