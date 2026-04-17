@@ -352,7 +352,6 @@ def get_grid(image_shape=(1000, 1000), \
 
 MEAN_METRIC_VALUES = {
     "SHARE_NON_BASELINE_MEAN": 0.35,
-    "SHARE_NEG_GEN_MEAN": 0.08,
     "MSE_SYN_MEAN": 100,
     "SMOOTH_MEAN": 0.03,
     "SHARE_NEG_SYN_MEAN": 0.20,
@@ -362,7 +361,6 @@ MEAN_METRIC_VALUES = {
 WEIGHTS  = {
     "MSE": .1,
     "Share_Neg_Synthetic": 0.1,
-    "Share_Neg_General": 0.0,
     "Share_Non_Baseline": 0.1,
     "Share_Neg_Connected": 0.3,
     "Smoothness": 0.4
@@ -378,24 +376,27 @@ def full_eval_metrics(dimg, dbg, syn_img, syn_str, syn_mask, gen_mask, baseline_
         mse = artificial_data_mse(syn_img, syn_str, syn_mask, gen_mask, normalize=True)
         share_neg_synthetic = share_neg_syn(syn_img, syn_str, syn_mask)
     
-    share_neg_general = share_neg_gen(dimg, gen_mask)
     share_non_baseline_pixels = share_non_baseline(dimg, baseline_value, gen_mask, clip=[2,5])
     share_neg_connected = share_neg_con(dimg, gen_mask, min_pixels=min_neg_con_pixels)
     smoothness_value = smoothness(dimg, dbg, gen_mask)
 
+    mean_values = dict(MEAN_METRIC_VALUES)
+    if isinstance(mean_metric_values, dict):
+        mean_values.update(mean_metric_values)
+
+    weights = dict(WEIGHTS)
+    if isinstance(metric_weights, dict):
+        weights.update(metric_weights)
+
     if normalize_metrics:
-        mean_values = MEAN_METRIC_VALUES if mean_metric_values is None else mean_metric_values
         mse = mse / mean_values["MSE_SYN_MEAN"]
         share_neg_synthetic = share_neg_synthetic / mean_values["SHARE_NEG_SYN_MEAN"]
-        share_neg_general = share_neg_general / mean_values["SHARE_NEG_GEN_MEAN"]
         share_non_baseline_pixels = share_non_baseline_pixels / mean_values["SHARE_NON_BASELINE_MEAN"]
         share_neg_connected = share_neg_connected / mean_values["SHARE_NEG_CON_MEAN"]
         smoothness_value = smoothness_value / mean_values["SMOOTH_MEAN"]
-
-    weights = WEIGHTS if metric_weights is None else metric_weights
+    
     loss = (mse * weights["MSE"] +
             share_neg_synthetic * weights["Share_Neg_Synthetic"] +
-            share_neg_general * weights["Share_Neg_General"] +
             share_non_baseline_pixels * weights["Share_Non_Baseline"] +
             share_neg_connected * weights["Share_Neg_Connected"] +
             smoothness_value * weights["Smoothness"])
@@ -403,7 +404,6 @@ def full_eval_metrics(dimg, dbg, syn_img, syn_str, syn_mask, gen_mask, baseline_
     metrics = {
         "MSE": mse,
         "Share_Neg_Synthetic": share_neg_synthetic,
-        "Share_Neg_General": share_neg_general,
         "Share_Non_Baseline": share_non_baseline_pixels,
         "Share_Neg_Connected": share_neg_connected,
         "Smoothness": smoothness_value,
@@ -438,12 +438,12 @@ def share_neg_syn(dimg, syn_str, syn_mask):
     return share_neg
 
 
-def share_neg_gen(dimg, mask_equator):
-    dimg = dimg * mask_equator
-    neg_pixels = np.sum(dimg < 0)
-    total_pixels = np.sum(mask_equator)
-    share_neg = neg_pixels / total_pixels
-    return share_neg
+# def share_neg_gen(dimg, mask_equator):
+#     dimg = dimg * mask_equator
+#     neg_pixels = np.sum(dimg < 0)
+#     total_pixels = np.sum(mask_equator)
+#     share_neg = neg_pixels / total_pixels
+#     return share_neg
 
 
 def share_non_baseline(dimg, baseline_value, mask_equator, clip=[2,5]):
@@ -514,7 +514,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mea
             "loss": normalized_metrics["Loss"],
             "metrics_normalized": normalized_metrics,
             "metrics_raw": raw_metrics,
-            "metric_weights": metric_weights,
+            "metric_weights": metric_weights if metric_weights is not None else dict(WEIGHTS),
         }
 
     return normalized_metrics["Loss"]

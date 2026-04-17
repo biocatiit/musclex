@@ -84,8 +84,8 @@ class QuadrantFolder:
         
         # Initialize state
         self.orig_image_center = None
-        self.dl, self.db = 0, 0
-        self.empty = False
+        # self.dl, self.db = 0, 0
+        # self.empty = False
         self.imgCache = {} # displayed images will be saved in this param
         self.ignoreFolds = set()
         self.version = __version__
@@ -328,6 +328,7 @@ class QuadrantFolder:
             self.info['result_bg'].setdefault('loss', None)
             self.info['result_bg'].setdefault('metrics_normalized', None)
             self.info['result_bg'].setdefault('metrics_raw', None)
+            self.info['result_bg'].setdefault('mean_metric_values', None)
             self.info['result_bg'].setdefault('metric_weights', None)
             self.info['result_bg'].setdefault('selected_configuration_name', None)
 
@@ -1635,11 +1636,14 @@ class QuadrantFolder:
             'syn_srt': syn_srt,
             'syn_mask': syn_mask,
             'gen_mask': self.info['mask'],
+            'mean_metric_values': self.info.get('mean_metric_values', None),
+            'metric_weights': self.info.get('metric_weights', None),
         }
         eval_result = evaluate_loss(**kwargs, return_details=True)
         self.info['result_bg']['loss'] = eval_result.get('loss', None)
         self.info['result_bg']['metrics_normalized'] = eval_result.get('metrics_normalized', {})
         self.info['result_bg']['metrics_raw'] = eval_result.get('metrics_raw', {})
+        self.info['result_bg']['mean_metric_values'] = self.info.get('mean_metric_values', None)
         self.info['result_bg']['metric_weights'] = eval_result.get('metric_weights', None)
         self.info['result_bg']['intensity'] = np.sum(bg)
 

@@ -537,48 +537,11 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.backgroundConfigurations = []
 
-        # self.bgMetricsLabel = QLabel("Background Metrics")
-        # self.bgMetricsLabel.setStyleSheet("font-weight: bold;")
-        # self.bgMetricsInfoButton = QToolButton()
-        # self.bgMetricsInfoButton.setText("ⓘ")
-        # self.bgMetricsInfoButton.setAutoRaise(True)
-        # self.bgMetricsInfoButton.setToolTip("Explain background metrics")
-        # self.bgMetricsInfoButton.clicked.connect(self._show_bg_metrics_help_dialog)
-        # self.bgMetricsTable = QTableWidget(0, 3)
-        # self.bgMetricsTable.setHorizontalHeaderLabels(["Metric", "Raw", "Normalized"])
-        # self.bgMetricsTable.verticalHeader().setVisible(False)
-        # self.bgMetricsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # self.bgMetricsTable.setSelectionMode(QAbstractItemView.NoSelection)
-        # self.bgMetricsTable.setFocusPolicy(Qt.NoFocus)
-        # self.bgMetricsTable.setAlternatingRowColors(True)
-        # self.bgMetricsTable.setMinimumHeight(250)
-        # self.bgMetricsTable.setMaximumHeight(370)
-        # self.bgMetricsTable.horizontalHeader().setStretchLastSection(False)
-        # self.bgMetricsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        # self.bgMetricsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
-        # self.bgMetricsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        # self.bgMetricsTable.setColumnWidth(1, 95)
-        # self.bgMetricsTable.setColumnWidth(2, 95)
-
         # ===== Build 4 areas inside Result Processing =====
         self.bgSummaryLayout = QGridLayout()
         self.bgSummaryLayout.setContentsMargins(4, 4, 4, 4)
         self.bgSummaryLayout.setSpacing(8)
 
-        section_tooltips = {
-            "Options": "Apply background subtraction to the current image",
-            "Current Configuration": "View current background configuration of the image",
-        }
-
-        section_help_text = {
-            "Options": (
-                "Run background subtraction for the current image. Use Default Optimization to pick a method/params automatically, "
-                "or open Advanced Configuration to tweak settings manually."
-            ),
-            "Current Configuration": (
-                "Shows the currently selected background method, parameters, and loss for this image."
-            ),
-        }
 
         def _make_section(title=None):
             section = QWidget()
@@ -589,39 +552,28 @@ class QuadrantFoldingGUI(BaseGUI):
             section_layout.setColumnStretch(0, 1)
             section_layout.setColumnStretch(1, 1)
             section_layout.setColumnStretch(2, 1)
+            section_layout.setColumnStretch(3, 1)
             section.setStyleSheet("#sectionContainer { border: 1px solid #E6E6E6; border-radius: 4px; }")
             if title:
                 title_label = QLabel(title)
                 title_label.setStyleSheet("font-weight: bold; border: none;")
-                info_btn = QToolButton()
-                info_btn.setAutoRaise(True)
-                info_btn.setText("ⓘ")
-                info_btn.setToolTip(section_tooltips.get(title, ""))
-                info_btn.clicked.connect(
-                    lambda _checked=False, t=title: QMessageBox.information(
-                        self,
-                        f"{t} Help",
-                        section_help_text.get(t, "")
-                    )
-                )
 
                 header_layout = QHBoxLayout()
                 header_layout.setContentsMargins(0, 0, 0, 0)
                 header_layout.setSpacing(4)
                 header_layout.addWidget(title_label)
-                header_layout.addWidget(info_btn)
                 header_layout.addStretch(1)
 
-                section_layout.addLayout(header_layout, 0, 0, 1, 3)
+                section_layout.addLayout(header_layout, 0, 0, 1, 4)
             return section, section_layout
 
         # 1) Background Subtraction
         bg_sub_section, bg_sub_layout = _make_section()
         bg_sub_layout.addWidget(self.resultDisplayModeLabel, 2, 0, 1, 1)
-        bg_sub_layout.addWidget(self.resultDisplayModeCB, 2, 1, 1, 1)
+        bg_sub_layout.addWidget(self.resultDisplayModeCB, 2, 2, 1, 2)
         bg_sub_layout.addWidget(self.applyResultBGButton, 1, 0, 1, 4)
-        bg_sub_layout.addWidget(self.openBGSettingsButton, 3, 0, 1, 2)
-        self.bgSummaryLayout.addWidget(bg_sub_section, 1, 0, 1, 3)
+        bg_sub_layout.addWidget(self.openBGSettingsButton, 3, 2, 1, 2)
+        self.bgSummaryLayout.addWidget(bg_sub_section, 1, 0, 1, 4)
 
         # 2) Current Configuration (main UI copy)
         current_section, current_layout = _make_section("Current Configuration")
@@ -664,8 +616,11 @@ class QuadrantFoldingGUI(BaseGUI):
         current_table_layout.addWidget(self.currentBGParamsLabelMain, 3, 0)
         current_table_layout.addWidget(self.currentBGLossLabelMain, 3, 1)
 
-        current_layout.addWidget(current_summary_frame, 1, 0, 1, 3)
-        self.bgSummaryLayout.addWidget(current_section, 2, 0, 1, 3)
+        current_layout.addWidget(current_summary_frame, 1, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(current_section, 2, 0, 1, 4)
+
+
+
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
@@ -857,7 +812,7 @@ class QuadrantFoldingGUI(BaseGUI):
             current_assignments=self.manualBackgroundAssignments,
             parent=self,
         )
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.show() == QDialog.Accepted:
             self.manualBackgroundAssignments = dialog.get_assignments()
             QMessageBox.information(
                 self,
@@ -1042,7 +997,6 @@ class QuadrantFoldingGUI(BaseGUI):
             "• <b>Loss</b>: weighted sum of normalized metrics.<br>"
             "• <b>MSE Synthetic</b>: mean squared error against synthetic signal reference.<br>"
             "• <b>Fraction of Synthetic Oversubtraction</b>: fraction of negative pixels after subtracting synthetic signal, in masked regions, where mask covers synthetic signal.<br>"
-            "• <b>Fraction of Negative Pixels</b>: overall share of negative pixels, in evaluation mask region.<br>"
             "• <b>Fraction of Non-Baseline Pixels</b>: share above baseline threshold, in evaluation mask region.<br>"
             "• <b>Fraction of Negative Connected Pixels</b>: share in sufficiently large negative componentss, in evaluation mask region.<br>"
             "• <b>Smoothness</b>: vertical derivative of background; penalty based on background variation."
@@ -1050,13 +1004,35 @@ class QuadrantFoldingGUI(BaseGUI):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
 
-    def _to_metric_text(self, value):
+    def _to_metric_text(self, value, as_percent=False):
         if value is None:
             return "—"
         try:
-            return f"{float(value):.6f}"
+            numeric = float(value)
+            if as_percent:
+                return f"{numeric * 100:.2f} %"
+            return f"{numeric:.6f}"
         except Exception:
             return str(value)
+
+    @staticmethod
+    def _fraction_to_percent_for_ui(value):
+        """Map stored fraction values (0..1) to percentage UI values (0..100)."""
+        try:
+            numeric = float(value)
+        except Exception:
+            return value
+        if 0.0 <= numeric <= 1.0:
+            return numeric * 100.0
+        return numeric
+
+    @staticmethod
+    def _percent_to_fraction_for_flags(value):
+        """Map percentage UI values (0..100) to stored fraction values (0..1)."""
+        try:
+            return float(value) / 100.0
+        except Exception:
+            return value
 
     def _clear_bg_metrics_table(self):
         if not hasattr(self, 'bgMetricsTable'):
@@ -1080,13 +1056,17 @@ class QuadrantFoldingGUI(BaseGUI):
 
         metric_rows = [
             ("Loss", "Loss"),
-            ("MSE Synthetic", "MSE"),
+            ("MSE of Synthetic Signal", "MSE"),
             ("Fraction of Synthetic Oversubtraction", "Share_Neg_Synthetic"),
-            ("Fraction of Negative Pixels", "Share_Neg_General"),
-            ("Fraction of Non-Baseline Pixels", "Share_Non_Baseline"),
+            ("Fraction of Non Near Baseline Pixels", "Share_Non_Baseline"),
             ("Fraction of Negative Connected Pixels", "Share_Neg_Connected"),
-            ("Smoothness", "Smoothness"),
+            ("Smoothness Metric", "Smoothness"),
         ]
+        fraction_metric_keys = {
+            "Share_Neg_Synthetic",
+            "Share_Non_Baseline",
+            "Share_Neg_Connected",
+        }
 
         mapped_keys = {raw_key for _, raw_key in metric_rows}
         available_keys = set(raw_metrics.keys()) | set(norm_metrics.keys())
@@ -1103,7 +1083,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self._set_table_item(row, 0, label)
             # Do not show non-normalized Loss value in Raw column
             raw_value = None if raw_key == "Loss" else raw_metrics.get(raw_key, None)
-            self._set_table_item(row, 1, self._to_metric_text(raw_value))
+            self._set_table_item(row, 1, self._to_metric_text(raw_value, as_percent=raw_key in fraction_metric_keys))
             self._set_table_item(row, 2, self._to_metric_text(norm_metrics.get(raw_key, None)))
 
     def _init_background_subtraction_dialog(self):
@@ -1139,13 +1119,11 @@ class QuadrantFoldingGUI(BaseGUI):
             'earlyStopSpnBx',
             'meanMSESpnBx',
             'meanNegSynSpnBx',
-            'meanNegGenSpnBx',
             'meanNonBaselineSpnBx',
             'meanNegConSpnBx',
             'meanSmoothSpnBx',
             'weightMSESpnBx',
             'weightNegSynSpnBx',
-            'weightNegGenSpnBx',
             'weightNonBaselineSpnBx',
             'weightNegConSpnBx',
             'weightSmoothSpnBx',
@@ -1902,6 +1880,25 @@ class QuadrantFoldingGUI(BaseGUI):
         if self.showResultMaskChkBx.isChecked():
             self.refreshResultTab()
 
+    def _is_mask_preview_visible(self):
+        if not hasattr(self, "resultDisplayModeCB"):
+            return False
+        return self.resultDisplayModeCB.currentText() in ("Evaluation Mask", "Synthetic Mask")
+
+    def _refresh_mask_preview_if_visible(self):
+        if not self.ableToProcess() or not self._is_mask_preview_visible():
+            return
+
+        # Push current UI values into info
+        self._sync_eval_mask_settings_for_preview()
+
+        # Force recompute on next draw
+        self.deleteInfo(['mask', 'synthetic_mask'])
+
+        self.updated['result'] = False
+        self.updateResultTab()
+
+
     def setRmax(self, rmax):
         """
         Manual set R-max
@@ -1913,7 +1910,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.uiUpdating = True
         self.rmaxSpnBx.setValue(rmax)
         self.uiUpdating = False
-        # self.highlightApply()
         if self.showResultMaskChkBx.isChecked():
             self.refreshResultTab()
 
@@ -1922,59 +1918,47 @@ class QuadrantFoldingGUI(BaseGUI):
         if self.uiUpdating:
             return
 
-        # self.highlightApply()
-
         if self.quadFold is not None:
             self.quadFold.info['equator_y_height'] = self.equatorYLengthSpnBx.value()
 
-        if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
-            self.refreshResultTab()
+        self._refresh_mask_preview_if_visible()
+
 
     def equatorCenterBeamChanged(self):
         """Triggered when Equator Center Beam changes."""
         if self.uiUpdating:
             return
-
-        # self.highlightApply()
-
+        
         if self.quadFold is not None:
             self.quadFold.info['equator_center_beam_width'] = self.equatorCenterBeamSpnBx.value()
 
-        if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
-            self.refreshResultTab()
+        self._refresh_mask_preview_if_visible()
+
+        
 
     def m1Changed(self):
         """Triggered when M1 spacing changes."""
         if self.uiUpdating:
             return
 
-        # self.highlightApply()
-
         if self.quadFold is not None:
             self.quadFold.info['m1'] = self.m1SpnBx.value()
 
-        if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
-            self.refreshResultTab()
+        self._refresh_mask_preview_if_visible()
+
 
     def layerLineWidthChanged(self):
         """Triggered when layer line width changes."""
         if self.uiUpdating:
             return
 
-        # self.highlightApply()
-
         if self.quadFold is not None:
             self.quadFold.info['layer_line_width'] = self.layerLineWidthSpnBx.value()
 
-        if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
-            self.refreshResultTab()
+
+        self._refresh_mask_preview_if_visible()
 
 
-    def highlightApply(self):
-        self.applyBGButton.setStyleSheet("background-color: yellow; color: black;")
-
-    def highlightApplyUndo(self):
-        self.applyBGButton.setStyleSheet("background-color: white; color: black;")
 
     def resultClicked(self, event):
         """
@@ -2458,6 +2442,22 @@ class QuadrantFoldingGUI(BaseGUI):
             if 'methods' in info and isinstance(info['methods'], (list, tuple)):
                 self._set_selected_optimization_methods(info['methods'])
 
+            if 'mean_metric_values' in info and isinstance(info['mean_metric_values'], dict):
+                means = info['mean_metric_values']
+                self.meanMSESpnBx.setValue(float(means.get('MSE_SYN_MEAN', self.meanMSESpnBx.value())))
+                self.meanNegSynSpnBx.setValue(self._fraction_to_percent_for_ui(means.get('SHARE_NEG_SYN_MEAN', self.meanNegSynSpnBx.value())))
+                self.meanNonBaselineSpnBx.setValue(self._fraction_to_percent_for_ui(means.get('SHARE_NON_BASELINE_MEAN', self.meanNonBaselineSpnBx.value())))
+                self.meanNegConSpnBx.setValue(self._fraction_to_percent_for_ui(means.get('SHARE_NEG_CON_MEAN', self.meanNegConSpnBx.value())))
+                self.meanSmoothSpnBx.setValue(float(means.get('SMOOTH_MEAN', self.meanSmoothSpnBx.value())))
+
+            if 'metric_weights' in info and isinstance(info['metric_weights'], dict):
+                weights = info['metric_weights']
+                self.weightMSESpnBx.setValue(float(weights.get('MSE', self.weightMSESpnBx.value())))
+                self.weightNegSynSpnBx.setValue(float(weights.get('Share_Neg_Synthetic', self.weightNegSynSpnBx.value())))
+                self.weightNonBaselineSpnBx.setValue(float(weights.get('Share_Non_Baseline', self.weightNonBaselineSpnBx.value())))
+                self.weightNegConSpnBx.setValue(float(weights.get('Share_Neg_Connected', self.weightNegConSpnBx.value())))
+                self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
+
 
         # Range is already set to allow any value at spinbox creation
         if not self.resPersistIntensity.isChecked():
@@ -2567,9 +2567,11 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Display image in image tab, and draw lines
         """
-        if not self.updated['img']:
-            self.uiUpdating = True
+        if self.updated['img']:
+            return
 
+        self.uiUpdating = True
+        try:
             if self.quadFold is None or self.quadFold.orig_img is None:
                 return
 
@@ -2618,6 +2620,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.imageCanvas.draw()
 
             self.updated['img'] = True
+        finally:
             self.uiUpdating = False
 
     def redrawCenter(self):
@@ -2703,7 +2706,11 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Display result image in result tab
         """
-        if not self.updated['result']:
+        if self.updated['result']:
+            return
+
+        self.uiUpdating = True
+        try:
             self.uiUpdating = True
             img = self.quadFold.imgCache.get('resultImg', None)
             if img is None:
@@ -2813,6 +2820,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.toggleCircleRminRmax()
 
             self.updated['result'] = True
+        finally:
             self.uiUpdating = False
 
 
@@ -3221,16 +3229,14 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['early_stop'] = self.earlyStopSpnBx.value()
         flags['mean_metric_values'] = {
             'MSE_SYN_MEAN': float(self.meanMSESpnBx.value()),
-            'SHARE_NEG_SYN_MEAN': float(self.meanNegSynSpnBx.value()),
-            'SHARE_NEG_GEN_MEAN': float(self.meanNegGenSpnBx.value()),
-            'SHARE_NON_BASELINE_MEAN': float(self.meanNonBaselineSpnBx.value()),
-            'SHARE_NEG_CON_MEAN': float(self.meanNegConSpnBx.value()),
+            'SHARE_NEG_SYN_MEAN': self._percent_to_fraction_for_flags(self.meanNegSynSpnBx.value()),
+            'SHARE_NON_BASELINE_MEAN': self._percent_to_fraction_for_flags(self.meanNonBaselineSpnBx.value()),
+            'SHARE_NEG_CON_MEAN': self._percent_to_fraction_for_flags(self.meanNegConSpnBx.value()),
             'SMOOTH_MEAN': float(self.meanSmoothSpnBx.value()),
         }
         flags['metric_weights'] = {
             'MSE': float(self.weightMSESpnBx.value()),
             'Share_Neg_Synthetic': float(self.weightNegSynSpnBx.value()),
-            'Share_Neg_General': float(self.weightNegGenSpnBx.value()),
             'Share_Non_Baseline': float(self.weightNonBaselineSpnBx.value()),
             'Share_Neg_Connected': float(self.weightNegConSpnBx.value()),
             'Smoothness': float(self.weightSmoothSpnBx.value()),
