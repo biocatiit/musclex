@@ -240,7 +240,7 @@ class XRayViewerGUI(QMainWindow):
         self.statusReport = QLabel()
         self.imgDetailOnStatusBar = QLabel()
         self.imgCoordOnStatusBar = QLabel()
-        self.imgCoordOnStatusBar.setMinimumWidth(450)  # Fixed width to prevent resize
+        self.imgCoordOnStatusBar.setMinimumWidth(700)  # Fixed width to prevent resize
         self.imgPathOnStatusBar = QLabel()
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
         self.statusBar.addPermanentWidget(self.statusReport)
@@ -420,14 +420,19 @@ class XRayViewerGUI(QMainWindow):
         if not self.ableToProcess() or not self.xrayViewer:
             return
         
-        # Display coordinates with calibrated q-values (X, Y, R)
+        # Display coordinates with calibrated d-spacings (X, Y, R) in nm
         if 'center' in self.xrayViewer.info and self.calSettings and 'scale' in self.calSettings:
-            q_x, q_y, q_R, unit = qFromCenter(
-                [x, y], self.xrayViewer.info['center'], self.calSettings['scale']
-            )
+            center = self.xrayViewer.info['center']
+            q_x, q_y, q_R, _ = qFromCenter([x, y], center, self.calSettings['scale'])
+            r_px = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
+
+            def _d(q):
+                # Convert q (nm^-1) to d-spacing (nm). Guard against q ~ 0 at center.
+                return f"{1.0 / q:.4f}" if abs(q) > 1e-6 else "\u221e"
+
             self.imgCoordOnStatusBar.setText(
-                f"x={x:.2f}, y={y:.2f}, value={value:.2f}, "
-                f"qX={q_x:.4f} {unit}, qY={q_y:.4f} {unit}, qR={q_R:.4f} {unit}"
+                f"x={x:.2f}, y={y:.2f}, r={r_px:.1f} px, value={value:.2f}, "
+                f"dX={_d(q_x)} nm, dY={_d(q_y)} nm, dR={_d(q_R)} nm"
             )
         else:
             self.imgCoordOnStatusBar.setText(
