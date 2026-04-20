@@ -26,6 +26,8 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+import os as _os
+import sys as _sys
 import subprocess as _subprocess
 
 def _get_version():
@@ -40,3 +42,48 @@ def _get_version():
     return f'{_base}(dev)' if _branch == 'dev' else _base
 
 __version__ = _get_version()
+
+
+def _check_pyside6_environment():
+    """Detect PySide6 loaded from outside the active Python prefix.
+
+    Mixing a pip user-site PySide6 with a conda env (or another venv) that
+    sets QT_PLUGIN_PATH causes Qt core libs and the xcb platform plugin to
+    come from different builds, leading to ABI-mismatch segfaults on
+    keyboard input. We fail fast with a clear message instead of crashing
+    later in C++.
+    """
+    if _os.environ.get('MUSCLEX_SKIP_ENV_CHECK'):
+        return
+    try:
+        import importlib.util
+        spec = importlib.util.find_spec('PySide6')
+        if spec is None or not spec.origin:
+            return
+        ps6_path = _os.path.realpath(spec.origin)
+        py_prefix = _os.path.realpath(_sys.prefix)
+        base_prefix = _os.path.realpath(getattr(_sys, 'base_prefix', _sys.prefix))
+        if ps6_path.startswith(py_prefix) or ps6_path.startswith(base_prefix):
+            return
+        _sys.stderr.write(
+            "\n[musclex] FATAL: PySide6 environment mismatch detected.\n"
+            f"  PySide6 will be loaded from : {ps6_path}\n"
+            f"  Active Python prefix       : {py_prefix}\n"
+            "  These differ, which causes Qt ABI mismatch and segfaults\n"
+            "  (typically when typing in spinboxes or pressing Ctrl/numpad keys).\n\n"
+            "  How to fix (pick one):\n"
+            "    1) Remove the stray pip-installed PySide6 from your user site:\n"
+            "         pip uninstall PySide6 PySide6-Essentials PySide6-Addons shiboken6\n"
+            "       (run this with no venv/conda env active)\n"
+            "    2) Or set PYTHONNOUSERSITE=1 before running musclex to ignore ~/.local\n\n"
+            "  To bypass this check (not recommended), set MUSCLEX_SKIP_ENV_CHECK=1\n"
+        )
+        _sys.exit(1)
+    except SystemExit:
+        raise
+    except Exception:
+        # Never let the diagnostic itself break musclex startup.
+        pass
+
+
+_check_pyside6_environment()
