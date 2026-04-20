@@ -2021,7 +2021,7 @@ class ProjectionBoxTab(QWidget):
         self.graphAxes1.draw_artist(self.graphAxes1.patch)
         self.graphAxes1.draw_artist(self.dragged_line)
         # self.graphFigure1.canvas.blit(self.graphAxes1.bbox)
-        self.graphFigure1.canvas.draw()
+        self.graphFigure1.canvas.draw_idle()
         
 
     def on_release(self, event):
@@ -2043,5 +2043,5 @@ class ProjectionBoxTab(QWidget):
         self.parent.projProc.setGaussCenter(self.name, self.fixed_indices[-1], event.xdata - len(hist)/2)
         self.parent.processImage()
         
-        self.graphFigure1.canvas.draw()  # Ensure the canvas is updated
+        self.graphFigure1.canvas.draw_idle()  # Ensure the canvas is updated
         
