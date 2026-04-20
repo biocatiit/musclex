@@ -307,7 +307,7 @@ class ImageViewerWidget(QWidget):
         self.axes.set_xlim(xlim)
         self.axes.set_ylim(ylim)
         
-        self.canvas.draw()
+        self.canvas.draw_idle()
     
     def display_image(self, img):
         """
@@ -367,7 +367,7 @@ class ImageViewerWidget(QWidget):
         if self.display_panel:
             self.display_panel.update_labels_from_image(img)
         
-        self.canvas.draw()
+        self.canvas.draw_idle()
         
         # Emit signal for external handlers
         self._emit_display_options_changed()
@@ -444,7 +444,7 @@ class ImageViewerWidget(QWidget):
             self.axes.set_xlim(0, self._current_image.shape[1])
             # Set ylim in correct order for inverted Y-axis (already inverted in display_image)
             self.axes.set_ylim(self._current_image.shape[0], 0)
-            self.canvas.draw()
+            self.canvas.draw_idle()
     
     def set_zoom_bounds(self, xlim, ylim):
         """
@@ -456,7 +456,7 @@ class ImageViewerWidget(QWidget):
         """
         self.axes.set_xlim(xlim)
         self.axes.set_ylim(ylim)
-        self.canvas.draw()
+        self.canvas.draw_idle()
     
     def get_zoom_bounds(self):
         """
@@ -469,7 +469,7 @@ class ImageViewerWidget(QWidget):
     
     def redraw(self):
         """Force canvas redraw."""
-        self.canvas.draw()
+        self.canvas.draw_idle()
     
     # ===== Event Coordination (delegates to tool_manager or internal handlers) =====
     

@@ -1673,7 +1673,7 @@ class DIImageWindow(QMainWindow):
             ax.set_xlabel('Radial distance')
             ax.set_ylabel('Intensity')
             # self.m1_partial_hist_figure.tight_layout()
-            self.m1_partial_hist_canvas.draw()
+            self.m1_partial_hist_canvas.draw_idle()
 
             img = copy.copy(self.cirProj.original_image)
             if self.blankChkBx.isChecked():
@@ -1703,7 +1703,7 @@ class DIImageWindow(QMainWindow):
             ax.cla()
             ax.imshow(img)
             # self.m1_img_fig.tight_layout()
-            self.m1_img_canvas.draw()
+            self.m1_img_canvas.draw_idle()
             self.update_plot['m1_partial_hist'] = False
 
         if 'orig_hists' in self.cirProj.info.keys() and 'm1_rings' in self.cirProj.info.keys() and \
@@ -1740,7 +1740,7 @@ class DIImageWindow(QMainWindow):
             ax.set_xlabel('Radial distance (Pixels)')
             ax.set_ylabel('Intensity')
             # self.m1_hist_figure.tight_layout()
-            self.m1_hist_canvas.draw()
+            self.m1_hist_canvas.draw_idle()
             self.update_plot['m1_hist'] = False
         if 'partial_angle' in self.cirProj.info.keys():
             self.updatingUI = True
@@ -1787,7 +1787,7 @@ class DIImageWindow(QMainWindow):
             ax.set_xlabel('Radial distance (Pixels)'+str_peak)
             ax.set_ylabel('Angle')
             self.m2_cent_diff_fig.tight_layout()
-            self.m2_cent_diff_canvas.draw()
+            self.m2_cent_diff_canvas.draw_idle()
             self.update_plot['m2_diff'] = False
 
     def swapCheckBoxes(self):
@@ -1964,7 +1964,7 @@ class DIImageWindow(QMainWindow):
                     ax.plot((u1 + np.pi, u1 + np.pi), (0, max(mod['hist'])), color='r')
 
         self.result_graph_figure.tight_layout()
-        self.result_graph_canvas.draw()
+        self.result_graph_canvas.draw_idle()
 
         processing_results_text = "Total Intensity : "+ str(self.cirProj.info['area'])
         processing_results_text += "\n\nFitting Results :"

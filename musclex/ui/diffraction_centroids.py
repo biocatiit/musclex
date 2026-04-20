@@ -140,7 +140,7 @@ class OffMeridianTab(QWidget):
                 ax.set_xlim((left, right))
                 ax.set_ylim((0, max(hist[left:right])*1.1))
                 canvas = self.allFiguresCanvas[q][1]
-                canvas.draw()
+                canvas.draw_idle()
         else:
             self.function = None
 
@@ -190,7 +190,7 @@ class OffMeridianTab(QWidget):
                     ax.lines.pop(i)
                 ax.axvline(x, color = 'r')
                 canvas = self.allFiguresCanvas[q][1]
-                canvas.draw()
+                canvas.draw_idle()
 
     def handleItemChanged(self, item):
         """
@@ -284,7 +284,7 @@ class OffMeridianTab(QWidget):
             ax.set_ylim((0, max(hull[peaks]) * 1.1))
 
             fig.tight_layout()
-            canvas.draw()
+            canvas.draw_idle()
 
         self.setSEButton.setText('Set Convex hull range')
         self.updateUIonly = False
@@ -839,7 +839,7 @@ class DiffractionTab(QWidget):
         self.zoom = [ax.get_xlim(), ax.get_ylim()]
         self.max_size = (max_height, len(hull_hist))
         figure.tight_layout()
-        canvas.draw()
+        canvas.draw_idle()
 
     def updateUI(self):
         """
