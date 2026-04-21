@@ -269,6 +269,10 @@ class XRayViewerGUI(QMainWindow):
         exportViewAction.setShortcut('Ctrl+E')
         exportViewAction.triggered.connect(self.exportCurrentViewToPNG)
 
+        exportGraphDataAction = QAction('Export Graph Data to Text File...', self)
+        exportGraphDataAction.setShortcut('Ctrl+Shift+E')
+        exportGraphDataAction.triggered.connect(self.exportGraphDataToTextFile)
+
         changeOutputDirAction = QAction('Change Output Directory...', self)
         changeOutputDirAction.triggered.connect(self._change_output_directory)
 
@@ -277,6 +281,7 @@ class XRayViewerGUI(QMainWindow):
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(exportViewAction)
+        fileMenu.addAction(exportGraphDataAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
         aboutAct = QAction('About', self)
@@ -1528,6 +1533,90 @@ class XRayViewerGUI(QMainWindow):
             errMsg = QMessageBox()
             errMsg.setText("Export Failed")
             errMsg.setInformativeText(f"Failed to export image:\n{str(e)}")
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Critical)
+            errMsg.exec_()
+
+    def exportGraphDataToTextFile(self):
+        """
+        Export the current graph profile to a plain ASCII text file with
+        two columns: pixel index (x) and intensity (y). The x values match
+        the indices used to plot the curve in the Graph tab.
+        """
+        hist = getattr(self.xrayViewer, 'hist', None) if self.xrayViewer is not None else None
+        if hist is None or len(hist) == 0:
+            infMsg = QMessageBox()
+            infMsg.setText("No Graph Data")
+            infMsg.setInformativeText(
+                "There is no graph profile to export.\n"
+                "Use 'Set Graph Slice' or 'Set Graph Box' on the image first."
+            )
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+            return
+
+        import os
+
+        default_name = ""
+        if self.file_manager and self.file_manager.current_image_name:
+            name_without_ext = os.path.splitext(self.file_manager.current_image_name)[0]
+            default_name = name_without_ext + "_profile.txt"
+
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Graph Data to Text File",
+            default_name,
+            "Text Files (*.txt);;Data Files (*.dat);;All Files (*)"
+        )
+
+        if not save_path:
+            return
+
+        if not any(save_path.lower().endswith(ext) for ext in ('.txt', '.dat', '.csv')):
+            save_path += '.txt'
+
+        try:
+            hist_arr = np.asarray(hist)
+            x = np.arange(len(hist_arr))
+
+            mode = ""
+            if self.saved_slice and len(self.saved_slice) > 0:
+                if self.saved_slice[0] == "slice":
+                    mode = "Set Graph Slice"
+                elif self.saved_slice[0] == "slice_box":
+                    mode = "Set Graph Box"
+
+            header_lines = [
+                "X-Ray Viewer graph profile export",
+                f"MuscleX version: {__version__}",
+            ]
+            if self.file_manager and self.file_manager.current_image_name:
+                header_lines.append(f"Source image: {self.file_manager.current_image_name}")
+            if mode:
+                header_lines.append(f"Mode: {mode}")
+            header_lines.append(f"Number of points: {len(hist_arr)}")
+            header_lines.append("Columns: pixel_index intensity")
+            header = "\n".join(header_lines)
+
+            np.savetxt(
+                save_path,
+                np.column_stack([x, hist_arr]),
+                fmt=("%d", "%.6g"),
+                header=header
+            )
+
+            infMsg = QMessageBox()
+            infMsg.setText("Export Successful")
+            infMsg.setInformativeText(f"Graph data has been saved to:\n{save_path}")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+
+        except Exception as e:
+            errMsg = QMessageBox()
+            errMsg.setText("Export Failed")
+            errMsg.setInformativeText(f"Failed to export graph data:\n{str(e)}")
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Critical)
             errMsg.exec_()
