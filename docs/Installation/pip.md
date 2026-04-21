@@ -162,18 +162,38 @@ conda deactivate        # conda
   pip install -U pandas
   ```
 
-- **Qt platform plugin error**:
+- **Qt platform plugin error** (e.g. `qt.qpa.plugin: Could not load the Qt platform plugin "xcb"`):
+
+  First, swap `opencv-python` (which bundles its own Qt and frequently clashes with the system Qt) for the headless build:
 
   ```bash
   pip uninstall opencv-python
   pip install opencv-python-headless
   ```
 
-  If needed:
+  If needed, pin to an older OpenCV release:
 
   ```bash
   pip install opencv-python==4.2.0.32
   ```
+
+  On Linux, the `xcb` plugin also requires several native XCB / X11 libraries. On Debian/Ubuntu install:
+
+  ```bash
+  sudo apt update
+  sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0
+  sudo apt install libxcb-render-util0 libxcb-image0 libxcb-keysyms1 libxcb-icccm4
+  sudo apt install x11-apps qt6-base-plugins qt6-base-dev
+  sudo apt-get install python3-opencv
+  ```
+
+  To diagnose which specific library is missing, rerun with Qt plugin debug output:
+
+  ```bash
+  QT_DEBUG_PLUGINS=1 musclex xv
+  ```
+
+  See also the cross-platform [troubleshooting guide](troubleshooting.md#qt-platform-plugin-xcb-error-linux).
 
 - **Pip dependency issues**:
    Ensure wheel and numpy are up to date:

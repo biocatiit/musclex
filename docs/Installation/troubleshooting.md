@@ -37,6 +37,40 @@ unset XDG_SESSION_DESKTOP
 
 
 
+### Qt Platform Plugin "xcb" Error (Linux)
+
+If you see an error similar to:
+
+```
+qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "" even though it was found.
+This application failed to start because no Qt platform plugin could be initialized.
+Reinstalling the application may fix this problem.
+```
+
+(Often reported with Qt 6.x, e.g. `Qt version: 6.7.2`, when launching tools such as `musclex xv`.)
+
+This typically means the system is missing native XCB / X11 libraries that the Qt `xcb` platform plugin depends on, or that an `opencv-python` install is shipping a conflicting Qt runtime.
+
+**Solution (Debian/Ubuntu):** install the required system libraries:
+
+```bash
+sudo apt update
+sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0
+sudo apt install libxcb-render-util0 libxcb-image0 libxcb-keysyms1 libxcb-icccm4
+sudo apt install x11-apps qt6-base-plugins qt6-base-dev
+sudo apt-get install python3-opencv
+```
+
+**Diagnosing further:** rerun the failing command with Qt plugin debug output enabled to see exactly which library is missing:
+
+```bash
+QT_DEBUG_PLUGINS=1 musclex xv
+```
+
+If the issue persists in a `pip` environment, also see the *Qt platform plugin error* entry in [pip.md](pip.md) — replacing `opencv-python` with `opencv-python-headless` avoids a bundled Qt that can clash with the system one.
+
+
+
 ### 4K Display Issues
 
 If buttons or text are too small on high-resolution screens, try:
