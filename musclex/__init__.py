@@ -44,6 +44,28 @@ def _get_version():
 __version__ = _get_version()
 
 
+def _show_fatal_dialog(title, message):
+    """Show a GUI error dialog using Tkinter (stdlib, independent of Qt).
+
+    We deliberately avoid Qt here: the whole point of this diagnostic is
+    that the Qt environment is broken, so importing PySide6 to show a
+    dialog could itself crash. Tkinter ships with CPython and is completely
+    independent.
+    """
+    if not (_os.environ.get('DISPLAY') or _os.environ.get('WAYLAND_DISPLAY')):
+        return False
+    try:
+        import tkinter as _tk
+        from tkinter import messagebox as _mb
+        root = _tk.Tk()
+        root.withdraw()
+        _mb.showerror(title, message)
+        root.destroy()
+        return True
+    except Exception:
+        return False
+
+
 def _check_pyside6_environment():
     """Detect PySide6 loaded from outside the active Python prefix.
 
@@ -65,19 +87,23 @@ def _check_pyside6_environment():
         base_prefix = _os.path.realpath(getattr(_sys, 'base_prefix', _sys.prefix))
         if ps6_path.startswith(py_prefix) or ps6_path.startswith(base_prefix):
             return
-        _sys.stderr.write(
-            "\n[musclex] FATAL: PySide6 environment mismatch detected.\n"
-            f"  PySide6 will be loaded from : {ps6_path}\n"
-            f"  Active Python prefix       : {py_prefix}\n"
-            "  These differ, which causes Qt ABI mismatch and segfaults\n"
-            "  (typically when typing in spinboxes or pressing Ctrl/numpad keys).\n\n"
-            "  How to fix (pick one):\n"
-            "    1) Remove the stray pip-installed PySide6 from your user site:\n"
-            "         pip uninstall PySide6 PySide6-Essentials PySide6-Addons shiboken6\n"
-            "       (run this with no venv/conda env active)\n"
-            "    2) Or set PYTHONNOUSERSITE=1 before running musclex to ignore ~/.local\n\n"
-            "  To bypass this check (not recommended), set MUSCLEX_SKIP_ENV_CHECK=1\n"
+        title = 'MuscleX: PySide6 environment mismatch'
+        message = (
+            "PySide6 environment mismatch detected.\n\n"
+            f"PySide6 will be loaded from:\n  {ps6_path}\n\n"
+            f"Active Python prefix:\n  {py_prefix}\n\n"
+            "These differ, which causes Qt ABI mismatch and segfaults "
+            "(typically when typing in spinboxes or pressing Ctrl / numpad keys).\n\n"
+            "How to fix (pick one):\n"
+            "  1) Remove the stray pip-installed PySide6 from your user site:\n"
+            "       pip uninstall PySide6 PySide6-Essentials PySide6-Addons shiboken6\n"
+            "     (run this with no venv/conda env active)\n\n"
+            "  2) Or set PYTHONNOUSERSITE=1 before running musclex\n"
+            "     to ignore ~/.local site-packages.\n\n"
+            "To bypass this check (not recommended), set MUSCLEX_SKIP_ENV_CHECK=1."
         )
+        _sys.stderr.write('\n[musclex] FATAL: ' + message + '\n')
+        _show_fatal_dialog(title, message)
         _sys.exit(1)
     except SystemExit:
         raise
