@@ -226,7 +226,8 @@ class XRayViewerGUI(QMainWindow):
         self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.resetZoomButton, 2, 0, 1, 2)
         self.bottomLayout2.addWidget(self.measureDist2, 3, 0, 1, 2)
-        # navControls will be added here dynamically when switching to Graph tab
+        # navControls will be added at row 4 dynamically when switching to Graph tab
+        self._nav_graph_row = 4
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(250) 
@@ -1317,10 +1318,40 @@ class XRayViewerGUI(QMainWindow):
 
     def onTabChanged(self, index):
         """
-        Handle tab switching (simplified - navControls now stay in navigator)
+        Handle tab switching.
+
+        Moves the shared navigation widget (navControls) between the navigator's
+        right panel (Image tab) and the bottom of the Graph tab options frame
+        (Graph tab) so the user can keep navigating frames while inspecting the
+        graph profile.
         """
+        if index == 1:
+            self._move_nav_to_graph_tab()
+        else:
+            self._move_nav_to_image_tab()
+
         # Trigger UI update for the new tab
         self.updateUI()
+
+    def _move_nav_to_graph_tab(self):
+        """Reparent the navigation widget into the Graph tab's bottom area."""
+        if self.navControls.parentWidget() is self.fittingOptionsFrame2:
+            return  # already there
+        # Detach from the navigator's right panel
+        self.navigator.right_panel.bottom_layout.removeWidget(self.navControls)
+        # addWidget reparents to the layout's owner widget (fittingOptionsFrame2)
+        self.bottomLayout2.addWidget(self.navControls, self._nav_graph_row, 0, 1, 2)
+        self.navControls.show()
+
+    def _move_nav_to_image_tab(self):
+        """Reparent the navigation widget back to the navigator's right panel."""
+        if self.navControls.parentWidget() is self.navigator.right_panel.bottom_widget:
+            return  # already there
+        # Detach from the Graph tab bottom grid
+        self.bottomLayout2.removeWidget(self.navControls)
+        # add_bottom_widget appends to the right_panel's bottom QVBoxLayout
+        self.navigator.right_panel.add_bottom_widget(self.navControls)
+        self.navControls.show()
 
     def updateUI(self):
         """
