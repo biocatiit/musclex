@@ -116,7 +116,7 @@ class Worker(QRunnable):
 
         self.bgDict = bgDict
 
-        self.qf_lock = Lock()
+        # self.qf_lock = Lock()
 
     @Slot()
     def run(self):
@@ -142,12 +142,12 @@ class Worker(QRunnable):
             self.saveBackground()
 
 
-            if self.qf_lock is not None:
-                self.qf_lock.acquire()
+            if self.lock is not None:
+                self.lock.acquire()
             with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
                 file.write(self.quadFold.img_name + " saving image"+ "\n")
-            if self.qf_lock is not None:
-                self.qf_lock.release()
+            if self.lock is not None:
+                self.lock.release()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -163,24 +163,15 @@ class Worker(QRunnable):
         """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
-
         avg_fold = info["avg_fold"]
-
-        print("Avg_fold shape:")
-        print(avg_fold.shape)
-        print("result shape: ")
-        print(result.shape)
         background = avg_fold-result
         resultImg = makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
-            #pass
             resultImg = np.rot90(resultImg)
 
         method = info['bgsub']
-        print(method)
         if method != 'None':
-
             filename = self.params.file_manager.names[self.params.index]
             file_path = self.params.file_manager.dir_path
             bg_path = fullPath(file_path, os.path.join("qf_results", "bg"))
@@ -194,12 +185,12 @@ class Worker(QRunnable):
             #self.bgCSV(np.sum(resultImg), bg_path)
             self.bgDict[filename] = np.sum(resultImg)
 
-
+    # TODO: should be combined with the results CSV file
     def bgCSV(self, total_inten, bg_path):
             filename = self.params.file_manager.names[self.params.index]
             csv_path = join(bg_path, f'background_sum_{filename}.csv')
 
-                # create csv file to save total intensity for background
+            # create csv file to save total intensity for background
             if exists(csv_path):
                 self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
                 self.csv_bg.loc[filename] = pd.Series({'Name': filename, 'Sum': total_inten})
@@ -223,7 +214,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """
 
         super().__init__()
-        # Note: self.file_manager is now initialized by BaseGUI
+        # NOTE: self.file_manager is now initialized by BaseGUI
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.filePath = "" # current directory
         self.extent = None
@@ -246,8 +237,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # NOTE: orientationModel and modeOrientation now managed by ImageSettingsPanel
         # Access via: self.workspace._orientation_model, self.workspace._mode_rotation
         self.stop_process = False
-        self.chordLines = []
-        self.chordpoints = []
+        # self.chordLines = []
+        # self.chordpoints = []
         self.csvManager = None
         
         self.threadPool = QThreadPool()
@@ -260,12 +251,14 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
-        self.qf_lock = Lock()
+        # self.qf_lock = Lock()
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
-        self._batch_background_configurations = []
         self.manualBackgroundAssignments = {}
-        self._batch_manual_background_assignments = {}
+
+        # TODO: refactor background configuration management to use a single source of truth
+        # (e.g. self.backgroundConfigurations) and remove redundant variables
+        self.backgroundConfigurations = []
 
         # NOTE: setCentDialog and setAngleDialog moved to ImageSettingsPanel
 
@@ -278,8 +271,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         self.thresh_mask = None
 
-        # Note: Background directory scan is now handled by ImageNavigatorWidget
-        # Note: _provisionalCount removed - use self.file_manager.is_scan_done() instead
+        # NOTE: Background directory scan is now handled by ImageNavigatorWidget
+        # NOTE: _provisionalCount removed - use self.file_manager.is_scan_done() instead
 
         self.eventEmitter = EventEmitter()
 
@@ -291,10 +284,11 @@ class QuadrantFoldingGUI(BaseGUI):
         self.newImgDimension = None
         # NOTE: file_manager is now initialized earlier in __init__
         self._on_browse_file()
-        self.mask_min = None
-        self.mask_max = None
-        self._last_live_mask_refresh_ts = 0.0
 
+        # self.mask_min = None
+        # self.mask_max = None
+        # TODO: review whether these BG-related variables are still needed
+        self._last_live_mask_refresh_ts = 0.0
         self.bgAsyncDict = {}
 
     # ===== BaseGUI abstract methods implementation =====
@@ -360,8 +354,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # Add quadrant-specific settings to right panel
         self._create_quadrant_settings()
         
-        
-        # Note: Navigation is handled internally by ImageNavigatorWidget
+        # NOTE: Navigation is handled internally by ImageNavigatorWidget
         # QF only listens to imageChanged signal (connected in _additional_setup)
         
         # Create result tab
@@ -510,8 +503,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # ===== Section controls =====
         # Background Subtraction
         self.applyResultBGButton = QPushButton("Apply Default Optimization")
-        # make button green to indicate it's the recommended option
-        self.applyResultBGButton.setStyleSheet("QPushButton { color: #ededed; background-color: #2986cc;}") # #2986cc  #2e7d32
+        self.applyResultBGButton.setStyleSheet("QPushButton { color: #ededed; background-color: #2986cc;}")
         self.openBGSettingsButton = QPushButton("Advanced Configuration")
 
         self.resultDisplayModeLabel = QLabel("Show:")
@@ -575,8 +567,9 @@ class QuadrantFoldingGUI(BaseGUI):
         bg_sub_layout.addWidget(self.openBGSettingsButton, 3, 2, 1, 2)
         self.bgSummaryLayout.addWidget(bg_sub_section, 1, 0, 1, 4)
 
-        # 2) Current Configuration (main UI copy)
+        # 2) Current Configuration
         current_section, current_layout = _make_section("Current Configuration")
+        # TODO: define table in one place to be reused in the pop up window
         current_summary_frame = QFrame()
         current_summary_frame.setObjectName("bgSummaryFrameMain")
         current_summary_frame.setStyleSheet(
@@ -617,14 +610,13 @@ class QuadrantFoldingGUI(BaseGUI):
         current_table_layout.addWidget(self.currentBGLossLabelMain, 3, 1)
 
         current_layout.addWidget(current_summary_frame, 1, 0, 1, 4)
+
         self.bgSummaryLayout.addWidget(current_section, 2, 0, 1, 4)
-
-
-
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
-        self._clear_bg_metrics_table()
+        # TODO: cache bg metrics
+        # self._clear_bg_metrics_table()
 
     def _set_table_item(self, row, col, text):
         item = QTableWidgetItem(text)
@@ -713,7 +705,7 @@ class QuadrantFoldingGUI(BaseGUI):
             return
 
         try:
-            configs = get_user_background_configurations(cache_file, cache_key, additional_info=additional_info)
+            configs = get_user_background_configurations(cache_file, cache_key)
         except Exception as e:
             print(f"Failed to load background configurations from cache: {e}")
             return
@@ -754,7 +746,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self._on_background_config_selection_changed()
 
-    def _read_background_configurations_for_batch(self):
+    def _read_background_configurations(self):
         """
         Read saved user background configurations from cache for the current folder context.
         Returns only minimally valid rows (method + params dict).
@@ -764,7 +756,7 @@ class QuadrantFoldingGUI(BaseGUI):
             return []
 
         try:
-            configs = get_user_background_configurations(cache_file, cache_key, additional_info=additional_info)
+            configs = get_user_background_configurations(cache_file, cache_key)
         except Exception as e:
             print(f"Failed to read background configurations for batch processing: {e}")
             return []
@@ -790,6 +782,14 @@ class QuadrantFoldingGUI(BaseGUI):
         has_selection = len(self.backgroundConfigsTable.selectionModel().selectedRows()) > 0
         self.deleteBackgroundConfigButton.setEnabled(has_selection)
 
+    def _on_manual_assignment_accepted(self, dialog):
+        self.manualBackgroundAssignments = dialog.get_assignments()
+        QMessageBox.information(
+            self,
+            "Manual Assignment",
+            f"Saved manual assignments for {len(self.manualBackgroundAssignments)} image(s)."
+        )
+
     def openManualBackgroundAssignmentsDialog(self):
         """Open dialog to manually assign saved background configurations to images."""
         if self.file_manager is None or not self.file_manager.names:
@@ -812,13 +812,8 @@ class QuadrantFoldingGUI(BaseGUI):
             current_assignments=self.manualBackgroundAssignments,
             parent=self,
         )
-        if dialog.show() == QDialog.Accepted:
-            self.manualBackgroundAssignments = dialog.get_assignments()
-            QMessageBox.information(
-                self,
-                "Manual Assignment",
-                f"Saved manual assignments for {len(self.manualBackgroundAssignments)} image(s)."
-            )
+        dialog.accepted.connect(lambda: self._on_manual_assignment_accepted(dialog))
+        dialog.show()
 
     def _resolve_manual_background_assignments_for_batch(self, configurations):
         """
@@ -913,36 +908,37 @@ class QuadrantFoldingGUI(BaseGUI):
         checked = self.optimizeChkBx.isChecked()
         if not checked:
             self.optimizeChkBx.setChecked(True)
-            if hasattr(self, 'processingModeCB'):
-                self.processingModeCB.setCurrentText("Automated")
+            # if hasattr(self, 'processingModeCB'):
+            #     self.processingModeCB.setCurrentText("Automated")
             if len(self.optimizationMethodsList.selectedItems()) == 0:
                 self._set_selected_optimization_methods(default_methods)
 
-        # self.highlightApply()
         self.deleteInfo(['bgsubimg'])
         self.deleteInfo(['result_bg'])
         self.deleteImgCache(['BgSubFold'])
         self.processImage()
-        # self.highlightApplyUndo()
 
         if not checked:
             self.optimizeChkBx.setChecked(False)
-            if hasattr(self, 'processingModeCB'):
-                self.processingModeCB.setCurrentText("Manual")
+            # if hasattr(self, 'processingModeCB'):
+            #     self.processingModeCB.setCurrentText("Manual")
 
-    def addBackgroundConfiguration(self):
+        self.addBackgroundConfiguration(name="Default Optimization")
+        
+
+    def addBackgroundConfiguration(self, name=None):
         """Add current background method/result into Background Configurations table with a user-defined name."""
         if not self.ableToProcess():
             return
-
-        name, ok = QInputDialog.getText(
-            self,
-            "Save Configuration",
-            "Enter configuration name:"
-        )
-        name = (name or "").strip()
-        if not ok or not name:
-            return
+        if not name:
+            name, ok = QInputDialog.getText(
+                self,
+                "Save Configuration",
+                "Enter configuration name:"
+            )
+            name = (name or "").strip()
+            if not ok or not name:
+                return
 
         result_bg = self.quadFold.info.get('result_bg', {}) or {}
         method = result_bg.get('method', None)
@@ -982,27 +978,6 @@ class QuadrantFoldingGUI(BaseGUI):
         else:
             self.backgroundConfigurations.append(config_entry)
         self._save_background_configurations_to_cache()
-
-    def _show_bg_metrics_help_dialog(self):
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Background Metrics Help")
-        msg.setIcon(QMessageBox.Information)
-        msg.setTextFormat(Qt.RichText)
-        msg.setText(
-            "<b>Background subtraction metrics</b><br><br>"
-            "<b>Columns</b><br>"
-            "• <b>Raw</b>: metric before normalization (except Loss row hidden by design).<br>"
-            "• <b>Normalized</b>: metric after dividing by configured mean values.<br><br>"
-            "<b>Rows</b><br>"
-            "• <b>Loss</b>: weighted sum of normalized metrics.<br>"
-            "• <b>MSE Synthetic</b>: mean squared error against synthetic signal reference.<br>"
-            "• <b>Fraction of Synthetic Oversubtraction</b>: fraction of negative pixels after subtracting synthetic signal, in masked regions, where mask covers synthetic signal.<br>"
-            "• <b>Fraction of Non-Baseline Pixels</b>: share above baseline threshold, in evaluation mask region.<br>"
-            "• <b>Fraction of Negative Connected Pixels</b>: share in sufficiently large negative componentss, in evaluation mask region.<br>"
-            "• <b>Smoothness</b>: vertical derivative of background; penalty based on background variation."
-        )
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
 
     def _to_metric_text(self, value, as_percent=False):
         if value is None:
@@ -1092,7 +1067,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
         for attr in [
             'allBGChoices',
-            # 'setFitRoi', 'unsetRoi', 'fixedRoiChkBx', 'fixedRoi',
             'bgChoiceIn', 'setRminRmaxButton',
             'rminSpnBx', 'rmaxSpnBx', 'rminLabel', 'rmaxLabel',
             'downsampleLabel', 'downsampleCB', 'smoothImageChkbx',
@@ -1138,6 +1112,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'chooseConfigurationsAutoChkBx',
             'createNewConfigurationsChkBx',
             'assignConfgurationsManually',
+            'processFolderWithSelections',
             'currentMethodLabel',
             'currentModeLabel',
             'currentParamsLabel',
@@ -1146,7 +1121,7 @@ class QuadrantFoldingGUI(BaseGUI):
             setattr(self, attr, getattr(self.bgSubDialog, attr))
 
         # self.checkableButtons.append(self.setFitRoi)
-        # self.checkableButtons.append(self.setRminRmaxButton)
+        self.checkableButtons.append(self.setRminRmaxButton)
 
     def openBackgroundSubtractionDialog(self):
         """Open the background subtraction settings popup."""
@@ -1374,6 +1349,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # Note: Basic navigation (next/prev/nextFile/prevFile) is now connected by BaseGUI's _connect_standard_navigation()
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.processFolderWithSelections.clicked.connect(self.navControls.processFolderButton.click)
+
         # NOTE: Filename editing is handled internally by ImageNavigatorWidget._on_filename_changed()
         # which emits imageChanged signal that triggers _on_image_changed()
         # self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
@@ -1446,13 +1423,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
         # self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
         self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
-        # self.bgChoiceIn.currentIndexChanged.connect(self.highlightApply)
-        # self.optimizeChkBx.stateChanged.connect(self.highlightApply)
-        # self.stepsLineEdit.textChanged.connect(self.highlightApply)
-        # self.maxIterationsSpnBx.valueChanged.connect(self.highlightApply)
-        # self.earlyStopSpnBx.valueChanged.connect(self.highlightApply)
-        # self.optimizationMethodsList.itemSelectionChanged.connect(self.highlightApply)
-
+        
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
 
@@ -1464,21 +1435,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # self.blankImageGrp.clicked.connect(self.blankChecked)
 
-        # Change Apply Button Color when BG sub arguments are changed
-        # self.tophat1SpnBx.valueChanged.connect(self.highlightApply)
-        # self.winSizeX.valueChanged.connect(self.highlightApply)
-        # self.winSizeY.valueChanged.connect(self.highlightApply)
-        # self.maxPixRange.valueChanged.connect(self.highlightApply)
-        # self.minPixRange.valueChanged.connect(self.highlightApply)
-        # self.gaussFWHM.valueChanged.connect(self.highlightApply)
-        # self.boxcarX.valueChanged.connect(self.highlightApply)
-        # self.boxcarY.valueChanged.connect(self.highlightApply)
-        # self.deg1CB.currentIndexChanged.connect(self.highlightApply)
-        # self.cycle.valueChanged.connect(self.highlightApply)
-        # self.radialBinSpnBx.valueChanged.connect(self.highlightApply)
-        # self.smoothSpnBx.valueChanged.connect(self.highlightApply)
-        # self.tensionSpnBx.valueChanged.connect(self.highlightApply)
-        # self.downsampleCB.currentIndexChanged.connect(self.highlightApply)
 
     def _on_result_display_mode_changed(self, index):
         self.refreshResultTab()
@@ -2941,8 +2897,7 @@ class QuadrantFoldingGUI(BaseGUI):
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
                 print("All threads are complete")
                 self.batchProcessing = False  # Disable batch processing mode
-                self._batch_background_configurations = []
-                self._batch_manual_background_assignments = {}
+                self.backgroundConfigurations = []
                 self.progressBar.setVisible(False)
                 self.navControls.filenameLineEdit.setEnabled(True)
                 
@@ -3243,23 +3198,25 @@ class QuadrantFoldingGUI(BaseGUI):
         }
 
         # Explicit runtime mode flag (True only while folder/H5 batch processing is active)
-        flags['is_batch_processing'] = bool(self.batchProcessing)
+        flags['batch_processing'] = bool(self.batchProcessing)
 
         # Auto-select from saved user background configurations (used mainly in batch processing)
         flags['choose_configurations_auto'] = self.chooseConfigurationsAutoChkBx.isChecked()
-        if flags['choose_configurations_auto']:
-            batch_configs = self._batch_background_configurations if isinstance(self._batch_background_configurations, list) else []
-            if len(batch_configs) == 0 and isinstance(self.backgroundConfigurations, list):
-                # Fallback for non-batch/manual runs
-                batch_configs = self.backgroundConfigurations
-            flags['background_configurations'] = copy.deepcopy(batch_configs)
-        else:
-            flags['background_configurations'] = []
 
-        if flags['is_batch_processing']:
-            flags['manual_background_assignments'] = copy.deepcopy(self._batch_manual_background_assignments)
+        # TODO: add create new configurations for outliers
+
+        batch_configs = self.backgroundConfigurations if isinstance(self.backgroundConfigurations, list) else []
+        flags['background_configurations'] = copy.deepcopy(batch_configs)
+
+        if flags['batch_processing']:
+            resolved_manual_assignments = {}
+            if len(flags['background_configurations']) > 0:
+                resolved_manual_assignments = self._resolve_manual_background_assignments_for_batch(flags['background_configurations'])
+            flags['manual_background_assignments'] = copy.deepcopy(resolved_manual_assignments)
         else:
             flags['manual_background_assignments'] = {}
+
+
         
 
 
@@ -3382,7 +3339,6 @@ class QuadrantFoldingGUI(BaseGUI):
         # It will still signal finished; we just won't schedule more
         self.currentTask = None
         self._batch_background_configurations = []
-        self._batch_manual_background_assignments = {}
         
     def h5batchProcBtnToggled(self):
         """
@@ -3412,13 +3368,15 @@ class QuadrantFoldingGUI(BaseGUI):
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
 
         flags = self.getFlags()
+        # flags['batch_processing'] = True 
 
         has_manual_assignments = isinstance(self.manualBackgroundAssignments, dict) and len(self.manualBackgroundAssignments) > 0
+        resolved_manual_assignments = {}
 
         # Manual assignments and auto selection both depend on saved configurations.
         if self.chooseConfigurationsAutoChkBx.isChecked() or has_manual_assignments:
-            self._batch_background_configurations = self._read_background_configurations_for_batch()
-            if len(self._batch_background_configurations) == 0:
+            self._background_configurations = self._read_background_configurations()
+            if len(self._background_configurations) == 0:
                 QMessageBox.warning(
                     self,
                     "No Saved Background Configurations",
@@ -3429,10 +3387,10 @@ class QuadrantFoldingGUI(BaseGUI):
                 # self.highlightApplyUndo()
                 return
 
-            self._batch_manual_background_assignments = self._resolve_manual_background_assignments_for_batch(
-                self._batch_background_configurations
+            resolved_manual_assignments = self._resolve_manual_background_assignments_for_batch(
+                self._background_configurations
             )
-            if has_manual_assignments and len(self._batch_manual_background_assignments) == 0:
+            if has_manual_assignments and len(resolved_manual_assignments) == 0:
                 QMessageBox.warning(
                     self,
                     "Invalid Manual Assignments",
@@ -3443,10 +3401,15 @@ class QuadrantFoldingGUI(BaseGUI):
                 # self.highlightApplyUndo()
                 return
 
-            flags['background_configurations'] = copy.deepcopy(self._batch_background_configurations)
+            # flags['background_configurations'] = copy.deepcopy(self._background_configurations)
+            # flags['manual_background_assignments'] = copy.deepcopy(resolved_manual_assignments)
         else:
-            self._batch_background_configurations = []
-            self._batch_manual_background_assignments = {}
+            self._background_configurations = []
+            resolved_manual_assignments = {}
+            # flags['background_configurations'] = []
+            # flags['manual_background_assignments'] = {}
+
+
         text += "\nCurrent Settings"
 
         if len(self.ignoreFolds) > 0:
@@ -3478,9 +3441,9 @@ class QuadrantFoldingGUI(BaseGUI):
     
         if self.chooseConfigurationsAutoChkBx.isChecked():
             text += "\n  - Auto Configuration Selection : Enabled"
-            text += f"\n  - Saved Configurations Loaded : {len(self._batch_background_configurations)}"
-        if len(self._batch_manual_background_assignments) > 0:
-            text += f"\n  - Manual Assignments : {len(self._batch_manual_background_assignments)} image(s)"
+            text += f"\n  - Saved Configurations Loaded : {len(self._background_configurations)}"
+        if len(resolved_manual_assignments) > 0:
+            text += f"\n  - Manual Assignments : {len(resolved_manual_assignments)} image(s)"
 
         text += '\n\nAre you sure you want to process ' + str(len(img_ids)) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
@@ -3568,8 +3531,7 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.ignoreFolds = set()
                     self.resetWidgets()
                     self.manualBackgroundAssignments = {}
-                    self._batch_background_configurations = []
-                    self._batch_manual_background_assignments = {}
+                    self._background_configurations = []
                     
                     # Update left widget width
                     self.updateLeftWidgetWidth()

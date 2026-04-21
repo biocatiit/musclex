@@ -67,7 +67,7 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, image_data: ImageData, parent=None, optimization_results_queue=None, optimization_cache_min_images=3):
+    def __init__(self, image_data: ImageData, parent=None):
         """
         Initialize QuadrantFolder with ImageData container.
         
@@ -128,30 +128,6 @@ class QuadrantFolder:
 
         #This is what all transformations will be done on
         self.start_img = copy.copy(self.orig_img)
-        self._optimization_results_queue = optimization_results_queue
-        self._optimization_cache_min_images = int(optimization_cache_min_images)
-
-    def _get_optimization_cache_key(self):
-        dataset_name = os.path.basename(os.path.normpath(self.img_path))
-        return str(dataset_name) if dataset_name else "__default_dataset__"
-
-    def _get_optimization_cache_additional_info(self):
-        return {
-            'methods': self.info.get('methods', []),
-            'steps': self.info.get('steps', []),
-            'early_stop': self.info.get('early_stop', 0.0),
-            'max_iterations': self.info.get('max_iterations', 15),
-            'mean_metric_values': self.info.get('mean_metric_values', None),
-            'metric_weights': self.info.get('metric_weights', None),
-            'detector': self.info.get('detector', None),
-            'orientation_model': self.info.get('orientation_model', None),
-        }
-
-    def _get_optimization_configuration_context(self):
-        return {
-            'downsample': int(self.info.get('downsample', 1) or 1),
-            'smooth_image': bool(self.info.get('smooth_image', False)),
-        }
 
     def cacheInfo(self):
         """
@@ -323,7 +299,6 @@ class QuadrantFolder:
             self.info['result_bg'].setdefault('method', None)
             self.info['result_bg'].setdefault('final_params', None)
             self.info['result_bg'].setdefault('optimized', None)
-            self.info['result_bg'].setdefault('reused_cache', None)
             self.info['result_bg'].setdefault('downsampled', None)
             self.info['result_bg'].setdefault('loss', None)
             self.info['result_bg'].setdefault('metrics_normalized', None)
@@ -338,8 +313,8 @@ class QuadrantFolder:
             else:
                 del flags['orientation_model']
         self.info.update(flags)
-        if 'fixed_roi_rad' in self.info:
-            self.info['roi_rad'] = self.info['fixed_roi_rad']
+        # if 'fixed_roi_rad' in self.info:
+        #     self.info['roi_rad'] = self.info['fixed_roi_rad']
 
     def initParams(self):
         """
@@ -459,7 +434,6 @@ class QuadrantFolder:
         # After transformation, center is at the middle of the transformed image
         self.center = (w_o//2, h_o//2)
 
-
     def getFoldNumber(self, x, y):
         """
         Get quadrant number by coordinates x, y (top left = 0, top right = 1, bottom left = 2, bottom right = 3)
@@ -526,18 +500,11 @@ class QuadrantFolder:
                 subtract = h % factor
                 self.info['_avg_fold'] = self.info['_avg_fold'][subtract:, :]
 
-            # print(f"Downsampling images by factor of {factor}. Prev dimensions: ({h}, {w}), New dimensions: ({new_h}, {new_w})")
-            # print(f"Shape before downsampling: {self.info['_avg_fold'].shape}")
-
-
             self.info['_avg_fold'] = cv2.resize(self.info['_avg_fold'], (new_w, new_h), interpolation=cv2.INTER_AREA)
             self.info['_avg_fold_with_syn'] = cv2.resize(self.info['_avg_fold_with_syn'], (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-            # print(f"Shape after downsampling: {self.info['_avg_fold'].shape}")
    
     def upsampleImage(self, img):
         factor = self.info['downsample']
-        # print(f"Upsampling image by factor of {factor}. Current dimensions: {img.shape}")
         if 'downsample' in self.info and self.info['downsample'] > 1:
             h, w = img.shape[0] * factor, img.shape[1] * factor
             upsampled_img = cv2.resize(img, (w, h), interpolation=cv2.INTER_CUBIC)
@@ -546,18 +513,17 @@ class QuadrantFolder:
             return img
         
 
-    def padToShape(self, img, target_shape=None):
-        t_h, t_w = target_shape
-        # print(f"Image size: {img.shape}, Pad to target size: {target_shape}")
+    # def padToShape(self, img, target_shape=None):
+    #     t_h, t_w = target_shape
 
-        if img.shape[0] < t_h:
-            pad_h = t_h - img.shape[0]
-            img = np.pad(img, ((pad_h, 0), (0, 0)), mode='edge')
-        if img.shape[1] < t_w:
-            pad_w = t_w - img.shape[1]
-            img = np.pad(img, ((0, 0), (pad_w, 0)), mode='edge')
-        print(f"Image size after padding: {img.shape}")
-        return img
+    #     if img.shape[0] < t_h:
+    #         pad_h = t_h - img.shape[0]
+    #         img = np.pad(img, ((pad_h, 0), (0, 0)), mode='edge')
+    #     if img.shape[1] < t_w:
+    #         pad_w = t_w - img.shape[1]
+    #         img = np.pad(img, ((0, 0), (pad_w, 0)), mode='edge')
+    #     print(f"Image size after padding: {img.shape}")
+    #     return img
     
         
         
@@ -687,7 +653,6 @@ class QuadrantFolder:
         background = background[:fold.shape[0], :fold.shape[1]]
         
         return background
-
 
     def applySmoothedBGSub(self, fold, center, typ='gauss', bgsub=1):
         """
@@ -894,35 +859,45 @@ class QuadrantFolder:
                 self.info['rmin'] = int(round(getFirstPeak(totalI) + 5))
 
             if 'rmax' not in self.info:
-                # self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1)))
                 self.info['rmax'] = getDetectorEdge(totalI, end=(min(copy_img.shape[0], copy_img.shape[1]) - 1)) - 20
             
         self.deleteFromDict(self.info, 'bgsubimg') # remove "bgsubimg" from info to make it reprocess
         print(f"Done. R-min is {str(self.info['rmin'])} and R-max is set to max: {str(self.info['rmax'])}")
 
+
     def createMask(self):
         """
-        Create a mask for the image based on the rmin and rmax values. The mask is stored in self.info['mask'].
+        Create a mask for the image based on rmin, rmax, and other parameters.
+        Combines multiple mask types via element-wise multiplication.
         """
-
-        mask = self._rminrmax_mask() * self._equator_peaks_mask() * \
-            self._equator_center_beam_mask() * self._equator_mask() * self._layer_lines_mask()
+        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
+        fullImg = makeFullImage(self.info['avg_fold'])
+        
+        masks = {
+            'rminrmax': self._create_rminrmax_mask(h, w),
+            'equator': self._create_equator_mask(h, w, fullImg),
+            'peaks': self._create_equator_peaks_mask(h, w, fullImg),
+            'beam': self._create_equator_center_beam_mask(h, w, fullImg),
+            'layer_lines': self._create_layer_lines_mask(h, w, fullImg),
+        }
+        
+        # Combine all masks
+        mask = np.ones((h, w), dtype=int)
+        for name, m in masks.items():
+            if m is None:
+                print(f"Warning: {name} mask is None, skipping")
+                continue
+            mask *= m
         
         self.info['mask'] = mask.astype(int)
 
-    def _rminrmax_mask(self):
-        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
-        mask = create_circular_mask(h, w, inside=True, \
-                                    radius=self.info['rmax'])
-        mask *= create_circular_mask(h, w, inside=False, \
-                                    radius=self.info['rmin'])
-
+    def _create_rminrmax_mask(self, h, w):
+        """Create radial min/max mask."""
+        mask = create_circular_mask(h, w, inside=True, radius=self.info['rmax'])
+        mask *= create_circular_mask(h, w, inside=False, radius=self.info['rmin'])
         return mask.astype(int)
-    
-    def _equator_mask(self):
-        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
-        fullImg = makeFullImage(self.info['avg_fold'])
 
+    def _create_equator_mask(self, h, w, fullImg):
         meridian = get_projection(fullImg, orientation=1, gap=2, offset=200)
         eq_fwhm = int(find_fwhm(meridian, rel_height=0.5))
 
@@ -934,10 +909,8 @@ class QuadrantFolder:
         self.parent.statusPrint(f"Equator width for eval mask: {y_height}.")
         mask = create_rectangle_mask(h, w, x_length=w, y_height=y_height)
         return mask.astype(int)
-    
-    def _equator_peaks_mask(self):
-        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
-        fullImg = makeFullImage(self.info['avg_fold'])
+        
+    def _create_equator_peaks_mask(self, h, w, fullImg):
 
         equator = get_projection(fullImg, gap=2, orientation=0, half=True) # right half
 
@@ -956,7 +929,7 @@ class QuadrantFolder:
         mask = create_peak_mask((h, w), peak_positions=peak_positions, peak_width=peak_width)
         return mask
     
-    def _equator_center_beam_mask(self):
+    def _create_equator_center_beam_mask(self, h, w, fullImg):
         h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
         fullImg = makeFullImage(self.info['avg_fold'])
 
@@ -971,11 +944,7 @@ class QuadrantFolder:
         mask = create_circular_mask(h, w, inside=False, radius=beam_width)
         return mask.astype(int)
     
-
-    def _layer_lines_mask(self):
-        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
-        fullImg = makeFullImage(self.info['avg_fold'])
-
+    def _create_layer_lines_mask(self, h, w, fullImg):
         m1_peak = int(self.info.get('m1', 0) or 0)
         if m1_peak <= 0:
             m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info['rmin'])
@@ -985,10 +954,8 @@ class QuadrantFolder:
         if isinstance(self.info.get('layer_line_width', None), (int, float)) and self.info.get('layer_line_width'):
             mask_width = int(self.info['layer_line_width'])
         else:
-            mask_width = max(5, max(fwhm_values) if len(fwhm_values) > 0 else 5)
             fwhm_values = []
             meridian = get_projection(fullImg, orientation=1, gap=2, half=True)
-
             peaks = find_n_most_prominent_peaks(meridian, n=len(layer_lines))
 
             for i in range(min(len(layer_lines), len(peaks))):
@@ -997,6 +964,8 @@ class QuadrantFolder:
                 print(f"Layer line {i+1} at position {layer_lines[i]} has FWHM from layer line: {fwhm1} and FWHM from peak: {fwhm2}")
                 fwhm = int(max(fwhm1, fwhm2))
                 fwhm_values.append(fwhm)
+
+            mask_width = max(5, max(fwhm_values) if len(fwhm_values) > 0 else 5)
                 
         self.info['layer_line_width'] = mask_width
         mask = create_layer_lines_mask(h, w, layer_lines=layer_lines, width_line=mask_width)
@@ -1209,8 +1178,6 @@ class QuadrantFolder:
 
         result_path = fullPath(self.img_path, "qf_cache")
         createFolder(result_path)
-        # cache_file = fullPath(result_path, 'background_cache.json')
-        # cache_key = self._get_optimization_cache_key()
 
         folded_image = makeFullImage(self.info['avg_fold'])
 
@@ -1218,8 +1185,8 @@ class QuadrantFolder:
             # 'steps': self.info['steps'],
             # 'early_stop': self.info['early_stop'],
             'max_iterations': self.info['max_iterations'],
-            'refine_params': -1,
-            'integers': True,
+            # 'refine_params': -1,
+            # 'integers': True,
             'tmp_avg_fold': self.info['_avg_fold'],
             'avg_fold': self.info['avg_fold'],
             'tmp_rmin': self.info['_rmin'],
@@ -1265,21 +1232,19 @@ class QuadrantFolder:
                 self.info[f"{key}"] = value
             self.info['result_bg']['final_params'] = params
             self.info['result_bg']['optimized'] = False
-            self.info['result_bg']['reused_cache'] = False
             self.info['result_bg']['method'] = method
             self.info['result_bg']['loss'] = loss_value
             self.info['result_bg']['selected_configuration_name'] = config_name if config_name else '-'
             self.info['bgsub'] = method
 
 
-
-        best_method = None
-
-
         # 1) Manual image->configuration assignment (batch mode only)
+        # import debugpy
+        # debugpy.breakpoint()  # force stop in this QThreadPool worker thread
+
         manual_assignments = self.info.get('manual_background_assignments', {})
         auto_configs = self.info.get('background_configurations', [])
-        batch_processing = bool(self.info.get('is_batch_processing', False)) or bool(self.info.get('batchProcessing', False))
+        batch_processing = self.info.get('batch_processing', False)
         use_auto_configs = (
             batch_processing
             and bool(self.info.get('choose_configurations_auto', False))
@@ -1290,34 +1255,46 @@ class QuadrantFolder:
         assigned_cfg = manual_assignments.get(self.img_name, None)
         use_manual_assignment = batch_processing and isinstance(manual_assignments, dict) and assigned_cfg is not None
 
-        if use_manual_assignment:
-            if isinstance(assigned_cfg, dict):
-                assigned_method = str(assigned_cfg.get('method', '') or '').strip()
-                assigned_name = str(assigned_cfg.get('name', '') or '').strip()
-                assigned_params = assigned_cfg.get('params', {})
-
-                if assigned_method in method_params and isinstance(assigned_params, dict):
-                    eval_params = _normalize_params(assigned_method, assigned_params)
-                    values = _values_from_params(assigned_method, eval_params)
-                    try:
-                        loss, _ = process_file(values=values, method=assigned_method, **kwargs)
-                    except Exception as e:
-                        print(f"Manual assigned configuration for '{self.img_name}' is invalid: {e}")
-                    else:
-                        print(
-                            f"Using manually assigned configuration for '{self.img_name}': "
-                            f"{assigned_name or assigned_method} (method: {assigned_method}, loss: {loss})"
-                        )
-                        _apply_selected_configuration(
-                            assigned_method,
-                            eval_params,
-                            loss,
-                            config_name=assigned_name if assigned_name else '-'
-                        )
-                        best_method = assigned_method
+        use_default_optimization = (
+            not batch_processing 
+            and isinstance(auto_configs, list)
+            and not use_auto_configs
+            and not use_manual_assignment
+            and ('optimize' not in self.info or not self.info['optimize'])
+            and (self.info['result_bg']['method'] is None or self.info['result_bg']['method'] == 'None')
+            and (self.info['bgsub'] is None or self.info['bgsub'] == 'None')
+        )
 
 
-        elif use_auto_configs:
+        best_method = None
+
+        if use_manual_assignment and isinstance(assigned_cfg, dict):
+            assigned_method = str(assigned_cfg.get('method', '') or '').strip()
+            assigned_name = str(assigned_cfg.get('name', '') or '').strip()
+            assigned_params = assigned_cfg.get('params', {})
+
+            if assigned_method in method_params and isinstance(assigned_params, dict):
+                eval_params = _normalize_params(assigned_method, assigned_params)
+                values = _values_from_params(assigned_method, eval_params)
+                try:
+                    loss, _ = process_file(values=values, method=assigned_method, **kwargs)
+                except Exception as e:
+                    print(f"Manual assigned configuration for '{self.img_name}' is invalid: {e}")
+                else:
+                    print(
+                        f"Using manually assigned configuration for '{self.img_name}': "
+                        f"{assigned_name or assigned_method} (method: {assigned_method}, loss: {loss})"
+                    )
+                    _apply_selected_configuration(
+                        assigned_method,
+                        eval_params,
+                        loss,
+                        config_name=assigned_name if assigned_name else '-'
+                    )
+                    best_method = assigned_method
+
+
+        elif use_auto_configs or use_default_optimization:
             self.parent.statusPrint("Evaluating saved background configurations...")
             best_loss = np.inf
             best_params = None
@@ -1430,39 +1407,38 @@ class QuadrantFolder:
             
             self.info['result_bg']['final_params'] = best_params
             self.info['result_bg']['optimized'] = True
-            self.info['result_bg']['reused_cache'] = False
             self.info['result_bg']['method'] = best_method
             self.info['result_bg']['loss'] = best_loss
             self.info['result_bg']['selected_configuration_name'] = '-'
+
+            # resuse the best params for further processing
             self.info['bgsub'] = best_method
+            for key, value in best_params.items():
+                self.info[f"{key}"] = value
 
-
-        else:
-            if self.info['result_bg']['method'] is not None and self.info['result_bg']['final_params'] is not None:
-                method = self.info['result_bg']['method']
-                params = self.info['result_bg']['final_params']
-                print(f"Using previously optimized background subtraction method: {method} with params: {params}")
-                for key, value in params.items():
-                    self.info[f"{key}"] = value
-                self.info['bgsub'] = method
-                if 'selected_configuration_name' not in self.info['result_bg']:
-                    self.info['result_bg']['selected_configuration_name'] = '-'
-            else:
-                self.info['result_bg']['optimized'] = False
-                self.info['result_bg']['reused_cache'] = False
-                self.info['result_bg']['method'] = self.info['bgsub']
+        elif self.info['result_bg']['method'] is not None and self.info['result_bg']['final_params'] is not None:
+            method = self.info['result_bg']['method']
+            params = self.info['result_bg']['final_params']
+            print(f"Using previously used background subtraction method: {method} with params: {params}")
+            for key, value in params.items():
+                self.info[f"{key}"] = value
+            self.info['bgsub'] = method
+            if 'selected_configuration_name' not in self.info['result_bg']:
                 self.info['result_bg']['selected_configuration_name'] = '-'
+        else:
+            self.info['result_bg']['optimized'] = False
+            self.info['result_bg']['method'] = self.info['bgsub']
+            self.info['result_bg']['selected_configuration_name'] = '-'
 
-                params_keys = list(method_params[self.info['bgsub']].keys())
-                params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
+            params_keys = list(method_params[self.info['bgsub']].keys())
+            params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
 
-                self.info['result_bg']['final_params'] = params
+            self.info['result_bg']['final_params'] = params
 
-
-        self.parent.statusPrint("Background subtraction is being processed...")
+        if best_method is not None or self.info['result_bg']['method'] is not None:
+            self.parent.statusPrint("Background subtraction is being processed...")
         self.applyBackgroundSubtraction()
         self.applyBackgroundSubtractionSynthetic()
-
 
 
     def applyBackgroundSubtraction(self):
@@ -1557,10 +1533,8 @@ class QuadrantFolder:
         
         result = np.array(avg_fold_with_syn - bg_syn, dtype=np.float32)
         if method != 'None':
-            # result = np.array(avg_fold_with_syn - bg_syn, dtype=np.float32)
             result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
-        # else:
-        #     result = avg_fold_with_syn
+
         self.info["bgsubimg_syn"] = result
         self.imgCache['BgFold_syn'] = copy.copy(bg_syn)
 
@@ -1594,10 +1568,10 @@ class QuadrantFolder:
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)
         result[np.isnan(result)] = 0.
-        if 'roi_rad' in self.info:
-            center = result.shape[0]/2, result.shape[1]/2
-            rad = self.info['roi_rad']
-            result = result[max(int(center[1]-rad), 0):min(int(center[1]+rad), result.shape[1]), max(int(center[0]-rad), 0):min(int(center[0]+rad), result.shape[0])]
+        # if 'roi_rad' in self.info:
+        #     center = result.shape[0]/2, result.shape[1]/2
+        #     rad = self.info['roi_rad']
+        #     result = result[max(int(center[1]-rad), 0):min(int(center[1]+rad), result.shape[1]), max(int(center[0]-rad), 0):min(int(center[0]+rad), result.shape[0])]
 
         scale = 1 if 'scale' not in self.info else self.info['scale']
 

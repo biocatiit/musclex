@@ -445,7 +445,7 @@ class BackgroundSubtractionDialog(QDialog):
 
         self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
 
-        self.processFolderWithSelections = QPushButton("Process Folder with Current Selections")
+        self.processFolderWithSelections = QPushButton("Process Current Folder")
         self.processFolderWithSelections.setStyleSheet("QPushButton { color: #ededed; background-color: #af6207}") #  2e7d32
 
         self.manualGroup = QGroupBox("Manual Processing")

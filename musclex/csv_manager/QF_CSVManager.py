@@ -27,7 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 from os import makedirs
 from os.path import exists
-import hashlib
+# import hashlib
 import pandas as pd
 try:
     from ..utils.file_manager import fullPath
@@ -51,8 +51,8 @@ class QF_CSVManager:
         self.colnames = [
             'Filename', 'centerX', 'centerY', 'rotationAngle',
             'backgroundMethod', 'backgroundConfigName',
-            'parameters', 'optimized', 'reuseCache', 'downsampled',
-            'loss', 'bgSum', 'hash', 'comment'
+            'parameters', 'downsampled',
+            'loss', 'bgSum'#, 'hash', 'comment'
         ]
         self.loadFailedCases(dir_path)
         self.loadSummary()
@@ -119,17 +119,15 @@ class QF_CSVManager:
             data['centerX'] = center[0]
             data['centerY'] = center[1]
             data['rotationAngle'] = quadFold.rotation if quadFold.rotation is not None else 0.0
-            try:
-                data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
-            except:
-                print('Hash not generated, array not C-contiguous')
-                data['hash'] = '-'
+            # try:
+            #     data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
+            # except:
+            #     print('Hash not generated, array not C-contiguous')
+            #     data['hash'] = '-'
 
             data['backgroundMethod'] = quadFold.info['result_bg'].get('method', '-')
             data['backgroundConfigName'] = quadFold.info['result_bg'].get('selected_configuration_name', '-')
             data['parameters'] = quadFold.info['result_bg'].get('final_params', '-')
-            data['optimized'] = quadFold.info['result_bg'].get('optimized', '-')
-            data['reuseCache'] = quadFold.info['result_bg'].get('reused_cache', '-')
             data['downsampled'] = quadFold.info['result_bg'].get('downsampled', '-')
             data['loss'] = quadFold.info['result_bg'].get('loss', '-')
             data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
