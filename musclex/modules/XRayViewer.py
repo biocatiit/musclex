@@ -52,8 +52,6 @@ class XRayViewer:
         self.hist = []
         self.dl, self.db = 0, 0
 
-        self.info = {}
-
         # Auto-detect quadrant-folded state. GUI may override via set_folded().
         self.is_folded = ImageData.detect_folded(img_path, img_name)
 
@@ -61,8 +59,6 @@ class XRayViewer:
         """Toggle quadrant-folded state. Forces center recomputation on next findCenter()."""
         self.is_folded = bool(is_folded)
         # Drop any cached center so findCenter() picks the correct one
-        if 'center' in self.info:
-            del self.info['center']
         self.orig_image_center = None
 
     def _geometric_center(self):
@@ -71,7 +67,10 @@ class XRayViewer:
 
     def getRotatedImage(self, angle, center):
         """
-        Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
+        Get rotated image by ``angle`` (degrees) about ``center``, using the
+        original input image as the source. The output is cropped back to the
+        original image shape and ``self.dl``/``self.db`` record the crop offsets
+        so caller-supplied coordinates can be remapped if needed.
         """
         img = np.array(self.orig_img, dtype="float32")
         b, l = img.shape
@@ -86,17 +85,15 @@ class XRayViewer:
         return final_rotImg
 
     def findCenter(self):
-        if 'center' in self.info:
+        if self.orig_image_center is not None:
             return
         # Quadrant-folded images are symmetric around the geometric center by
         # construction; auto-detection via getCenter() is unnecessary and less
         # accurate than just using the geometric center.
         if self.is_folded:
-            self.info['center'] = self._geometric_center()
-            self.orig_image_center = self.info['center']
-            print("Folded image detected, using geometric center = " + str(self.info['center']))
+            self.orig_image_center = self._geometric_center()
+            print("Folded image detected, using geometric center = " + str(self.orig_image_center))
             return
         print("Center is being calculated ... ")
-        self.orig_image_center = getCenter(self.orig_img)
-        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
-        print("Done. Center = "+str(self.info['center']))
+        self.orig_img, self.orig_image_center = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
+        print("Done. Center = " + str(self.orig_image_center))

@@ -442,8 +442,8 @@ class XRayViewerGUI(QMainWindow):
             return
         
         # Display coordinates with calibrated d-spacings (X, Y, R) in nm
-        if 'center' in self.xrayViewer.info and self.calSettings and 'scale' in self.calSettings:
-            center = self.xrayViewer.info['center']
+        if self.xrayViewer.orig_image_center is not None and self.calSettings and 'scale' in self.calSettings:
+            center = self.xrayViewer.orig_image_center
             q_x, q_y, q_R, _ = qFromCenter([x, y], center, self.calSettings['scale'])
             r_px = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
 
@@ -754,7 +754,7 @@ class XRayViewerGUI(QMainWindow):
                 # Always save calibrated center if available
                 # Whether to USE it is controlled by Persistent Center in main GUI
                 if 'center' in self.calSettings:
-                    self.xrayViewer.info['center'] = self.calSettings['center']
+                    self.xrayViewer.orig_image_center = self.calSettings['center']
                 self.xrayViewer.findCenter()
                 return True
         return False
