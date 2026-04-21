@@ -31,7 +31,7 @@ import sys as _sys
 import subprocess as _subprocess
 
 def _get_version():
-    _base = '1.29.0-beta.1'
+    _base = '1.29.0-beta.2'
     try:
         _branch = _subprocess.check_output(
             ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
