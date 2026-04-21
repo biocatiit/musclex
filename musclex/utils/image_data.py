@@ -145,7 +145,54 @@ class ImageData:
         self._load_auto_cache()
     
     # ==================== Factory Methods ====================
-    
+
+    @staticmethod
+    def detect_folded(img_path, img_name):
+        """Detect whether an image is quadrant-folded.
+
+        Detection methods (in order):
+            1. Filename contains 'folded'
+            2. TIFF ImageDescription metadata: JSON [quadrant_folded, ...]
+
+        Args:
+            img_path: directory containing the image (str or Path), may be None
+            img_name: image filename (str), may be None
+
+        Returns:
+            bool: True if image is detected as quadrant-folded.
+        """
+        import json
+        if not img_name:
+            return False
+        if 'folded' in img_name.lower():
+            print(f"Detected quadrant folded image from filename: {img_name}")
+            return True
+        if not img_name.lower().endswith(('.tif', '.tiff')):
+            return False
+        try:
+            import tifffile
+            if img_path is None:
+                full_path = Path(img_name)
+            else:
+                img_path_obj = img_path if isinstance(img_path, Path) else Path(img_path)
+                full_path = img_path_obj / img_name
+            with tifffile.TiffFile(str(full_path)) as tif:
+                if tif.pages and "ImageDescription" in tif.pages[0].tags:
+                    metadata = tif.pages[0].tags["ImageDescription"].value
+                    try:
+                        # Try to parse as JSON: [quadrant_folded, initialImgDim]
+                        parsed = json.loads(metadata)
+                        if isinstance(parsed, (list, tuple)) and len(parsed) >= 2 and bool(parsed[0]):
+                            print(f"Detected quadrant folded image from TIFF metadata: {img_name}")
+                            return True
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        # Metadata is not in expected format, not quadrant folded
+                        pass
+        except Exception as e:
+            # If can't read metadata, assume not quadrant folded
+            print(f"Could not read TIFF metadata from {img_name}: {e}")
+        return False
+
     @classmethod
     def from_settings_panel(cls, img, img_path, img_name, settings_panel):
         """
@@ -173,9 +220,6 @@ class ImageData:
                 img, self.file_manager.dir_path, img_name, self.workspace
             )
         """
-        import json
-        import tifffile
-        
         # Get manual center/rotation from panel
         manual_center, manual_rotation = settings_panel.get_manual_settings(img_name)
         
@@ -184,36 +228,10 @@ class ImageData:
         
         # Get orientation model (if available, default to 0)
         orientation_model = getattr(settings_panel, '_orientation_model', 0)
-        
+
         # Auto-detect quadrant folded (PT specific, QF won't use this)
-        quadrant_folded = False
-        
-        # Method 1: Check filename for 'folded'
-        if 'folded' in img_name.lower():
-            quadrant_folded = True
-            print(f"Detected quadrant folded image from filename: {img_name}")
-        # Method 2: Parse TIFF metadata (only if filename doesn't contain 'folded')
-        elif img_name.endswith(('.tif', '.tiff')):
-            try:
-                img_path_obj = Path(img_path) if not isinstance(img_path, Path) else img_path
-                full_path = img_path_obj / img_name
-                with tifffile.TiffFile(str(full_path)) as tif:
-                    if tif.pages and "ImageDescription" in tif.pages[0].tags:
-                        metadata = tif.pages[0].tags["ImageDescription"].value
-                        try:
-                            # Try to parse as JSON: [quadrant_folded, initialImgDim]
-                            parsed = json.loads(metadata)
-                            if isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
-                                quadrant_folded = bool(parsed[0])
-                                if quadrant_folded:
-                                    print(f"Detected quadrant folded image from TIFF metadata: {img_name}")
-                        except (json.JSONDecodeError, ValueError, TypeError):
-                            # Metadata is not in expected format, not quadrant folded
-                            pass
-            except Exception as e:
-                # If can't read metadata, assume not quadrant folded
-                print(f"Could not read TIFF metadata from {img_name}: {e}")
-        
+        quadrant_folded = cls.detect_folded(img_path, img_name)
+
         # Get inpaint flag from panel (if available)
         inpaint = getattr(settings_panel, 'inpaint_enabled', False)
         

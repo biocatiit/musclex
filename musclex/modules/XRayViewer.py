@@ -27,19 +27,25 @@ authorization from Illinois Institute of Technology.
 """
 
 import numpy as np
+
 try:
     from ..utils.image_processor import *
-except: # for coverage
+    from ..utils.image_data import ImageData
+except:  # for coverage
     from utils.image_processor import *
+    from utils.image_data import ImageData
+
 
 class XRayViewer:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img):
+    def __init__(self, img, img_path=None, img_name=None):
         """
         Initialize viewer with an already-loaded image array.
         :param img: numpy ndarray image data
+        :param img_path: directory containing the image (for TIFF metadata lookup)
+        :param img_name: image filename (used to detect folded images)
         """
         self.orig_img = np.asarray(img).astype("float32")
         self.orig_image_center = None
@@ -47,6 +53,21 @@ class XRayViewer:
         self.dl, self.db = 0, 0
 
         self.info = {}
+
+        # Auto-detect quadrant-folded state. GUI may override via set_folded().
+        self.is_folded = ImageData.detect_folded(img_path, img_name)
+
+    def set_folded(self, is_folded):
+        """Toggle quadrant-folded state. Forces center recomputation on next findCenter()."""
+        self.is_folded = bool(is_folded)
+        # Drop any cached center so findCenter() picks the correct one
+        if 'center' in self.info:
+            del self.info['center']
+        self.orig_image_center = None
+
+    def _geometric_center(self):
+        h, w = self.orig_img.shape
+        return (w / 2.0 - 0.5, h / 2.0 - 0.5)
 
     def getRotatedImage(self, angle, center):
         """
@@ -66,6 +87,14 @@ class XRayViewer:
 
     def findCenter(self):
         if 'center' in self.info:
+            return
+        # Quadrant-folded images are symmetric around the geometric center by
+        # construction; auto-detection via getCenter() is unnecessary and less
+        # accurate than just using the geometric center.
+        if self.is_folded:
+            self.info['center'] = self._geometric_center()
+            self.orig_image_center = self.info['center']
+            print("Folded image detected, using geometric center = " + str(self.info['center']))
             return
         print("Center is being calculated ... ")
         self.orig_image_center = getCenter(self.orig_img)

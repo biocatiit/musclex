@@ -151,7 +151,17 @@ class XRayViewerGUI(QMainWindow):
         
         # Add navigator (includes image viewer + right panel with display options + nav controls)
         self.imageTabLayout.addWidget(self.navigator, 1)
-        
+
+        # Quadrant Folded checkbox - placed directly under the display options panel.
+        # Auto-detected from filename/TIFF metadata; user can override.
+        self.qfChkBx = QCheckBox("Quadrant Folded?")
+        self.qfChkBx.setToolTip(
+            "Check if this image is a quadrant-folded image.\n"
+            "Folded images are symmetric around the geometric center, so the\n"
+            "geometric center is used directly instead of auto-detecting it."
+        )
+        self.navigator.right_panel.add_widget(self.qfChkBx)
+
         # Create custom settings group for XRayViewer features
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
@@ -319,6 +329,7 @@ class XRayViewerGUI(QMainWindow):
         self.setSliceBox.clicked.connect(self.setSliceBoxChecked)
         self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
         self.inpaintChkBx.stateChanged.connect(self._reprocess_with_inpaint)
+        self.qfChkBx.stateChanged.connect(self._on_qf_toggled)
 
         ##### Graph tab - Keep matplotlib events (different canvas) #####
         self.fittingFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
@@ -375,9 +386,10 @@ class XRayViewerGUI(QMainWindow):
             csv_dir = self.dir_context.output_dir if self.dir_context else dir_path
             self.csv_manager = XV_CSVManager(csv_dir)
         
-        # Create XRayViewer
+        # Create XRayViewer (pass img name so it can auto-detect quadrant-folded)
+        img_name = os.path.basename(filename) if filename else None
         try:
-            self.xrayViewer = XRayViewer(img)
+            self.xrayViewer = XRayViewer(img, img_path=dir_path, img_name=img_name)
         except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error Opening File: " + str(filename))
@@ -392,7 +404,11 @@ class XRayViewerGUI(QMainWindow):
             self.statusPrint("Inpainting...")
             self.xrayViewer.orig_img = inpaint_img(self.xrayViewer.orig_img)
             self.statusPrint("")
-        
+
+        # Sync Quadrant Folded checkbox to auto-detected state, then compute center
+        self._sync_qf_checkbox()
+        self.xrayViewer.findCenter()
+
         # Always display the (possibly inpainted) image
         self.navigator.image_viewer.display_image(self.xrayViewer.orig_img)
         
@@ -684,6 +700,32 @@ class XRayViewerGUI(QMainWindow):
                 self.file_manager.current_image_name,
                 self.file_manager.dir_path
             )
+
+    def _on_qf_toggled(self, _state):
+        """Handle Quadrant Folded checkbox toggle.
+
+        Updates the XRayViewer's folded state and recomputes the center so the
+        d-spacing display in the status bar reflects the new center immediately.
+        """
+        if self.xrayViewer is None:
+            return
+        is_checked = self.qfChkBx.isChecked()
+        self.xrayViewer.set_folded(is_checked)
+        # Recompute center now (uses geometric center if folded, else getCenter)
+        self.xrayViewer.findCenter()
+        # If calibration is active, also override the calibration-supplied center
+        # so the status bar d-spacing uses the same point.
+        if self.calSettings is not None and is_checked:
+            # Folded image: prefer geometric center over any stale calibration center
+            self.calSettings.pop('center', None)
+
+    def _sync_qf_checkbox(self):
+        """Sync the QF checkbox to xrayViewer.is_folded without triggering the toggle handler."""
+        if self.xrayViewer is None:
+            return
+        self.qfChkBx.blockSignals(True)
+        self.qfChkBx.setChecked(self.xrayViewer.is_folded)
+        self.qfChkBx.blockSignals(False)
 
     # ========== End Navigator Signal Handlers ==========
 
