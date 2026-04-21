@@ -89,18 +89,16 @@ def _check_pyside6_environment():
             return
         title = 'MuscleX: PySide6 environment mismatch'
         message = (
-            "PySide6 environment mismatch detected.\n\n"
-            f"PySide6 will be loaded from:\n  {ps6_path}\n\n"
-            f"Active Python prefix:\n  {py_prefix}\n\n"
-            "These differ, which causes Qt ABI mismatch and segfaults "
-            "(typically when typing in spinboxes or pressing Ctrl / numpad keys).\n\n"
-            "How to fix (pick one):\n"
-            "  1) Remove the stray pip-installed PySide6 from your user site:\n"
-            "       pip uninstall PySide6 PySide6-Essentials PySide6-Addons shiboken6\n"
-            "     (run this with no venv/conda env active)\n\n"
-            "  2) Or set PYTHONNOUSERSITE=1 before running musclex\n"
-            "     to ignore ~/.local site-packages.\n\n"
-            "To bypass this check (not recommended), set MUSCLEX_SKIP_ENV_CHECK=1."
+            "PySide6 environment mismatch (will cause segfaults).\n\n"
+            f"Loaded from: {ps6_path}\n"
+            f"Expected in: {py_prefix}\n\n"
+            "Pick one to fix:\n"
+            "  1. Delete the conflicting local PySide6 (NOT the system one):\n"
+            f"       rm -rf {_os.path.dirname(ps6_path)}/PySide6*\n"
+            f"       rm -rf {_os.path.dirname(ps6_path)}/shiboken6*\n\n"
+            "  2. Set environment variable before running musclex:\n"
+            "       export PYTHONNOUSERSITE=1\n\n"
+            "  3. Don't use conda — use a venv or pip install instead."
         )
         _sys.stderr.write('\n[musclex] FATAL: ' + message + '\n')
         _show_fatal_dialog(title, message)
