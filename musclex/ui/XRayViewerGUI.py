@@ -1051,8 +1051,8 @@ class XRayViewerGUI(QMainWindow):
         func = self.function
         if func[0] == "dist" and len(func) > 2:
             if len(func) == 3:
-                dist_px = math.dist(func[1], func[2])
-                self.inf_text = "Distance 1: " + self._formatMeasuredDistance(dist_px)
+                dist = math.dist(func[1], func[2])
+                self.inf_text = "Distance 1: " + str(round(dist,2)) + " pixels"
 
                 self.measureDistanceBox = QMessageBox()
                 self.measureDistanceBox.setWindowModality(Qt.NonModal)  # Ensure it's non-modal
@@ -1064,25 +1064,10 @@ class XRayViewerGUI(QMainWindow):
                 self.measureDistanceBox.show()
 
             elif len(func) % 2 != 0:
-                dist_px = math.dist(func[-1], func[-2])
-                idx = int((len(func) - 1) / 2)
-                self.inf_text += "\nDistance " + str(idx) + ": " + self._formatMeasuredDistance(dist_px)
+                dist = math.dist
+                dist = math.dist(func[-1], func[-2])
+                self.inf_text += "\nDistance " + str(int((len(func) - 1) / 2)) + ": " + str(round(dist,2)) + " pixels"
                 self.measureDistanceBox.setInformativeText(self.inf_text)
-
-    def _formatMeasuredDistance(self, dist_px):
-        """
-        Format a measured pixel distance, appending calibrated equivalents when
-        calibration is available:
-          • Δq  = dist_px / scale   [nm⁻¹]   (separation in reciprocal space)
-          • d   = scale / dist_px   [nm]     (real-space d-spacing)
-        """
-        text = f"{dist_px:.2f} pixels"
-        scale = self.calSettings.get('scale') if self.calSettings else None
-        if scale and dist_px > 1e-6:
-            dq = dist_px / scale
-            d_nm = scale / dist_px
-            text += f"  =  Δq {dq:.4f} nm\u207b\u00b9  =  d {d_nm:.4f} nm"
-        return text
 
     
     def measureDistChecked2(self):
