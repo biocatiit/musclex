@@ -152,6 +152,15 @@ class XRayViewerGUI(QMainWindow):
         # Add navigator (includes image viewer + right panel with display options + nav controls)
         self.imageTabLayout.addWidget(self.navigator, 1)
 
+        # Center checkbox - shown alongside the other display toggles in the
+        # display options panel (mirrors the Projection Traces UI).
+        self.centerChkBx = QCheckBox("Center")
+        self.centerChkBx.setChecked(False)
+        self.centerChkBx.setToolTip(
+            "Show a marker at the detected (or calibrated) beam center."
+        )
+        self.navigator.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
+
         # Quadrant Folded checkbox - placed directly under the display options panel.
         # Auto-detected from filename/TIFF metadata; user can override.
         self.qfChkBx = QCheckBox("Quadrant Folded?")
@@ -330,6 +339,7 @@ class XRayViewerGUI(QMainWindow):
         self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
         self.inpaintChkBx.stateChanged.connect(self._reprocess_with_inpaint)
         self.qfChkBx.stateChanged.connect(self._on_qf_toggled)
+        self.centerChkBx.stateChanged.connect(self._draw_center_overlay)
 
         ##### Graph tab - Keep matplotlib events (different canvas) #####
         self.fittingFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
@@ -411,6 +421,8 @@ class XRayViewerGUI(QMainWindow):
 
         # Always display the (possibly inpainted) image
         self.navigator.image_viewer.display_image(self.xrayViewer.orig_img)
+        # Re-add the center marker after display_image's cla() wipes the axes
+        self._draw_center_overlay()
         
         # Update status bar with image info
         original_image = self.xrayViewer.orig_img
@@ -508,7 +520,8 @@ class XRayViewerGUI(QMainWindow):
                 for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
                 for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches[i].remove()
+                    if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                        ax.patches[i].remove()
                 self.imageCanvas.draw_idle()
                 self.setSlice.setChecked(False)
                 self.setSliceChecked()
@@ -595,7 +608,8 @@ class XRayViewerGUI(QMainWindow):
                 for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
                 for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches[i].remove()
+                    if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                        ax.patches[i].remove()
                 self.imageCanvas.draw_idle()
                 self.setSliceBox.setChecked(False)
                 self.setSliceBoxChecked()
@@ -718,6 +732,8 @@ class XRayViewerGUI(QMainWindow):
         if self.calSettings is not None and is_checked:
             # Folded image: prefer geometric center over any stale calibration center
             self.calSettings.pop('center', None)
+        # Refresh the on-image center marker (if shown) so it reflects the new center
+        self._draw_center_overlay()
 
     def _sync_qf_checkbox(self):
         """Sync the QF checkbox to xrayViewer.is_folded without triggering the toggle handler."""
@@ -726,6 +742,32 @@ class XRayViewerGUI(QMainWindow):
         self.qfChkBx.blockSignals(True)
         self.qfChkBx.setChecked(self.xrayViewer.is_folded)
         self.qfChkBx.blockSignals(False)
+
+    # Label used to identify our center-marker patch so other tool drawings
+    # (slice/dist preview) can leave it untouched when they clear their own
+    # patches off the image axes.
+    _CENTER_MARKER_LABEL = "XV Center"
+
+    def _draw_center_overlay(self):
+        """Show or hide a marker at the beam center on the image axes.
+
+        Mirrors the behavior of ProjectionTraces' Center checkbox: a small
+        green disk drawn at ``xrayViewer.orig_image_center``. Idempotent and
+        safe to call any time the image is redrawn.
+        """
+        if self.xrayViewer is None or self.imageAxes is None:
+            return
+        ax = self.imageAxes
+        for patch in list(ax.patches):
+            if patch.get_label() == self._CENTER_MARKER_LABEL:
+                patch.remove()
+        if self.centerChkBx.isChecked() and self.xrayViewer.orig_image_center is not None:
+            circle = plt.Circle(
+                self.xrayViewer.orig_image_center, 10, color='g',
+                label=self._CENTER_MARKER_LABEL,
+            )
+            ax.add_patch(circle)
+        self.imageCanvas.draw_idle()
 
     # ========== End Navigator Signal Handlers ==========
 
@@ -1065,7 +1107,8 @@ class XRayViewerGUI(QMainWindow):
         for i in range(len(ax.lines)-1,-1,-1):
             ax.lines[i].remove()
         for i in range(len(ax.patches)-1,-1,-1):
-            ax.patches[i].remove()
+            if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
         if self.measureDist.isChecked():
             self.imgPathOnStatusBar.setText(
@@ -1081,7 +1124,8 @@ class XRayViewerGUI(QMainWindow):
         for i in range(len(ax.lines)-1, -1, -1):
             ax.lines[i].remove()
         for i in range(len(ax.patches)-1, -1, -1):
-            ax.patches[i].remove()
+            if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                ax.patches[i].remove()
         for i in range(len(ax.artists)-1, -1, -1):
             ax.artists[i].remove()
         for i in range(len(ax.texts)-1, -1, -1):
@@ -1139,7 +1183,8 @@ class XRayViewerGUI(QMainWindow):
         for i in range(len(ax.lines)-1,-1,-1):
             ax.lines[i].remove()
         for i in range(len(ax.patches)-1,-1,-1):
-            ax.patches[i].remove()
+            if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
         if self.setSlice.isChecked():
             self.imgPathOnStatusBar.setText(
@@ -1182,7 +1227,8 @@ class XRayViewerGUI(QMainWindow):
         for i in range(len(ax.lines)-1,-1,-1):
             ax.lines[i].remove()
         for i in range(len(ax.patches)-1,-1,-1):
-            ax.patches[i].remove()
+            if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
         if self.setSliceBox.isChecked():
             self.imgPathOnStatusBar.setText(
