@@ -317,6 +317,16 @@ class QuadrantFolder:
                 flags['orientation_model'] = 0
             else:
                 del flags['orientation_model']
+
+        # Transient keys (ROI) are fully reconstructed from flags every
+        # processing pass. info.update() only adds/overwrites, so without
+        # stripping first a stale value (e.g. from an old on-disk cache,
+        # or from a previous pass within this QF instance) would linger
+        # and silently keep cropping.
+        old_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
+        for key in self._NON_CACHED_KEYS:
+            self.info.pop(key, None)
+
         self.info.update(flags)
         # Headless mode (musclex/headless/QuadrantFoldingh.py) loads
         # qfsettings.json and forwards every key as a flag. The documented
@@ -327,6 +337,17 @@ class QuadrantFolder:
             self.info['roi_w'] = self.info['fixed_roi_w']
         if 'fixed_roi_h' in self.info:
             self.info['roi_h'] = self.info['fixed_roi_h']
+
+        # ROI feeds into background subtraction (only ROI pixels are used
+        # to fit the background model), so any cached intermediate that
+        # depends on it must be invalidated when the resolved ROI changes
+        # -- otherwise unset/resize ROI would have no visible effect.
+        new_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
+        if old_roi != new_roi:
+            for key in ('bgimg1', 'bgimg2'):
+                self.deleteFromDict(self.info, key)
+            for key in ('BgSubFold', 'resultImg'):
+                self.deleteFromDict(self.imgCache, key)
 
     def initParams(self):
         """

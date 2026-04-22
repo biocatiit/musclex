@@ -3456,6 +3456,14 @@ class QuadrantFoldingGUI(BaseGUI):
                 sb.setValue(0)
                 del blocker
 
+        # Reset viewer zoom state so the new image isn't shown stuck at the
+        # previous image's pan/zoom rectangle (which can look like the
+        # display area "stayed small" after switching).
+        self.result_zoom = None
+        self.default_img_zoom = None
+        self.default_result_img_zoom = None
+        self.zoomOutClicked = True
+
         # Restore cache state if available
         if hasattr(self.quadFold, 'info'):
             previnfo = self.quadFold.info
