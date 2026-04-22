@@ -127,12 +127,11 @@ class QuadrantFolder:
         self.start_img = copy.copy(self.orig_img)
 
     # Keys that are intentionally excluded from the persistent disk cache.
-    # ROI is treated as a transient per-session selection: dragging or
-    # editing it should not silently affect future sessions or other
-    # images. If the user wants the same ROI across images, they enable
-    # "Persist ROI size" in the GUI which pushes the size as a flag at
-    # processing time.
-    _NON_CACHED_KEYS = ('roi_w', 'roi_h', 'roi_rad')
+    # ROI is a transient per-session selection: dragging or editing it
+    # should not silently affect future sessions or other images. If the
+    # user wants the same ROI across images, they enable "Persist ROI
+    # size" in the GUI which pushes the size as a flag at processing time.
+    _NON_CACHED_KEYS = ('roi_w', 'roi_h')
 
     def cacheInfo(self):
         """
@@ -165,11 +164,6 @@ class QuadrantFolder:
                 info = pickle.load(c)
             if info is not None:
                 if info['program_version'] == self.version:
-                    # ROI is intentionally not persisted (see _NON_CACHED_KEYS).
-                    # Strip any legacy ROI keys from older cache files so they
-                    # don't silently re-apply to this session.
-                    for key in self._NON_CACHED_KEYS:
-                        info.pop(key, None)
                     return info
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
@@ -324,21 +318,15 @@ class QuadrantFolder:
             else:
                 del flags['orientation_model']
         self.info.update(flags)
-        # Promote fixed ROI size to active ROI size, supporting both the
-        # legacy single-radius form and the new independent width/height form.
+        # Headless mode (musclex/headless/QuadrantFoldingh.py) loads
+        # qfsettings.json and forwards every key as a flag. The documented
+        # keys for ROI are fixed_roi_w / fixed_roi_h; promote them to
+        # roi_w / roi_h so the rest of the pipeline only deals with one
+        # set of names.
         if 'fixed_roi_w' in self.info:
             self.info['roi_w'] = self.info['fixed_roi_w']
         if 'fixed_roi_h' in self.info:
             self.info['roi_h'] = self.info['fixed_roi_h']
-        if 'fixed_roi_rad' in self.info and 'roi_w' not in self.info and 'roi_h' not in self.info:
-            self.info['roi_rad'] = self.info['fixed_roi_rad']
-        # Backwards compatibility: translate a legacy roi_rad (half-side) to
-        # explicit width/height (full pixel extents) so downstream code can
-        # rely on the new keys exclusively.
-        if 'roi_rad' in self.info and ('roi_w' not in self.info or 'roi_h' not in self.info):
-            full = int(self.info['roi_rad']) * 2
-            self.info.setdefault('roi_w', full)
-            self.info.setdefault('roi_h', full)
 
     def initParams(self):
         """
