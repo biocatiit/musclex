@@ -515,13 +515,25 @@ class QuadrantFoldingGUI(BaseGUI):
         self.setFitRoi.setCheckable(True)
         self.unsetRoi = QPushButton("Unset ROI")
         self.checkableButtons.append(self.setFitRoi)
-        self.fixedRoiChkBx = QCheckBox("Fixed ROI Radius:")
+        self.fixedRoiChkBx = QCheckBox("Persist ROI size")
+        self.fixedRoiChkBx.setToolTip(
+            "When enabled, the current ROI width/height is reused for every "
+            "image you process. When disabled, each image keeps its own ROI.")
         self.fixedRoiChkBx.setChecked(False)
-        self.fixedRoi = QSpinBox()
-        self.fixedRoi.setObjectName('fixedRoi')
-        self.fixedRoi.setKeyboardTracking(False)
-        self.fixedRoi.setRange(1, 10000)
-        self.fixedRoi.setEnabled(False)
+        # Width/Height of 0 is the "no ROI" sentinel: getFlags() only pushes
+        # roi_w/h flags when both values are > 0.
+        self.fixedRoiW = QSpinBox()
+        self.fixedRoiW.setObjectName('fixedRoiW')
+        self.fixedRoiW.setKeyboardTracking(False)
+        self.fixedRoiW.setRange(0, 10000)
+        self.fixedRoiW.setPrefix('W:')
+        self.fixedRoiW.setSpecialValueText('W:off')
+        self.fixedRoiH = QSpinBox()
+        self.fixedRoiH.setObjectName('fixedRoiH')
+        self.fixedRoiH.setKeyboardTracking(False)
+        self.fixedRoiH.setRange(0, 10000)
+        self.fixedRoiH.setPrefix('H:')
+        self.fixedRoiH.setSpecialValueText('H:off')
 
         # ===== Background Choice Dropdowns =====
         self.allBGChoices = ['None', '2D Convexhull', 'Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', 'Roving Window']
@@ -787,7 +799,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgLayout.addWidget(self.setFitRoi, 0, 0, 1, 3)
         self.bgLayout.addWidget(self.unsetRoi, 0, 3, 1, 1)
         self.bgLayout.addWidget(self.fixedRoiChkBx, 1, 0, 1, 2)
-        self.bgLayout.addWidget(self.fixedRoi, 1, 2, 1, 2)
+        self.bgLayout.addWidget(self.fixedRoiW, 1, 2, 1, 1)
+        self.bgLayout.addWidget(self.fixedRoiH, 1, 3, 1, 1)
         self.bgLayout.addWidget(QLabel("Background Subtraction (In) :"), 2, 0, 1, 2)
         self.bgLayout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
 
@@ -1110,7 +1123,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
         self.unsetRoi.clicked.connect(self.unsetRoiClicked)
         self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
-        self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
+        self.fixedRoiW.editingFinished.connect(self.fixedRoiChanged)
+        self.fixedRoiH.editingFinished.connect(self.fixedRoiChanged)
         self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
         self.bgChoiceOut.currentIndexChanged.connect(self.bgChoiceOutChanged)
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
@@ -1191,13 +1205,13 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def fixedRoiChecked(self):
         """
-        Triggered when fixed ROI Radius is checked or unchecked
+        Triggered when "Persist ROI size" is checked or unchecked.
+
+        Pure UI state -- nothing is written to info here. Whether the
+        current spinbox values are propagated to subsequent images is
+        decided at processing time by getFlags().
         """
-        self.fixedRoi.setEnabled(self.fixedRoiChkBx.isChecked())
-        if not self.fixedRoiChkBx.isChecked() and self.quadFold is not None:
-            if 'fixed_roi_rad' in self.quadFold.info:
-                del self.quadFold.info['fixed_roi_rad']
-            self.processImage()
+        return
 
     def toggleCircleRmin(self):
         if self.showRminChkBx.isChecked():
@@ -1291,12 +1305,28 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def fixedRoiChanged(self):
         """
-        Triggered when fixed ROI Radius spinbox value is changed
+        Triggered when an ROI width/height spinbox value is edited.
+
+        The spinbox is the source of truth for ROI; getFlags() reads it at
+        processing time. We only need to kick off a reprocess so the new
+        size takes effect.
         """
-        if self.quadFold is not None and not self.uiUpdating:
-            self.quadFold.info['fixed_roi_rad'] = self.fixedRoi.value()
-            self.result_zoom = None
-            self.processImage()
+        if self.quadFold is None or self.uiUpdating:
+            return
+        self.result_zoom = None
+        self.zoomOutClicked = True
+        self.default_result_img_zoom = None
+        self.processImage()
+
+    def _updateRoiSpinboxesLive(self, w, h):
+        """
+        Push live ROI width/height values into the spinboxes without firing
+        signals that would trigger reprocessing. Used during mouse drag.
+        """
+        for sb, val in ((self.fixedRoiW, w), (self.fixedRoiH, h)):
+            blocker = QSignalBlocker(sb)
+            sb.setValue(max(sb.minimum(), min(int(round(val)), sb.maximum())))
+            del blocker
 
 
     def keyPressEvent(self, event):
@@ -1399,12 +1429,11 @@ class QuadrantFoldingGUI(BaseGUI):
         Triggered when the unset roi button is clicked
         """
         if self.quadFold is not None:
-            self.fixedRoi.setEnabled(False)
             self.fixedRoiChkBx.setChecked(False)
-            if 'fixed_roi_rad' in self.quadFold.info:
-                del self.quadFold.info['fixed_roi_rad']
-            if 'roi_rad' in self.quadFold.info:
-                del self.quadFold.info['roi_rad']
+            for sb in (self.fixedRoiW, self.fixedRoiH):
+                blocker = QSignalBlocker(sb)
+                sb.setValue(0)
+                del blocker
             self.result_zoom = None
             self.zoomOutClicked = True
             self.default_result_img_zoom = None
@@ -1670,14 +1699,17 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.setRminButton.setChecked(False)
 
             elif func[0] == "fit_region":
-                # both width and height selected
-                center = self.quadFold.imgCache['resultImg'].shape[0] / 2, self.quadFold.imgCache['resultImg'].shape[1] / 2
-                radius = max(abs(x-center[0]), abs(y-center[1]))
-                print("Selected Fit Reg Radius is ", radius)
+                result_shape = self.quadFold.imgCache['resultImg'].shape
+                cx = result_shape[1] / 2
+                cy = result_shape[0] / 2
+                w = max(1, int(round(2 * abs(x - cx))))
+                h = max(1, int(round(2 * abs(y - cy))))
+                print("Selected Fit Region size is W=", w, " H=", h)
 
-                self.quadFold.info['roi_rad'] = radius
-                self.fixedRoi.setValue(int(radius))
-                print("New Image shape ", self.quadFold.imgCache['resultImg'].shape)
+                # Spinboxes are the canonical ROI state -- write here, then
+                # let processImage()/getFlags() push the value into info.
+                self._updateRoiSpinboxesLive(w, h)
+                print("New Image shape ", result_shape)
                 self.setFitRoi.setChecked(False)
                 self.result_zoom = None
                 self.zoomOutClicked = True
@@ -1751,14 +1783,22 @@ class QuadrantFoldingGUI(BaseGUI):
             self.resultCanvas.draw_idle()
 
         elif func[0] == "fit_region":
-            center = img.shape[0] / 2, img.shape[1] / 2
+            cx = img.shape[1] / 2
+            cy = img.shape[0] / 2
             if len(ax.patches) > 0:
                 for i in range(len(ax.patches) - 1, -1, -1):
                     ax.patches[i].remove()
-            radius = 2 * max(abs(x-center[0]), abs(y-center[1]))
-            sq = self.getRectanglePatch(center, radius, radius)
+            w = int(round(2 * abs(x - cx)))
+            h = int(round(2 * abs(y - cy)))
+            w = max(1, w)
+            h = max(1, h)
+            sq = self.getRectanglePatch((cx, cy), w, h)
             ax.add_patch(sq)
             self.resultCanvas.draw_idle()
+            self._updateRoiSpinboxesLive(w, h)
+            self.imgCoordOnStatusBar.setText(
+                "x=" + str(int(round(x))) + ", y=" + str(int(round(y))) +
+                "  ROI W=" + str(w) + ", H=" + str(h))
 
         elif func[0] == "r_move":
             # move zoom in location when image dragged
@@ -2369,10 +2409,10 @@ class QuadrantFoldingGUI(BaseGUI):
             self.tranRSpnBx.setValue(self.quadFold.info['transition_radius'])
             self.tranDeltaSpnBx.setValue(self.quadFold.info['transition_delta'])
 
-            self.fixedRoiChkBx.setChecked('fixed_roi_rad' in self.quadFold.info)
-            self.fixedRoi.setEnabled('fixed_roi_rad' in self.quadFold.info)
-            if 'fixed_roi_rad' in self.quadFold.info:
-                self.fixedRoi.setValue(int(self.quadFold.info['fixed_roi_rad']))
+            # ROI spinboxes are the source of truth -- do NOT pull values
+            # back from info here. info['roi_w/h'] is whatever getFlags()
+            # last pushed (i.e. mirrors the spinbox), so syncing from it
+            # would only create confusing feedback loops.
 
             # convert image for displaying
             # img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
@@ -3019,8 +3059,15 @@ class QuadrantFoldingGUI(BaseGUI):
         if self.tranDeltaSpnBx.value() > 0:
             flags['transition_delta'] = self.tranDeltaSpnBx.value()
 
-        if self.fixedRoiChkBx.isChecked():
-            flags['fixed_roi_rad'] = self.fixedRoi.value()
+        roi_w = self.fixedRoiW.value()
+        roi_h = self.fixedRoiH.value()
+        if roi_w > 0 and roi_h > 0:
+            # Spinbox is the source of truth for ROI. Whether it carries
+            # over to the next image is controlled by "Persist ROI size":
+            # if unchecked, the spinbox is reset to 0 on image switch
+            # (see _update_ui_for_image), so this branch won't fire there.
+            flags['roi_w'] = roi_w
+            flags['roi_h'] = roi_h
 
         flags['rotate'] = self.rotate90Chkbx.isChecked()
 
@@ -3287,8 +3334,13 @@ class QuadrantFoldingGUI(BaseGUI):
             if settings is None:
                 settings = {}
             settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
-        if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
-            settings['fixed_roi_rad'] = self.quadFold.info['fixed_roi_rad']
+        # Persist ROI to qfsettings.json only if the user explicitly enabled
+        # "Persist ROI size". The headless runner picks these up via the
+        # fixed_roi_w / fixed_roi_h keys (see headless/QuadrantFoldingh.py
+        # getFlags() which forwards calSettings into flags).
+        if self.fixedRoiChkBx.isChecked():
+            settings['fixed_roi_w'] = self.fixedRoiW.value()
+            settings['fixed_roi_h'] = self.fixedRoiH.value()
         if self.quadFold is not None and 'bgsub' in self.quadFold.info:
             settings['bgsub'] = self.quadFold.info['bgsub']
         filename = getSaveFile(os.path.join("musclex", "settings", "qfsettings.json"), None)
@@ -3394,7 +3446,16 @@ class QuadrantFoldingGUI(BaseGUI):
         self.imgDetailOnStatusBar.setText(
             f"{original_image.shape[0]}x{original_image.shape[1]} : {original_image.dtype}"
         )
-        
+
+        # ROI: if "Persist ROI size" is off, drop any ROI carried over from
+        # the previous image. If it's on, leave the spinboxes alone so the
+        # same size applies to this image.
+        if not self.fixedRoiChkBx.isChecked():
+            for sb in (self.fixedRoiW, self.fixedRoiH):
+                blocker = QSignalBlocker(sb)
+                sb.setValue(0)
+                del blocker
+
         # Restore cache state if available
         if hasattr(self.quadFold, 'info'):
             previnfo = self.quadFold.info

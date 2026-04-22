@@ -126,6 +126,14 @@ class QuadrantFolder:
         #This is what all transformations will be done on
         self.start_img = copy.copy(self.orig_img)
 
+    # Keys that are intentionally excluded from the persistent disk cache.
+    # ROI is treated as a transient per-session selection: dragging or
+    # editing it should not silently affect future sessions or other
+    # images. If the user wants the same ROI across images, they enable
+    # "Persist ROI size" in the GUI which pushes the size as a flag at
+    # processing time.
+    _NON_CACHED_KEYS = ('roi_w', 'roi_h', 'roi_rad')
+
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
@@ -139,8 +147,10 @@ class QuadrantFolder:
         # (uses ImageData's fingerprint - includes config files, manual settings, preprocessing flags)
         self.info['processing_fingerprint'] = self._image_data.get_fingerprint()
 
+        # Build the on-disk dict without transient keys.
+        to_dump = {k: v for k, v in self.info.items() if k not in self._NON_CACHED_KEYS}
         with open(cache_file, "wb") as c:
-            pickle.dump(self.info, c)
+            pickle.dump(to_dump, c)
 
     def loadCache(self):
         """
@@ -155,7 +165,12 @@ class QuadrantFolder:
                 info = pickle.load(c)
             if info is not None:
                 if info['program_version'] == self.version:
-                    return info  # ✅ Only check version
+                    # ROI is intentionally not persisted (see _NON_CACHED_KEYS).
+                    # Strip any legacy ROI keys from older cache files so they
+                    # don't silently re-apply to this session.
+                    for key in self._NON_CACHED_KEYS:
+                        info.pop(key, None)
+                    return info
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
         return None
@@ -309,8 +324,21 @@ class QuadrantFolder:
             else:
                 del flags['orientation_model']
         self.info.update(flags)
-        if 'fixed_roi_rad' in self.info:
+        # Promote fixed ROI size to active ROI size, supporting both the
+        # legacy single-radius form and the new independent width/height form.
+        if 'fixed_roi_w' in self.info:
+            self.info['roi_w'] = self.info['fixed_roi_w']
+        if 'fixed_roi_h' in self.info:
+            self.info['roi_h'] = self.info['fixed_roi_h']
+        if 'fixed_roi_rad' in self.info and 'roi_w' not in self.info and 'roi_h' not in self.info:
             self.info['roi_rad'] = self.info['fixed_roi_rad']
+        # Backwards compatibility: translate a legacy roi_rad (half-side) to
+        # explicit width/height (full pixel extents) so downstream code can
+        # rely on the new keys exclusively.
+        if 'roi_rad' in self.info and ('roi_w' not in self.info or 'roi_h' not in self.info):
+            full = int(self.info['roi_rad']) * 2
+            self.info.setdefault('roi_w', full)
+            self.info.setdefault('roi_h', full)
 
     def initParams(self):
         """
@@ -743,11 +771,14 @@ class QuadrantFolder:
         img = self.makeFullImage(fold)
         center = self.center
 
-        if "roi_rad" in self.info: # if roi_rad is specified, use it
-            roi_rad = int(self.info["roi_rad"])
+        if "roi_w" in self.info and "roi_h" in self.info:
+            roi_w = int(self.info["roi_w"])
+            roi_h = int(self.info["roi_h"])
+            half_w = roi_w // 2
+            half_h = roi_h // 2
             center_x = int(center[0])
             center_y = int(center[1])
-            img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
+            img = img[center_y - half_h:center_y + half_h, center_x - half_w:center_x + half_w]
 
         img = img.astype("float32")
         width = img.shape[1]
@@ -785,10 +816,10 @@ class QuadrantFolder:
         background[np.isnan(background)] = 0.0
         background = np.array(background, "float32")
         background = background.reshape((height, width))
-        # replacing values that fall outside the roi_rad with the original values fromthe image
+        # replacing values that fall outside the roi with the original values from the image
         print("background shape before padding", background.shape)
         print("fold shape", fold.shape)
-        if "roi_rad" in self.info:
+        if "roi_w" in self.info and "roi_h" in self.info:
             background = background[:height//2, :width//2]
             pad_y = max((fold.shape[0] - background.shape[0]), 0)
             pad_x = max((fold.shape[1] - background.shape[1]), 0)
@@ -874,11 +905,14 @@ class QuadrantFolder:
         img = self.makeFullImage(fold)
         center = self.center
 
-        if "roi_rad" in self.info: # if roi_rad is specified, use it
-            roi_rad = int(self.info["roi_rad"])
+        if "roi_w" in self.info and "roi_h" in self.info:
+            roi_w = int(self.info["roi_w"])
+            roi_h = int(self.info["roi_h"])
+            half_w = roi_w // 2
+            half_h = roi_h // 2
             center_x = int(center[0])
             center_y = int(center[1])
-            img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
+            img = img[center_y - half_h:center_y + half_h, center_x - half_w:center_x + half_w]
 
         width = img.shape[1]
         height = img.shape[0]
@@ -920,7 +954,7 @@ class QuadrantFolder:
         b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
         b= b.reshape((height, width))
 
-        if "roi_rad" in self.info:
+        if "roi_w" in self.info and "roi_h" in self.info:
             b = b[:height//2, :width//2]
             pad_y = max((fold.shape[0] - b.shape[0]), 0)
             pad_x = max((fold.shape[1] - b.shape[1]), 0)
@@ -1253,10 +1287,15 @@ class QuadrantFolder:
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)
         result[np.isnan(result)] = 0.
-        if 'roi_rad' in self.info:
-            center = result.shape[0]/2, result.shape[1]/2
-            rad = self.info['roi_rad']
-            result = result[max(int(center[1]-rad), 0):min(int(center[1]+rad), result.shape[1]), max(int(center[0]-rad), 0):min(int(center[0]+rad), result.shape[0])]
+        if 'roi_w' in self.info and 'roi_h' in self.info:
+            cy = result.shape[0] / 2
+            cx = result.shape[1] / 2
+            half_w = self.info['roi_w'] / 2
+            half_h = self.info['roi_h'] / 2
+            result = result[
+                max(int(cy - half_h), 0):min(int(cy + half_h), result.shape[0]),
+                max(int(cx - half_w), 0):min(int(cx + half_w), result.shape[1])
+            ]
 
         scale = 1 if 'scale' not in self.info else self.info['scale']
 
