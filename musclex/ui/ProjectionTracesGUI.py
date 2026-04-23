@@ -548,13 +548,24 @@ class ProjectionTracesGUI(BaseGUI):
         self.boxesLayout = QVBoxLayout()
         self.addBoxButton = QPushButton("Add Axis Aligned Box")
         self.addBoxButton.setCheckable(True)
+        self.addBoxButton.setToolTip(
+            "Activate axis-aligned box drawing.\n"
+            "Click and drag on the image to define a horizontal/vertical box for projection.")
         self.addOrientedBoxButton = QPushButton("Add Oriented Box")
         self.addOrientedBoxButton.setCheckable(True)
         self.addOrientedBoxButton.setEnabled(False)  # Temporarily disabled
+        self.addOrientedBoxButton.setToolTip(
+            "Activate oriented box drawing.\n"
+            "Define a rotated box by drawing its long axis and width on the image.")
         self.addCenterOrientedBoxButton = QPushButton("Add Centered Oriented Box")
         self.addCenterOrientedBoxButton.setCheckable(True)
+        self.addCenterOrientedBoxButton.setToolTip(
+            "Activate centered oriented box drawing.\n"
+            "Define a rotated box that is centered on the diffraction pattern center.")
         self.editBoxButton = QPushButton('Edit Boxes')
+        self.editBoxButton.setToolTip("Open a dialog to edit the size, position, and background-subtraction settings of existing boxes")
         self.clearBoxButton = QPushButton('Clear All Boxes')
+        self.clearBoxButton.setToolTip("Remove all projection boxes and their fit results")
         self.checkableButtons.append(self.addBoxButton)
         self.checkableButtons.append(self.addOrientedBoxButton)
         self.checkableButtons.append(self.addCenterOrientedBoxButton)
@@ -576,6 +587,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.selectPeaksLayout = QVBoxLayout(self.selectPeaksGrp)
         self.selectPeaksButton = QPushButton("Select Approximate Peak Locations")
         self.selectPeaksButton.setCheckable(True)
+        self.selectPeaksButton.setToolTip(
+            "Activate peak selection.\n"
+            "Click approximate peak locations on the projection plots to seed the fitting model.")
         self.checkableButtons.append(self.selectPeaksButton)
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
         
@@ -613,8 +627,10 @@ class ProjectionTracesGUI(BaseGUI):
 
         self.editCommentsBtn = QPushButton("Edit")
         self.editCommentsBtn.setFixedWidth(60)
+        self.editCommentsBtn.setToolTip("Edit the comment recorded for this image in the output CSV")
         self.clearCommentsBtn = QPushButton("Clear")
         self.clearCommentsBtn.setFixedWidth(60)
+        self.clearCommentsBtn.setToolTip("Clear the comment recorded for this image")
 
         # Edit mode widgets (initially hidden)
         self.commentsLineEdit = QLineEdit()
@@ -623,10 +639,12 @@ class ProjectionTracesGUI(BaseGUI):
 
         self.submitCommentsBtn = QPushButton("Submit")
         self.submitCommentsBtn.setFixedWidth(60)
+        self.submitCommentsBtn.setToolTip("Save the edited comment for this image")
         self.submitCommentsBtn.hide()
 
         self.cancelCommentsBtn = QPushButton("Cancel")
         self.cancelCommentsBtn.setFixedWidth(60)
+        self.cancelCommentsBtn.setToolTip("Discard changes to the comment")
         self.cancelCommentsBtn.hide()
 
         # Layout
@@ -642,12 +660,15 @@ class ProjectionTracesGUI(BaseGUI):
         # Add PT-specific checkboxes to display panel
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
-        
+        self.centerChkBx.setToolTip("Show the diffraction pattern center on the image")
+
         self.boxesChkBx = QCheckBox("Boxes")
         self.boxesChkBx.setChecked(True)
-        
+        self.boxesChkBx.setToolTip("Show the projection box outlines on the image")
+
         self.peaksChkBx = QCheckBox("Peaks")
         self.peaksChkBx.setChecked(True)
+        self.peaksChkBx.setToolTip("Show the selected peak locations on the image")
         
         # Add to display panel's top slot
         self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
@@ -660,18 +681,22 @@ class ProjectionTracesGUI(BaseGUI):
         """Create menu bar"""
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
+        selectImageAction.setToolTip("Open an image file to load into Projection Traces (Ctrl+I)")
         selectImageAction.triggered.connect(self._on_browse_file)
 
         saveSettingAction = QAction('Save Current Settings', self)
         saveSettingAction.setShortcut('Ctrl+S')
+        saveSettingAction.setToolTip("Save the current boxes, peaks, and parameters to a settings file (Ctrl+S)")
         saveSettingAction.triggered.connect(self.saveSettings)
 
         loadSettingAction = QAction('Load Settings', self)
         loadSettingAction.setShortcut('Ctrl+L')
+        loadSettingAction.setToolTip("Load boxes, peaks, and parameters from a previously saved settings file (Ctrl+L)")
         loadSettingAction.triggered.connect(self.loadSettings)
 
 
         changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.setToolTip("Choose a different folder to write CSV output and processed images")
         changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
         menubar = self.menuBar()
@@ -684,6 +709,7 @@ class ProjectionTracesGUI(BaseGUI):
         fileMenu.addAction(changeOutputDirAction)
 
         aboutAct = QAction('About', self)
+        aboutAct.setToolTip("Show information about MuscleX and Projection Traces")
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
@@ -777,6 +803,7 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Don't show again checkbox
         dont_show_checkbox = QCheckBox("Don't show this message again")
+        dont_show_checkbox.setToolTip("Suppress this notice in future Projection Traces sessions")
         layout.addWidget(dont_show_checkbox)
         
         layout.addSpacing(10)
@@ -786,6 +813,7 @@ class ProjectionTracesGUI(BaseGUI):
         button_layout.addStretch()
         ok_button = QPushButton("OK")
         ok_button.setDefault(True)
+        ok_button.setToolTip("Close this notice")
         ok_button.clicked.connect(dialog.accept)
         button_layout.addWidget(ok_button)
         button_layout.addStretch()

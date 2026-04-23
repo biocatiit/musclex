@@ -23,9 +23,12 @@ class ApplyRotationDialog(QDialog):
         
         # Create radio buttons for exclusive selection
         self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.subsequentRadio.setToolTip("Apply the current rotation angle to this image and all images after it in the folder")
         self.previousRadio = QRadioButton("Apply to previous images")
+        self.previousRadio.setToolTip("Apply the current rotation angle to this image and all images before it in the folder")
         self.allRadio = QRadioButton("Apply to all images")
-        
+        self.allRadio.setToolTip("Apply the current rotation angle to every image in the folder")
+
         # Set default selection
         self.subsequentRadio.setChecked(True)
         
@@ -62,10 +65,14 @@ class RestoreAutoRotationDialog(QDialog):
         
         # Create radio buttons for exclusive selection
         self.currentRadio = QRadioButton("Apply to current image")
+        self.currentRadio.setToolTip("Discard the manual rotation and recompute the automatic angle for the current image only")
         self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.subsequentRadio.setToolTip("Recompute the automatic rotation angle for this image and all images after it")
         self.previousRadio = QRadioButton("Apply to previous images")
+        self.previousRadio.setToolTip("Recompute the automatic rotation angle for this image and all images before it")
         self.allRadio = QRadioButton("Apply to all images")
-        
+        self.allRadio.setToolTip("Recompute the automatic rotation angle for every image in the folder")
+
         # Set default selection to current image
         self.currentRadio.setChecked(True)
         
@@ -106,6 +113,12 @@ class AutoOrientationDialog(QDialog):
         orientationLayout = QHBoxLayout()
         orientationLayout.addWidget(QLabel("Orientation Finding:"))
         self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.setToolTip(
+            "Algorithm used to find the fiber rotation angle automatically:\n"
+            "  Max Intensity      - direction of the brightest meridional intensity\n"
+            "  GMM                - Gaussian Mixture Model fit to the angular intensity profile\n"
+            "  Herman Factor (Half Pi) - orientation order parameter over [0, pi/2]\n"
+            "  Herman Factor (Pi) - orientation order parameter over [0, pi]")
         self.orientationCmbBx.addItem("Max Intensity")
         self.orientationCmbBx.addItem("GMM")
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
@@ -173,12 +186,17 @@ class RotationSettingsWidget(CollapsibleGroupBox):
         # Create all UI components
         self.setAutoOrientationBtn = QPushButton("Set Auto Orientation")
         self.setAutoOrientationBtn.setCheckable(False)
-        
+        self.setAutoOrientationBtn.setToolTip("Open the auto orientation dialog to choose the algorithm used to detect the rotation angle")
+
         self.setRotationButton = QPushButton("Set Angle Interactively")
         self.setRotationButton.setCheckable(True)
-        
+        self.setRotationButton.setToolTip(
+            "Activate interactive rotation adjustment.\n"
+            "Click two points on the image to define the meridional axis.")
+
         self.setAngleBtn = QPushButton("Set Angle Manually")
         self.setAngleBtn.setCheckable(False)
+        self.setAngleBtn.setToolTip("Type the rotation angle in degrees in a dialog")
         
         # Labels for displaying rotation info
         self.rotationLabel = QLabel()
@@ -189,7 +207,9 @@ class RotationSettingsWidget(CollapsibleGroupBox):
         
         # Buttons for apply/restore (handled internally with dialogs)
         self.applyRotationBtn = QPushButton("Apply Rotation")
+        self.applyRotationBtn.setToolTip("Copy the current rotation angle to other images in the folder (choose scope in dialog)")
         self.restoreAutoRotationBtn = QPushButton("Restore Auto Rotation")
+        self.restoreAutoRotationBtn.setToolTip("Discard the manual rotation and revert selected images to auto-detected angles")
         
         # Setup layout
         self._setup_layout()

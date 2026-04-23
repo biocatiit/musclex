@@ -363,16 +363,20 @@ class QuadrantFoldingGUI(BaseGUI):
         """Create menu bar with File and Help menus"""
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
+        selectImageAction.setToolTip("Open an image file to load into Quadrant Folding (Ctrl+I)")
         selectImageAction.triggered.connect(self._on_browse_file)
-        
+
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.setToolTip("Save the current center, rotation, ROI and background parameters to a settings file (Ctrl+S)")
         saveSettingsAction.triggered.connect(self.saveSettings)
-        
+
         aboutAct = QAction('About', self)
+        aboutAct.setToolTip("Show information about MuscleX and Quadrant Folding")
         aboutAct.triggered.connect(self.showAbout)
-        
+
         changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.setToolTip("Choose a different folder to write the folded image and CSV output")
         changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
         menubar = self.menuBar()
@@ -437,9 +441,12 @@ class QuadrantFoldingGUI(BaseGUI):
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
         self.showSeparator.setChecked(True)
-        
+        self.showSeparator.setToolTip("Draw the horizontal/vertical lines separating the four quadrants on the result image")
+
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
+        self.cropFoldedImageChkBx.setToolTip(
+            "Also save the folded image cropped back to the original input dimensions, in addition to the standard square output")
         
         # Add quadrant-specific options to display panel's top slot
         self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
@@ -488,6 +495,9 @@ class QuadrantFoldingGUI(BaseGUI):
         
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
+        self.toggleFoldImage.setToolTip(
+            "When enabled, average the four quadrants into a single folded image.\n"
+            "When disabled, the original (unfolded) image is used for background subtraction.")
         
         self.settingsLayout.addWidget(QLabel("Mask Threshold : Use Set Mask"), 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.toggleFoldImage, 1, 0, 1, 2)
@@ -513,7 +523,11 @@ class QuadrantFoldingGUI(BaseGUI):
         # ===== ROI Settings =====
         self.setFitRoi = QPushButton("Set Region Of Interest (ROI)")
         self.setFitRoi.setCheckable(True)
+        self.setFitRoi.setToolTip(
+            "Activate ROI selection.\n"
+            "Drag a rectangle on the folded image to limit background subtraction to that region.")
         self.unsetRoi = QPushButton("Unset ROI")
+        self.unsetRoi.setToolTip("Remove the current ROI so the entire folded image is used for background subtraction")
         self.checkableButtons.append(self.setFitRoi)
         self.fixedRoiChkBx = QCheckBox("Persist ROI size")
         self.fixedRoiChkBx.setToolTip(
@@ -551,6 +565,9 @@ class QuadrantFoldingGUI(BaseGUI):
         # ===== R-min Settings =====
         self.setRminButton = QPushButton("Set Manual R-min")
         self.setRminButton.setCheckable(True)
+        self.setRminButton.setToolTip(
+            "Activate manual R-min adjustment.\n"
+            "Click on the image to define the inner radius excluded from background fitting.")
         self.checkableButtons.append(self.setRminButton)
 
         self.rminSpnBx = QSpinBox()
@@ -561,7 +578,11 @@ class QuadrantFoldingGUI(BaseGUI):
         self.rminLabel = QLabel("R-min")
 
         self.showRminChkBx = QCheckBox("Show R-min")
+        self.showRminChkBx.setToolTip("Draw the R-min circle on the folded image")
         self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min")
+        self.fixedRadiusRangeChkBx.setToolTip(
+            "When enabled, the current R-min is reused for every image you process.\n"
+            "When disabled, R-min is recomputed per image.")
 
         # ===== Background Subtraction (In) Parameters =====
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
@@ -779,6 +800,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tranDeltaLabel = QLabel("Transition Delta : ")
 
         self.applyBGButton = QPushButton("Apply")
+        self.applyBGButton.setToolTip("Recompute background subtraction with the current parameters and update the result image")
 
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
@@ -791,6 +813,7 @@ class QuadrantFoldingGUI(BaseGUI):
         separator_2.setLineWidth(1)
 
         self.showTranRadDeltaChkBx = QCheckBox("Show Transition Radius and Delta")
+        self.showTranRadDeltaChkBx.setToolTip("Draw the transition radius and delta circles on the folded image")
 
         self.outBGWidgets = [self.tranDeltaSpnBx, self.tranDeltaLabel, self.tranRSpnBx, self.tranRLabel, self.showTranRadDeltaChkBx, separator, separator_2]
 
@@ -1001,6 +1024,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resultDispOptLayout = QGridLayout()
         
         self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
+        self.rotate90Chkbx.setToolTip("Rotate the result image by 90 degrees for display")
         
         self.spResultmaxInt = QDoubleSpinBox()
         self.spResultmaxInt.setRange(-1e10, 1e10)
@@ -1020,13 +1044,17 @@ class QuadrantFoldingGUI(BaseGUI):
         
         self.resultZoomInB = QPushButton("Zoom In")
         self.resultZoomInB.setCheckable(True)
+        self.resultZoomInB.setToolTip("Activate zoom-in mode, then drag a rectangle on the result image")
         self.resultZoomOutB = QPushButton("Full")
+        self.resultZoomOutB.setToolTip("Reset the result image view to show the full image")
         self.checkableButtons.append(self.resultZoomInB)
-        
+
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
         self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
+        self.resLogScaleIntChkBx.setToolTip("Display the result image using a logarithmic intensity scale")
         self.resPersistIntensity = QCheckBox("Persist intensities")
+        self.resPersistIntensity.setToolTip("Reuse the current min/max intensity range for every image you process")
         
         # Layout display options
         self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
@@ -1532,10 +1560,12 @@ class QuadrantFoldingGUI(BaseGUI):
         
         if fold_number not in self.quadFold.info["ignore_folds"]:
             ignoreThis = QAction('Ignore This Quadrant', self)
+            ignoreThis.setToolTip("Exclude this quadrant from the fold so it does not contribute to the averaged result")
             ignoreThis.triggered.connect(self.addIgnoreQuadrant)
             menu.addAction(ignoreThis)
         else:
             unignoreThis = QAction('Unignore This Quadrant', self)
+            unignoreThis.setToolTip("Re-include this quadrant in the fold")
             unignoreThis.triggered.connect(self.removeIgnoreQuadrant)
             menu.addAction(unignoreThis)
         

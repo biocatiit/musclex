@@ -22,9 +22,12 @@ class ApplyCenterDialog(QDialog):
         
         # Create radio buttons for exclusive selection
         self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.subsequentRadio.setToolTip("Apply the current center to this image and all images after it in the folder")
         self.previousRadio = QRadioButton("Apply to previous images")
+        self.previousRadio.setToolTip("Apply the current center to this image and all images before it in the folder")
         self.allRadio = QRadioButton("Apply to all images")
-        
+        self.allRadio.setToolTip("Apply the current center to every image in the folder")
+
         # Set default selection
         self.subsequentRadio.setChecked(True)
         
@@ -61,9 +64,13 @@ class RestoreAutoCenterDialog(QDialog):
         
         # Create radio buttons for exclusive selection
         self.currentRadio = QRadioButton("Apply to current image")
+        self.currentRadio.setToolTip("Discard the manual center and recompute the automatic center for the current image only")
         self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.subsequentRadio.setToolTip("Recompute the automatic center for this image and all images after it in the folder")
         self.previousRadio = QRadioButton("Apply to previous images")
+        self.previousRadio.setToolTip("Recompute the automatic center for this image and all images before it in the folder")
         self.allRadio = QRadioButton("Apply to all images")
+        self.allRadio.setToolTip("Recompute the automatic center for every image in the folder")
         
         # Set default selection to current image
         self.currentRadio.setChecked(True)
@@ -118,17 +125,29 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         # Create all UI components
         self.setCenterRotationButton = QPushButton("Quick Center and Rotation Angle")
         self.setCenterRotationButton.setCheckable(True)
-        
+        self.setCenterRotationButton.setToolTip(
+            "Activate quick center and rotation adjustment.\n"
+            "Click two reflection peaks on opposite sides of the pattern; the midpoint becomes the center "
+            "and the line orientation defines the rotation angle.")
+
         self.calibrationButton = QPushButton("Set Center by Calibration")
-        
+        self.calibrationButton.setToolTip("Open the calibration dialog and use the calibrated center for this image")
+
         self.setCentByChords = QPushButton("Set Center by Chords")
         self.setCentByChords.setCheckable(True)
-        
+        self.setCentByChords.setToolTip(
+            "Activate Set Center by Chords mode.\n"
+            "Draw chords across a diffraction ring; the perpendicular bisectors intersect at the center.")
+
         self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
         self.setCentByPerp.setCheckable(True)
-        
+        self.setCentByPerp.setToolTip(
+            "Activate Set Center by Perpendiculars mode.\n"
+            "Draw two perpendicular lines through reflection pairs to locate the center.")
+
         self.setCentBtn = QPushButton("Set Center Manually")
         self.setCentBtn.setCheckable(False)
+        self.setCentBtn.setToolTip("Click a single point on the image to use as the center")
         
         # Labels for displaying center info
         self.centerLabel = QLabel()
@@ -139,7 +158,9 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         
         # Buttons for apply/restore (handled internally with dialogs)
         self.applyCenterBtn = QPushButton("Apply Center")
+        self.applyCenterBtn.setToolTip("Copy the current center to other images in the folder (choose scope in dialog)")
         self.restoreAutoCenterBtn = QPushButton("Restore Auto Center")
+        self.restoreAutoCenterBtn.setToolTip("Discard the manual center and revert selected images to auto-detected centers")
         
         # Setup layout
         self._setup_layout()

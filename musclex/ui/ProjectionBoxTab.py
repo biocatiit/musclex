@@ -191,31 +191,44 @@ class ProjectionBoxTab(QWidget):
 
         self.histChkBx = QCheckBox("Original Projection")
         self.histChkBx.setChecked(True)
+        self.histChkBx.setToolTip("Show the raw 1D projection of intensities along the box")
         self.hullRangeChkBx = QCheckBox('Hull Range')
         box = self.get_box()
         self.hullRangeChkBx.setEnabled(box.bgsub == 1 if box else False)
         self.hullRangeChkBx.setChecked(box.bgsub == 1 if box else False)
+        self.hullRangeChkBx.setToolTip("Show the convex hull range used for background subtraction")
         self.fitmodelChkBx = QCheckBox("Fitting Model")
         self.fitmodelChkBx.setChecked(True)
+        self.fitmodelChkBx.setToolTip("Show the overall fitted model curve (sum of all Gaussian peaks)")
         self.bgChkBx = QCheckBox("Background")
         self.bgChkBx.setChecked(True)
+        self.bgChkBx.setToolTip("Show the estimated background curve")
         self.maxPeaksChkBx = QCheckBox("Max Peaks")
         self.maxPeaksChkBx.setChecked(False)
+        self.maxPeaksChkBx.setToolTip("Show the maximum-intensity peak locations detected in the projection")
         self.peaksChkBx = QCheckBox("Model Peaks")
         self.peaksChkBx.setChecked(True)
+        self.peaksChkBx.setToolTip("Show the individual fitted Gaussian peaks of the model")
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
+        self.centerChkBx.setToolTip("Show a vertical line at the projection center")
         self.subHistChkBx = QCheckBox("Subtracted Projection")
         self.subHistChkBx.setChecked(True)
+        self.subHistChkBx.setToolTip("Show the background-subtracted projection")
         self.baselineChkBx = QCheckBox("Baselines")
         self.baselineChkBx.setChecked(False)
+        self.baselineChkBx.setToolTip("Show the baseline used for centroid/width/area calculation of each peak")
         self.centroidChkBx = QCheckBox("Centroids")
         self.centroidChkBx.setChecked(False)
+        self.centroidChkBx.setToolTip("Show the centroid (intensity-weighted center) of each peak")
 
         self.zoomInButton = QPushButton("Zoom in")
         self.zoomInButton.setCheckable(True)
+        self.zoomInButton.setToolTip("Activate zoom-in mode, then drag a rectangle on the plot to zoom into that region")
         self.zoomOutButton = QPushButton("Zoom out")
+        self.zoomOutButton.setToolTip("Zoom out one step on the plot")
         self.fullButton = QPushButton("Full")
+        self.fullButton.setToolTip("Reset the plot view to show the full projection")
         self.checkableButtons.append(self.zoomInButton)
         self.dispOptLayout.addWidget(self.histChkBx, 0, 0, 1, 1)
         self.dispOptLayout.addWidget(self.fitmodelChkBx, 0, 1, 1, 1)
@@ -237,11 +250,17 @@ class ProjectionBoxTab(QWidget):
         # Modified: change name to "Select Single Peak"
         self.peaksButton = QPushButton("Select Single Peak")
         self.peaksButton.setCheckable(True)
+        self.peaksButton.setToolTip(
+            "Activate single peak selection.\n"
+            "Click a location on the projection plot to add a peak that will be fit by a single Gaussian.")
         self.checkableButtons.append(self.peaksButton)
-        
+
         # New: Peak Cluster button for GMM
         self.peakClusterButton = QPushButton("Select Peak Cluster (GMM)")
         self.peakClusterButton.setCheckable(True)
+        self.peakClusterButton.setToolTip(
+            "Activate peak cluster selection.\n"
+            "Click two locations to define a range; the area will be fit by a Gaussian Mixture Model with multiple peaks.")
         self.checkableButtons.append(self.peakClusterButton)
         
         # New: Peak Tolerance label and spinner for search distance
@@ -265,22 +284,30 @@ class ProjectionBoxTab(QWidget):
         
         self.clearPeakButton = QPushButton("Clear Peaks")
         self.clearPeakButton.setVisible(True)
-        
+        self.clearPeakButton.setToolTip("Remove all selected peaks for this projection box and reset the fit")
+
         # New: Parameter Editor button
         self.paramEditorButton = QPushButton("Open Parameter Editor")
         self.paramEditorButton.setEnabled(True)
-        
+        self.paramEditorButton.setToolTip("Open a dialog to manually inspect and edit fit parameters (centers, sigmas, amplitudes, bounds)")
+
         self.meridBckGrndChkBx = QCheckBox("Meridional Peak")
         self.meridBckGrndChkBx.setChecked(True)
+        self.meridBckGrndChkBx.setToolTip("Include a dedicated meridional background peak in the fit")
         box = self.get_box()
         self.meridBckGrndChkBx.setHidden(box.bgsub != 0 if box else True)
         self.editMainPeakButton = QPushButton("Edit Meridional Peak")
         self.editMainPeakButton.setEnabled(False)
+        self.editMainPeakButton.setToolTip("Edit the parameters of the meridional background peak")
         self.refitButton = QPushButton("Refit")
         self.refitButton.setEnabled(False)
-        
+        self.refitButton.setToolTip("Re-run the peak fit using the current peak selections and parameters")
+
         self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
+        self.hullRangeButton.setToolTip(
+            "Activate manual convex hull range adjustment.\n"
+            "Click two points on the projection to set the start and end of the convex-hull background range.")
         self.hullRangeButton.setHidden(box.bgsub != 1 if box else True)
         width = int(np.ceil(abs(box.coordinates[0][0]-box.coordinates[0][1])/2.)) if box else 100
 

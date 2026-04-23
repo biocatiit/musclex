@@ -1310,6 +1310,10 @@ class ProcessingWorkspace(QWidget):
         
         self.qf_checkbox = QCheckBox("Quadrant Folded?")
         self.qf_checkbox.setChecked(False)  # Default: not quadrant folded
+        self.qf_checkbox.setToolTip(
+            "Mark the loaded image as already quadrant-folded.\n"
+            "When enabled, ProjectionTraces skips its own folding step and treats the image "
+            "as a pre-folded pattern.")
         
         # Connect to internal handler - workspace manages all logic
         self.qf_checkbox.stateChanged.connect(self._on_qf_changed)

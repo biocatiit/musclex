@@ -171,6 +171,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def _create_menu_bar(self):
         from PySide6.QtGui import QAction
         changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.setToolTip("Choose a different folder to write the summed/averaged images and CSV output")
         changeOutputDirAction.triggered.connect(self._change_output_directory)
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
@@ -287,6 +288,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _browse_btn.clicked.connect(self._on_browse_parent_dir)
         _clear_list_btn = QPushButton("Clear List")
         _clear_list_btn.setMinimumHeight(32)
+        _clear_list_btn.setToolTip("Remove all experiments from the available list above")
         _clear_list_btn.clicked.connect(self._on_clear_source_list)
         _dir_row.addWidget(_browse_btn)
         _dir_row.addWidget(_clear_list_btn)
@@ -312,13 +314,16 @@ class AddIntensitiesMultipleExp(QMainWindow):
         # Action row
         _action_row = QHBoxLayout()
         _sel_all_btn = QPushButton("Select All")
+        _sel_all_btn.setToolTip("Select every experiment in the available list")
         _sel_all_btn.clicked.connect(self._source_list_widget.selectAll)
         _sel_none_btn = QPushButton("Select None")
+        _sel_none_btn.setToolTip("Clear the current selection")
         _sel_none_btn.clicked.connect(self._source_list_widget.clearSelection)
         self._load_sources_btn = QPushButton("Load")
         self._load_sources_btn.setMinimumHeight(32)
         self._load_sources_btn.setEnabled(False)
         self._load_sources_btn.setStyleSheet("font-weight: bold;")
+        self._load_sources_btn.setToolTip("Load the selected experiments and prepare them for summing")
         self._load_sources_btn.clicked.connect(self._on_load_sources)
         _action_row.addWidget(_sel_all_btn)
         _action_row.addWidget(_sel_none_btn)
@@ -432,10 +437,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._right_panel_layout.addWidget(self.panel)
         self.centerChkBx = QCheckBox("Original Center")
         self.centerChkBx.setChecked(False)
+        self.centerChkBx.setToolTip("Show this image's own detected (per-image) center on the display")
         self.centerChkBx.stateChanged.connect(self._redraw_overlays)
 
         self.baseCenterChkBx = QCheckBox("Global Base Center")
         self.baseCenterChkBx.setChecked(False)
+        self.baseCenterChkBx.setToolTip("Show the global base image center used to align all experiments")
         self.baseCenterChkBx.stateChanged.connect(self._redraw_overlays)
 
         _center_row = QWidget()
@@ -459,7 +466,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _img_ops_layout.setContentsMargins(4, 4, 4, 4)
 
         self.avg_instead_of_sum_chk = QCheckBox("Compute Average Instead of Sum")
+        self.avg_instead_of_sum_chk.setToolTip(
+            "When enabled, the result is the per-pixel mean across the input images instead of the sum")
         self.compress_chk = QCheckBox("Compress the Resulting Images")
+        self.compress_chk.setToolTip(
+            "Save the resulting images as compressed TIFFs (smaller files; compatible with ImageJ but not fit2d)")
         _img_ops_layout.addWidget(self.avg_instead_of_sum_chk)
         _img_ops_layout.addWidget(self.compress_chk)
 
@@ -474,7 +485,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _rot_row_layout.setSpacing(12)
         self.radio_rot_absolute = QRadioButton("Align to Make Equator Horizontal")
         self.radio_rot_absolute.setChecked(True)
+        self.radio_rot_absolute.setToolTip(
+            "Rotate every image by its own detected angle so the equator becomes horizontal in absolute coordinates")
         self.radio_rot_diff = QRadioButton("Align to Base Image Rotation")
+        self.radio_rot_diff.setToolTip(
+            "Rotate every image by the difference between its angle and the base image's angle, "
+            "preserving the base image's orientation")
         _rot_row_layout.addWidget(self.radio_rot_absolute)
         _rot_row_layout.addWidget(self.radio_rot_diff)
         _rot_row_layout.addStretch()
@@ -489,6 +505,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.sum_images_btn.setMinimumHeight(32)
         self.sum_images_btn.setStyleSheet(
             "QPushButton { color: #ededed; background-color: #af6207 }")
+        self.sum_images_btn.setToolTip(
+            "Sum (or average) the loaded experiments image-by-image, grouping by frame index, "
+            "and write the results to the output directory")
         self._right_panel_layout.addWidget(self.sum_images_btn)
 
         self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
@@ -816,6 +835,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _btn_row.addStretch()
         _close_btn = QPushButton("Close")
         _close_btn.setFixedWidth(100)
+        _close_btn.setToolTip("Close the Set Center and Rotation dialog")
         _close_btn.clicked.connect(dlg.close)
         _btn_row.addWidget(_close_btn)
         _btn_row.addStretch()
