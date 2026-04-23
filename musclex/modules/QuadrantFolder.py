@@ -778,21 +778,10 @@ class QuadrantFolder:
         fold = np.copy(self.info["avg_fold"])
 
         img = self.makeFullImage(fold)
-        center = self.center
-
-        if "roi_w" in self.info and "roi_h" in self.info:
-            roi_w = int(self.info["roi_w"])
-            roi_h = int(self.info["roi_h"])
-            half_w = roi_w // 2
-            half_h = roi_h // 2
-            center_x = int(center[0])
-            center_y = int(center[1])
-            img = img[center_y - half_h:center_y + half_h, center_x - half_w:center_x + half_w]
 
         img = img.astype("float32")
         width = img.shape[1]
         height = img.shape[0]
-
 
         # Prepare options and parameter values based on 'typ'
         if typ == "gauss":
@@ -825,16 +814,7 @@ class QuadrantFolder:
         background[np.isnan(background)] = 0.0
         background = np.array(background, "float32")
         background = background.reshape((height, width))
-        # replacing values that fall outside the roi with the original values from the image
-        print("background shape before padding", background.shape)
-        print("fold shape", fold.shape)
-        if "roi_w" in self.info and "roi_h" in self.info:
-            background = background[:height//2, :width//2]
-            pad_y = max((fold.shape[0] - background.shape[0]), 0)
-            pad_x = max((fold.shape[1] - background.shape[1]), 0)
-            background = np.pad(background, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
-        else:
-            background = background[:fold.shape[0], :fold.shape[1]]
+        background = background[:fold.shape[0], :fold.shape[1]]
         result = np.array(fold - background, dtype=np.float32)
 
         # replacing negative values with 0
@@ -909,19 +889,8 @@ class QuadrantFolder:
         #---------------------NEW VERSION OF ROVING WINDOW BACKGROUND SUBTRACTION---------------------#
 
         fold = copy.copy(self.info["avg_fold"])
-        # center = [fold.shape[1] + .5, fold.shape[0] + .5]
 
         img = self.makeFullImage(fold)
-        center = self.center
-
-        if "roi_w" in self.info and "roi_h" in self.info:
-            roi_w = int(self.info["roi_w"])
-            roi_h = int(self.info["roi_h"])
-            half_w = roi_w // 2
-            half_h = roi_h // 2
-            center_x = int(center[0])
-            center_y = int(center[1])
-            img = img[center_y - half_h:center_y + half_h, center_x - half_w:center_x + half_w]
 
         width = img.shape[1]
         height = img.shape[0]
@@ -963,14 +932,7 @@ class QuadrantFolder:
         b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
         b= b.reshape((height, width))
 
-        if "roi_w" in self.info and "roi_h" in self.info:
-            b = b[:height//2, :width//2]
-            pad_y = max((fold.shape[0] - b.shape[0]), 0)
-            pad_x = max((fold.shape[1] - b.shape[1]), 0)
-            b = np.pad(b, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
-
-        else:
-            b = b[:fold.shape[0], :fold.shape[1]]
+        b = b[:fold.shape[0], :fold.shape[1]]
 
         result = np.array(fold - b, dtype=np.float32)
         result = qfu.replaceRmin(result, int(self.info["rmin"]), 0.0)
