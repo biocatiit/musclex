@@ -87,8 +87,8 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         if settings.value("launcher/hide_popup", False, type=bool):
             self.popupMsg.checkBox().setChecked(True)
         if getattr(sys, 'frozen', False):
-            self.test_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "test.log")
-            self.release_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "release.log")
+            self.test_path = os.path.join(sys._MEIPASS, "test_logs", "test.log")
+            self.release_path = os.path.join(sys._MEIPASS, "test_logs", "release.log")
         elif __file__:
             self.test_path = os.path.join(os.path.dirname(__file__),
                                         "tests", "test_logs", "test.log")
@@ -165,8 +165,8 @@ class TestDialog(QDialog):
         # self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         if getattr(sys, 'frozen', False):
-            self.test_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "test.log")
-            self.release_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "release.log")
+            self.test_path = os.path.join(sys._MEIPASS, "test_logs", "test.log")
+            self.release_path = os.path.join(sys._MEIPASS, "test_logs", "release.log")
         elif __file__:
             self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
             self.release_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "release.log")

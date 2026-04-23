@@ -62,7 +62,7 @@ class MuscleXGlobalTester(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if getattr(sys, 'frozen', False):
-            cls.currdir = os.path.join(os.path.dirname(sys._MEIPASS), "musclex")
+            cls.currdir = sys._MEIPASS
             cls.run_cmd = "./musclex-main"
         else:
             cls.currdir = os.path.dirname(__file__)
