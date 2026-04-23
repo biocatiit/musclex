@@ -66,7 +66,10 @@ def process_one_image(args):
         from musclex.utils.image_data import ImageData
         from musclex.modules.EquatorImage import EquatorImage
         inpaint = settings.get('inpaint', False)
-        image_data = ImageData(img=img, img_path=dir_path, img_name=filename, inpaint=inpaint)
+        from musclex.utils.settings_manager import SettingsManager
+        settings_manager = SettingsManager(dir_path)
+        image_data = ImageData(img=img, img_path=dir_path, img_name=filename, inpaint=inpaint,
+                               settings_manager=settings_manager)
         bioImg = EquatorImage(image_data, parent)
         
         # Process the image

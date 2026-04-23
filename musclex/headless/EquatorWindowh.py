@@ -112,7 +112,10 @@ class EquatorWindowh:
             from musclex.utils.file_manager import fullPath
             import fabio
             img = fabio.open(fullPath(self.dir_path, fileName)).data
-        image_data = ImageData(img=img, img_path=self.dir_path, img_name=fileName)
+        from musclex.utils.settings_manager import SettingsManager
+        settings_manager = SettingsManager(self.dir_path)
+        image_data = ImageData(img=img, img_path=self.dir_path, img_name=fileName,
+                               settings_manager=settings_manager)
         self.bioImg = EquatorImage(image_data, self, output_dir=self.output_dir)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
