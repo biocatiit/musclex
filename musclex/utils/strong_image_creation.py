@@ -214,11 +214,11 @@ def filter_and_sort_files(
     files = files[start_index:end_index]
 
     if str_to_exclude:
-        files = [
-            file for file in files if not any(excl in file for excl in str_to_exclude)
-        ]
         excluded_files = [
             file for file in files if any(excl in file for excl in str_to_exclude)
+        ]
+        files = [
+            file for file in files if not any(excl in file for excl in str_to_exclude)
         ]
         if excluded_files:
             print(

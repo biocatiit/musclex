@@ -564,7 +564,7 @@ class ScanningDiffraction:
         :return:
         """
         runs = collections.defaultdict(list)
-        lenght_threshold = 60
+        length_threshold = 60
         value_threshold = np.median(central_difference, axis=0)
         step = 10
         for i in range(step, len(value_threshold) - step):
@@ -578,14 +578,14 @@ class ScanningDiffraction:
             for r in range(central_difference.shape[0]):
                 if central_difference[r][c] > value_threshold[c]:
                     if r - last_pos > distance_threshold:
-                        if len(run) > lenght_threshold:
+                        if len(run) > length_threshold:
                             line = [run[0], run[len(run) - 1]]
                             runs[c].append(line)
                         run = []
 
                     last_pos = r
                     run.append((r, c))
-            if len(run) > lenght_threshold:
+            if len(run) > length_threshold:
                 line = [run[0], run[len(run) - 1]]
                 runs[c].append(line)
         return runs
@@ -728,15 +728,15 @@ class ScanningDiffraction:
         model_result = self.info['fitResult']
 
         # Limit rings to inside image
-        image_lenght = len(self.info['orig_hists']) - self.info['start_point']
+        image_length = len(self.info['orig_hists']) - self.info['start_point']
 
-        if limit * dist > image_lenght:
-            limit = int(image_lenght/dist)
+        if limit * dist > image_length:
+            limit = int(image_length/dist)
 
         if limit < 10:
             limit = 0
             for limit in range(1, 10):
-                if limit * dist > image_lenght:
+                if limit * dist > image_length:
                     break
 
         limit = min(10 ,limit)

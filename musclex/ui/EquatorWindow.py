@@ -2962,7 +2962,7 @@ class EquatorWindow(QMainWindow):
 
     def fixedParamChanged(self, prevInfo):
         '''
-        Checks whether any of the fixed paramters have been changed
+        Checks whether any of the fixed parameters have been changed
         :param prevInfo: info dict of previous image
         :return: bool True if any fixed param is changed else false
         '''
