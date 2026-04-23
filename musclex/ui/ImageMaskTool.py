@@ -216,13 +216,21 @@ class ImageMaskerWindow(QDialog):
         self.scrollArea.setWidget(self.buttonWidget)
 
         self.selectBlankImg = QPushButton("Select Empty Cell Image(s)")
+        self.selectBlankImg.setToolTip(
+            "Browse for one or more empty-cell (blank) images to use for background subtraction")
         self.selectBlankImg.clicked.connect(self.browseImage)
         self.drawMaskBtn = QPushButton("Draw Mask")
+        self.drawMaskBtn.setToolTip(
+            "Activate free-draw mask mode.\n"
+            "Click and drag on the image to paint pixels that will be zeroed out during processing.")
         self.showBlankImageChkbx = QCheckBox("Show Empty Cell Image")
+        self.showBlankImageChkbx.setToolTip("Display the loaded empty-cell image instead of the data image")
         self.showBlankImageChkbx.setEnabled(False)
         self.showBlankImageChkbx.stateChanged.connect(self.showBlankImage)
 
         self.maskLowThresChkbx = QCheckBox("Low Mask Threshold")
+        self.maskLowThresChkbx.setToolTip(
+            "Mask all pixels whose intensity is below the threshold value (shown in green on the image)")
         self.maskLowThresChkbx.stateChanged.connect(self.enableLowMaskThres)
         
         self.maskLowThresh = QDoubleSpinBox()
@@ -238,6 +246,8 @@ class ImageMaskerWindow(QDialog):
 
         #Enable or disable dilation for lower bound mask
         self.lowMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
+        self.lowMaskDilationChkbx.setToolTip(
+            "Dilate (grow) the low-threshold mask by the selected kernel size to cover nearby pixels")
         self.lowMaskDilationChkbx.setEnabled(False)
         self.lowMaskDilationChkbx.setVisible(False)
         self.lowMaskDilationChkbx.stateChanged.connect(self.enableLowMaskDilation)
@@ -253,6 +263,8 @@ class ImageMaskerWindow(QDialog):
         self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
 
         self.maskHighThreshChkbx = QCheckBox("High Mask Threshold")
+        self.maskHighThreshChkbx.setToolTip(
+            "Mask all pixels whose intensity is above the threshold value (shown in blue on the image)")
         self.maskHighThreshChkbx.stateChanged.connect(self.enableHighMaskThres)
         
         self.maskHighThresh = QDoubleSpinBox()
@@ -268,6 +280,8 @@ class ImageMaskerWindow(QDialog):
 
         #Enable or disable dilation for upper bound mask
         self.highMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
+        self.highMaskDilationChkbx.setToolTip(
+            "Dilate (grow) the high-threshold mask by the selected kernel size to cover nearby pixels")
         self.highMaskDilationChkbx.setEnabled(False)
         self.highMaskDilationChkbx.setVisible(False)
         self.highMaskDilationChkbx.stateChanged.connect(self.enableHighMaskDilation)
@@ -282,6 +296,8 @@ class ImageMaskerWindow(QDialog):
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
 
         self.rCheckbox = QCheckBox("Rmin/Rmax")
+        self.rCheckbox.setToolTip(
+            "Apply a radial mask: pixels inside R-min or outside R-max from the center are zeroed out (shown in purple)")
         self.rCheckbox.clicked.connect(self.enableRminRmax)
 
         self.rminLabel = QLabel("Rmin:")
@@ -324,6 +340,9 @@ class ImageMaskerWindow(QDialog):
         self.purpleLabel.setVisible(False)
         
         self.subtractBlankChkbx = QCheckBox("Subtract Empty Cell Image")
+        self.subtractBlankChkbx.setToolTip(
+            "Subtract the loaded empty-cell image from the data image.\n"
+            "Enabled only when an empty-cell image has been loaded.")
         self.subtractBlankChkbx.setEnabled(False)
         self.subtractBlankChkbx.stateChanged.connect(self.enableSubtractSlider)
         

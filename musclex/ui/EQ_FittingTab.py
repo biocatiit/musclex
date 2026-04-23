@@ -55,6 +55,7 @@ class EQ_FittingTab(QWidget):
         self.fitSettingLayout = QGridLayout(self.fitSettingsGrp)
 
         self.fixSigmaC = QCheckBox("Fixed Sigma C :")
+        self.fixSigmaC.setToolTip("Fix sigma C to the value in the spin box; uncheck to let the fitter determine it freely")
         # self.fixSigmaC.setChecked(True)
         self.sigmaCSpinBx = QDoubleSpinBox()
         self.sigmaCSpinBx.setEnabled(False)
@@ -67,6 +68,7 @@ class EQ_FittingTab(QWidget):
         self.editableVars[self.sigmaCSpinBx.objectName()] = None
 
         self.fixSigmaD = QCheckBox("Fixed Sigma D :")
+        self.fixSigmaD.setToolTip("Fix sigma D to the value in the spin box; uncheck to let the fitter determine it freely")
         self.sigmaDSpinBx = QDoubleSpinBox()
         self.sigmaDSpinBx.setEnabled(False)
         self.sigmaDSpinBx.setMinimum(-100)
@@ -78,6 +80,7 @@ class EQ_FittingTab(QWidget):
         self.editableVars[self.sigmaDSpinBx.objectName()] = None
 
         self.fixSigmaS = QCheckBox("Fixed Sigma S :")
+        self.fixSigmaS.setToolTip("Fix sigma S to the value in the spin box; uncheck to let the fitter determine it freely")
         # self.fixSigmaS.setChecked(True)
         self.sigmaSSpinBx = QDoubleSpinBox()
         self.sigmaSSpinBx.setEnabled(False)
@@ -90,6 +93,7 @@ class EQ_FittingTab(QWidget):
         self.editableVars[self.sigmaSSpinBx.objectName()] = None
 
         self.fixGamma = QCheckBox("Fixed gamma :")
+        self.fixGamma.setToolTip("Fix gamma (peak shape exponent) to the value in the spin box; uncheck to let the fitter determine it freely")
         self.gammaSpinBx = QDoubleSpinBox()
         self.gammaSpinBx.setEnabled(False)
         self.gammaSpinBx.setMinimum(-100)
@@ -114,6 +118,7 @@ class EQ_FittingTab(QWidget):
         self.skeletalGrp.setEnabled(False)
         self.skeletalLayout = QGridLayout(self.skeletalGrp)
         self.fixedZline = QCheckBox("Fixed Center : ")
+        self.fixedZline.setToolTip("Fix the Z-line peak center to the value in the spin box")
         self.zlineSpnBx = QDoubleSpinBox()
         self.zlineSpnBx.setObjectName('zlineSpnBx')
         self.zlineSpnBx.setEnabled(False)
@@ -122,6 +127,7 @@ class EQ_FittingTab(QWidget):
         self.zlineSpnBx.setRange(0, 500)
         self.zlineSpnBx.setKeyboardTracking(False)
         self.fixedIntZ = QCheckBox("Fixed Intensity : ")
+        self.fixedIntZ.setToolTip("Fix the Z-line peak intensity (amplitude) to the value in the spin box")
         self.intZSpnBx = QDoubleSpinBox()
         self.intZSpnBx.setObjectName('intZSpnBx')
         self.intZSpnBx.setEnabled(False)
@@ -130,6 +136,7 @@ class EQ_FittingTab(QWidget):
         self.intZSpnBx.setRange(0, 10000000)
         self.intZSpnBx.setKeyboardTracking(False)
         self.fixedSigZ = QCheckBox("Fixed Sigma : ")
+        self.fixedSigZ.setToolTip("Fix the Z-line peak sigma (width) to the value in the spin box")
         self.sigZSpnBx = QDoubleSpinBox()
         self.sigZSpnBx.setObjectName('sigZSpnBx')
         self.sigZSpnBx.setEnabled(False)
@@ -138,6 +145,7 @@ class EQ_FittingTab(QWidget):
         self.sigZSpnBx.setRange(-100, 100)
         self.sigZSpnBx.setKeyboardTracking(False)
         self.fixedGammaZ = QCheckBox("Fixed Gamma : ")
+        self.fixedGammaZ.setToolTip("Fix the Z-line peak shape exponent (gamma) to the value in the spin box")
         self.gammaZSpnBx = QDoubleSpinBox()
         self.gammaZSpnBx.setObjectName('gammaZSpnBx')
         self.editableVars[self.gammaZSpnBx.objectName()] = None
@@ -158,6 +166,7 @@ class EQ_FittingTab(QWidget):
         self.extraPeakGrp.setEnabled(False)
         self.extraPeakLayout = QGridLayout(self.extraPeakGrp)
         self.fixedZlineEP = QCheckBox("Fixed Center : ")
+        self.fixedZlineEP.setToolTip("Fix the extra peak center to the value in the spin box")
         self.zlineSpnBxEP = QDoubleSpinBox()
         self.zlineSpnBxEP.setObjectName('zlineSpnBx')
         self.zlineSpnBxEP.setEnabled(False)
@@ -166,6 +175,7 @@ class EQ_FittingTab(QWidget):
         self.zlineSpnBxEP.setRange(0, 500)
         self.zlineSpnBxEP.setKeyboardTracking(False)
         self.fixedIntZEP = QCheckBox("Fixed Intensity : ")
+        self.fixedIntZEP.setToolTip("Fix the extra peak intensity (amplitude) to the value in the spin box")
         self.intZSpnBxEP = QDoubleSpinBox()
         self.intZSpnBxEP.setObjectName('intZSpnBx')
         self.intZSpnBxEP.setEnabled(False)
@@ -174,6 +184,7 @@ class EQ_FittingTab(QWidget):
         self.intZSpnBxEP.setRange(0, 10000000)
         self.intZSpnBxEP.setKeyboardTracking(False)
         self.fixedSigZEP = QCheckBox("Fixed Sigma : ")
+        self.fixedSigZEP.setToolTip("Fix the extra peak sigma (width) to the value in the spin box")
         self.sigZSpnBxEP = QDoubleSpinBox()
         self.sigZSpnBxEP.setObjectName('sigZSpnBx')
         self.sigZSpnBxEP.setEnabled(False)
@@ -182,6 +193,7 @@ class EQ_FittingTab(QWidget):
         self.sigZSpnBxEP.setRange(-100, 100)
         self.sigZSpnBxEP.setKeyboardTracking(False)
         self.fixedGammaZEP = QCheckBox("Fixed Gamma : ")
+        self.fixedGammaZEP.setToolTip("Fix the extra peak shape exponent (gamma) to the value in the spin box")
         self.gammaZSpnBxEP = QDoubleSpinBox()
         self.gammaZSpnBxEP.setObjectName('gammaZSpnBx')
         self.editableVars[self.gammaZSpnBxEP.objectName()] = None

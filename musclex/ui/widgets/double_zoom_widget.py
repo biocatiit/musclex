@@ -82,6 +82,10 @@ class DoubleZoomWidget(QWidget):
         self.doubleZoomAxes = None
         self.doubleZoomImage = None  # Store the image object to update it later
         self.doubleZoomCheckbox = QCheckBox("Double Zoom")
+        self.doubleZoomCheckbox.setToolTip(
+            "Enable the double-zoom window (top-right inset).\n"
+            "Click the main image to freeze the zoom window, then click inside it for sub-pixel precision.\n"
+            "Scroll inside the zoom window to change the magnification level.")
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.doubleZoomCheckbox)
 
@@ -380,6 +384,7 @@ class DoubleZoomWidget(QWidget):
         msg.setInformativeText(
             "Please click on zoomed window on the top right")
         dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        dontShowAgainDoubleZoomMessage.setToolTip("Suppress this guide popup in future double-zoom sessions")
         msg.setStandardButtons(QMessageBox.Ok)
         msg.setWindowTitle("Double Zoom Guide")
         msg.setStyleSheet("QLabel{min-width: 500px;}")

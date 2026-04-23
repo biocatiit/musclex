@@ -189,6 +189,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _create_menu_bar(self):
         from PySide6.QtGui import QAction
         changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.setToolTip("Choose a different folder to write the summed/averaged images and CSV output")
         changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
@@ -351,10 +352,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.addWidget(self.panel)
         self.centerChkBx = QCheckBox("Original Center")
         self.centerChkBx.setChecked(False)
+        self.centerChkBx.setToolTip("Show this image's own detected (per-image) center on the display")
         self.centerChkBx.stateChanged.connect(self._redraw_overlays)
 
         self.baseCenterChkBx = QCheckBox("Global Base Center")
         self.baseCenterChkBx.setChecked(False)
+        self.baseCenterChkBx.setToolTip("Show the global base image center used to align all images in the experiment")
         self.baseCenterChkBx.stateChanged.connect(self._redraw_overlays)
 
         _center_row = QWidget()
@@ -388,7 +391,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         _grouping_row_layout.setSpacing(12)
         self.radio_manual = QRadioButton("Select Group Graphically")
         self.radio_manual.setChecked(True)
+        self.radio_manual.setToolTip(
+            "Use the table to manually define which images belong to each group to be summed")
         self.radio_bin_images = QRadioButton("Bin Images")
+        self.radio_bin_images.setToolTip(
+            "Automatically group consecutive images into bins of N and sum each bin")
         _grouping_row_layout.addWidget(self.radio_manual)
         _grouping_row_layout.addWidget(self.radio_bin_images)
         _grouping_row_layout.addStretch()
@@ -409,7 +416,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         _img_ops_layout.addWidget(self._binning_row)
 
         self.avg_instead_of_sum_chk = QCheckBox("Compute Average Instead of Sum")
+        self.avg_instead_of_sum_chk.setToolTip(
+            "When enabled, the result is the per-pixel mean across the group instead of the sum")
         self.compress_chk = QCheckBox("Compress the Resulting Images")
+        self.compress_chk.setToolTip(
+            "Save the resulting images as compressed TIFFs (smaller files; compatible with ImageJ but not fit2d)")
         _img_ops_layout.addWidget(self.avg_instead_of_sum_chk)
         _img_ops_layout.addWidget(self.compress_chk)
 
@@ -424,7 +435,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         _rot_row_layout.setSpacing(12)
         self.radio_rot_absolute = QRadioButton("Align to Make Equator Horizontal")
         self.radio_rot_absolute.setChecked(True)
+        self.radio_rot_absolute.setToolTip(
+            "Rotate every image by its own detected angle so the equator becomes horizontal in absolute coordinates")
         self.radio_rot_diff = QRadioButton("Align to Base Image Rotation")
+        self.radio_rot_diff.setToolTip(
+            "Rotate every image by the difference between its angle and the base image's angle, "
+            "preserving the base image's orientation")
         _rot_row_layout.addWidget(self.radio_rot_absolute)
         _rot_row_layout.addWidget(self.radio_rot_diff)
         _rot_row_layout.addStretch()
@@ -439,6 +455,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sum_images_btn.setMinimumHeight(32)
         self.sum_images_btn.setStyleSheet(
             "QPushButton { color: #ededed; background-color: #af6207 }")
+        self.sum_images_btn.setToolTip(
+            "Sum (or average) the images in each defined group and write the results to the output directory")
         self._right_panel_layout.addWidget(self.sum_images_btn)
 
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)

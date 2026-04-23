@@ -170,7 +170,9 @@ class DisplayOptionsPanel(CollapsibleGroupBox):
         # Zoom buttons
         self.zoomInBtn = QPushButton("Zoom In")
         self.zoomInBtn.setCheckable(True)
+        self.zoomInBtn.setToolTip("Activate zoom-in mode, then drag a rectangle on the image to zoom into that region")
         self.zoomOutBtn = QPushButton("Full")
+        self.zoomOutBtn.setToolTip("Reset the image view to show the full image")
         
         # Color map selector (optional)
         if self._show_colormap:
@@ -181,10 +183,12 @@ class DisplayOptionsPanel(CollapsibleGroupBox):
         
         # Log scale checkbox
         self.logScaleChkBx = QCheckBox("Log scale intensity")
-        
+        self.logScaleChkBx.setToolTip("Display the image using a logarithmic intensity scale to reveal low-intensity details")
+
         # Persist checkbox (optional)
         if self._show_persist:
             self.persistChkBx = QCheckBox("Persist intensities")
+            self.persistChkBx.setToolTip("Reuse the current min/max intensity range when navigating to the next image")
         
         # Layout
         row = 0

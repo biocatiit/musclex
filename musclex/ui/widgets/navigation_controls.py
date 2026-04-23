@@ -42,10 +42,14 @@ class NavigationControls(QWidget):
         self.filenameLineEdit = QLineEdit()
 
         # Helpful tooltips (can be overridden by parent GUIs)
-        self.nextButton.setToolTip('Next Frame')
-        self.prevButton.setToolTip('Previous Frame')
-        self.nextFileButton.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
+        self.nextButton.setToolTip('Go to the next image / frame in the folder')
+        self.prevButton.setToolTip('Go to the previous image / frame in the folder')
+        self.nextFileButton.setToolTip('Jump to the next H5 file in this folder')
+        self.prevFileButton.setToolTip('Jump to the previous H5 file in this folder')
+        self.processFolderButton.setToolTip(
+            'Process every image in the current folder using the current settings')
+        self.processH5Button.setToolTip(
+            'Process all H5 files in the current folder')
 
         # Layout
         layout = QGridLayout(self)

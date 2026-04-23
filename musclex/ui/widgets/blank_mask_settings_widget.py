@@ -30,13 +30,23 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
         
         # Create UI components (all public for direct access)
         self.blankSettingButton = QPushButton("Set Empty Cell Image")
+        self.blankSettingButton.setToolTip(
+            "Open a dialog to select one or more empty-cell (blank) images that will be subtracted from the data")
         self.maskSettingButton = QPushButton("Set Mask")
-        
+        self.maskSettingButton.setToolTip(
+            "Open a dialog to draw or load a pixel mask that will be applied before processing")
+
         self.applyBlankImageChkBx = QCheckBox("Apply Empty Cell Image")
         self.applyBlankImageChkBx.setEnabled(False)  # Disabled until settings exist
-        
+        self.applyBlankImageChkBx.setToolTip(
+            "Subtract the configured empty-cell image from the data image before processing.\n"
+            "Enabled only when an empty-cell image has been set.")
+
         self.applyMaskChkBx = QCheckBox("Apply Mask")
         self.applyMaskChkBx.setEnabled(False)  # Disabled until settings exist
+        self.applyMaskChkBx.setToolTip(
+            "Zero out masked pixels before processing.\n"
+            "Enabled only when a mask has been set.")
         
         # Setup layout
         self._setup_layout()

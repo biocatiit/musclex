@@ -130,6 +130,9 @@ class ImageAlignmentWidget(QWidget):
         self.start_detection_btn = QPushButton(
             "Detect Centers && Rotations")
         self.start_detection_btn.setCheckable(True)
+        self.start_detection_btn.setToolTip(
+            "Start batch detection of center and rotation angle for all loaded images.\n"
+            "Click again (Stop) to cancel the running batch.")
         self.start_detection_btn.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed)
         detection_row.addWidget(self.start_detection_btn)
@@ -140,6 +143,9 @@ class ImageAlignmentWidget(QWidget):
         dist_row.setSpacing(6)
         self._dist_thresh_chk = QCheckBox("Auto Diff threshold:")
         self._dist_thresh_chk.setChecked(True)
+        self._dist_thresh_chk.setToolTip(
+            "Highlight images whose center deviates from the base by more than the threshold.\n"
+            "Uncheck to disable this highlighting.")
         dist_row.addWidget(self._dist_thresh_chk)
         self._dist_thresh_spin = QDoubleSpinBox()
         self._dist_thresh_spin.setRange(0.0, 10000.0)
@@ -158,6 +164,9 @@ class ImageAlignmentWidget(QWidget):
         rot_row.setSpacing(6)
         self._rot_diff_thresh_chk = QCheckBox("Auto-Rot Diff threshold:")
         self._rot_diff_thresh_chk.setChecked(True)
+        self._rot_diff_thresh_chk.setToolTip(
+            "Highlight images whose auto-detected rotation angle differs from the base by more than the threshold.\n"
+            "Uncheck to disable this highlighting.")
         rot_row.addWidget(self._rot_diff_thresh_chk)
         self._rot_diff_thresh_spin = QDoubleSpinBox()
         self._rot_diff_thresh_spin.setRange(0.0, 360.0)
@@ -177,6 +186,10 @@ class ImageAlignmentWidget(QWidget):
         self._diff_thresh_chk = QCheckBox(
             "Image diff threshold (default: 80th pct):")
         self._diff_thresh_chk.setChecked(True)
+        self._diff_thresh_chk.setToolTip(
+            "Highlight images whose pairwise image-diff score exceeds this threshold.\n"
+            "The default is automatically set to the 80th percentile of all diff scores.\n"
+            "Uncheck to disable this highlighting.")
         diff_row.addWidget(self._diff_thresh_chk)
         self._diff_thresh_spin = QDoubleSpinBox()
         self._diff_thresh_spin.setRange(0.0, 1e9)

@@ -203,6 +203,7 @@ class ImageNavigatorWidget(QWidget):
         self.select_image_btn = QPushButton('Click Here to Select an Image...')
         self.select_image_btn.setFixedHeight(100)
         self.select_image_btn.setFixedWidth(300)
+        self.select_image_btn.setToolTip("Open a file browser to select the first image in the folder to process")
         self.select_image_btn.clicked.connect(self.browse_file)
         
         select_layout.addWidget(self.select_image_btn)
