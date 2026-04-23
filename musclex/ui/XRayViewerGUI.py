@@ -179,6 +179,31 @@ class XRayViewerGUI(QMainWindow):
 
         self.calibrationButton = QPushButton("Calibration Settings")
         self.calibrationButton.setToolTip("Open calibration settings to set detector parameters\nand calculate q-values from pixel distances.")
+
+        # Unit radio buttons — only visible when calibration is active
+        unit_tooltip = (
+            "Choose how calibrated distances are displayed in the status bar:\n"
+            "  d (nm)  — real-space d-spacing\n"
+            "  q (nm\u207b\u00b9)  — reciprocal-space scattering vector"
+        )
+        self.unitRadioNm = QRadioButton("d (nm)")
+        self.unitRadioNm.setChecked(True)
+        self.unitRadioNm.setToolTip(unit_tooltip)
+        self.unitRadioQ = QRadioButton("q (nm\u207b\u00b9)")
+        self.unitRadioQ.setToolTip(unit_tooltip)
+
+        self.unitRadioWidget = QWidget()
+        self.unitRadioWidget.setVisible(False)
+        unit_radio_layout = QHBoxLayout(self.unitRadioWidget)
+        unit_radio_layout.setContentsMargins(0, 0, 0, 0)
+        unit_radio_layout.setSpacing(4)
+        unit_radio_label = QLabel("Cursor Readout:")
+        unit_radio_label.setStyleSheet("font-weight: normal;")
+        unit_radio_layout.addWidget(unit_radio_label)
+        unit_radio_layout.addWidget(self.unitRadioNm)
+        unit_radio_layout.addWidget(self.unitRadioQ)
+        unit_radio_layout.addStretch()
+
         self.openTrace = QPushButton("Open Trace Window")
         self.openTrace.setToolTip("Open a separate window to view intensity traces\nacross multiple images in the folder.")
         self.measureDist = QPushButton("Measure a Distance")
@@ -199,12 +224,13 @@ class XRayViewerGUI(QMainWindow):
         self.checkableButtons.extend([self.measureDist, self.setSlice, self.setSliceBox])
         
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.openTrace, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.measureDist, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSlice, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSliceBox, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.saveGraphSlice, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.unitRadioWidget, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.openTrace, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.measureDist, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSlice, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSliceBox, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.saveGraphSlice, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.inpaintChkBx, 7, 0, 1, 2)
         
         # Add settings to navigator's right panel
         self.navigator.right_panel.add_widget(self.settingsGroup)
@@ -340,6 +366,8 @@ class XRayViewerGUI(QMainWindow):
         self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
         self.inpaintChkBx.stateChanged.connect(self._reprocess_with_inpaint)
         self.qfChkBx.stateChanged.connect(self._on_qf_toggled)
+        self.unitRadioNm.toggled.connect(self._on_unit_changed)
+        self.unitRadioQ.toggled.connect(self._on_unit_changed)
         self.centerChkBx.stateChanged.connect(self._draw_center_overlay)
 
         ##### Graph tab - Keep matplotlib events (different canvas) #####
@@ -454,20 +482,27 @@ class XRayViewerGUI(QMainWindow):
         if not self.ableToProcess() or not self.xrayViewer:
             return
         
-        # Display coordinates with calibrated d-spacings (X, Y, R) in nm
+        # Display coordinates with calibrated values (unit depends on unitSelector)
         if self.xrayViewer.orig_image_center is not None and self.calSettings and 'scale' in self.calSettings:
             center = self.xrayViewer.orig_image_center
-            q_x, q_y, q_R, _ = qFromCenter([x, y], center, self.calSettings['scale'])
+            q_x, q_y, q_R, q_unit = qFromCenter([x, y], center, self.calSettings['scale'])
             r_px = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
 
-            def _d(q):
-                # Convert q (nm^-1) to d-spacing (nm). Guard against q ~ 0 at center.
-                return f"{1.0 / q:.4f}" if abs(q) > 1e-6 else "\u221e"
+            show_nm = self.unitRadioNm.isChecked()
 
-            self.imgCoordOnStatusBar.setText(
-                f"x={x:.2f}, y={y:.2f}, r={r_px:.1f} px, value={value:.2f}, "
-                f"dX={_d(q_x)} nm, dY={_d(q_y)} nm, dR={_d(q_R)} nm"
-            )
+            if show_nm:
+                def _fmt(q):
+                    return f"{1.0 / q:.4f}" if abs(q) > 1e-6 else "\u221e"
+                unit_label = "nm"
+                self.imgCoordOnStatusBar.setText(
+                    f"x={x:.2f}, y={y:.2f}, r={r_px:.1f} px, value={value:.2f}, "
+                    f"dX={_fmt(q_x)} {unit_label}, dY={_fmt(q_y)} {unit_label}, dR={_fmt(q_R)} {unit_label}"
+                )
+            else:
+                self.imgCoordOnStatusBar.setText(
+                    f"x={x:.2f}, y={y:.2f}, r={r_px:.1f} px, value={value:.2f}, "
+                    f"qX={q_x:.4f} {q_unit}, qY={q_y:.4f} {q_unit}, qR={q_R:.4f} {q_unit}"
+                )
         else:
             self.imgCoordOnStatusBar.setText(
                 f"x={x:.2f}, y={y:.2f}, value={value:.2f}"
@@ -716,6 +751,10 @@ class XRayViewerGUI(QMainWindow):
                 self.file_manager.dir_path
             )
 
+    def _on_unit_changed(self, _checked):
+        """The unit radio changed — the status bar will update on the next mouse move."""
+        pass  # _on_coordinates_changed reads unitRadioNm.isChecked() live
+
     def _on_qf_toggled(self, _state):
         """Handle Quadrant Folded checkbox toggle.
 
@@ -794,6 +833,13 @@ class XRayViewerGUI(QMainWindow):
             result = self.calSettingsDialog.exec_()
             if result == 1:
                 self.calSettings = self.calSettingsDialog.getValues()
+                # 'scale' is only present after a real calibration fit (image mode)
+                # or when param mode fills it in.  'silverB' alone (without 'scale')
+                # means the image-mode checkbox is on but the image was unset.
+                cal_active = bool(self.calSettings and 'scale' in self.calSettings)
+                self.unitRadioWidget.setVisible(cal_active)
+                if not cal_active:
+                    return False
                 # Always save calibrated center if available
                 # Whether to USE it is controlled by Persistent Center in main GUI
                 if 'center' in self.calSettings:
