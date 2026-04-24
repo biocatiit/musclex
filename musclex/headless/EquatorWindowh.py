@@ -114,7 +114,10 @@ class EquatorWindowh:
             img = fabio.open(fullPath(self.dir_path, fileName)).data
         from musclex.utils.settings_manager import SettingsManager
         settings_manager = SettingsManager(self.dir_path)
+        manual_center = settings_manager.get_center(fileName)
+        manual_rotation = settings_manager.get_rotation(fileName)
         image_data = ImageData(img=img, img_path=self.dir_path, img_name=fileName,
+                               center=manual_center, rotation=manual_rotation,
                                settings_manager=settings_manager)
         self.bioImg = EquatorImage(image_data, self, output_dir=self.output_dir)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
