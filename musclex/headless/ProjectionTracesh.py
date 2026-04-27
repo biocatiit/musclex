@@ -138,8 +138,14 @@ class ProjectionTracesh:
         img_full_path = fullPath(self.dir_path, img_name)
         img = fabio.open(img_full_path).data
         
-        # Create ImageData object
-        image_data = ImageData(img, self.dir_path, img_name)
+        # Create ImageData with manual center/rotation from center_settings.json
+        from ..utils.settings_manager import SettingsManager
+        settings_manager = SettingsManager(self.dir_path)
+        manual_center = settings_manager.get_center(img_name)
+        manual_rotation = settings_manager.get_rotation(img_name)
+        image_data = ImageData(img, self.dir_path, img_name,
+                               center=manual_center, rotation=manual_rotation,
+                               settings_manager=settings_manager)
         
         # Create ProjectionProcessor with ImageData
         self.projProc = ProjectionProcessor(image_data, output_dir=self.output_dir)
@@ -150,11 +156,6 @@ class ProjectionTracesh:
         
         if self.mask_thres == -999:
             self.mask_thres = getMaskThreshold(self.projProc.orig_img)
-        
-        # Set center from config if available, otherwise use ImageData's auto-calculated center
-        if self.centerx is not None and self.centery is not None:
-            # Use center from config (stored from previous GUI session)
-            self.projProc._image_data.set_manual_center((self.centerx, self.centery))
         
         # Get final center from ImageData (manual or auto-calculated)
         center = self.projProc._image_data.center
@@ -370,10 +371,6 @@ class ProjectionTracesh:
                     self.projProc.state.lambda_sdd = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
                     self.projProc.state.lambda_sdd = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-            
-            if "center" in self.calSettings:
-                # Set calibration center on ImageData (overrides any previous center)
-                self.projProc._image_data.set_manual_center(self.calSettings["center"])
             
             if "detector" in self.calSettings:
                 # Write to state
