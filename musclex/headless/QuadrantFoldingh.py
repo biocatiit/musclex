@@ -98,21 +98,24 @@ class QuadrantFoldingh:
         img_full_path = fullPath(self.dir_path, fileName)
         img = fabio.open(img_full_path).data
         
-        # Load calibration settings first if needed
-        center = None
+        # Load calibration settings if needed (for flags/parameters, not center)
         if self.inputsettings:
             try:
                 import json
                 with open(self.settingspath, 'r') as f:
                     self.calSettings = json.load(f)
-                if self.calSettings is not None and 'center' in self.calSettings:
-                    center = tuple(self.calSettings['center'])
             except:
                 self.calSettings = None
-        
-        # Create ImageData object with center if available
+
+        # Create ImageData with manual center/rotation from center_settings.json
         from ..utils.image_data import ImageData
-        image_data = ImageData(img, self.dir_path, fileName, center=center)
+        from ..utils.settings_manager import SettingsManager
+        settings_manager = SettingsManager(self.dir_path)
+        manual_center = settings_manager.get_center(fileName)
+        manual_rotation = settings_manager.get_rotation(fileName)
+        image_data = ImageData(img, self.dir_path, fileName,
+                               center=manual_center, rotation=manual_rotation,
+                               settings_manager=settings_manager)
         
         # Create QuadrantFolder with ImageData
         self.quadFold = QuadrantFolder(image_data, self, output_dir=self.output_dir)
@@ -364,12 +367,6 @@ class QuadrantFoldingh:
                 self.statusPrint("Can't load setting file")
                 self.inputsettings = False
                 self.calSettings = None
-            if self.calSettings is not None and 'center' in self.calSettings:
-                # Set center from settings file (treated as manual)
-                center = tuple(self.calSettings['center'])
-                self.quadFold.image_data.set_manual_center(center)
-            else:
+            if self.calSettings is None:
                 self.inputsettings = False
-        else:
-            # Reset to auto mode - center is already set in ImageData during __init__
-            pass
+        # Center is managed by ImageData (center_settings.json → auto_geometry_cache → auto-calculate)
