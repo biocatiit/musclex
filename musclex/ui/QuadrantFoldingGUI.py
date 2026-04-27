@@ -3359,20 +3359,26 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         save settings to json
         """
-        settings = self.calSettings
-        if self.quadFold is not None:
-            if settings is None:
-                settings = {}
-            settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
-        # Persist ROI to qfsettings.json only if the user explicitly enabled
-        # "Persist ROI size". The headless runner picks these up via the
-        # fixed_roi_w / fixed_roi_h keys (see headless/QuadrantFoldingh.py
-        # getFlags() which forwards calSettings into flags).
+        # Start from all current UI flags
+        settings = dict(self.getFlags())
+
+        # Remove per-session / per-image keys that should not be persisted
+        for key in ('ignore_folds', 'orientation_model', 'blank_mask',
+                    'apply_mask', 'mode_angle', 'roi_w', 'roi_h', 'detector',
+                    'center', 'fold_image', 'rotate'):
+            settings.pop(key, None)
+
+        # Output compression flag (not in getFlags, driven by its own checkbox)
+        settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
+
+        # Persist ROI only when the user explicitly enabled "Persist ROI size"
         if self.fixedRoiChkBx.isChecked():
             settings['fixed_roi_w'] = self.fixedRoiW.value()
             settings['fixed_roi_h'] = self.fixedRoiH.value()
-        if self.quadFold is not None and 'bgsub' in self.quadFold.info:
-            settings['bgsub'] = self.quadFold.info['bgsub']
+        else:
+            settings.pop('fixed_roi_w', None)
+            settings.pop('fixed_roi_h', None)
+
         filename = getSaveFile(os.path.join("musclex", "settings", "qfsettings.json"), None)
         if filename != "":
             with open(filename, 'w') as f:
