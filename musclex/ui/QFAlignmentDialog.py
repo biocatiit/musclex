@@ -85,6 +85,8 @@ class QFAlignmentDialog(QDialog):
     def _build_ui(self):
         """Build dialog UI: hint label -> detection controls -> table -> status bar -> Close button."""
         # QF does not need a Group column; Frame starts at column 0.
+        # FOLD_STD is appended at the end so the symmetry score is read alongside
+        # the existing image-diff metric.
         col_map = {
             ColKey.FRAME: 0,
             ColKey.CENTER: 1,
@@ -99,6 +101,7 @@ class QFAlignmentDialog(QDialog):
             ColKey.AUTO_ROT_DIFF: 10,
             ColKey.SIZE: 11,
             ColKey.IMAGE_DIFF: 12,
+            ColKey.FOLD_STD: 13,
         }
         headers = [
             "Frame",
@@ -107,6 +110,7 @@ class QFAlignmentDialog(QDialog):
             "Rotation", "Rotation\nMode", "Rot Diff\nfrom Base",
             "Auto\nRotation", "Auto Rot\nDifference",
             "Size", "Image\nDifference",
+            "Fold Std\n(sum)",
         ]
 
         fm = self.workspace.navigator.file_manager
@@ -118,6 +122,8 @@ class QFAlignmentDialog(QDialog):
             col_map=col_map,
             headers=headers,
             worker_dir_path=worker_dir,
+            enable_symmetry_test=True,
+            detection_button_position="bottom_after_thresholds",
             parent=self,
         )
         # Use the default context menu (Set Center/Rotation, Set Global Base, Ignore).
@@ -130,9 +136,12 @@ class QFAlignmentDialog(QDialog):
         # Brief usage hint at the top of the dialog.
         hint = QLabel(
             "Tips: Click a row to navigate to that image in the QF main window. "
-            "Right-click for Set Global Base / Ignore"
-            "After changing the global base or finishing detection, the QF main "
-            "window will automatically reprocess with the updated settings."
+            "Right-click for Set Global Base / Ignore. "
+            "Enable 'Run symmetry test on detection' to also compute the sum of "
+            "per-pixel std-deviation across the 4 quadrants (lower is more "
+            "symmetric). After changing the global base or finishing detection, "
+            "the QF main window will automatically reprocess with the updated "
+            "settings."
         )
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #555; padding: 2px 0;")

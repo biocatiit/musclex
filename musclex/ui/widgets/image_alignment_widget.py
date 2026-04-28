@@ -29,7 +29,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from musclex.ui.add_intensities_common import _compute_geometry, _compute_image_diff
+from musclex.ui.add_intensities_common import (
+    _compute_geometry,
+    _compute_geometry_with_symmetry,
+    _compute_image_diff,
+)
 from musclex.ui.widgets import CollapsibleGroupBox
 from musclex.ui.widgets.image_alignment_table import ColKey, ImageAlignmentTable
 from musclex.utils.task_manager import ProcessingTaskManager
@@ -51,6 +55,16 @@ class ImageAlignmentWidget(QWidget):
     worker_dir_path : str
         Directory path passed to subprocess workers (``str(fm.dir_path)``
         for Single, ``""`` for Multiple).
+    enable_symmetry_test : bool, default False
+        When True, an additional "Symmetry std threshold" checkbox + spinbox is
+        rendered, a ``FOLD_STD`` column is expected in the table, and batch
+        detection will additionally compute the sum-of-std symmetry score for
+        each image. Off by default so existing AISE callers are not affected.
+    detection_button_position : {"top", "bottom_after_thresholds"}, default "top"
+        Where to render the "Detect Centers && Rotations" button inside the
+        detection group. "top" preserves the original AISE layout. The QF
+        dialog uses ``"bottom_after_thresholds"`` so the button sits below
+        every checkbox / threshold control.
     parent : QWidget | None
         Optional parent widget.
     """
@@ -62,11 +76,16 @@ class ImageAlignmentWidget(QWidget):
     detectionFinished = Signal()
 
     def __init__(self, workspace, row_mapper, col_map, headers,
-                 worker_dir_path="", parent=None):
+                 worker_dir_path="", enable_symmetry_test=False,
+                 detection_button_position="top", parent=None):
         super().__init__(parent)
         self.workspace = workspace
         self._row_mapper = row_mapper
         self._worker_dir_path = worker_dir_path
+        self._enable_symmetry_test = bool(enable_symmetry_test)
+        if detection_button_position not in ("top", "bottom_after_thresholds"):
+            detection_button_position = "top"
+        self._detection_button_position = detection_button_position
 
         # --- State --------------------------------------------------------
         self._img_sizes: dict = {}
@@ -84,6 +103,10 @@ class ImageAlignmentWidget(QWidget):
         self._diff_percentile_threshold: float = None
         self._diff_thresh_enabled = True
         self._diff_thresh_value = 0.0
+        # Symmetry test state — only meaningful when enable_symmetry_test=True.
+        self._symmetry_enabled = False
+        self._symmetry_thresh_enabled = False
+        self._symmetry_threshold = 0.0
 
         # Batch detection state
         self.taskManager = ProcessingTaskManager()
@@ -126,17 +149,23 @@ class ImageAlignmentWidget(QWidget):
         layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(4)
 
-        detection_row = QHBoxLayout()
+        # Build the detection toggle button up-front; it may be inserted at the
+        # top *or* at the bottom of ``layout`` depending on configuration.
         self.start_detection_btn = QPushButton(
             "Detect Centers && Rotations")
         self.start_detection_btn.setCheckable(True)
         self.start_detection_btn.setToolTip(
             "Start batch detection of center and rotation angle for all loaded images.\n"
+            "If the symmetry test is enabled, the sum-of-std fold symmetry score is "
+            "also computed for each image.\n"
             "Click again (Stop) to cancel the running batch.")
         self.start_detection_btn.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed)
-        detection_row.addWidget(self.start_detection_btn)
-        layout.addLayout(detection_row)
+
+        if self._detection_button_position == "top":
+            detection_row = QHBoxLayout()
+            detection_row.addWidget(self.start_detection_btn)
+            layout.addLayout(detection_row)
 
         # Distance threshold
         dist_row = QHBoxLayout()
@@ -202,6 +231,45 @@ class ImageAlignmentWidget(QWidget):
         diff_row.addStretch()
         layout.addLayout(diff_row)
 
+        # Symmetry test row — only rendered when symmetry detection is enabled.
+        if self._enable_symmetry_test:
+            sym_row = QHBoxLayout()
+            sym_row.setSpacing(6)
+            self._symmetry_enable_chk = QCheckBox("Run symmetry test on detection")
+            self._symmetry_enable_chk.setChecked(False)
+            self._symmetry_enable_chk.setToolTip(
+                "When checked, batch detection additionally computes the sum of "
+                "per-pixel standard deviation across the 4 quadrants (after "
+                "centering and rotating each image, before actual folding).\n"
+                "A lower score means a more symmetric image.")
+            sym_row.addWidget(self._symmetry_enable_chk)
+
+            self._symmetry_thresh_chk = QCheckBox("Highlight above:")
+            self._symmetry_thresh_chk.setChecked(False)
+            self._symmetry_thresh_chk.setEnabled(False)
+            self._symmetry_thresh_chk.setToolTip(
+                "Highlight rows whose fold std-sum exceeds this value.\n"
+                "Tune the threshold according to your dataset (the score is a sum, "
+                "so it scales with image size and intensity).")
+            sym_row.addWidget(self._symmetry_thresh_chk)
+
+            self._symmetry_thresh_spin = QDoubleSpinBox()
+            self._symmetry_thresh_spin.setRange(0.0, 1e12)
+            self._symmetry_thresh_spin.setDecimals(2)
+            self._symmetry_thresh_spin.setSingleStep(100.0)
+            self._symmetry_thresh_spin.setValue(self._symmetry_threshold)
+            self._symmetry_thresh_spin.setEnabled(False)
+            self._symmetry_thresh_spin.setFixedWidth(140)
+            sym_row.addWidget(self._symmetry_thresh_spin)
+            sym_row.addStretch()
+            layout.addLayout(sym_row)
+
+        # Place the detection button at the bottom of the controls if requested.
+        if self._detection_button_position == "bottom_after_thresholds":
+            detection_row = QHBoxLayout()
+            detection_row.addWidget(self.start_detection_btn)
+            layout.addLayout(detection_row)
+
         # Wire threshold signals
         self._dist_thresh_chk.toggled.connect(
             self._on_dist_threshold_toggled)
@@ -215,6 +283,14 @@ class ImageAlignmentWidget(QWidget):
             self._on_diff_thresh_toggled)
         self._diff_thresh_spin.valueChanged.connect(
             self._on_diff_thresh_changed)
+
+        if self._enable_symmetry_test:
+            self._symmetry_enable_chk.toggled.connect(
+                self._on_symmetry_enable_toggled)
+            self._symmetry_thresh_chk.toggled.connect(
+                self._on_symmetry_thresh_toggled)
+            self._symmetry_thresh_spin.valueChanged.connect(
+                self._on_symmetry_thresh_changed)
 
         self.misaligned_detection_group.set_content_layout(layout)
         root.addWidget(self.misaligned_detection_group)
@@ -364,6 +440,14 @@ class ImageAlignmentWidget(QWidget):
         self.table.fill_diff(
             row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value)
 
+        if self._enable_symmetry_test and ColKey.FOLD_STD in self.table._col:
+            sym_val = sm.get_fold_std_sum(name) if hasattr(
+                sm, 'get_fold_std_sum') else None
+            self.table.fill_fold_std(
+                row, sym_val,
+                self._symmetry_thresh_enabled, self._symmetry_threshold,
+            )
+
         self.table.apply_misaligned_highlight(
             row, name, self.misaligned_names)
         self.table.apply_base_marker(
@@ -466,12 +550,39 @@ class ImageAlignmentWidget(QWidget):
         if self._diff_thresh_enabled:
             self._apply_threshold_highlighting()
 
+    # --- Symmetry threshold callbacks (only active when enable_symmetry_test) -
+
+    def _on_symmetry_enable_toggled(self, checked):
+        """Master toggle: when off, the symmetry test is skipped during detection
+        and the highlight threshold controls are disabled."""
+        self._symmetry_enabled = bool(checked)
+        # Threshold controls only make sense once detection has run with symmetry
+        # on, but keep them in sync visually.
+        self._symmetry_thresh_chk.setEnabled(self._symmetry_enabled)
+        if not self._symmetry_enabled:
+            self._symmetry_thresh_chk.setChecked(False)
+            self._symmetry_thresh_spin.setEnabled(False)
+            self._symmetry_thresh_enabled = False
+            self._apply_threshold_highlighting()
+
+    def _on_symmetry_thresh_toggled(self, checked):
+        self._symmetry_thresh_enabled = bool(checked)
+        self._symmetry_thresh_spin.setEnabled(self._symmetry_thresh_enabled)
+        self._apply_threshold_highlighting()
+
+    def _on_symmetry_thresh_changed(self, value):
+        self._symmetry_threshold = float(value)
+        if self._symmetry_thresh_enabled:
+            self._apply_threshold_highlighting()
+
     def _apply_threshold_highlighting(self):
         """Delegate threshold highlighting to the table widget."""
         self.table.apply_threshold_highlighting(
             self._dist_threshold_enabled, self._dist_threshold,
             self._rot_diff_threshold_enabled, self._rot_diff_threshold,
             self._diff_thresh_enabled, self._diff_thresh_value,
+            symmetry_enabled=self._symmetry_thresh_enabled,
+            symmetry_thresh=self._symmetry_threshold,
         )
 
     # ------------------------------------------------------------------
@@ -693,11 +804,21 @@ class ImageAlignmentWidget(QWidget):
         self.stop_process = False
         self.taskManager.clear()
 
+        # Snapshot the symmetry-test toggle for the duration of this batch so
+        # the user toggling it mid-run does not desync workers and result-
+        # handling logic.
+        self._batch_do_symmetry = bool(
+            self._enable_symmetry_test and self._symmetry_enabled)
+
         self.progressBar.setMaximum(n)
         self.progressBar.setMinimum(0)
         self.progressBar.setValue(0)
         self.progressBar.setVisible(True)
-        self.statusLabel.setText("Detecting center/rotation...")
+        if self._batch_do_symmetry:
+            self.statusLabel.setText(
+                "Detecting center/rotation + fold symmetry...")
+        else:
+            self.statusLabel.setText("Detecting center/rotation...")
 
         orientation_model = getattr(self.workspace, '_orientation_model', 0)
 
@@ -711,20 +832,34 @@ class ImageAlignmentWidget(QWidget):
                     else None)
             manual_center, manual_rotation = \
                 self.workspace.get_manual_settings(img_name)
-            job_args = (
-                self._worker_dir_path,
-                img_name,
-                spec,
-                manual_center,
-                manual_rotation,
-                orientation_model,
-            )
-            future = self.processExecutor.submit(
-                _compute_geometry, job_args)
+            if self._batch_do_symmetry:
+                job_args = (
+                    self._worker_dir_path,
+                    img_name,
+                    spec,
+                    manual_center,
+                    manual_rotation,
+                    orientation_model,
+                    True,
+                )
+                future = self.processExecutor.submit(
+                    _compute_geometry_with_symmetry, job_args)
+            else:
+                job_args = (
+                    self._worker_dir_path,
+                    img_name,
+                    spec,
+                    manual_center,
+                    manual_rotation,
+                    orientation_model,
+                )
+                future = self.processExecutor.submit(
+                    _compute_geometry, job_args)
             self.taskManager.submit_task(img_name, row, future)
             future.add_done_callback(self._on_future_done)
 
-        print(f"Batch detection started: {n} images submitted")
+        print(f"Batch detection started: {n} images submitted "
+              f"(symmetry={self._batch_do_symmetry})")
 
     def _on_future_done(self, future):
         """Route future callback to the main thread via QTimer."""
@@ -759,6 +894,12 @@ class ImageAlignmentWidget(QWidget):
                     result['center'],
                     result['rotation'],
                 )
+                # Persist the fold-symmetry score when present (only emitted by
+                # the symmetry-aware worker). ``None`` simply means the symmetry
+                # test was not requested for this image.
+                fold_std = result.get('fold_std_sum')
+                if fold_std is not None and hasattr(sm, 'set_fold_std_sum'):
+                    sm.set_fold_std_sum(task.filename, fold_std)
 
             stats = self.taskManager.get_statistics()
             self.progressBar.setValue(stats['completed'] + stats['failed'])
@@ -784,7 +925,14 @@ class ImageAlignmentWidget(QWidget):
         stats = self.taskManager.get_statistics()
 
         if not stopped:
-            self.workspace.settings_manager.save_auto_cache()
+            sm = self.workspace.settings_manager
+            sm.save_auto_cache()
+            # Persist symmetry results when the batch ran with symmetry enabled.
+            if getattr(self, '_batch_do_symmetry', False) and hasattr(
+                    sm, 'save_fold_std_sum'):
+                sm.save_fold_std_sum()
+        # Reset the per-batch flag so subsequent toggles take effect cleanly.
+        self._batch_do_symmetry = False
 
         if self.processExecutor:
             self.processExecutor.shutdown(wait=False)

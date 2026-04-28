@@ -24,6 +24,9 @@ class ColKey:
     AUTO_ROT_DIFF = 'AUTO_ROT_DIFF'
     SIZE = 'SIZE'
     IMAGE_DIFF = 'IMAGE_DIFF'
+    # Sum of per-pixel std-deviation across the 4 quadrants computed before
+    # actual folding. Lower is better (perfectly symmetric image -> 0).
+    FOLD_STD = 'FOLD_STD'
 
 
 class ImageAlignmentTable(QTableWidget):
@@ -179,6 +182,31 @@ class ImageAlignmentTable(QTableWidget):
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.setItem(row, c, item)
 
+    def fill_fold_std(self, row, std_val, thresh_enabled, thresh_value):
+        """Fill the FOLD_STD column; highlight if above the symmetry threshold.
+
+        The score is a sum (not a mean) so values can be large; we use the
+        general-purpose ``g`` format to keep the column compact while
+        preserving precision for tiny scores.
+        """
+        if ColKey.FOLD_STD not in self._col:
+            return
+        c = self._col[ColKey.FOLD_STD]
+        if std_val is None:
+            text = ""
+        elif std_val >= 1000:
+            text = f"{std_val:.1f}"
+        else:
+            text = f"{std_val:.4g}"
+        item = QTableWidgetItem(text)
+        if (std_val is not None
+                and thresh_enabled
+                and thresh_value > 0
+                and std_val > thresh_value):
+            item.setBackground(QBrush(QColor(255, 100, 100)))
+            item.setForeground(QBrush(QColor(255, 255, 255)))
+        self.setItem(row, c, item)
+
     # ------------------------------------------------------------------
     # Pure visual methods
     # ------------------------------------------------------------------
@@ -195,13 +223,20 @@ class ImageAlignmentTable(QTableWidget):
 
     def apply_threshold_highlighting(self, dist_enabled, dist_thresh,
                                      rot_enabled, rot_thresh,
-                                     diff_enabled, diff_thresh):
-        """Re-apply (or clear) red highlighting based on threshold values."""
+                                     diff_enabled, diff_thresh,
+                                     symmetry_enabled=False, symmetry_thresh=0.0):
+        """Re-apply (or clear) red highlighting based on threshold values.
+
+        @param symmetry_enabled: when True the FOLD_STD column is highlighted
+            against ``symmetry_thresh``. The argument is optional so existing
+            callers (AISE) keep working without symmetry support.
+        """
         _red_bg = QBrush(QColor(255, 100, 100))
         _red_fg = QBrush(QColor(255, 255, 255))
         c_dist = self._col[ColKey.AUTO_MANUAL_DIST]
         c_rot = self._col[ColKey.AUTO_ROT_DIFF]
         c_diff = self._col[ColKey.IMAGE_DIFF]
+        c_sym = self._col.get(ColKey.FOLD_STD)
 
         for row in range(self.rowCount()):
             dist_item = self.item(row, c_dist)
@@ -242,6 +277,21 @@ class ImageAlignmentTable(QTableWidget):
                         diff_item.setData(Qt.ForegroundRole, None)
                 except ValueError:
                     pass
+
+            if c_sym is not None:
+                sym_item = self.item(row, c_sym)
+                if sym_item and sym_item.text():
+                    try:
+                        val = float(sym_item.text())
+                        if (symmetry_enabled and symmetry_thresh > 0
+                                and val > symmetry_thresh):
+                            sym_item.setBackground(_red_bg)
+                            sym_item.setForeground(_red_fg)
+                        else:
+                            sym_item.setData(Qt.BackgroundRole, None)
+                            sym_item.setData(Qt.ForegroundRole, None)
+                    except ValueError:
+                        pass
 
     def apply_misaligned_highlight(self, row, name, misaligned_names,
                                    skip_col=0):

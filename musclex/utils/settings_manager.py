@@ -69,6 +69,10 @@ class SettingsManager:
         self._ignore: dict = {}
         # Image diff cache  {"filename": float}  — mean abs diff vs previous image
         self._image_diff: dict = {}
+        # Fold-symmetry cache {"filename": float} — sum of per-pixel std across the
+        # 4 quadrants computed *before* actual folding. Populated by the
+        # alignment-detection pipeline when symmetry test is enabled.
+        self._fold_std_sum: dict = {}
 
         if settings_dir:
             self.load()
@@ -180,6 +184,22 @@ class SettingsManager:
 
     def clear_image_diff(self, filename: str):
         self._image_diff.pop(filename, None)
+
+    # ===== Fold-symmetry std-sum cache =====
+
+    def get_fold_std_sum(self, filename: str) -> Optional[float]:
+        """Return the cached sum-of-std symmetry score for *filename*, or None."""
+        return self._fold_std_sum.get(filename)
+
+    def has_fold_std_sum(self, filename: str) -> bool:
+        return filename in self._fold_std_sum
+
+    def set_fold_std_sum(self, filename: str, value: float):
+        """Cache the sum-of-std symmetry score computed before folding."""
+        self._fold_std_sum[filename] = value
+
+    def clear_fold_std_sum(self, filename: str):
+        self._fold_std_sum.pop(filename, None)
 
     # ===== Auto-geometry cache =====
 
@@ -387,6 +407,7 @@ class SettingsManager:
         self._load_transform()
         self._load_ignore()
         self._load_image_diff()
+        self._load_fold_std_sum()
 
     def _load_center(self):
         path = self.settings_path / "center_settings.json"
@@ -554,6 +575,31 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving image diff cache: {e}")
 
+    def _load_fold_std_sum(self):
+        """Load fold-symmetry std-sum cache from ``fold_std_sum_cache.json``."""
+        path = self.settings_path / "fold_std_sum_cache.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    self._fold_std_sum = json.load(f)
+            except Exception as e:
+                print(f"Error loading fold std-sum cache: {e}")
+                self._fold_std_sum = {}
+        else:
+            self._fold_std_sum = {}
+
+    def save_fold_std_sum(self):
+        """Persist fold-symmetry std-sum cache to ``fold_std_sum_cache.json``."""
+        if not self._settings_dir:
+            return
+        d = self.settings_path
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "fold_std_sum_cache.json", 'w') as f:
+                json.dump(self._fold_std_sum, f, indent=2)
+        except Exception as e:
+            print(f"Error saving fold std-sum cache: {e}")
+
     def save_all(self):
         self.save_center()
         self.save_rotation()
@@ -562,6 +608,7 @@ class SettingsManager:
         self.save_transform()
         self.save_ignore()
         self.save_image_diff()
+        self.save_fold_std_sum()
 
     # ===== Directory switching =====
 
@@ -582,4 +629,5 @@ class SettingsManager:
             self._transform = {}
             self._ignore = {}
             self._image_diff = {}
+            self._fold_std_sum = {}
         print(f"Settings directory updated to: {new_settings_dir}")

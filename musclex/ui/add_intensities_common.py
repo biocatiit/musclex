@@ -162,6 +162,147 @@ def _compute_geometry(args):
         return {'img_name': img_name, 'center': None, 'rotation': None, 'error': str(e)}
 
 
+def _compute_fold_symmetry(img, center, rotation):
+    """Compute the sum of per-pixel std-deviation across the 4 quadrants of *img*.
+
+    Mirrors the transform used by ``QuadrantFolder.transformImage`` and the
+    quadrant slicing in ``QuadrantFolder.calculateAvgFold``: the image is
+    centred, rotated, then split into top-left / top-right / bottom-left /
+    bottom-right quadrants flipped to a common orientation. Quadrants are
+    padded with NaN so partial overlaps don't pollute the std calculation.
+
+    Pixels that have fewer than 2 valid quadrant samples are excluded; the
+    final score is the sum (not mean) of the remaining per-pixel std values
+    so the metric scales with image area as the user requested.
+
+    @param img: 2-D numpy array
+    @param center: (cx, cy) effective center in original image coordinates
+    @param rotation: rotation angle in degrees, applied around the image center
+    @returns float fold-symmetry score, or None if the inputs are unusable
+    """
+    if img is None or center is None:
+        return None
+    try:
+        import cv2 as _cv2
+        import numpy as _np
+
+        h, w = img.shape[:2]
+        cx_orig, cy_orig = float(center[0]), float(center[1])
+
+        # Step 1: translate so the user-specified center maps to image center.
+        tx = (w / 2.0) - cx_orig
+        ty = (h / 2.0) - cy_orig
+        M1 = _np.float32([[1, 0, tx], [0, 1, ty]])
+        img_t = _cv2.warpAffine(
+            img.astype(_np.float32), M1, (w, h),
+            flags=_cv2.INTER_LINEAR, borderValue=_np.nan,
+        )
+        # Step 2: rotate around image center (matches QuadrantFolder.transformImage).
+        if rotation:
+            M2 = _cv2.getRotationMatrix2D((w / 2.0, h / 2.0), float(rotation), 1.0)
+            img_t = _cv2.warpAffine(
+                img_t, M2, (w, h),
+                flags=_cv2.INTER_LINEAR, borderValue=_np.nan,
+            )
+
+        cx, cy = w // 2, h // 2
+        fold_w = max(cx, w - cx)
+        fold_h = max(cy, h - cy)
+        if fold_w <= 0 or fold_h <= 0:
+            return None
+
+        # Slice 4 quadrants exactly as calculateAvgFold does, flipping each to a
+        # common orientation (top-left frame).
+        tl = img_t[max(cy - fold_h, 0):cy, max(cx - fold_w, 0):cx]
+        tr = img_t[max(cy - fold_h, 0):cy, cx:cx + fold_w]
+        bl = img_t[cy:cy + fold_h, max(cx - fold_w, 0):cx]
+        br = img_t[cy:cy + fold_h, cx:cx + fold_w]
+        tr = _cv2.flip(tr, 1) if tr.size else tr
+        bl = _cv2.flip(bl, 0) if bl.size else bl
+        br = _cv2.flip(_cv2.flip(br, 1), 0) if br.size else br
+
+        # Pad each quadrant to (fold_h, fold_w) with NaN so missing samples
+        # do not inflate / suppress the std.
+        stack = _np.full((4, fold_h, fold_w), _np.nan, dtype=_np.float32)
+        for i, q in enumerate((tl, tr, bl, br)):
+            if q is None or q.size == 0:
+                continue
+            qh, qw = q.shape[:2]
+            stack[i, -qh:, -qw:] = q
+
+        # Treat raw "invalid pixel" sentinels (from masked pixels in the
+        # original image) the same as NaN so they do not enter the std.
+        try:
+            from musclex.modules.QuadrantFolder import INVALID_PIXEL_THRESHOLD
+            stack[stack <= INVALID_PIXEL_THRESHOLD] = _np.nan
+        except Exception:
+            pass
+
+        valid = ~_np.isnan(stack)
+        counts = valid.sum(axis=0)
+        keep = counts >= 2
+        if not _np.any(keep):
+            return 0.0
+
+        with _np.errstate(invalid='ignore'):
+            per_pixel_std = _np.nanstd(stack, axis=0, ddof=0)
+        per_pixel_std = _np.where(keep, per_pixel_std, 0.0)
+        return float(_np.nansum(per_pixel_std))
+    except Exception:
+        traceback.print_exc()
+        return None
+
+
+def _compute_geometry_with_symmetry(args):
+    """Subprocess worker: compute auto geometry and (optionally) fold symmetry.
+
+    Behaves like :func:`_compute_geometry` and additionally returns
+    ``fold_std_sum`` when ``do_symmetry`` is True. The symmetry calculation is
+    done with the *effective* center/rotation (manual settings preferred,
+    falling back to the freshly-detected auto values), so the score reflects
+    what folding will actually see.
+    """
+    (dir_path, img_name, loader_spec,
+     manual_center, manual_rotation,
+     orientation_model, do_symmetry) = args
+    try:
+        from musclex.utils.file_manager import load_image_via_spec
+        from musclex.utils.image_data import ImageData
+
+        img = load_image_via_spec(dir_path, img_name, loader_spec)
+        image_data = ImageData(
+            img=img, img_path=dir_path, img_name=img_name,
+            center=None, rotation=None,
+            orientation_model=orientation_model,
+        )
+        auto_center = image_data.center
+        auto_rotation = image_data.rotation
+
+        fold_std_sum = None
+        if do_symmetry:
+            eff_center = manual_center if manual_center is not None else auto_center
+            eff_rotation = (manual_rotation
+                            if manual_rotation is not None else auto_rotation)
+            fold_std_sum = _compute_fold_symmetry(img, eff_center, eff_rotation)
+
+        return {
+            'img_name': img_name,
+            'center': auto_center,
+            'rotation': auto_rotation,
+            'fold_std_sum': fold_std_sum,
+            'error': None,
+        }
+    except Exception as e:
+        traceback.print_exc()
+        return {
+            'img_name': img_name,
+            'center': None,
+            'rotation': None,
+            'fold_std_sum': None,
+            'error': str(e),
+        }
+
+
 def _sum_group_worker(args):
     """Top-level function for subprocess: load, sum/average images in one group, save to disk."""
     (group_num, dir_path, img_names, specs,
