@@ -379,13 +379,26 @@ class QuadrantFoldingGUI(BaseGUI):
         changeOutputDirAction.setToolTip("Choose a different folder to write the folded image and CSV output")
         changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
+        # Tools menu: image alignment and difference detection (reuses AISE's ImageAlignmentWidget)
+        detectAlignmentAction = QAction('Detect Image Alignment...', self)
+        detectAlignmentAction.setShortcut('Ctrl+D')
+        detectAlignmentAction.setToolTip(
+            "Open the alignment detection table to inspect/correct centers, "
+            "rotations, and image differences across the loaded folder (Ctrl+D)"
+        )
+        detectAlignmentAction.triggered.connect(self._open_alignment_dialog)
+        self._detectAlignmentAction = detectAlignmentAction
+
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(saveSettingsAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
-        
+
+        toolsMenu = menubar.addMenu('&Tools')
+        toolsMenu.addAction(detectAlignmentAction)
+
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
     
@@ -423,6 +436,54 @@ class QuadrantFoldingGUI(BaseGUI):
         """Reset CSV manager when the output directory changes."""
         if self.csvManager is not None:
             self.csvManager = QF_CSVManager(new_output_dir)
+
+    # ------------------------------------------------------------------
+    # Alignment / image-difference detection dialog (Tools -> Detect Image Alignment...)
+    # ------------------------------------------------------------------
+
+    def _open_alignment_dialog(self):
+        """
+        @description Open the :class:`QFAlignmentDialog`.
+
+        The dialog reuses the current ProcessingWorkspace so no folder reload
+        is needed. It is shown non-modally so the user can interact with both
+        this main window and the dialog simultaneously.
+        """
+        if not self.file_manager or not self.file_manager.names:
+            QMessageBox.information(
+                self,
+                "No Images Loaded",
+                "Please load a folder before running alignment detection."
+            )
+            return
+
+        existing = getattr(self, '_alignment_dialog', None)
+        if existing is not None:
+            try:
+                existing.raise_()
+                existing.activateWindow()
+                return
+            except RuntimeError:
+                # The C++ object has already been destroyed; create a new one.
+                self._alignment_dialog = None
+
+        from .QFAlignmentDialog import QFAlignmentDialog
+        dlg = QFAlignmentDialog(self.workspace, parent=self)
+        dlg.alignmentChanged.connect(self._on_alignment_changed)
+        dlg.finished.connect(self._on_alignment_dialog_closed)
+        # WA_DeleteOnClose lets Qt destroy the object after closing to avoid stale references.
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        self._alignment_dialog = dlg
+        dlg.show()
+
+    def _on_alignment_changed(self):
+        """Settings changed in dialog (global base / detection finished) -> reprocess with latest settings."""
+        if self.quadFold is not None:
+            self.processImage()
+
+    def _on_alignment_dialog_closed(self, *_args):
+        """Clean up the dialog reference after it is closed."""
+        self._alignment_dialog = None
 
     def _finalize_ui(self):
         """Final UI setup - set window constraints"""
