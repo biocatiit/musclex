@@ -130,7 +130,7 @@ class QFAlignmentDialog(QDialog):
         # Brief usage hint at the top of the dialog.
         hint = QLabel(
             "Tips: Click a row to navigate to that image in the QF main window. "
-            "Right-click for Set Global Base / Ignore / Set Center and Rotation. "
+            "Right-click for Set Global Base / Ignore"
             "After changing the global base or finishing detection, the QF main "
             "window will automatically reprocess with the updated settings."
         )
