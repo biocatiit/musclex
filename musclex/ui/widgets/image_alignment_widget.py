@@ -882,12 +882,11 @@ class ImageAlignmentWidget(QWidget):
             if task is None:
                 return
 
-            if self.stop_process:
-                return
-
-            if error:
-                print(f"Detection error for {task.filename}: {error}")
-            else:
+            # Always persist successful results into the in-memory cache —
+            # even if Stop has been pressed — so work that finished before
+            # the cancel arrives is not silently lost. ``_on_batch_complete``
+            # writes the cache to disk regardless of stop state.
+            if not error:
                 sm = self.workspace.settings_manager
                 sm.set_auto_cache(
                     task.filename,
@@ -900,6 +899,15 @@ class ImageAlignmentWidget(QWidget):
                 fold_std = result.get('fold_std_sum')
                 if fold_std is not None and hasattr(sm, 'set_fold_std_sum'):
                     sm.set_fold_std_sum(task.filename, fold_std)
+
+            # When the user asked to stop, leave UI updates and the completion
+            # check to the stopProcess state machine; data was already cached
+            # above so nothing is lost.
+            if self.stop_process:
+                return
+
+            if error:
+                print(f"Detection error for {task.filename}: {error}")
 
             stats = self.taskManager.get_statistics()
             self.progressBar.setValue(stats['completed'] + stats['failed'])
@@ -924,13 +932,15 @@ class ImageAlignmentWidget(QWidget):
         """Clean up after all batch tasks have finished or been stopped."""
         stats = self.taskManager.get_statistics()
 
-        if not stopped:
-            sm = self.workspace.settings_manager
-            sm.save_auto_cache()
-            # Persist symmetry results when the batch ran with symmetry enabled.
-            if getattr(self, '_batch_do_symmetry', False) and hasattr(
-                    sm, 'save_fold_std_sum'):
-                sm.save_fold_std_sum()
+        # Persist whatever was accumulated in memory regardless of whether
+        # the batch ran to completion or was interrupted via Stop. Without
+        # this, partial-but-valid results from a stopped run would be lost
+        # because ``_on_batch_result`` only writes to the in-memory cache.
+        sm = self.workspace.settings_manager
+        sm.save_auto_cache()
+        if getattr(self, '_batch_do_symmetry', False) and hasattr(
+                sm, 'save_fold_std_sum'):
+            sm.save_fold_std_sum()
         # Reset the per-batch flag so subsequent toggles take effect cleanly.
         self._batch_do_symmetry = False
 
