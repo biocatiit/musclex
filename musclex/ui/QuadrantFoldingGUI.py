@@ -522,6 +522,15 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def _create_quadrant_settings(self):
         """Add quadrant-specific settings to right panel"""
+        # Detect Image Alignment button – opens QFAlignmentDialog above the center settings.
+        self._alignmentBtn = QPushButton("Detect Image Alignment...")
+        self._alignmentBtn.setToolTip(
+            "Open the alignment detection table to inspect center, rotation, "
+            "and image-difference data across all loaded images (Ctrl+D)"
+        )
+        self._alignmentBtn.clicked.connect(self._open_alignment_dialog)
+        self.right_panel.add_widget(self._alignmentBtn)
+
         # Add built-in settings widgets from workspace (workspace no longer adds these automatically)
         self.right_panel.add_widget(self.workspace._center_widget)
         self.right_panel.add_widget(self.workspace._rotation_widget)
