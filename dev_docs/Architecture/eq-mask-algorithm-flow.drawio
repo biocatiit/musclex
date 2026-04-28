@@ -1,0 +1,132 @@
+<mxfile host="65bd71144e">
+    <diagram id="eq-mask-flow" name="EQ Mask Algorithm Flow">
+        <mxGraphModel dx="2389" dy="563" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="pre" value="ImageData Preprocessing Stage" style="swimlane;whiteSpace=wrap;html=1;rounded=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="-380" y="40" width="560" height="680" as="geometry"/>
+                </mxCell>
+                <mxCell id="alg" value="EquatorImage Algorithm Stage" style="swimlane;whiteSpace=wrap;html=1;rounded=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="40" width="910" height="1270" as="geometry"/>
+                </mxCell>
+                <mxCell id="rotate" value="_applyRotation()&#10;Rotate the preprocessed self.image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" parent="alg" vertex="1">
+                    <mxGeometry x="435" y="260" width="250" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="rmin" value="calculateRmin()&#10;pyFAI integrate1d(self.image)&#10;Masked low values are included in integration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" parent="alg" vertex="1">
+                    <mxGeometry x="405" y="385" width="310" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="area" value="getIntegrateArea()&#10;Compute box width from self.image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" parent="alg" vertex="1">
+                    <mxGeometry x="410" y="540" width="300" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="hist" value="getHistogram()&#10;hist = sum(self.image[int_area, :])" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" parent="alg" vertex="1">
+                    <mxGeometry x="405" y="660" width="310" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="alg" source="rotate" target="rmin" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="alg" source="rmin" target="area" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="alg" source="area" target="hist" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="smoothDecision" value="use_smooth_alg?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="alg" vertex="1">
+                    <mxGeometry x="435" y="760" width="250" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="alg" source="hist" target="smoothDecision" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="peaks" value="getPeaks() / managePeaks() / fitModel()&#10;Use the background-subtracted histogram" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontStyle=1;" parent="alg" vertex="1">
+                    <mxGeometry x="185" y="1105" width="280" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="raw" value="Raw image&#10;_raw_img / orig_img" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="-210" y="100" width="220" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cfg" value="Read configuration&#10;apply_blank / apply_mask / inpaint" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="-210" y="190" width="220" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="load" value="Lazy-load blank / mask&#10;SettingsManager.load_blank_and_mask()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="-230" y="290" width="260" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="blank" value="apply_blank?&#10;img = img - blank * weight&#10;clip to &gt;= 0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="-220" y="390" width="240" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="mask" value="apply_mask?&#10;Pixels where mask == 0 become&#10;invalid_pixel_threshold, default -1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+                    <mxGeometry x="-220" y="530" width="240" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="inpaint" value="inpaint?&#10;Fill invalid / masked pixels" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+                    <mxGeometry x="-215" y="680" width="230" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="working" value="get_working_image()&#10;Return a copy of the preprocessed image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="-225" y="820" width="250" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="process" value="process(settings)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="100" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="setimage" value="self.image = get_working_image()&#10;Mask is now represented as -1 / low-value pixels" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="190" width="320" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="gapPath" value="True: find_gaps(hist)&#10;Only columns with hist &lt; 0 are gaps&#10;Fill gaps with B-spline interpolation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+                    <mxGeometry x="620" y="1015" width="270" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ignorePath" value="False: applyConvexhull()&#10;Any img_area pixel &lt;= mask_thres(0)&#10;Mark the whole column as ignore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+                    <mxGeometry x="950" y="1015" width="290" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="convex" value="convexHull(ignore)&#10;Raise ignored columns while estimating background&#10;Set ignored output positions to 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="955" y="1145" width="280" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="note" value="Key point: the algorithm does not read the external mask file directly. ImageData converts the external mask into -1 / low-value pixels in self.image, which later get detected through &lt;=0 or hist&lt;0 checks." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="-380" y="930" width="560" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;" parent="1" source="raw" target="cfg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;" parent="1" source="cfg" target="load" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;" parent="1" source="load" target="blank" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;" parent="1" source="blank" target="mask" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;" parent="1" source="mask" target="inpaint" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;" parent="1" source="inpaint" target="working" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" value="Pass to EQ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;fontColor=#666666;" parent="1" source="working" target="setimage" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="320" y="855"/>
+                            <mxPoint x="320" y="210"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="1" source="process" target="setimage" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="1" source="setimage" target="rotate" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#9673a6;" parent="1" source="smoothDecision" target="gapPath" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#b85450;" parent="1" source="smoothDecision" target="ignorePath" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#b85450;" parent="1" source="ignorePath" target="convex" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="1" source="gapPath" target="peaks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;" parent="1" source="convex" target="peaks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
