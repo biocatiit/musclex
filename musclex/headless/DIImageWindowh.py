@@ -189,7 +189,16 @@ class DIImageWindowh():
         self.delcache=delcache
         self.inputflagfile=inputflagpath
         self.lock = lock
-        self.output_dir = output_dir if output_dir else dir_path
+        if output_dir:
+            self.output_dir = output_dir
+        elif os.access(dir_path, os.W_OK):
+            self.output_dir = dir_path
+        else:
+            print(f"Error: input directory is not writable and no output directory was specified.\n"
+                  f"  Input : {dir_path}\n"
+                  f"  Fix   : re-run with -o <output_dir>", flush=True)
+            import sys; sys.exit(1)
+
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()

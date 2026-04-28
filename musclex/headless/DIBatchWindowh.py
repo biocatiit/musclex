@@ -117,7 +117,15 @@ class DIBatchWindowh():
         self.delcache=delcache
         self.settingspath=settingspath
         self.hdf_filename = ""
-        self.output_dir = output_dir if output_dir else self.filePath
+        if output_dir:
+            self.output_dir = output_dir
+        elif os.access(self.filePath, os.W_OK):
+            self.output_dir = self.filePath
+        else:
+            print(f"Error: input directory is not writable and no output directory was specified.\n"
+                  f"  Input : {self.filePath}\n"
+                  f"  Fix   : re-run with -o <output_dir>", flush=True)
+            import sys; sys.exit(1)
 
         self.csvManager = DI_CSVManager(self.output_dir)
 

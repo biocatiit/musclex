@@ -79,7 +79,15 @@ class EquatorWindowh:
         self.delcache=delcache
         self.settingspath=settingspath
         self.lock = lock
-        self.output_dir = output_dir if output_dir else self.dir_path
+        if output_dir:
+            self.output_dir = output_dir
+        elif os.access(self.dir_path, os.W_OK):
+            self.output_dir = self.dir_path
+        else:
+            print(f"Error: input directory is not writable and no output directory was specified.\n"
+                  f"  Input : {self.dir_path}\n"
+                  f"  Fix   : re-run with -o <output_dir>", flush=True)
+            sys.exit(1)
 
         self.onImageChanged() # Toggle window to process current image
 
