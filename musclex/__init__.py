@@ -40,13 +40,13 @@ def _get_version():
         ).decode().strip()
     except Exception:
         _branch = ''
-    return f'{_base}(dev)' if _branch == 'dev' else _base
+    return f'{_base}.dev0' if _branch == 'dev' else _base
 
 __version__ = _get_version()
 
 
 def _is_dev_build() -> bool:
-    return __version__.endswith('(dev)')
+    return __version__.endswith('.dev0')
 
 
 def _looks_like_test_runner() -> bool:
@@ -74,7 +74,7 @@ def _maybe_enable_dev_capture():
 
     Activation rules:
 
-    * Only on dev builds (``__version__`` ends with ``(dev)``).
+    * Only on dev builds (``__version__`` ends with ``.dev0``).
     * Skipped if running under a test runner (see ``_looks_like_test_runner``).
     * Respects any explicit ``MUSCLEX_CAPTURE_FITS`` setting (including
       ``=0`` to opt out).
