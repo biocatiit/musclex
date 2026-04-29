@@ -409,22 +409,31 @@ zero-cost when capture is off.
 
 ---
 
-## 10. Findings to date (running notes)
+## 10. Findings to date
 
-After capturing 5 PT cases and running a perturbation sweep:
+The dated benchmark report — including data-grounded tables, citation
+of every source CSV, and the recommendation — lives in
+[`REPORT.md`](REPORT.md).
 
-| perturb | TRF p_max_diff_p95 | baseline p_max_diff_p95 |
-|---:|---:|---:|
-| 0.00 | 0.030 px | 0.000 px |
-| 0.15 | 0.17 px | 1.00 px |
-| 0.50 | 0.17 px | 2.40 px |
-| 1.00 | 0.17 px | 2.83 px (and 4 % aborted) |
+Headline (2026-04-29, 5 captured cases, perturbation sweep at
+`p ∈ {0.05, 0.15, 0.30, 0.50}`, all numbers post bound-aware
+perturbation fix):
 
-* Median quality is **identical** for both adapters at all perturb levels.
-* TRF is roughly constant in worst-case behaviour (`p95 ≈ 0.17 px`)
-  regardless of init quality.
-* Baseline (default lmfit `leastsq` + tan-bound mapping) degrades
-  monotonically with perturbation; at extreme perturbations 4 % of fits
-  abort.
-* Speed difference is small (median ~30–60 ms either way) and not the
-  primary reason to prefer one over the other.
+* **`lmfit-trf` reaches the same optimum as the production baseline**
+  (`chi2_ratio_median = 1.0000`) on every case, every perturbation
+  level. Both adapters always converge — no aborts on either side.
+* **TRF is faster on the harder cases** (Test 1 medians: `m3` 11.7 vs
+  81.7 ms, `m6` 100 vs 157 ms, `TEST` 88 vs 290 ms; ~5–35 % faster
+  overall).
+* **TRF's peak-position p95 is bounded** at 0.03 – 0.17 px regardless
+  of perturbation. Baseline's p95 grows with perturbation and reaches
+  2.4 px at `p = 0.50`. The gap concentrates on the one case with
+  strong background and no bg subtraction (`TEST`: 1.0 – 1.5 px
+  baseline vs. 0.03 – 0.17 px TRF, ~5 – 35 × tighter).
+* **Both Poisson-weighted adapters are wrong for this data path** —
+  convex-hull bg subtraction has already removed the Poisson noise, so
+  `1/√y` biases the optimum 1 – 4 px away from baseline. `lmfit-poisson`
+  also aborts on 5 / 25 of the deterministic fits.
+
+See `REPORT.md` for the full numbers, per-case breakdown, and
+reproduction commands.
