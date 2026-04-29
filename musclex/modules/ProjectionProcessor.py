@@ -30,6 +30,7 @@ import copy
 import pickle
 from os.path import exists, isfile
 from dataclasses import dataclass, field
+from time import perf_counter as _perf_counter
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from lmfit import Model, Parameters
@@ -47,6 +48,14 @@ except: # for coverage
     from utils.histogram_processor import getPeakInformations, convexHull
     from utils.image_processor import *
     from utils.image_data import ImageData
+
+# Optional A/B capture hook. No-op unless MUSCLEX_CAPTURE_FITS is set.
+# Kept import-tolerant so production runs are never blocked by a broken
+# test-only dependency.
+try:
+    from ..tests.fitting_ab.capture import maybe_record_fit as _maybe_record_fit
+except Exception:  # pragma: no cover - any import failure -> disable capture
+    _maybe_record_fit = None
 
 
 @dataclass
@@ -779,7 +788,22 @@ class ProjectionProcessor:
                 # Use standard model with independent sigmas
                 model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
             
+            _fit_t0 = _perf_counter()
             result = model.fit(hist, verbose=False, params=params, **int_vars)
+            _fit_elapsed = _perf_counter() - _fit_t0
+            if _maybe_record_fit is not None:
+                _maybe_record_fit(
+                    box_name=name,
+                    box=box,
+                    processor=self,
+                    x=x,
+                    y=hist,
+                    params=params,
+                    int_vars=int_vars,
+                    use_gmm=use_gmm,
+                    result=result,
+                    elapsed_s=_fit_elapsed,
+                )
             if result is not None:
                 result_dict = result.values
                 int_vars.pop('x')

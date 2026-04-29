@@ -1,0 +1,2 @@
+# Default capture directory. Pickled FitCase files land here unless
+# MUSCLEX_CAPTURE_DIR is set.

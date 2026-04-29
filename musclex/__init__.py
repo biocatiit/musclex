@@ -26,6 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+import datetime as _datetime
 import os as _os
 import sys as _sys
 import subprocess as _subprocess
@@ -42,6 +43,68 @@ def _get_version():
     return f'{_base}(dev)' if _branch == 'dev' else _base
 
 __version__ = _get_version()
+
+
+def _is_dev_build() -> bool:
+    return __version__.endswith('(dev)')
+
+
+def _looks_like_test_runner() -> bool:
+    """Best-effort guess of whether we're inside a unittest / pytest run.
+
+    Test runs auto-enabling capture would silently fill the user's home
+    directory with pickles every CI invocation, which is surprising. We
+    keep the auto-enable strictly for interactive ``musclex pt`` / ``pth``
+    style sessions.
+    """
+    if 'PYTEST_CURRENT_TEST' in _os.environ:
+        return True
+    argv0 = _os.path.basename(_sys.argv[0]) if _sys.argv else ''
+    if argv0 in ('pytest', 'py.test'):
+        return True
+    if 'unittest' in _sys.argv:
+        return True
+    if any('unittest' in a for a in _sys.argv[:2]):  # `python -m unittest ...`
+        return True
+    return False
+
+
+def _maybe_enable_dev_capture():
+    """Auto-enable A/B fit capture for dev builds.
+
+    Activation rules:
+
+    * Only on dev builds (``__version__`` ends with ``(dev)``).
+    * Skipped if running under a test runner (see ``_looks_like_test_runner``).
+    * Respects any explicit ``MUSCLEX_CAPTURE_FITS`` setting (including
+      ``=0`` to opt out).
+    * Defaults the capture dir to ``~/.musclex/fit_captures/<YYYY-MM-DD>/``
+      so pickles never land inside the git working tree.
+    * Defaults the tag to ``dev`` (overridable via ``MUSCLEX_CAPTURE_TAG``).
+
+    Prints a single one-line notice to stderr so users know capture is on
+    and how to disable it. Disable with::
+
+        export MUSCLEX_CAPTURE_FITS=0
+    """
+    if not _is_dev_build():
+        return
+    if _looks_like_test_runner():
+        return
+    if 'MUSCLEX_CAPTURE_FITS' in _os.environ:
+        return  # respect explicit user choice (set or unset to '0')
+
+    today = _datetime.date.today().isoformat()
+    default_dir = _os.path.expanduser(_os.path.join('~', '.musclex', 'fit_captures', today))
+
+    _os.environ['MUSCLEX_CAPTURE_FITS'] = '1'
+    _os.environ.setdefault('MUSCLEX_CAPTURE_DIR', default_dir)
+    _os.environ.setdefault('MUSCLEX_CAPTURE_TAG', 'dev')
+
+    _sys.stderr.write(
+        f'[musclex] dev build: A/B fit capture ENABLED -> {default_dir}\n'
+        f'[musclex]   disable with: export MUSCLEX_CAPTURE_FITS=0\n'
+    )
 
 
 def _show_fatal_dialog(title, message):
@@ -111,3 +174,4 @@ def _check_pyside6_environment():
 
 
 _check_pyside6_environment()
+_maybe_enable_dev_capture()
