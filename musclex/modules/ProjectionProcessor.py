@@ -789,7 +789,18 @@ class ProjectionProcessor:
                 model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
             
             _fit_t0 = _perf_counter()
-            result = model.fit(hist, verbose=False, params=params, **int_vars)
+            # Trust-Region-Reflective (scipy.optimize.least_squares) handles
+            # the parameter bounds natively instead of LM's tan/arctan
+            # remapping, giving tighter peak-position consistency under
+            # perturbed init at equal or better speed. See
+            # musclex/tests/fitting_ab/REPORT.md (2026-04-29) for the A/B data.
+            result = model.fit(
+                hist,
+                verbose=False,
+                params=params,
+                method='least_squares',
+                **int_vars,
+            )
             _fit_elapsed = _perf_counter() - _fit_t0
             if _maybe_record_fit is not None:
                 _maybe_record_fit(
@@ -806,6 +817,24 @@ class ProjectionProcessor:
                 )
             if result is not None:
                 result_dict = result.values
+                # The model has two same-center Gaussians on the meridian
+                # (`(sigma1, amp1)` = background, `(sigma2, amp2)` = meridian
+                # peak), which makes it symmetric under swapping the two.
+                # By convention sigma1 >= sigma2 (the background is broader);
+                # downstream CSV writers and the GUI rely on this. With the
+                # least_squares (TRF) solver some cases land at the
+                # mathematically equivalent but label-swapped optimum, so
+                # canonicalize the ordering here.
+                _s1 = result_dict.get('center_sigma1')
+                _s2 = result_dict.get('center_sigma2')
+                if (_s1 is not None and _s2 is not None
+                        and float(_s1) < float(_s2)):
+                    result_dict['center_sigma1'], result_dict['center_sigma2'] = _s2, _s1
+                    result_dict['center_amplitude1'], result_dict['center_amplitude2'] = (
+                        result_dict.get('center_amplitude2'),
+                        result_dict.get('center_amplitude1'),
+                    )
+
                 int_vars.pop('x')
                 result_dict.update(int_vars)
                 

@@ -224,11 +224,9 @@ component inside the fit), not on the convex-hull-subtracted trace.
 
 1. **Switch `fitModel()` to TRF.** Replace
    `model.fit(hist, …)` with
-   `model.fit(hist, …, method='least_squares', fit_kws={'method': 'trf'})`,
-   or set the lmfit `Minimizer` method via
-   `model.fit(method='least_squares')` (lmfit picks TRF as the default
-   `least_squares` solver when bounds are present). Net effects on
-   the 5-case corpus:
+   `model.fit(hist, …, method='least_squares', …)` (lmfit picks TRF as
+   the default `least_squares` solver when bounds are present). Net
+   effects on the 5-case corpus:
    * **Same optimum** (`chi2_ratio = 1.0`) on every case, every
      perturbation level.
    * **5 – 35 % faster median wall time** overall in Test 1; **2 – 3 ×
@@ -239,6 +237,19 @@ component inside the fit), not on the convex-hull-subtracted trace.
      (`TEST`).
    * **No regression** on reliability: 0 / 50 aborts at every
      perturbation level vs. baseline's 0 / 50.
+
+   **Implementation note — `(center_sigma1, center_sigma2)` labeling.**
+   The model adds two same-center Gaussians on the meridian, with
+   `(sigma1, amp1)` semantically labelled as the *background* and
+   `(sigma2, amp2)` as the *peak*. The model is mathematically
+   symmetric under swapping them; the production downstream
+   (`PT_CSVManager`, GUI panels) relies on the convention "background
+   sigma is broader" (`sigma1 ≥ sigma2`). With the LM solver this falls
+   out from the init values; with TRF, on the strong-background case
+   (`TEST`) the optimizer lands at the labelled-swapped optimum.
+   Canonicalising the ordering after the fit is a 5-line post-process
+   that makes the labelling solver-independent. This is committed as
+   part of the TRF switch.
 
 2. **Drop the Poisson-weighting experiment** for the bg-subtracted code
    path. Keep the adapters in the A/B framework as a regression
