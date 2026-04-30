@@ -88,6 +88,13 @@ class XRayViewerGUI(QMainWindow):
         # Re-entry guards for tool ↔ GUI sync (see _on_*_deactivated handlers)
         self._box_stats_closing = False
         self._xv_legacy_closing = False
+
+        # Current path-label message override. None means "show current file
+        # path from file_manager"; a string overrides it (used to display
+        # tool hints like "Draw a rectangle..."). Routed through
+        # _setStatusPath() / resetStatusbar() so the elision width is
+        # always recomputed against the right-side widgets.
+        self._statusPathMessage = None
         
         # Create ImageNavigatorWidget (handles file management, display, navigation)
         self.navigator = ImageNavigatorWidget(
@@ -519,7 +526,7 @@ class XRayViewerGUI(QMainWindow):
         
         # Update status bar with image info
         original_image = self.xrayViewer.orig_img
-        self.imgDetailOnStatusBar.setText(
+        self._setStatusDetail(
             f"{original_image.shape[0]}x{original_image.shape[1]} : {original_image.dtype}")
         
         # Handle tab-specific updates
@@ -558,17 +565,17 @@ class XRayViewerGUI(QMainWindow):
                 def _fmt(q):
                     return f"{1.0 / q:.4f}" if abs(q) > 1e-6 else "\u221e"
                 unit_label = "nm"
-                self.imgCoordOnStatusBar.setText(
+                self._setStatusCoord(
                     f"x={x:.2f}, y={y:.2f}, r={r_px:.1f} px, value={value:.2f}, "
                     f"dX={_fmt(q_x)} {unit_label}, dY={_fmt(q_y)} {unit_label}, dR={_fmt(q_R)} {unit_label}"
                 )
             else:
-                self.imgCoordOnStatusBar.setText(
+                self._setStatusCoord(
                     f"x={x:.2f}, y={y:.2f}, r={r_px:.1f} px, value={value:.2f}, "
                     f"qX={q_x:.4f} {q_unit}, qY={q_y:.4f} {q_unit}, qR={q_R:.4f} {q_unit}"
                 )
         else:
-            self.imgCoordOnStatusBar.setText(
+            self._setStatusCoord(
                 f"x={x:.2f}, y={y:.2f}, value={value:.2f}"
             )
 
@@ -964,7 +971,7 @@ class XRayViewerGUI(QMainWindow):
         y = event.ydata
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            self.imgCoordOnStatusBar.setText("")
+            self._setStatusCoord("")
             ax = self.fittingAxes
             bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
@@ -1011,14 +1018,14 @@ class XRayViewerGUI(QMainWindow):
         """
         xrayViewer = self.xrayViewer
         if xrayViewer is None:
-            self.imgCoordOnStatusBar.setText("")
+            self._setStatusCoord("")
             return
 
         x = event.xdata
         y = event.ydata
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            self.imgCoordOnStatusBar.setText("")
+            self._setStatusCoord("")
             ax = self.fittingAxes
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1035,7 +1042,7 @@ class XRayViewerGUI(QMainWindow):
             y = min(y, ylim[0])
         else:
             # Display plot information if the cursor is on the graph
-            self.imgCoordOnStatusBar.setText("x=" + str(round(x,2)) + ', y=' + str(round(y,2)))
+            self._setStatusCoord("x=" + str(round(x,2)) + ', y=' + str(round(y,2)))
 
         if self.function is None:
             return
@@ -1134,7 +1141,7 @@ class XRayViewerGUI(QMainWindow):
         """
         Clear plot information when mouse leaves the graph
         """
-        self.imgCoordOnStatusBar.setText("")
+        self._setStatusCoord("")
 
     def plotScrolled(self, event):
         """
@@ -1192,12 +1199,12 @@ class XRayViewerGUI(QMainWindow):
 
     def zoomInGraphClicked(self):
         if self.zoomInGraphButton.isChecked():
-            self.imgPathOnStatusBar.setText(
+            self._setStatusPath(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
             self.function = ['g_zoomin']
         else:
             self.function = None
-            self.resetStatusbar()
+            self._setStatusPath(None)
 
 
     def resetZoomClicked(self):
@@ -1223,7 +1230,7 @@ class XRayViewerGUI(QMainWindow):
             self.imageCanvas.draw_idle()
         tool_mgr = self.navigator.image_viewer.tool_manager
         if self.measureDist.isChecked():
-            self.imgPathOnStatusBar.setText(
+            self._setStatusPath(
                 "Draw a line on the image to measure a distance (ESC to cancel)")
             self.function = ["dist"]  # set current active function
             # Occupy the ToolManager via the placeholder so any other tool
@@ -1232,6 +1239,7 @@ class XRayViewerGUI(QMainWindow):
             tool_mgr.activate_tool('xv_legacy')
         else:
             tool_mgr.deactivate_tool('xv_legacy')
+            self._setStatusPath(None)
             self.refreshAllTabs()
 
     def updateMeasureDistBoxOkClicked(self):
@@ -1285,11 +1293,12 @@ class XRayViewerGUI(QMainWindow):
         QApplication.restoreOverrideCursor()
         tool_mgr = self.navigator.image_viewer.tool_manager
         if self.measureDist2.isChecked():
-            self.imgPathOnStatusBar.setText(
+            self._setStatusPath(
                 "Draw a line on the image to measure a distance (ESC to cancel)")
             self.function = ["dist"]  # set current active function
             tool_mgr.activate_tool('xv_legacy')
         else:
+            self._setStatusPath(None)
             self.updateMeasureDistBoxOkClicked()
 
     def setSliceChecked(self):
@@ -1309,13 +1318,14 @@ class XRayViewerGUI(QMainWindow):
             self.imageCanvas.draw_idle()
         tool_mgr = self.navigator.image_viewer.tool_manager
         if self.setSlice.isChecked():
-            self.imgPathOnStatusBar.setText(
+            self._setStatusPath(
                 "Draw a line on the image to choose a slice (ESC to cancel)")
             self.function = ["slice"]  # set current active function
             self.first_slice = True
             tool_mgr.activate_tool('xv_legacy')
         else:
             tool_mgr.deactivate_tool('xv_legacy')
+            self._setStatusPath(None)
             if self.function is not None and self.function[0] == "slice":
                 func = self.function
                 self.saved_slice = func
@@ -1356,13 +1366,14 @@ class XRayViewerGUI(QMainWindow):
             self.imageCanvas.draw_idle()
         tool_mgr = self.navigator.image_viewer.tool_manager
         if self.setSliceBox.isChecked():
-            self.imgPathOnStatusBar.setText(
+            self._setStatusPath(
                 "Draw a line on the image then select width (ESC to cancel)")
             self.function = ["slice_box"]  # set current active function
             self.first_box = True
             tool_mgr.activate_tool('xv_legacy')
         else:
             tool_mgr.deactivate_tool('xv_legacy')
+            self._setStatusPath(None)
             if self.function is not None and self.function[0] == "slice_box":
                 func = self.function
                 self.saved_slice = func
@@ -1429,7 +1440,7 @@ class XRayViewerGUI(QMainWindow):
             return
         tool_mgr = self.navigator.image_viewer.tool_manager
         if checked:
-            self.imgPathOnStatusBar.setText(
+            self._setStatusPath(
                 "Drag a rectangle on the image to compute box statistics. "
                 "Drag handles to fine-tune. Click 'Done' on a row to freeze "
                 "it; click 'Edit' on a frozen row to bring it back. ESC or "
@@ -1438,7 +1449,7 @@ class XRayViewerGUI(QMainWindow):
             tool_mgr.activate_tool('box_stats')
         else:
             tool_mgr.deactivate_tool('box_stats')
-            self.resetStatusbar()
+            self._setStatusPath(None)
 
     # ----- Tool callbacks ---------------------------------------------------
 
@@ -1490,7 +1501,7 @@ class XRayViewerGUI(QMainWindow):
             self.boxStatsEntries[idx] = entry
             self._add_box_row(entry)
 
-        self.statusReport.setText(
+        self._setStatusReport(
             f"Box {idx} (editing) — sum={stats['sum']:.4g}, "
             f"mean={stats['mean']:.4g}, std={stats['std']:.4g}, n={stats['n']}")
 
@@ -1957,25 +1968,90 @@ class XRayViewerGUI(QMainWindow):
         self.fittingFigure.tight_layout()
         self.fittingCanvas.draw()
 
+    def _setStatusPath(self, msg=None):
+        """
+        Set the path-label content on the status bar.
+
+        Pass a string to display a temporary message (e.g. tool hint
+        like "Draw a rectangle..."). Pass None to restore the
+        current-file-path display built from file_manager state.
+
+        Always re-runs the elision so the message fits in the space not
+        occupied by the right-side widgets.
+        """
+        self._statusPathMessage = msg
+        self.resetStatusbar()
+
+    def _setStatusCoord(self, text):
+        """Update the coordinate label and re-elide the path."""
+        self.imgCoordOnStatusBar.setText(text)
+        self.resetStatusbar()
+
+    def _setStatusReport(self, text):
+        """Update the status-report label and re-elide the path."""
+        self.statusReport.setText(text)
+        self.resetStatusbar()
+
+    def _setStatusDetail(self, text):
+        """Update the image-detail label and re-elide the path."""
+        self.imgDetailOnStatusBar.setText(text)
+        self.resetStatusbar()
+
     def resetStatusbar(self):
         """
-        Reset the status bar
+        Re-render the status bar's path label.
+
+        The path label on the left is elided so it always fits in the
+        space NOT occupied by the right-side widgets (statusReport,
+        imgCoordOnStatusBar, imgDetailOnStatusBar, progressBar).
+        The available width is computed dynamically from the actual
+        size hints of the visible right-side widgets, so the path
+        adapts as the coordinate text grows / the progress bar shows.
+
+        If `_statusPathMessage` is set (via `_setStatusPath`) it is
+        shown verbatim (still elided to fit); otherwise the current
+        file path from `file_manager` is rendered.
         """
-        if not self.file_manager or not getattr(self.file_manager, 'current_image_name', None):
+        # Determine the full message to render.
+        if self._statusPathMessage is not None:
+            status_msg = self._statusPathMessage
+        elif self.file_manager and getattr(self.file_manager, 'current_image_name', None):
+            dir_path = self.file_manager.dir_path or ''
+            fileFullPath = fullPath(dir_path, self.file_manager.current_image_name)
+            total_count = (len(self.file_manager.names)
+                           if self.file_manager.names
+                           else len(self.file_manager.file_list))
+
+            status_msg = f'Current Image ({self.file_manager.current + 1}/{total_count}) : {fileFullPath}'
+            if self.file_manager.current_h5_nframes:
+                status_msg += (f' ({self.file_manager.current_frame_idx + 1}/'
+                               f'{self.file_manager.current_h5_nframes})')
+        else:
             return
 
-        dir_path = self.file_manager.dir_path or ''
-        fileFullPath = fullPath(dir_path, self.file_manager.current_image_name)
-        total_count = len(self.file_manager.names) if self.file_manager.names else len(self.file_manager.file_list)
-        
-        # Build status message
-        status_msg = f'Current Image ({self.file_manager.current + 1}/{total_count}) : {fileFullPath}'
-        if self.file_manager.current_h5_nframes:
-            status_msg += f' ({self.file_manager.current_frame_idx + 1}/{self.file_manager.current_h5_nframes})'
-        
         self.imgPathOnStatusBar.setToolTip(status_msg)
+
+        # Compute the actual width occupied by the right-side widgets.
+        right_widgets = (
+            self.statusReport,
+            self.imgCoordOnStatusBar,
+            self.imgDetailOnStatusBar,
+            self.progressBar,
+        )
+        # sizeHint() reflects the current text content; isVisible() handles
+        # the progress bar which is hidden outside batch mode.
+        right_w = sum(
+            max(w.sizeHint().width(), w.minimumWidth())
+            for w in right_widgets if w.isVisible()
+        )
+        # Account for inter-widget spacing + margins of the status bar.
+        spacing = self.statusBar.layout().spacing() if self.statusBar.layout() else 6
+        margins = self.statusBar.contentsMargins()
+        padding = spacing * (len(right_widgets) + 1) + margins.left() + margins.right()
+
+        max_width = max(200, self.statusBar.width() - right_w - padding)
+
         metrics = self.imgPathOnStatusBar.fontMetrics()
-        max_width = max(300, self.statusBar.width() - 700)
         elided = metrics.elidedText(status_msg, Qt.ElideMiddle, max_width)
         self.imgPathOnStatusBar.setText(elided)
 
@@ -2047,7 +2123,8 @@ class XRayViewerGUI(QMainWindow):
         self.stop_process = False
         self.progressBar.setVisible(True)
         self.progressBar.setRange(0, len(img_ids))
-        
+        self.resetStatusbar()
+
         for progress, img_idx in enumerate(img_ids):
             if self.stop_process:
                 break
@@ -2062,6 +2139,7 @@ class XRayViewerGUI(QMainWindow):
                 self._on_image_changed(img, self.file_manager.current_image_name, self.file_manager.dir_path)
         
         self.progressBar.setVisible(False)
+        self.resetStatusbar()
 
 
 
@@ -2279,5 +2357,5 @@ class XRayViewerGUI(QMainWindow):
         :param text: text to print
         :return: -
         """
-        self.statusReport.setText(text)
+        self._setStatusReport(text)
         QApplication.processEvents()
