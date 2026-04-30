@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from musclex.ui.add_intensities_common import (
+from musclex.ui.widgets.image_alignment_workers import (
     _compute_geometry,
     _compute_geometry_with_symmetry,
     _compute_image_diff,

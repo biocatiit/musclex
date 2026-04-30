@@ -4,10 +4,28 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHeaderView, QSizePolicy, QTableWidget, QTableWidgetItem,
+    QAbstractItemView, QHeaderView, QSizePolicy,
+    QStyledItemDelegate, QStyleOptionViewItem,
+    QTableWidget, QTableWidgetItem,
 )
 
-from musclex.ui.add_intensities_common import _ElideMiddleDelegate
+
+class _ElideMiddleDelegate(QStyledItemDelegate):
+    """Item delegate that elides cell text in the middle when it overflows.
+
+    Used by :class:`ImageAlignmentTable` for filename / path columns where the
+    informative parts (prefix and extension) live at both ends. Inlined here
+    rather than imported from elsewhere because this is its only consumer.
+    """
+
+    def paint(self, painter, option, index):
+        text = index.data(Qt.DisplayRole) or ""
+        elided = option.fontMetrics.elidedText(
+            text, Qt.ElideMiddle, option.rect.width() - 6)
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        opt.text = elided
+        super().paint(painter, opt, index)
 
 
 class ColKey:
