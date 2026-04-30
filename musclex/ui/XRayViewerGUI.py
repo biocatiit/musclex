@@ -1778,9 +1778,8 @@ class XRayViewerGUI(QMainWindow):
             f"y=[{s['y_min']}, {s['y_max']})  "
             f"({s['x_max'] - s['x_min']}\u00d7{s['y_max'] - s['y_min']} px, "
             f"n={s['n']})\n"
-            f"   sum={s['sum']:.6g}, mean={s['mean']:.6g}, "
-            f"std={s['std']:.6g}, min={s['min']:.6g}, "
-            f"max={s['max']:.6g}, median={s['median']:.6g}"
+            f"       sum={s['sum']:.6g}, mean={s['mean']:.6g}, std={s['std']:.6g},\n"
+            f"       min={s['min']:.6g}, max={s['max']:.6g}, median={s['median']:.6g}"
         )
 
     # ============== Legacy 'xv_legacy' placeholder cleanup =================
