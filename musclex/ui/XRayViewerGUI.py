@@ -76,6 +76,18 @@ class XRayViewerGUI(QMainWindow):
         self.saved_slice = None
         self.stop_process = False
         self.calSettingsDialog = None
+        # Box Intensity Stats popup state (multi-shot ROI tool with per-row
+        # Edit/Done buttons). At most one entry is the "editable" one — its
+        # button shows "Done"; everyone else shows "Edit".
+        self.boxStatsBox = None              # the QDialog shown to the user
+        self._boxRowsContainer = None        # QWidget hosting the rows layout
+        self._boxRowsLayout = None           # QVBoxLayout of per-box rows (+ tail stretch)
+        self._okBoxBtn = None                # OK button (closes popup + tool)
+        # idx -> dict(idx, bounds, stats, frozen, row_widget, label, edit_btn)
+        self.boxStatsEntries = {}
+        # Re-entry guards for tool ↔ GUI sync (see _on_*_deactivated handlers)
+        self._box_stats_closing = False
+        self._xv_legacy_closing = False
         
         # Create ImageNavigatorWidget (handles file management, display, navigation)
         self.navigator = ImageNavigatorWidget(
@@ -215,13 +227,23 @@ class XRayViewerGUI(QMainWindow):
         self.setSliceBox = QPushButton("Set Graph Box")
         self.setSliceBox.setCheckable(True)
         self.setSliceBox.setToolTip("Click three points to define a box region:\n1. First click: start of center line\n2. Second click: end of center line\n3. Third click: set the box width\nThe summed intensity within the box will be shown in the Graph tab.")
+        self.boxStats = QPushButton("Box Intensity Stats")
+        self.boxStats.setCheckable(True)
+        self.boxStats.setToolTip(
+            "Drag a rectangle on the image to compute pixel intensity\n"
+            "statistics (sum, mean, std, min, max, median) inside the box.\n"
+            "Drag the corner/edge handles to fine-tune the current box; the\n"
+            "popup updates live. Click 'Add Another Box' on the popup to\n"
+            "freeze the current box and start a new one. Press ESC or click\n"
+            "OK to finish."
+        )
         self.saveGraphSlice = QCheckBox("Save Graph Profile")
         self.saveGraphSlice.setEnabled(False)
         self.saveGraphSlice.setToolTip("When checked, the graph profile data will be saved to a CSV file.")
         self.inpaintChkBx = QCheckBox("Inpainting")
         self.inpaintChkBx.setToolTip("Fill in masked/dead pixels using surrounding pixel values.\nUseful for removing detector artifacts.")
         
-        self.checkableButtons.extend([self.measureDist, self.setSlice, self.setSliceBox])
+        self.checkableButtons.extend([self.measureDist, self.setSlice, self.setSliceBox, self.boxStats])
         
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.unitRadioWidget, 1, 0, 1, 2)
@@ -229,8 +251,9 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout.addWidget(self.measureDist, 3, 0, 1, 2)
         self.settingsLayout.addWidget(self.setSlice, 4, 0, 1, 2)
         self.settingsLayout.addWidget(self.setSliceBox, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.saveGraphSlice, 6, 0, 1, 2)
-        self.settingsLayout.addWidget(self.inpaintChkBx, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.boxStats, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.saveGraphSlice, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.inpaintChkBx, 8, 0, 1, 2)
         
         # Add settings to navigator's right panel
         self.navigator.right_panel.add_widget(self.settingsGroup)
@@ -357,12 +380,23 @@ class XRayViewerGUI(QMainWindow):
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
         
+        ##### Interactive tools (registered with the image viewer's ToolManager) #####
+        # Two tools live in the ToolManager:
+        #   - 'box_stats'   : real BoxStatsTool used by the Box Intensity Stats button
+        #   - 'xv_legacy'   : PlaceholderTool occupied while the legacy self.function
+        #                     state machine is active (measure dist / set slice / set
+        #                     graph box). Mutual exclusion is automatic — activating
+        #                     any tool deactivates the previous one, which fires our
+        #                     on_deactivated callbacks for clean state sync.
+        self._register_tools()
+
         ##### Custom XRayViewer features #####
         self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
         self.setSlice.clicked.connect(self.setSliceChecked)
         self.setSliceBox.clicked.connect(self.setSliceBoxChecked)
+        self.boxStats.clicked.connect(self._on_box_stats_clicked)
         self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
         self.inpaintChkBx.stateChanged.connect(self._reprocess_with_inpaint)
         self.qfChkBx.stateChanged.connect(self._on_qf_toggled)
@@ -380,6 +414,27 @@ class XRayViewerGUI(QMainWindow):
         self.resetZoomButton.clicked.connect(self.resetZoomClicked)
         self.zoomInGraphButton.clicked.connect(self.zoomInGraphClicked)
         self.checkableButtons.append(self.measureDist2)
+
+    def _register_tools(self):
+        """Register XRayViewer-specific interactive tools to the ToolManager.
+
+        See ``setConnections`` docstring for the rationale behind the two
+        registrations and how mutual exclusion is achieved automatically.
+        """
+        from .tools.box_stats_tool import BoxStatsTool
+        from .tools.placeholder_tool import PlaceholderTool
+
+        tool_mgr = self.navigator.image_viewer.tool_manager
+        tool_mgr.register_tool(
+            'box_stats', BoxStatsTool,
+            on_box_drawn=self._on_box_drawn,
+            on_committed=self._on_box_committed,
+            on_deactivated=self._on_box_stats_deactivated,
+        )
+        tool_mgr.register_tool(
+            'xv_legacy', PlaceholderTool,
+            on_deactivated=self._on_xv_legacy_deactivated,
+        )
 
     # ========== Navigator Signal Handlers ==========
 
@@ -420,6 +475,15 @@ class XRayViewerGUI(QMainWindow):
         Called when navigator loads a new image.
         This is the ONLY entry point for image changes.
         """
+        # Drop any in-flight interactive tool (Box Intensity Stats, legacy
+        # measure/slice operations) before swapping the image. Each tool's
+        # _on_deactivate callback handles its own cleanup so the new image
+        # starts from a known-clean state.
+        if hasattr(self, 'navigator'):
+            tm = self.navigator.image_viewer.tool_manager
+            if tm.has_active_tool():
+                tm.deactivate_current_tool()
+
         # Initialize CSV manager if needed (write to output dir)
         if not hasattr(self, 'csv_manager') or self.csv_manager is None:
             csv_dir = self.dir_context.output_dir if self.dir_context else dir_path
@@ -1157,16 +1221,24 @@ class XRayViewerGUI(QMainWindow):
             if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
                 ax.patches[i].remove()
             self.imageCanvas.draw_idle()
+        tool_mgr = self.navigator.image_viewer.tool_manager
         if self.measureDist.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a line on the image to measure a distance (ESC to cancel)")
             self.function = ["dist"]  # set current active function
+            # Occupy the ToolManager via the placeholder so any other tool
+            # (Box Intensity Stats, zoom, etc.) auto-cancels this operation
+            # via _on_xv_legacy_deactivated.
+            tool_mgr.activate_tool('xv_legacy')
         else:
+            tool_mgr.deactivate_tool('xv_legacy')
             self.refreshAllTabs()
 
     def updateMeasureDistBoxOkClicked(self):
         self.measureDist.setChecked(False)
         self.measureDist2.setChecked(False)
+        # Drop the placeholder so the ToolManager slot frees up.
+        self.navigator.image_viewer.tool_manager.deactivate_tool('xv_legacy')
         ax = self.imageAxes
         for i in range(len(ax.lines)-1, -1, -1):
             ax.lines[i].remove()
@@ -1211,10 +1283,12 @@ class XRayViewerGUI(QMainWindow):
         if self.xrayViewer is None:
             return
         QApplication.restoreOverrideCursor()
+        tool_mgr = self.navigator.image_viewer.tool_manager
         if self.measureDist2.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a line on the image to measure a distance (ESC to cancel)")
             self.function = ["dist"]  # set current active function
+            tool_mgr.activate_tool('xv_legacy')
         else:
             self.updateMeasureDistBoxOkClicked()
 
@@ -1233,12 +1307,15 @@ class XRayViewerGUI(QMainWindow):
             if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
                 ax.patches[i].remove()
             self.imageCanvas.draw_idle()
+        tool_mgr = self.navigator.image_viewer.tool_manager
         if self.setSlice.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a line on the image to choose a slice (ESC to cancel)")
             self.function = ["slice"]  # set current active function
             self.first_slice = True
+            tool_mgr.activate_tool('xv_legacy')
         else:
+            tool_mgr.deactivate_tool('xv_legacy')
             if self.function is not None and self.function[0] == "slice":
                 func = self.function
                 self.saved_slice = func
@@ -1277,12 +1354,15 @@ class XRayViewerGUI(QMainWindow):
             if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
                 ax.patches[i].remove()
             self.imageCanvas.draw_idle()
+        tool_mgr = self.navigator.image_viewer.tool_manager
         if self.setSliceBox.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a line on the image then select width (ESC to cancel)")
             self.function = ["slice_box"]  # set current active function
             self.first_box = True
+            tool_mgr.activate_tool('xv_legacy')
         else:
+            tool_mgr.deactivate_tool('xv_legacy')
             if self.function is not None and self.function[0] == "slice_box":
                 func = self.function
                 self.saved_slice = func
@@ -1309,7 +1389,429 @@ class XRayViewerGUI(QMainWindow):
                 self.saveGraphSlice.setEnabled(True)
                 self.tabWidget.setTabEnabled(1, True)
             self.refreshAllTabs()
-            
+
+    # ============== Box Intensity Stats (multi-shot ROI tool) ==============
+    #
+    # Architecture (mirrors ProcessingWorkspace's tool registration pattern):
+    #
+    #   button toggle ──► tool_manager.activate_tool('box_stats')
+    #          │
+    #          ▼
+    #   user drags / resizes the rectangle on the image
+    #          │
+    #          ▼
+    #   BoxStatsTool fires on_box_drawn(bounds, idx)
+    #          │
+    #          ▼
+    #   _on_box_drawn shows / refreshes the popup. The drawn entry's row
+    #   is the only one with its button reading "Done"; everyone else is
+    #   "Edit".
+    #          │
+    #          ▼
+    #   user clicks "Done" on the editable row    →   commit_current() freezes
+    #   user clicks "Edit" on a frozen row        →   start_editing() (auto-
+    #                                                 commits any current
+    #                                                 first, then re-opens
+    #                                                 that idx for editing)
+    #          │
+    #          ▼
+    #   user clicks OK / presses ESC / closes the dialog / activates another tool
+    #          │
+    #          ▼
+    #   tool deactivates → on_deactivated → _on_box_stats_deactivated cleans
+    #   up the popup, button state, and any leftover artists. OK is a pure
+    #   "abandon and exit" — it never implicitly commits anything.
+
+    def _on_box_stats_clicked(self, checked):
+        """Toggle handler for the Box Intensity Stats button."""
+        if self.xrayViewer is None or self.xrayViewer.orig_img is None:
+            self.boxStats.setChecked(False)
+            return
+        tool_mgr = self.navigator.image_viewer.tool_manager
+        if checked:
+            self.imgPathOnStatusBar.setText(
+                "Drag a rectangle on the image to compute box statistics. "
+                "Drag handles to fine-tune. Click 'Done' on a row to freeze "
+                "it; click 'Edit' on a frozen row to bring it back. ESC or "
+                "OK to finish.")
+            self.boxStatsEntries = {}
+            tool_mgr.activate_tool('box_stats')
+        else:
+            tool_mgr.deactivate_tool('box_stats')
+            self.resetStatusbar()
+
+    # ----- Tool callbacks ---------------------------------------------------
+
+    def _on_box_drawn(self, bounds, idx):
+        """
+        BoxStatsTool callback: the editable rect was drawn or resized.
+
+        ``idx`` is the index this box should appear under in the popup. For
+        a brand new draw it's ``frozen_count + 1`` and a row is created; for
+        a re-edit (after start_editing) it's the original idx and we update
+        the existing row in-place. In either case, this row becomes "the
+        editable one" — its button reads "Done" — and any other row that was
+        showing "Done" is forced back to "Edit"/frozen.
+        """
+        stats = self._computeBoxStats(bounds)
+        if stats is None:
+            return
+        self._ensure_box_stats_popup()
+
+        # Invariant: at most one entry is editable. Force any stragglers to
+        # frozen. This is mostly defensive: re-edits route through the tool's
+        # start_editing → commit_current → on_committed first, so that path
+        # has already flipped any previous editable.
+        for other_idx, other in self.boxStatsEntries.items():
+            if other_idx != idx and not other['frozen']:
+                other['frozen'] = True
+                if other['edit_btn'] is not None:
+                    other['edit_btn'].setText("Edit")
+
+        if idx in self.boxStatsEntries:
+            entry = self.boxStatsEntries[idx]
+            entry['bounds'] = dict(bounds)
+            entry['stats'] = stats
+            entry['frozen'] = False
+            if entry['edit_btn'] is not None:
+                entry['edit_btn'].setText("Done")
+            if entry['label'] is not None:
+                entry['label'].setText(self._format_stats_text(idx, stats))
+        else:
+            entry = {
+                'idx': idx,
+                'bounds': dict(bounds),
+                'stats': stats,
+                'frozen': False,
+                'row_widget': None,
+                'label': None,
+                'edit_btn': None,
+            }
+            self.boxStatsEntries[idx] = entry
+            self._add_box_row(entry)
+
+        self.statusReport.setText(
+            f"Box {idx} (editing) — sum={stats['sum']:.4g}, "
+            f"mean={stats['mean']:.4g}, std={stats['std']:.4g}, n={stats['n']}")
+
+    def _on_box_committed(self, idx, bounds):
+        """
+        BoxStatsTool callback: a box was frozen via commit_current().
+
+        Flip the row's button back to "Edit" and refresh its stats with the
+        final committed bounds. The visual rectangle on the image was already
+        drawn by the tool itself.
+        """
+        stats = self._computeBoxStats(bounds)
+        if idx not in self.boxStatsEntries:
+            # Shouldn't happen — _on_box_drawn always fires before commit —
+            # but if it does, create the row so we don't lose the stats.
+            if stats is None:
+                return
+            self.boxStatsEntries[idx] = {
+                'idx': idx, 'bounds': dict(bounds), 'stats': stats,
+                'frozen': True,
+                'row_widget': None, 'label': None, 'edit_btn': None,
+            }
+            self._ensure_box_stats_popup()
+            self._add_box_row(self.boxStatsEntries[idx])
+            return
+
+        entry = self.boxStatsEntries[idx]
+        entry['bounds'] = dict(bounds)
+        entry['frozen'] = True
+        if entry['edit_btn'] is not None:
+            entry['edit_btn'].setText("Edit")
+        if stats is not None:
+            entry['stats'] = stats
+            if entry['label'] is not None:
+                entry['label'].setText(self._format_stats_text(idx, stats))
+
+    def _on_edit_clicked(self, idx):
+        """
+        Per-row Edit/Done button handler.
+
+        - If the row is currently frozen (button = "Edit"): tell the tool to
+          start editing this idx. The tool auto-commits any other in-progress
+          box first; the resulting on_committed + on_box_drawn callbacks
+          then update the row buttons.
+        - If the row is currently editable (button = "Done"): commit it.
+        """
+        entry = self.boxStatsEntries.get(idx)
+        if entry is None:
+            return
+        tool = self.navigator.image_viewer.tool_manager.tools.get('box_stats')
+        if tool is None:
+            return
+        if entry['frozen']:
+            tool.start_editing(entry['bounds'], idx)
+        else:
+            tool.commit_current()
+
+    def _on_box_stats_deactivated(self):
+        """
+        Called whenever 'box_stats' is deactivated, regardless of who
+        triggered it (user uncheck, ESC, OK button, ToolManager auto-pull
+        because another tool was activated). Synchronises GUI state.
+        """
+        if self._box_stats_closing:
+            return
+        self._box_stats_closing = True
+        try:
+            self._closeBoxStatsPopup()
+            if self.boxStats.isChecked():
+                # Block the clicked signal so we don't re-enter deactivate_tool().
+                self.boxStats.blockSignals(True)
+                self.boxStats.setChecked(False)
+                self.boxStats.blockSignals(False)
+            self.resetStatusbar()
+        finally:
+            self._box_stats_closing = False
+
+    # ----- Popup helpers ----------------------------------------------------
+
+    def _ensure_box_stats_popup(self):
+        """Lazily create the non-modal popup on first stats result.
+
+        We use a plain QDialog (instead of QMessageBox) because QMessageBox's
+        internal button slot calls ``done()`` for *every* added button
+        regardless of role. With a raw QDialog we have full control: the body
+        is a QScrollArea of per-box rows (each row is QLabel + Edit/Done
+        QPushButton), so users can edit any box at any time without losing
+        the others.
+        """
+        if self.boxStatsBox is not None:
+            return
+
+        self.boxStatsBox = QDialog(self)
+        self.boxStatsBox.setWindowTitle("Box Intensity Statistics")
+        self.boxStatsBox.setModal(False)
+        # Don't let the dialog auto-delete on close — we manage its lifetime
+        # explicitly so we can reuse it within a single tool session.
+        self.boxStatsBox.setAttribute(Qt.WA_DeleteOnClose, False)
+
+        layout = QVBoxLayout(self.boxStatsBox)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        header = QLabel(
+            "Drag handles on the image to adjust the editable box (live "
+            "update).\nClick 'Done' to freeze a box, 'Edit' to bring a "
+            "frozen one back. OK exits without saving.")
+        layout.addWidget(header)
+
+        # Scrollable container for per-box rows. We use QScrollArea so the
+        # dialog stays a sensible size when the user accumulates many boxes.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setMinimumWidth(760)
+        scroll.setMinimumHeight(240)
+
+        self._boxRowsContainer = QWidget()
+        self._boxRowsLayout = QVBoxLayout(self._boxRowsContainer)
+        self._boxRowsLayout.setContentsMargins(4, 4, 4, 4)
+        self._boxRowsLayout.setSpacing(6)
+        # Tail stretch keeps rows packed at the top.
+        self._boxRowsLayout.addStretch(1)
+        scroll.setWidget(self._boxRowsContainer)
+        layout.addWidget(scroll, 1)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+        self._okBoxBtn = QPushButton("OK")
+        self._okBoxBtn.setDefault(True)
+        self._okBoxBtn.setToolTip(
+            "Close the popup and exit the Box Intensity Stats tool. Boxes "
+            "are removed from the image. Use 'Done' on each row to freeze "
+            "a box before clicking OK if you want to copy its stats.")
+        btn_row.addWidget(self._okBoxBtn)
+        layout.addLayout(btn_row)
+
+        self._okBoxBtn.clicked.connect(self._onBoxStatsOkClicked)
+        # X-button / Escape inside the dialog → same as OK.
+        self.boxStatsBox.finished.connect(self._on_box_stats_dialog_finished)
+
+        self.boxStatsBox.show()
+
+    def _add_box_row(self, entry):
+        """Append a row widget for ``entry`` to the popup."""
+        if self._boxRowsLayout is None:
+            return
+        row_widget = QWidget()
+        row = QHBoxLayout(row_widget)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+
+        label = QLabel(self._format_stats_text(entry['idx'], entry['stats']))
+        label.setStyleSheet("QLabel { font-family: monospace; }")
+        label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        label.setWordWrap(False)
+        label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        row.addWidget(label, 1)
+
+        btn = QPushButton("Done" if not entry['frozen'] else "Edit")
+        btn.setFixedWidth(80)
+        btn.setToolTip(
+            "Click 'Done' to freeze this box, or 'Edit' to bring a frozen "
+            "box back to live editing (any in-progress box is committed "
+            "first).")
+        idx = entry['idx']
+        btn.clicked.connect(lambda _checked=False, i=idx: self._on_edit_clicked(i))
+        row.addWidget(btn, 0, Qt.AlignVCenter)
+
+        # Insert just before the trailing stretch so rows stay packed top.
+        insert_idx = max(0, self._boxRowsLayout.count() - 1)
+        self._boxRowsLayout.insertWidget(insert_idx, row_widget)
+
+        entry['row_widget'] = row_widget
+        entry['label'] = label
+        entry['edit_btn'] = btn
+
+    def _onBoxStatsOkClicked(self):
+        """
+        User pressed OK. Pure exit — abandon any editable + frozen boxes,
+        clean up artists, and shut the popup down.
+
+        We deactivate the tool directly via ToolManager rather than going
+        through ``self.boxStats.setChecked(False)``: ``setChecked`` only
+        emits ``toggled``, not ``clicked``, so it would not trigger
+        ``_on_box_stats_clicked`` (which is the slot connected to
+        ``clicked``). Going through the manager fires the tool's own
+        ``_on_deactivate`` (removes axes artists + selector), which then
+        invokes our ``_on_box_stats_deactivated`` callback to close the
+        popup and sync the button.
+        """
+        self.navigator.image_viewer.tool_manager.deactivate_tool('box_stats')
+
+    def _on_box_stats_dialog_finished(self, _result):
+        """Dialog was closed by the user (X button / Esc inside the dialog).
+
+        Treated identically to OK: full tool teardown.
+        """
+        if self._box_stats_closing:
+            return
+        self.navigator.image_viewer.tool_manager.deactivate_tool('box_stats')
+
+    def _closeBoxStatsPopup(self):
+        """Tear down the popup + accumulated state."""
+        if self.boxStatsBox is not None:
+            try:
+                if self._okBoxBtn is not None:
+                    self._okBoxBtn.clicked.disconnect(self._onBoxStatsOkClicked)
+            except (TypeError, RuntimeError):
+                pass
+            try:
+                self.boxStatsBox.finished.disconnect(self._on_box_stats_dialog_finished)
+            except (TypeError, RuntimeError):
+                pass
+            self.boxStatsBox.close()
+            self.boxStatsBox.deleteLater()
+            self.boxStatsBox = None
+            self._boxRowsContainer = None
+            self._boxRowsLayout = None
+            self._okBoxBtn = None
+        # Drop entry refs (Qt parent ownership cleans up the widgets).
+        self.boxStatsEntries = {}
+
+    # ----- Stats computation -----------------------------------------------
+
+    def _computeBoxStats(self, bounds):
+        """
+        Compute pixel intensity statistics inside an axis-aligned ROI.
+
+        Args:
+            bounds: dict with 'x0', 'y0', 'x1', 'y1' in image coordinates.
+
+        Returns:
+            dict with x_min/x_max/y_min/y_max (clamped, integer pixel
+            indices), n (valid pixel count), sum, mean, std, min, max,
+            median — or None if the ROI is empty / fully masked.
+        """
+        if (self.xrayViewer is None
+                or self.xrayViewer.orig_img is None
+                or not bounds):
+            return None
+        img = self.xrayViewer.orig_img
+        H, W = img.shape[:2]
+        x_min = int(max(0, math.floor(bounds['x0'])))
+        x_max = int(min(W, math.ceil(bounds['x1'])))
+        y_min = int(max(0, math.floor(bounds['y0'])))
+        y_max = int(min(H, math.ceil(bounds['y1'])))
+        if x_max <= x_min or y_max <= y_min:
+            return None
+
+        roi = img[y_min:y_max, x_min:x_max].astype(np.float64)
+        # MuscleX uses -1 as a mask sentinel for dead/blank pixels (see e.g.
+        # setSliceBoxChecked clamping `hist[hist <= -1] = -1`). Exclude them.
+        valid = roi > -1
+        if not valid.any():
+            return None
+        vals = roi[valid]
+        return dict(
+            x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max,
+            n=int(valid.sum()),
+            sum=float(vals.sum()),
+            mean=float(vals.mean()),
+            std=float(vals.std(ddof=0)),
+            min=float(vals.min()),
+            max=float(vals.max()),
+            median=float(np.median(vals)),
+        )
+
+    def _format_stats_text(self, idx, s):
+        """Format one entry's label text. Two lines so the row stays compact
+        but still shows all the stats. The Edit/Done button on the row tells
+        the user which box is currently editable."""
+        return (
+            f"Box {idx}: x=[{s['x_min']}, {s['x_max']}), "
+            f"y=[{s['y_min']}, {s['y_max']})  "
+            f"({s['x_max'] - s['x_min']}\u00d7{s['y_max'] - s['y_min']} px, "
+            f"n={s['n']})\n"
+            f"   sum={s['sum']:.6g}, mean={s['mean']:.6g}, "
+            f"std={s['std']:.6g}, min={s['min']:.6g}, "
+            f"max={s['max']:.6g}, median={s['median']:.6g}"
+        )
+
+    # ============== Legacy 'xv_legacy' placeholder cleanup =================
+
+    def _on_xv_legacy_deactivated(self):
+        """
+        Triggered whenever the 'xv_legacy' placeholder is deactivated. This
+        fires for two reasons:
+
+        1. We deactivated it ourselves at the end of a legacy function
+           (Done / cancel / ESC). In that case the buttons + ``self.function``
+           have already been cleared, so this becomes a no-op.
+        2. ToolManager auto-deactivated it because another tool was just
+           activated (e.g. Box Intensity Stats). In that case we need to
+           clear ``self.function``, uncheck whichever legacy button is
+           currently checked, and wipe any in-progress preview overlays so
+           the new tool starts from a clean slate.
+
+        The ``_xv_legacy_closing`` guard prevents recursion through the
+        button-toggle → ``*Checked(False)`` → ``deactivate_tool`` chain.
+        """
+        if self._xv_legacy_closing:
+            return
+        self._xv_legacy_closing = True
+        try:
+            self.function = None
+            for b in (self.measureDist, self.setSlice, self.setSliceBox):
+                if b.isChecked():
+                    b.blockSignals(True)
+                    b.setChecked(False)
+                    b.blockSignals(False)
+            ax = self.imageAxes
+            for i in range(len(ax.lines) - 1, -1, -1):
+                ax.lines[i].remove()
+            for i in range(len(ax.patches) - 1, -1, -1):
+                if ax.patches[i].get_label() != self._CENTER_MARKER_LABEL:
+                    ax.patches[i].remove()
+            self.imageCanvas.draw_idle()
+            self.resetStatusbar()
+        finally:
+            self._xv_legacy_closing = False
+
     def makeText(self, p1, p2, txt, dist=100):
         middle = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
         if (p1[0] > p2[0] and p1[1] > p2[1]) or (p1[0] < p2[0] and p1[1] < p2[1]):

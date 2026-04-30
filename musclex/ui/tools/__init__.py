@@ -12,6 +12,8 @@ from .perpendiculars_center_tool import PerpendicularsCenterTool
 from .rotation_tool import RotationTool
 from .center_rotate_tool import CenterRotateTool
 from .zoom_rectangle_tool import ZoomRectangleTool
+from .placeholder_tool import PlaceholderTool
+from .box_stats_tool import BoxStatsTool
 
 __all__ = [
     'InteractionTool',
@@ -21,5 +23,7 @@ __all__ = [
     'RotationTool',
     'CenterRotateTool',
     'ZoomRectangleTool',
+    'PlaceholderTool',
+    'BoxStatsTool',
 ]
 
