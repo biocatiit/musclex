@@ -249,16 +249,18 @@ class ImageAlignmentWidget(QWidget):
                 "A lower score means a more symmetric image.")
             sym_row.addWidget(self._symmetry_enable_chk)
 
-            self._symmetry_thresh_chk = QCheckBox("Highlight above:")
+            self._symmetry_thresh_chk = QCheckBox(
+                "Symmetry std threshold (default: 80th pct):")
             # Pre-checked so highlighting kicks in automatically once the
             # symmetry test has populated values — the master toggle below
             # still gates the *Enabled* state until the test is turned on.
             self._symmetry_thresh_chk.setChecked(True)
             self._symmetry_thresh_chk.setEnabled(False)
             self._symmetry_thresh_chk.setToolTip(
-                "Highlight rows whose fold std-sum exceeds this value.\n"
-                "After detection completes, the threshold is auto-populated "
-                "to the 80th percentile of all scores; tweak as needed.")
+                "Highlight images whose fold-symmetry std-sum exceeds this threshold.\n"
+                "The default is automatically set to the 80th percentile of all "
+                "symmetry scores after detection completes.\n"
+                "Uncheck to disable this highlighting.")
             sym_row.addWidget(self._symmetry_thresh_chk)
 
             self._symmetry_thresh_spin = QDoubleSpinBox()
