@@ -104,9 +104,14 @@ class ImageAlignmentWidget(QWidget):
         self._diff_thresh_enabled = True
         self._diff_thresh_value = 0.0
         # Symmetry test state — only meaningful when enable_symmetry_test=True.
+        # The "Highlight above" checkbox defaults to ON so users see flagged
+        # rows automatically once detection finishes; the threshold itself is
+        # auto-populated to the 80th-percentile of all fold_std_sum scores in
+        # ``_compute_fold_std_percentile_threshold`` when the batch completes.
         self._symmetry_enabled = False
-        self._symmetry_thresh_enabled = False
+        self._symmetry_thresh_enabled = True
         self._symmetry_threshold = 0.0
+        self._fold_std_percentile_threshold: float = None
 
         # Batch detection state
         self.taskManager = ProcessingTaskManager()
@@ -245,12 +250,15 @@ class ImageAlignmentWidget(QWidget):
             sym_row.addWidget(self._symmetry_enable_chk)
 
             self._symmetry_thresh_chk = QCheckBox("Highlight above:")
-            self._symmetry_thresh_chk.setChecked(False)
+            # Pre-checked so highlighting kicks in automatically once the
+            # symmetry test has populated values — the master toggle below
+            # still gates the *Enabled* state until the test is turned on.
+            self._symmetry_thresh_chk.setChecked(True)
             self._symmetry_thresh_chk.setEnabled(False)
             self._symmetry_thresh_chk.setToolTip(
                 "Highlight rows whose fold std-sum exceeds this value.\n"
-                "Tune the threshold according to your dataset (the score is a sum, "
-                "so it scales with image size and intensity).")
+                "After detection completes, the threshold is auto-populated "
+                "to the 80th percentile of all scores; tweak as needed.")
             sym_row.addWidget(self._symmetry_thresh_chk)
 
             self._symmetry_thresh_spin = QDoubleSpinBox()
@@ -516,6 +524,37 @@ class ImageAlignmentWidget(QWidget):
         else:
             self._diff_percentile_threshold = None
 
+    def _compute_fold_std_percentile_threshold(self):
+        """Auto-populate the symmetry highlight spinbox with the 80th-percentile
+        of all cached fold-std-sum scores.
+
+        Mirrors :meth:`_compute_diff_percentile_threshold` but for the FOLD_STD
+        column. Called from :meth:`_on_batch_complete` after a symmetry-enabled
+        run so users immediately see meaningful highlighting without having to
+        guess a threshold by hand. Skipped silently when fewer than 2 scores
+        are available (percentile is ill-defined and the default 0.0 from
+        construction stays in place).
+        """
+        if not getattr(self, '_enable_symmetry_test', False):
+            return
+        sm = self.workspace.settings_manager
+        if not hasattr(sm, 'get_fold_std_sum'):
+            return
+        values = [
+            sm.get_fold_std_sum(self._row_mapper.name_for_row(r))
+            for r in range(self._row_mapper.row_count())
+            if self._row_mapper.name_for_row(r) is not None
+        ]
+        values = [v for v in values if v is not None]
+        if len(values) >= 2:
+            self._fold_std_percentile_threshold = float(np.percentile(values, 80))
+            self._symmetry_thresh_spin.blockSignals(True)
+            self._symmetry_thresh_spin.setValue(self._fold_std_percentile_threshold)
+            self._symmetry_thresh_spin.blockSignals(False)
+            self._symmetry_threshold = self._fold_std_percentile_threshold
+        else:
+            self._fold_std_percentile_threshold = None
+
     # ------------------------------------------------------------------
     # Threshold highlighting
     # ------------------------------------------------------------------
@@ -554,16 +593,19 @@ class ImageAlignmentWidget(QWidget):
 
     def _on_symmetry_enable_toggled(self, checked):
         """Master toggle: when off, the symmetry test is skipped during detection
-        and the highlight threshold controls are disabled."""
+        and the highlight threshold controls are disabled. When on, mirror the
+        current ``Highlight above`` checkbox state into the spinbox so the
+        default-checked highlight becomes immediately usable."""
         self._symmetry_enabled = bool(checked)
-        # Threshold controls only make sense once detection has run with symmetry
-        # on, but keep them in sync visually.
         self._symmetry_thresh_chk.setEnabled(self._symmetry_enabled)
-        if not self._symmetry_enabled:
+        if self._symmetry_enabled:
+            self._symmetry_thresh_enabled = self._symmetry_thresh_chk.isChecked()
+            self._symmetry_thresh_spin.setEnabled(self._symmetry_thresh_enabled)
+        else:
             self._symmetry_thresh_chk.setChecked(False)
             self._symmetry_thresh_spin.setEnabled(False)
             self._symmetry_thresh_enabled = False
-            self._apply_threshold_highlighting()
+        self._apply_threshold_highlighting()
 
     def _on_symmetry_thresh_toggled(self, checked):
         self._symmetry_thresh_enabled = bool(checked)
@@ -938,9 +980,15 @@ class ImageAlignmentWidget(QWidget):
         # because ``_on_batch_result`` only writes to the in-memory cache.
         sm = self.workspace.settings_manager
         sm.save_auto_cache()
-        if getattr(self, '_batch_do_symmetry', False) and hasattr(
-                sm, 'save_fold_std_sum'):
+        ran_symmetry = getattr(self, '_batch_do_symmetry', False)
+        if ran_symmetry and hasattr(sm, 'save_fold_std_sum'):
             sm.save_fold_std_sum()
+        # When the batch ran with the symmetry test enabled, derive a sensible
+        # default highlight threshold (80th percentile of all scores) and push
+        # it into the spinbox so flagged rows light up without manual tuning.
+        if ran_symmetry:
+            self._compute_fold_std_percentile_threshold()
+            self._apply_threshold_highlighting()
         # Reset the per-batch flag so subsequent toggles take effect cleanly.
         self._batch_do_symmetry = False
 
