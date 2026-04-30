@@ -189,21 +189,27 @@ def _compute_fold_symmetry(img, center, rotation):
         h, w = img.shape[:2]
         cx_orig, cy_orig = float(center[0]), float(center[1])
 
-        # Step 1: translate so the user-specified center maps to image center.
+        # Build the same composite (translate-then-rotate) matrix QuadrantFolder
+        # uses in ``transformImage``. Doing both steps with a single warpAffine
+        # avoids the NaN-border bleed that two sequential warps would cause
+        # (each interpolation pass spreads NaNs by ~1 pixel because any tap
+        # touching a NaN produces NaN), keeping the valid region — and thus
+        # the fold-std score — aligned with what QF actually folds.
         tx = (w / 2.0) - cx_orig
         ty = (h / 2.0) - cy_orig
-        M1 = _np.float32([[1, 0, tx], [0, 1, ty]])
-        img_t = _cv2.warpAffine(
-            img.astype(_np.float32), M1, (w, h),
-            flags=_cv2.INTER_LINEAR, borderValue=_np.nan,
-        )
-        # Step 2: rotate around image center (matches QuadrantFolder.transformImage).
+        M1 = _np.array([[1.0, 0.0, tx],
+                        [0.0, 1.0, ty],
+                        [0.0, 0.0, 1.0]], dtype=_np.float64)
         if rotation:
             M2 = _cv2.getRotationMatrix2D((w / 2.0, h / 2.0), float(rotation), 1.0)
-            img_t = _cv2.warpAffine(
-                img_t, M2, (w, h),
-                flags=_cv2.INTER_LINEAR, borderValue=_np.nan,
-            )
+            M2_3x3 = _np.vstack([M2, [0.0, 0.0, 1.0]])
+            M_total = (M2_3x3 @ M1)[:2, :].astype(_np.float32)
+        else:
+            M_total = M1[:2, :].astype(_np.float32)
+        img_t = _cv2.warpAffine(
+            img.astype(_np.float32), M_total, (w, h),
+            flags=_cv2.INTER_LINEAR, borderValue=_np.nan,
+        )
 
         cx, cy = w // 2, h // 2
         fold_w = max(cx, w - cx)
@@ -244,7 +250,12 @@ def _compute_fold_symmetry(img, center, rotation):
         if not _np.any(keep):
             return 0.0
 
-        with _np.errstate(invalid='ignore'):
+        # Silence numpy's "Degrees of freedom <= 0" / "All-NaN slice" warnings
+        # for positions that have <2 valid samples; we mask those out via *keep*
+        # immediately afterwards anyway.
+        import warnings as _warnings
+        with _np.errstate(invalid='ignore'), _warnings.catch_warnings():
+            _warnings.simplefilter('ignore', RuntimeWarning)
             per_pixel_std = _np.nanstd(stack, axis=0, ddof=0)
         per_pixel_std = _np.where(keep, per_pixel_std, 0.0)
         return float(_np.nansum(per_pixel_std))
