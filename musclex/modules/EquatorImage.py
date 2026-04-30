@@ -51,10 +51,16 @@ except: # for coverage
     from utils.image_processor import *
     from utils.image_data import ImageData
 from collections import deque
+from time import perf_counter as _perf_counter
 
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from scipy.interpolate import BSpline, make_interp_spline
+
+try:
+    from ..tests.fitting_ab.capture import maybe_record_equator_fit as _maybe_record_equator_fit
+except Exception:  # pragma: no cover - capture must never break the fit path
+    _maybe_record_equator_fit = None
 
 class EquatorImage:
     """
@@ -876,7 +882,24 @@ class EquatorImage:
             # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
             for method in ['leastsq']:
                 # WARNING this fit function might give different results depending on the operating system
+                _eq_fit_t0 = _perf_counter()
                 result = model.fit(histNdarray, verbose = False, method=method, params=params, **int_vars)
+                _eq_fit_elapsed = _perf_counter() - _eq_fit_t0
+                if _maybe_record_equator_fit is not None:
+                    _maybe_record_equator_fit(
+                        image_name=str(self.filename),
+                        x=x,
+                        y=histNdarray,
+                        params=params,
+                        int_vars=int_vars,
+                        result=result,
+                        elapsed_s=_eq_fit_elapsed,
+                        extra_tags=[
+                            f"n_left_peaks={len(left_peaks)}",
+                            f"n_right_peaks={len(right_peaks)}",
+                            "entry=fitModel",
+                        ],
+                    )
                 if result is not None:
                     res = result.values
                     res.update(int_vars)
@@ -1029,7 +1052,24 @@ class EquatorImage:
 
         # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
         for method in ['leastsq']:
+            _eq_fit_t0 = _perf_counter()
             result = model.fit(histNdarray, verbose=False, method=method, params=params, **int_vars)
+            _eq_fit_elapsed = _perf_counter() - _eq_fit_t0
+            if _maybe_record_equator_fit is not None:
+                _maybe_record_equator_fit(
+                    image_name=str(self.filename),
+                    x=x,
+                    y=histNdarray,
+                    params=params,
+                    int_vars=int_vars,
+                    result=result,
+                    elapsed_s=_eq_fit_elapsed,
+                    extra_tags=[
+                        f"n_left_peaks={len(left_peaks)}",
+                        f"n_right_peaks={len(right_peaks)}",
+                        "entry=processFit",
+                    ],
+                )
             if result is not None:
                 res = result.values
                 res.update(int_vars)

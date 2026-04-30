@@ -16,6 +16,7 @@ from .lmfit_adapters import (
     LmfitBaselineAdapter,
     LmfitPoissonWeightedAdapter,
     LmfitTRFAdapter,
+    LmfitTRFJacAdapter,
     LmfitTRFPoissonAdapter,
 )
 
@@ -25,6 +26,7 @@ ADAPTER_REGISTRY = {
     for a in (
         LmfitBaselineAdapter,
         LmfitTRFAdapter,
+        LmfitTRFJacAdapter,
         LmfitPoissonWeightedAdapter,
         LmfitTRFPoissonAdapter,
     )
@@ -52,6 +54,7 @@ __all__ = [
     "ReferenceResult",
     "LmfitBaselineAdapter",
     "LmfitTRFAdapter",
+    "LmfitTRFJacAdapter",
     "LmfitPoissonWeightedAdapter",
     "LmfitTRFPoissonAdapter",
     "get_adapter",

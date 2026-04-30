@@ -45,21 +45,26 @@ from .base import FitCase, FitInputs, FitResult, FitterAdapter, ParamSpec
 
 def _get_model_func(model_kind: str):
     # Imported lazily to avoid pulling in fabio/sklearn at framework import time.
-    try:
-        from musclex.modules.ProjectionProcessor import (
-            layerlineModel,
-            layerlineModelGMM,
-        )
-    except ImportError:  # for the dev coverage path
-        from modules.ProjectionProcessor import (  # type: ignore[no-redef]
-            layerlineModel,
-            layerlineModelGMM,
-        )
+    if model_kind in ("gmm", "standard"):
+        try:
+            from musclex.modules.ProjectionProcessor import (
+                layerlineModel,
+                layerlineModelGMM,
+            )
+        except ImportError:  # for the dev coverage path
+            from modules.ProjectionProcessor import (  # type: ignore[no-redef]
+                layerlineModel,
+                layerlineModelGMM,
+            )
+        return layerlineModelGMM if model_kind == "gmm" else layerlineModel
 
-    if model_kind == "gmm":
-        return layerlineModelGMM
-    if model_kind == "standard":
-        return layerlineModel
+    if model_kind == "cardiac":
+        try:
+            from musclex.modules.EquatorImage import cardiacFit
+        except ImportError:  # for the dev coverage path
+            from modules.EquatorImage import cardiacFit  # type: ignore[no-redef]
+        return cardiacFit
+
     raise ValueError(f"Unknown model_kind: {model_kind!r}")
 
 
@@ -208,6 +213,10 @@ class _LmfitAdapterBase(FitterAdapter):
     fit_method: str = "leastsq"
     #: Whether to apply Poisson sqrt weights ``1/sqrt(max(y, 1))``.
     use_poisson_weights: bool = False
+    #: Extra kwargs forwarded to the underlying minimizer (e.g.
+    #: ``{"x_scale": "jac"}`` for scipy ``least_squares``). Empty dict
+    #: means "use lmfit/scipy defaults".
+    fit_kws: Dict[str, object] = {}
 
     def __init__(self, *, seed: int = 0):
         self._rng = np.random.default_rng(seed)
@@ -234,12 +243,14 @@ class _LmfitAdapterBase(FitterAdapter):
 
         t0 = time.perf_counter()
         try:
+            extra_fit_kws = dict(self.fit_kws) if self.fit_kws else None
             result = model.fit(
                 inputs.y,
                 params=params,
                 method=self.fit_method,
                 weights=weights,
                 verbose=False,
+                fit_kws=extra_fit_kws,
                 **indep_kwargs,
             )
             message = getattr(result, "message", "")
@@ -327,6 +338,23 @@ class LmfitTRFAdapter(_LmfitAdapterBase):
     name = "lmfit-trf"
     fit_method = "least_squares"
     use_poisson_weights = False
+
+
+class LmfitTRFJacAdapter(_LmfitAdapterBase):
+    """TRF with Jacobian-based parameter scaling ``x_scale='jac'``.
+
+    Recommended by scipy docs for ill-scaled problems where free
+    parameters span many orders of magnitude (e.g. EquatorImage where
+    ``area`` parameters are ~1e6 while ``sigma`` parameters are ~10).
+    Without this, TRF's relative-step ``xtol`` convergence check trips
+    almost immediately and the optimizer stops before the large-scale
+    parameters have moved meaningfully.
+    """
+
+    name = "lmfit-trf-jac"
+    fit_method = "least_squares"
+    use_poisson_weights = False
+    fit_kws = {"x_scale": "jac"}
 
 
 class LmfitPoissonWeightedAdapter(_LmfitAdapterBase):

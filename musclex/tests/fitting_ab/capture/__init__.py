@@ -3,11 +3,13 @@
 from .recorder import (
     DEFAULT_CAPTURE_DIR,
     is_capture_enabled,
+    maybe_record_equator_fit,
     maybe_record_fit,
 )
 
 __all__ = [
     "DEFAULT_CAPTURE_DIR",
     "is_capture_enabled",
+    "maybe_record_equator_fit",
     "maybe_record_fit",
 ]

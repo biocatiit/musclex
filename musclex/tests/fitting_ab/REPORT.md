@@ -1,28 +1,35 @@
 # A/B Fit Benchmark Report — 2026-04-29
 
-> Benchmark of alternative non-linear fitting backends for
-> `ProjectionProcessor.fitModel()` on real MuscleX projection traces.
-> All numbers in this report were generated **after** the bound-aware
-> perturbation fix landed in `_maybe_perturb_init`
+> Benchmark of alternative non-linear fitting backends on real MuscleX
+> data. The report is split into two parts:
+>
+> * **Part A — Projection Traces** (`ProjectionProcessor.fitModel`)
+> * **Part B — Equator** (`EquatorImage.fitModel` / `processFit`)
+>
+> The verdict is different for each module — see the executive summary.
+> All numbers were generated after the bound-aware perturbation fix
+> landed in `_maybe_perturb_init`
 > ([`adapters/lmfit_adapters.py`](adapters/lmfit_adapters.py) §
 > "Bound-aware perturbation"); an earlier draft based on pre-fix CSVs
-> overstated baseline-LM's failure modes and has been discarded.
+> overstated baseline-LM's failure modes for PT and has been discarded.
 
 ## Executive summary
 
-| | recommendation |
-|---|---|
-| **Production today** | `lmfit-baseline-leastsq` (LM with `tan/arctan` bound mapping). Always converges on this corpus, but takes 2–5 × more wall time than TRF on the harder cases and is sensitive to perturbed init on one case. |
-| **Recommended next** | `lmfit-trf` (`method='least_squares'`, Trust-Region-Reflective with native bounds). Reaches the **identical** optimum (`chi2_ratio = 1.0`) on every case and every perturbation level, **5–35 % faster median wall-time** overall, and **5–15 ×** tighter peak-position p95 on the one sensitive case (`TEST`). |
-| **Do not use** | Both `lmfit-poisson` variants. Convex-hull background subtraction has already removed the Poisson noise, so `weights = 1/√y` becomes a misweighting and the fit converges 1–4 px away from the production optimum. `lmfit-poisson` (LM + Poisson) also hits the iteration cap on 5 / 25 unperturbed fits. |
+| module | verdict | reason |
+|---|---|---|
+| **Projection Traces** | **switch to `lmfit-trf`** (`method='least_squares'`) | Same optimum, 5–35 % faster median, 5–35 × tighter peak-position p95 on the one strong-background case (`TEST`). Already shipped — see § A.5. |
+| **Equator** | **stay on `lmfit-baseline-leastsq`** | TRF without scaling is broken (`xtol` trips at 5 nfev because area params are 10⁶ × bigger than sigma params). TRF with `x_scale='jac'` is correct but **2 – 3 × slower than LM**. No robustness benefit on this corpus. See § B. |
 
-Switching `ProjectionProcessor.fitModel()` from `leastsq` to TRF is a
-**one-line change** with measurable gains and no observed downsides on
-the captured corpus.
+| do-not-use | reason |
+|---|---|
+| Both `lmfit-poisson` variants on the bg-subtracted PT path | Convex-hull subtraction has already removed Poisson noise; `1/√y` weighting biases the optimum 1 – 4 px away. |
+| Plain `lmfit-trf` on equator | Premature `xtol` convergence after 5 nfev, plus one catastrophic 24 000-nfev abort. Use `lmfit-trf-jac` if you need TRF on this model. |
 
 ---
 
-## 1. Setup
+# Part A — Projection Traces (`ProjectionProcessor.fitModel`)
+
+## A.1. Setup
 
 **Cases.** 5 fit cases captured from a single `musclex pth` run on
 `EIGERTestImage.tif` (MuscleX 1.29.0-beta.2, lmfit 1.1.0, NumPy 1.26.4,
@@ -67,7 +74,7 @@ adapter — bypassing `lmfit.MinimizerResult.chisqr`, which mis-reports
 
 ---
 
-## 2. Headline numbers — Test 1: deterministic replay
+## A.2. Headline numbers — Test 1: deterministic replay
 
 Source: [`ab_summary.csv`](../../../ab_summary.csv) (aggregate),
 [`ab_report.csv`](../../../ab_report.csv) (per-trial).
@@ -128,7 +135,7 @@ shown in the leftmost columns.
 
 ---
 
-## 3. Robustness — Test 2: perturbation sweep
+## A.3. Robustness — Test 2: perturbation sweep
 
 Sources:
 [`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv) (and `_long.csv`),
@@ -196,7 +203,7 @@ Aggregated from the `_long.csv` files of each sweep level.
 
 ---
 
-## 4. Why the Poisson-weighted adapters lose
+## A.4. Why the Poisson-weighted adapters lose
 
 Captured `y` traces are **already convex-hull background-subtracted**
 (`bgsub=1` on 4 / 5 cases) before they reach `fitModel()`. Convex-hull
@@ -220,7 +227,7 @@ component inside the fit), not on the convex-hull-subtracted trace.
 
 ---
 
-## 5. Recommendation
+## A.5. Recommendation (PT)
 
 1. **Switch `fitModel()` to TRF.** Replace
    `model.fit(hist, …)` with
@@ -264,9 +271,168 @@ component inside the fit), not on the convex-hull-subtracted trace.
 
 ---
 
+---
+
+# Part B — Equator (`EquatorImage.fitModel` / `processFit`)
+
+## B.1. Setup
+
+**Cases.** 6 cases captured in one pass by running the existing equator
+headless integration tests with `MUSCLEX_CAPTURE_FITS=1` (3 image
+sources × 2 captures each):
+
+| case_id | image | model | n_free | difficulty |
+|---|:---:|:---:|:---:|---|
+| `eq_eq_F10_pCa8_SL21_0001_*` | F10_pCa8_SL21 frame 0001 (PILATUS) | Gaussian | 11 | very-large areas (~6.5e6) |
+| `eq_eq_F10_pCa8_SL21_0002_*` | F10_pCa8_SL21 frame 0002 (PILATUS) | Gaussian | 11 | very-large areas (~6.5e6) |
+| `eq_eq_P1_F1_tet_..._00005_*` | P1_F1_tet… (EIGER) | Gaussian | 11 | small areas (~1e3) |
+| `eq_eq_P1_F1_tet_..._00006_*` | P1_F1_tet… (EIGER) | Gaussian | 11 | small areas (~1e3) |
+| `eq_eq_P2_F5_849_1_094_*`     | P2_F5_849_1_094 (MAR) | Gaussian | 11 | medium areas (~5e4) |
+| `eq_eq_P2_F5_849_2_095_*`     | P2_F5_849_2_095 (MAR) | Gaussian | 11 | medium areas (~5e4) |
+
+All cases: `isSkeletal=False`, `isExtraPeak=False`, Gaussian model, 11
+free params (`centerX`, `S10`, `S0`, 4 areas, 2 sigmads, 2 gammas).
+Pickles in `/tmp/musclex_eq_cases/`.
+
+**Adapters.**
+
+| name | algorithm | extra fit_kws |
+|---|---|---|
+| `lmfit-baseline-leastsq` | LM (production code path) | — |
+| `lmfit-trf` | TRF, scipy default scaling | — |
+| `lmfit-trf-jac` | TRF + Jacobian-based parameter scaling | `{"x_scale": "jac"}` |
+
+**Methodology.** Same as Part A: deterministic replay (5 trials × 6
+cases × 3 adapters = 90 fits) plus a perturbation sweep at
+`perturb_init=0.15` (10 trials × 6 cases × 2 adapters = 120 fits). The
+plain TRF adapter is excluded from the perturbation sweep because it
+already abort-cap on the deterministic case.
+
+## B.2. Headline numbers — deterministic replay
+
+Source: [`eq_ab_summary.csv`](../../../eq_ab_summary.csv),
+[`eq_ab_report.csv`](../../../eq_ab_report.csv).
+
+| adapter | success | aborted | el_med (ms) | speed_ratio_median | chi2_ratio_median |
+|---|:---:|:---:|---:|---:|---:|
+| `lmfit-baseline-leastsq` | 30/30 | 0 % | **36.4** | 1.02 | **1.0000** |
+| `lmfit-trf`              | 25/30 | **17 %** | 67.4 | 1.89 | 1.027 |
+| `lmfit-trf-jac`          | 30/30 | 0 % | 70.5 | 2.02 | **1.0000** |
+
+> The `p_max_diff_*` and `amp_diff_*` columns are not meaningful for
+> equator (peak positions are derived from `S10·θ(hk)`, not free
+> parameters), so they're omitted here.
+
+### Per-case detail
+
+| case | leastsq el_med | leastsq nfev | TRF el_med | TRF nfev | TRF chi2 ratio | TRF-jac el_med | TRF-jac nfev | TRF-jac chi2 ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `F10_pCa8_SL21_0001` | **36 ms** | 192 | 21 ms | 5 | **1.0595** ⚠ | 106 ms | 27 | 1.0000 |
+| `F10_pCa8_SL21_0002` | **43 ms** | 230 | 19 ms | 5 | **1.1833** ⚠ | 60 ms | 26 | 1.0000 |
+| `P1_F1_tet (1)`      | **36 ms** | 220 | 69 ms | 24 | 1.0000 | 71 ms | 29 | 1.0000 |
+| `P1_F1_tet (2)`      | **32 ms** | 193 | 61 ms | 26 | 1.0000 | 106 ms | 30 | 1.0000 |
+| `P2_F5_849 (1)`      | **35 ms** | 155 | **9 477 ms** | **24 001** | **1.0538** ⚠ (5/5 aborted) | 66 ms | 26 | 1.0000 |
+| `P2_F5_849 (2)`      | **39 ms** | 169 | 71 ms | 33 | 1.0000 | 65 ms | 26 | 1.0000 |
+
+### What's going on
+
+* **Plain `lmfit-trf` is broken on equator.** Two failure modes visible:
+  1. **Premature `xtol` termination** on the F10 cases (5 nfev,
+     5–18 % worse chi² than leastsq). With area parameters at scale
+     ~6.5 × 10⁶ and sigma at ~10, scipy's relative-step `xtol = 1e-8`
+     trips after the first trust-region step nudges the small params
+     by O(1) — leaving the area params essentially unchanged. The
+     diagnostic deltas confirm this:
+
+     | param | leastsq Δ from init | TRF Δ from init |
+     |---|---:|---:|
+     | `right_area1` (~6.4e6) | **−139 181** | −0.10 |
+     | `left_area1` (~6.5e6)  | **−42 860**  | −0.01 |
+     | `left_sigmad` (~12)    | −5.00 | −4.96 |
+  2. **Catastrophic budget exhaustion** on `P2_F5_849 (1)`: 5 / 5
+     trials hit the 24 000-nfev cap, taking ~9.5 s per trial, and
+     still ending at chi² 5 % worse than leastsq.
+
+* **`lmfit-trf-jac` (TRF + `x_scale='jac'`) is correct.** Reaches the
+  same minimum (chi² ratio = 1.0000 to 1e-8) on every case in
+  26–30 nfev. But it's **1.5 – 3 × slower** than leastsq on every
+  case because (a) leastsq already converges in 30–40 ms, and
+  (b) each TRF iteration evaluates a Jacobian (extra ~11×N model
+  evaluations).
+
+* **leastsq always wins on speed** — production LM is faster than
+  both TRF variants on every single case.
+
+## B.3. Robustness — perturbation sweep at `perturb=0.15`
+
+Source: [`eq_robustness.csv`](../../../eq_robustness.csv) (and
+`_long.csv`).
+
+| adapter | success | aborted | el_med (ms) | chi2_ratio_median | chi2_ratio_max |
+|---|:---:|:---:|---:|---:|---:|
+| `lmfit-baseline-leastsq` | 60/60 | 0 % | **31.5** | 1.0000 | 1.0000 |
+| `lmfit-trf-jac`          | 60/60 | 0 % | 73.4 | 1.0000 | 1.0000 |
+
+Both adapters always converge to the same minimum under perturbation.
+There is no robustness gap. leastsq is consistently 2 – 3 × faster.
+
+## B.4. Why the equator answer is different from PT
+
+The structural reasons TRF wins on PT but loses on equator:
+
+1. **Parameter scaling.** PT free params span at most 4 orders of
+   magnitude (positions ~10², sigmas ~10¹, amplitudes ~10⁴).
+   Equator areas are ~10⁶ while sigmas are ~10¹ — **5 + orders of
+   magnitude**. Without `x_scale='jac'`, TRF's relative-step
+   convergence checks declare done before the largest-scale params
+   move at all.
+
+2. **LM convergence count.** PT's hardest case (`TEST`) needs LM
+   2 284 nfev, opening a wide gap for TRF (42 nfev) to win on speed.
+   Equator's hardest case needs LM ~230 nfev — TRF's 26 nfev × the
+   per-iteration cost (Jacobian evaluation, SVD) lands in the same
+   wall-time bucket.
+
+3. **No labeling-symmetry pitfall.** PT has the
+   `(center_sigma1, center_sigma2)` Gaussian degeneracy (post-fix
+   handled by canonicalisation). Equator has no equivalent: peak
+   positions are anchored by `S10·θ(hk)`, left/right are hardcoded
+   asymmetric, and `(sigmac, sigmad, sigmas)` are different
+   theta-power moments — no swap is possible.
+
+So TRF doesn't have a hidden robustness win on equator that would
+offset the speed regression.
+
+## B.5. Recommendation (Equator)
+
+1. **Don't switch `EquatorImage.fitModel` / `processFit` to TRF.**
+   The captured corpus shows leastsq is uniformly faster and equally
+   correct.
+
+2. **Keep `lmfit-trf-jac` in the framework** as the right thing to use
+   if anyone re-runs this benchmark on a future equator change (e.g.
+   adding a Voigt branch or skeletal/EP free params, where Jacobian
+   conditioning could shift). Plain `lmfit-trf` should stay in the
+   registry but only as a smoke-test for the `xtol` bug.
+
+3. **Optional independent fix**: the `init_z` → `init_z_ep` copy-paste
+   bug in `EquatorImage.py` line 828 (the `zline_EP` lower-bound
+   formula uses `init_z` instead of `init_z_ep`) is unrelated to the
+   solver choice but worth fixing while we're here.
+
+4. **Capture more cases**: the 3 image sources from the integration
+   tests aren't representative of every dataset. If a future
+   equator-related performance complaint arrives, capture cases from
+   the affected dataset and rerun this benchmark before drawing
+   conclusions from this 6-case sample.
+
+---
+
 ## 6. Data sources
 
 All paths relative to the repository root.
+
+### Part A — Projection Traces
 
 | artefact | path | what's in it |
 |---|---|---|
@@ -276,11 +442,28 @@ All paths relative to the repository root.
 | Robustness sweep (perturb=0.05) | [`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv) + `_long.csv` | 50-fit aggregate + per-trial |
 | Robustness sweep (perturb=0.30) | [`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv) + `_long.csv` | 50-fit aggregate + per-trial |
 | Robustness sweep (perturb=0.50) | [`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv) + `_long.csv` | 50-fit aggregate + per-trial |
-| Captured fit cases | `/tmp/musclex_fit_cases/full_run_*.pkl` | 5 pickled `FitCase` objects |
+| Captured PT fit cases | `/tmp/musclex_fit_cases/full_run_*.pkl` | 5 pickled `FitCase` objects |
 | Diagnostic harness | [`musclex/tests/fitting_ab/diagnose_m6_trf_failure.py`](diagnose_m6_trf_failure.py) | resolved the m6 / TRF mystery (perturbation strategy bug, not TRF) |
-| Framework code | [`musclex/tests/fitting_ab/`](.) | adapters, runner, capture hook |
+
+### Part B — Equator
+
+| artefact | path | what's in it |
+|---|---|---|
+| Per-trial long-format report | [`eq_ab_report.csv`](../../../eq_ab_report.csv) | 90 rows, 6 cases × 3 adapters × 5 trials |
+| Aggregate summary | [`eq_ab_summary.csv`](../../../eq_ab_summary.csv) | 3 rows (one per adapter) |
+| Robustness summary (perturb=0.15) | [`eq_robustness.csv`](../../../eq_robustness.csv) | 2 rows (baseline vs trf-jac) |
+| Robustness per-trial | [`eq_robustness_long.csv`](../../../eq_robustness_long.csv) | 120 rows |
+| Captured Equator fit cases | `/tmp/musclex_eq_cases/eq_eq_*.pkl` | 6 pickled `FitCase` objects (model_kind='cardiac') |
+
+### Common
+
+| artefact | path | what's in it |
+|---|---|---|
+| Framework code | [`musclex/tests/fitting_ab/`](.) | adapters, runner, capture hooks |
 
 ### Reproducing this report
+
+#### Part A — Projection Traces
 
 ```bash
 # 1. capture (or copy the pickles already in /tmp/musclex_fit_cases/)
@@ -310,20 +493,53 @@ done
 #  ab_robustness_long.csv for backwards compatibility with earlier docs.)
 ```
 
+#### Part B — Equator
+
+```bash
+# 1. capture by running the existing equator headless tests with capture on
+mkdir -p /tmp/musclex_eq_cases
+export MUSCLEX_CAPTURE_FITS=1
+export MUSCLEX_CAPTURE_DIR=/tmp/musclex_eq_cases
+export MUSCLEX_CAPTURE_TAG=eq
+python -m unittest musclex.tests.musclex_tester -k Equator
+unset MUSCLEX_CAPTURE_FITS
+
+# 2. deterministic replay (3 adapters)
+python -m musclex.tests.fitting_ab.runner \
+    --cases /tmp/musclex_eq_cases \
+    --adapters lmfit-baseline-leastsq lmfit-trf lmfit-trf-jac \
+    --n-repeats 5 \
+    --report eq_ab_report.csv --summary eq_ab_summary.csv
+
+# 3. robustness sweep (skip plain lmfit-trf — it aborts)
+python -m musclex.tests.fitting_ab.runner \
+    --cases /tmp/musclex_eq_cases \
+    --adapters lmfit-baseline-leastsq lmfit-trf-jac \
+    --n-repeats 10 --perturb-init 0.15 \
+    --report eq_robustness_long.csv --summary eq_robustness.csv
+```
+
 ### Caveats / scope
 
-* **5 cases is small.** The story is consistent across four
-  perturbation levels and concentrates on the one no-bg-subtraction
-  case (`TEST`), but a full retrospective on dozens of real datasets
-  is the next sensible step. `_maybe_enable_dev_capture` in
+* **Small samples.** PT has 5 cases (one image source, perturbation
+  swept across four levels) and Equator has 6 cases (three image
+  sources, single perturbation level). The PT verdict is consistent
+  across all perturbation levels and the Equator verdict is consistent
+  across all six cases, but a full retrospective on dozens of real
+  datasets is the next sensible step. `_maybe_enable_dev_capture` in
   `musclex/__init__.py` exists to make that easy.
-* **Single-seed RNG.** The runner uses `seed=0` per adapter, so
-  perturbation sequences are deterministic across runs — the diversity
-  in this report comes from varying perturbation *magnitude*, not
-  varying seed at fixed magnitude. A `--seed` flag on the runner would
-  let us add genuine seed-variation to the next iteration.
+* **Single-seed RNG.** The runner uses `seed=0` per adapter, so two
+  invocations at the same perturbation level are byte-identical. The
+  PT diversity comes from varying perturbation magnitude. A `--seed`
+  flag on the runner would let us add genuine seed-variation in the
+  next iteration.
 * **Single platform.** Linux 6.8 / Python 3.10 / NumPy 1.26 / lmfit 1.1.
-  Re-run on macOS and Windows before committing the algorithm change.
-* **Single image source.** All five cases come from `EIGERTestImage.tif`.
-  Boxes from real scattering data with messier backgrounds may behave
-  more like `TEST` than like `M3` — capture them and rerun.
+  Re-run on macOS and Windows before committing any algorithm change
+  here. Especially relevant for the Equator finding because LM
+  (`leastsq`) is documented to give OS-dependent results — the
+  current verdict assumes the linux behaviour matches macOS/Windows.
+* **Image source coverage.** PT cases all come from `EIGERTestImage.tif`.
+  Equator cases come from three sources (PILATUS, EIGER, MAR) but each
+  appears only twice. Real beam-line datasets with stronger
+  backgrounds, more peaks, or skeletal/extra-peak modes (none of which
+  are exercised in the captured corpus) may shift the verdict.

@@ -98,7 +98,7 @@ def _build_inputs(
     y: np.ndarray,
     params: Any,                  # lmfit.Parameters
     int_vars: Mapping[str, Any],
-    use_gmm: bool,
+    model_kind: str,
     has_voigt: bool,
 ) -> FitInputs:
     free: Dict[str, ParamSpec] = {}
@@ -128,7 +128,7 @@ def _build_inputs(
         x=np.asarray(x, dtype=np.float64).copy(),
         y=np.asarray(y, dtype=np.float64).copy(),
         weights=None,
-        model_kind="gmm" if use_gmm else "standard",
+        model_kind=model_kind,
         has_voigt=bool(has_voigt),
         free_params=free,
         independent_vars=independent_vars,
@@ -277,6 +277,131 @@ def _build_reference(
 # --------------------------------------------------------------------------- #
 
 
+def _build_equator_meta(
+    *,
+    case_id: str,
+    image_name: str,
+    int_vars: Mapping[str, Any],
+    free_param_count: int,
+    extra_tags: Optional[list] = None,
+) -> CaseMeta:
+    invocation = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "python_version": sys.version.split()[0],
+        "platform": platform.platform(),
+    }
+    try:
+        from musclex import __version__ as musclex_version
+        invocation["musclex_version"] = musclex_version
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        import lmfit
+        invocation["lmfit_version"] = lmfit.__version__
+    except Exception:  # pragma: no cover
+        pass
+    invocation["numpy_version"] = np.__version__
+
+    model_kind_str = str(int_vars.get("model", "Gaussian"))
+    is_skeletal = bool(int_vars.get("isSkeletal", False))
+    is_extra_peak = bool(int_vars.get("isExtraPeak", False))
+
+    tags = [
+        f"model={model_kind_str}",
+        f"isSkeletal={is_skeletal}",
+        f"isExtraPeak={is_extra_peak}",
+        f"n_free={free_param_count}",
+    ]
+    if extra_tags:
+        tags.extend(extra_tags)
+
+    return CaseMeta(
+        case_id=case_id,
+        box_name="equator",
+        box_type="equator",
+        bgsub=0,
+        use_common_sigma=False,
+        merid_bg=False,
+        peaks_seed=[],
+        hull_range=None,
+        peak_tolerance=0.0,
+        sigma_tolerance=0.0,
+        source_image=image_name,
+        invocation=invocation,
+        difficulty_tags=tags,
+    )
+
+
+def maybe_record_equator_fit(
+    *,
+    image_name: str,
+    x: np.ndarray,
+    y: np.ndarray,
+    params: Any,                          # lmfit.Parameters used in fit
+    int_vars: Mapping[str, Any],
+    result: Any,                          # lmfit ModelResult
+    elapsed_s: float,
+    extra_tags: Optional[list] = None,
+) -> Optional[Path]:
+    """Persist a single equator (cardiac) fit invocation to disk.
+
+    Mirrors :func:`maybe_record_fit` but for ``EquatorImage.cardiacFit``.
+    No-op when capture is disabled.
+    """
+    if not is_capture_enabled():
+        return None
+
+    try:
+        has_voigt = str(int_vars.get("model", "")).lower() == "voigt"
+
+        idx = _next_index()
+        # short suffix from image basename for traceability
+        from os.path import basename, splitext
+        img_short = splitext(basename(image_name or "unknown"))[0][:20]
+        case_id = (
+            f"{_capture_tag()}_eq_{img_short}_"
+            f"{idx:05d}_"
+            f"{uuid.uuid4().hex[:6]}"
+        )
+
+        inputs = _build_inputs(
+            x=x, y=y, params=params, int_vars=int_vars,
+            model_kind="cardiac", has_voigt=has_voigt,
+        )
+        meta = _build_equator_meta(
+            case_id=case_id,
+            image_name=image_name,
+            int_vars=int_vars,
+            free_param_count=len(inputs.free_params),
+            extra_tags=extra_tags,
+        )
+        reference = _build_reference(
+            result, list(inputs.free_params.keys()), elapsed_s,
+        )
+
+        case = FitCase(
+            schema_version=SCHEMA_VERSION,
+            meta=meta,
+            inputs=inputs,
+            reference=reference,
+            optional={},
+        )
+
+        out_dir = _capture_dir()
+        out_path = out_dir / f"{case_id}.pkl"
+        save_case(case, out_path)
+        return out_path
+    except Exception as exc:  # pragma: no cover
+        try:
+            sys.stderr.write(
+                f"[fitting_ab] equator capture failed for image="
+                f"{image_name!r}: {type(exc).__name__}: {exc}\n"
+            )
+        except Exception:
+            pass
+        return None
+
+
 def maybe_record_fit(
     *,
     box_name: str,
@@ -313,7 +438,8 @@ def maybe_record_fit(
 
         inputs = _build_inputs(
             x=x, y=y, params=params, int_vars=int_vars,
-            use_gmm=use_gmm, has_voigt=has_voigt,
+            model_kind=("gmm" if use_gmm else "standard"),
+            has_voigt=has_voigt,
         )
         meta = _build_meta(
             case_id=case_id, box_name=box_name, box=box,

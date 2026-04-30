@@ -56,7 +56,7 @@ fed into the optimizer.
 
 ### 1a. Automatic on dev builds
 
-If you're on the `dev` git branch (`__version__` ends with `(dev)`),
+If you're on the `dev` git branch (`__version__` ends with `.dev0`),
 capture is **on by default**. At `import musclex` time you'll see:
 
 ```
@@ -140,6 +140,7 @@ Built-in adapter names (more can be added — see § 5):
 |---|---|
 | `lmfit-baseline-leastsq` | exact production behaviour (LM + tan/arctan bound mapping) |
 | `lmfit-trf` | `method='least_squares'` — TRF with native bounds |
+| `lmfit-trf-jac` | TRF + `fit_kws={'x_scale': 'jac'}` — Jacobian-based parameter scaling. Use this when free params span many orders of magnitude (e.g. EquatorImage, where areas are ~10⁶ and sigmas are ~10¹) — without it, scipy's relative-step `xtol` can trip after 5 nfev. |
 | `lmfit-poisson` | leastsq + Poisson `weights = 1/sqrt(max(y, 1))` |
 | `lmfit-trf-poisson` | TRF + Poisson weights |
 
@@ -413,27 +414,40 @@ zero-cost when capture is off.
 
 The dated benchmark report — including data-grounded tables, citation
 of every source CSV, and the recommendation — lives in
-[`REPORT.md`](REPORT.md).
+[`REPORT.md`](REPORT.md). It now covers two modules with **opposite
+verdicts**:
 
-Headline (2026-04-29, 5 captured cases, perturbation sweep at
-`p ∈ {0.05, 0.15, 0.30, 0.50}`, all numbers post bound-aware
-perturbation fix):
+### Projection Traces — switch to TRF
+
+5 captured cases, perturbation sweep at `p ∈ {0.05, 0.15, 0.30, 0.50}`:
 
 * **`lmfit-trf` reaches the same optimum as the production baseline**
   (`chi2_ratio_median = 1.0000`) on every case, every perturbation
-  level. Both adapters always converge — no aborts on either side.
+  level. Both adapters always converge.
 * **TRF is faster on the harder cases** (Test 1 medians: `m3` 11.7 vs
   81.7 ms, `m6` 100 vs 157 ms, `TEST` 88 vs 290 ms; ~5–35 % faster
   overall).
 * **TRF's peak-position p95 is bounded** at 0.03 – 0.17 px regardless
-  of perturbation. Baseline's p95 grows with perturbation and reaches
-  2.4 px at `p = 0.50`. The gap concentrates on the one case with
-  strong background and no bg subtraction (`TEST`: 1.0 – 1.5 px
-  baseline vs. 0.03 – 0.17 px TRF, ~5 – 35 × tighter).
-* **Both Poisson-weighted adapters are wrong for this data path** —
-  convex-hull bg subtraction has already removed the Poisson noise, so
-  `1/√y` biases the optimum 1 – 4 px away from baseline. `lmfit-poisson`
-  also aborts on 5 / 25 of the deterministic fits.
+  of perturbation. Baseline's p95 grows to 2.4 px at `p = 0.50`,
+  concentrated on the one strong-background case (`TEST`).
+* **Both Poisson-weighted adapters are wrong** — convex-hull bg
+  subtraction removed the Poisson noise; `1/√y` biases the optimum
+  1 – 4 px away.
+* **Production change shipped** in `ProjectionProcessor.fitModel()`.
+
+### Equator — stay on `leastsq`
+
+6 captured cases (3 image sources, 2 captures each), perturbation
+sweep at `p = 0.15`:
+
+* **Plain `lmfit-trf` is broken** — premature `xtol` termination at
+  5 nfev (because area params are 10⁶ × bigger than sigma params), 17 %
+  aborted, and one catastrophic 24 000-nfev abort.
+* **`lmfit-trf-jac` (TRF + `x_scale='jac'`) is correct** — same
+  minimum as `leastsq`, 0 aborts. But **2 – 3 × slower** than `leastsq`
+  on every case.
+* **`leastsq` wins**: 100 % success, 30–40 ms median, no robustness
+  gap vs `trf-jac`. Production stays on `leastsq`.
 
 See `REPORT.md` for the full numbers, per-case breakdown, and
 reproduction commands.
