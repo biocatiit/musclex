@@ -31,6 +31,7 @@ authorization from Illinois Institute of Technology.
 import os
 from typing import Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QFileDialog, QMessageBox,
@@ -57,6 +58,8 @@ class OutputDirDialog(QDialog):
         self.setWindowTitle("Select Output Directory")
         self.setMinimumWidth(520)
 
+        self._input_dir = input_dir
+
         layout = QVBoxLayout(self)
 
         if input_dir is not None:
@@ -78,8 +81,19 @@ class OutputDirDialog(QDialog):
         row.addWidget(browse_btn)
         layout.addLayout(row)
 
-        # OK / Cancel
+        # Reset link (left) + OK / Cancel (right). The link is only useful when
+        # there is an input_dir to reset to and that dir is itself writable;
+        # otherwise the OK validator would just reject it again.
         btn_row = QHBoxLayout()
+        if input_dir is not None and _is_writable(input_dir):
+            reset_link = QLabel('<a href="#">reset to input</a>')
+            reset_link.setTextFormat(Qt.RichText)
+            reset_link.setToolTip(
+                "Set the output directory back to the input directory "
+                "(co-located mode)"
+            )
+            reset_link.linkActivated.connect(self._reset_to_input)
+            btn_row.addWidget(reset_link)
         btn_row.addStretch()
         ok_btn = QPushButton("OK")
         ok_btn.setDefault(True)
@@ -93,6 +107,11 @@ class OutputDirDialog(QDialog):
         layout.addLayout(btn_row)
 
         self.chosen_output: Optional[str] = None
+
+    def _reset_to_input(self):
+        """Set the output path back to the input directory."""
+        if self._input_dir is not None:
+            self._path_edit.setText(self._input_dir)
 
     def _browse(self):
         path = QFileDialog.getExistingDirectory(
@@ -131,9 +150,24 @@ class OutputDirDialog(QDialog):
         self.accept()
 
 
-# ---- convenience helper used by GUI integration points ----
+# ---- convenience helpers used by GUI integration points ----
 
 _store = AssociationStore()
+
+
+def _persist_association(input_dir: str, output_dir: str) -> None:
+    """Persist an input→output association, or drop it for co-located cases.
+
+    When *output_dir* points to the same physical directory as *input_dir*,
+    we remove any existing entry instead of saving ``input → input``.  This
+    keeps the JSON store free of redundant rows and lets future sessions
+    fall through to the implicit co-located path in
+    :func:`resolve_output_directory`.
+    """
+    if os.path.realpath(input_dir) == os.path.realpath(output_dir):
+        _store.remove(input_dir)
+    else:
+        _store.save(input_dir, output_dir)
 
 
 def resolve_output_directory(input_dir: str,
@@ -167,7 +201,7 @@ def resolve_output_directory(input_dir: str,
         return None
 
     output_dir = dlg.chosen_output
-    _store.save(input_dir, output_dir)
+    _persist_association(input_dir, output_dir)
     return DirectoryContext(input_dir=input_dir, output_dir=output_dir)
 
 
@@ -192,7 +226,7 @@ def resolve_output_directory_headless(input_dir: str,
         if not _is_writable(out):
             print(f"Error: output directory is not writable: {out}")
             return None
-        _store.save(input_dir, out)
+        _persist_association(input_dir, out)
         return DirectoryContext(input_dir=input_dir, output_dir=out)
 
     stored = _store.lookup(input_dir)

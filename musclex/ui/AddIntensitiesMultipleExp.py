@@ -180,7 +180,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def _change_output_directory(self):
         """Let the user pick a new output directory for AIME results."""
         from PySide6.QtWidgets import QDialog, QMessageBox
-        from musclex.ui.widgets.output_dir_dialog import OutputDirDialog, _store
+        from musclex.ui.widgets.output_dir_dialog import OutputDirDialog, _persist_association
         from musclex.utils.directory_context import DirectoryContext
 
         if not self._exp_dirs:
@@ -201,7 +201,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         new_output = dlg.chosen_output
         if input_dir:
-            _store.save(input_dir, new_output)
+            _persist_association(input_dir, new_output)
         common_parent = input_dir or self._parent_dir or ""
         self.dir_context = DirectoryContext(input_dir=common_parent, output_dir=new_output)
         self.workspace.set_settings_dir(new_output)

@@ -998,7 +998,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
     def _change_output_directory(self):
         """Let the user pick a new output directory."""
-        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
         from ..utils.directory_context import DirectoryContext
 
         input_dir = self.dir_context.input_dir
@@ -1007,7 +1007,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             return
 
         new_output = dlg.chosen_output
-        _store.save(input_dir, new_output)
+        _persist_association(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
         self.csvManager = DC_CSVManager(new_output, len(self.groupList[0]), self.fixRanges)
 
@@ -2333,7 +2333,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
 
     def _change_output_directory(self):
         """Let the user pick a new output directory."""
-        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
         from ..utils.directory_context import DirectoryContext
 
         if not self.dir_context:
@@ -2348,7 +2348,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
             return
 
         new_output = dlg.chosen_output
-        _store.save(input_dir, new_output)
+        _persist_association(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
 
     def setConnections(self):

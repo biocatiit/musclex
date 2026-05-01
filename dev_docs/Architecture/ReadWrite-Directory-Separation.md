@@ -161,13 +161,21 @@ The action is wired to `ProcessingWorkspace.change_output_directory()`:
 def change_output_directory(self):
     dlg = OutputDirDialog(input_dir, current_output_dir, parent=self)
     # on accept:
-    _store.save(input_dir, new_output)
+    _persist_association(input_dir, new_output)   # save, or remove if == input
     self.dir_context = DirectoryContext(input_dir, new_output)
     self.navigator.file_manager.output_dir = new_output
     self.set_settings_dir(new_output)
     self.update_blank_mask_states()
     self.outputDirChanged.emit(new_output)   # ← Signal
 ```
+
+`OutputDirDialog` shows a *reset to input* link (visible only when the
+input directory exists and is writable) that pre-fills the path field
+with the input directory.  When the user accepts an output that resolves
+to the same physical directory as `input_dir`, `_persist_association`
+removes any existing association instead of writing a redundant
+`input → input` row, keeping the JSON store consistent with the
+implicit co-located fallback.
 
 Each GUI connects `outputDirChanged` to reset its CSV manager:
 

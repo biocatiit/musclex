@@ -291,7 +291,7 @@ class DIBatchWindow(QMainWindow):
     def _change_output_directory(self):
         """Let the user pick a new output directory."""
         from PySide6.QtWidgets import QDialog, QMessageBox
-        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
 
         input_dir = self.dir_context.input_dir
         dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
@@ -299,7 +299,7 @@ class DIBatchWindow(QMainWindow):
             return
 
         new_output = dlg.chosen_output
-        _store.save(input_dir, new_output)
+        _persist_association(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
         self.csvManager = DI_CSVManager(new_output)
 

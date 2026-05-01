@@ -458,7 +458,7 @@ class XRayViewerGUI(QMainWindow):
     def _change_output_directory(self):
         """Let the user pick a new output directory."""
         from PySide6.QtWidgets import QDialog, QMessageBox
-        from .widgets.output_dir_dialog import OutputDirDialog, _store
+        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
         from ..utils.directory_context import DirectoryContext
 
         if not self.dir_context:
@@ -473,7 +473,7 @@ class XRayViewerGUI(QMainWindow):
             return
 
         new_output = dlg.chosen_output
-        _store.save(input_dir, new_output)
+        _persist_association(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
         self.csv_manager = None  # recreated on next image
 

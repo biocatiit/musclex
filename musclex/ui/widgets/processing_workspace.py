@@ -1528,7 +1528,7 @@ class ProcessingWorkspace(QWidget):
         On success, updates dir_context, association store, settings dir,
         and emits outputDirChanged so GUIs can reset CSV managers etc.
         """
-        from .output_dir_dialog import OutputDirDialog, _store, _is_writable
+        from .output_dir_dialog import OutputDirDialog, _persist_association
         from PySide6.QtWidgets import QDialog, QMessageBox
 
         if not self.dir_context:
@@ -1544,7 +1544,7 @@ class ProcessingWorkspace(QWidget):
 
         from ...utils.directory_context import DirectoryContext
         new_output = dlg.chosen_output
-        _store.save(input_dir, new_output)
+        _persist_association(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
         self.navigator.file_manager.output_dir = new_output
         self.set_settings_dir(new_output)
