@@ -522,20 +522,19 @@ class QuadrantFolder:
         # stripping first a stale value (e.g. from an old on-disk cache,
         # or from a previous pass within this QF instance) would linger
         # and silently keep cropping.
+        #
+        # QuadrantFolder only speaks roi_w/roi_h. Translation of any
+        # caller-side "preference" names (e.g. fixed_roi_* in
+        # qfsettings.json) into roi_w/roi_h must happen BEFORE flags
+        # arrive here -- see QuadrantFoldingh.getFlags(). Keeping the
+        # translation out of this module is what lets per-image cache
+        # stay clean: only the actual ROI used to produce this image's
+        # _folded.tif lives in info, and it's stripped here every pass.
         old_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
         for key in self._NON_CACHED_KEYS:
             self.info.pop(key, None)
 
         self.info.update(flags)
-        # Headless mode (musclex/headless/QuadrantFoldingh.py) loads
-        # qfsettings.json and forwards every key as a flag. The documented
-        # keys for ROI are fixed_roi_w / fixed_roi_h; promote them to
-        # roi_w / roi_h so the rest of the pipeline only deals with one
-        # set of names.
-        if 'fixed_roi_w' in self.info:
-            self.info['roi_w'] = self.info['fixed_roi_w']
-        if 'fixed_roi_h' in self.info:
-            self.info['roi_h'] = self.info['fixed_roi_h']
 
         # In-memory caches that may have been populated by a previous
         # process() call on this same QF instance are invalidated when

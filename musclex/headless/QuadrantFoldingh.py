@@ -353,6 +353,20 @@ class QuadrantFoldingh:
             flags.update(self.calSettings)
         if 'center' in flags:
             flags.pop('center')
+
+        # Translate the user-preference name 'fixed_roi_*' (used by
+        # qfsettings.json to express "persist this ROI across images")
+        # into the processing-parameter name 'roi_w/h' that QuadrantFolder
+        # actually consumes. We pop the original keys so QuadrantFolder
+        # never sees the preference name -- per-image qf_cache should
+        # only describe the actual ROI used, not the user's
+        # cross-image preference.
+        fixed_w = flags.pop('fixed_roi_w', None)
+        fixed_h = flags.pop('fixed_roi_h', None)
+        if fixed_w is not None and fixed_h is not None and fixed_w > 0 and fixed_h > 0:
+            flags['roi_w'] = fixed_w
+            flags['roi_h'] = fixed_h
+
         return flags
 
     def statusPrint(self, text):
