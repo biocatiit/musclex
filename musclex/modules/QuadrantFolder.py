@@ -28,6 +28,9 @@ authorization from Illinois Institute of Technology.
 
 import os
 import pickle
+import hashlib
+import json
+import fabio
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
@@ -57,6 +60,19 @@ except: # for coverage
 # Pixels with values <= this threshold are considered invalid (masked/gap pixels)
 # and are excluded from averaging calculations
 INVALID_PIXEL_THRESHOLD = -1
+
+# Bumped whenever the on-disk cache schema changes in a way that older
+# caches must be discarded (e.g. switched away from storing image arrays
+# in the pickle to fingerprint-only caches that point at the canonical
+# qf_results/<name>_folded.tif). Older caches without this exact value
+# are dropped on load and the image is reprocessed.
+CACHE_FORMAT_VERSION = 2
+
+# Filename suffixes that the fast-path will try (in order) to reload a
+# previously-computed result image. Both must be UNCROPPED (cropping is
+# destructive and would break GUI coordinate handling on reload). LZW
+# compression is lossless, so a compressed tif round-trips bit-for-bit.
+FAST_PATH_RESULT_SUFFIXES = ("_folded.tif", "_folded_compressed.tif")
 
 class QuadrantFolder:
     """
@@ -126,60 +142,96 @@ class QuadrantFolder:
         #This is what all transformations will be done on
         self.start_img = copy.copy(self.orig_img)
 
-    # Keys that are intentionally excluded from the persistent disk cache.
-    # ROI is a transient per-session selection: dragging or editing it
-    # should not silently affect future sessions or other images. If the
-    # user wants the same ROI across images, they enable "Persist ROI
-    # size" in the GUI which pushes the size as a flag at processing time.
-    _NON_CACHED_KEYS = ('roi_w', 'roi_h')
+    # Keys excluded from the persistent disk cache.
+    #
+    # Two categories:
+    #   1) Transient per-session selections (ROI). Dragging/editing should
+    #      not silently affect future sessions or other images. If the user
+    #      wants the same ROI across images they tick "Persist ROI size",
+    #      which pushes the value as a flag at processing time.
+    #
+    #   2) Image-bearing intermediates (avg_fold / bgimg1 / bgimg2 / bg_line).
+    #      The canonical persisted image is qf_results/<name>_folded.tif;
+    #      caching arrays in the pickle is pure duplication and the main
+    #      reason the on-disk cache used to be ~12 MB/img. With a complete
+    #      parameter fingerprint the fast-path can decide validity from
+    #      params alone and just reload the tif.
+    _NON_CACHED_KEYS = (
+        # Transient ROI
+        'roi_w', 'roi_h',
+        # Image-bearing intermediates (now persisted only via _folded.tif)
+        'avg_fold', 'bgimg1', 'bgimg2', 'bg_line',
+    )
+
+    # Image-array keys: these are outputs of processing, not inputs, so
+    # they must not enter the fingerprint (otherwise the fingerprint
+    # would change every run even if the params didn't).
+    _IMAGE_ARRAY_KEYS = ('avg_fold', 'bgimg1', 'bgimg2', 'bg_line')
+
+    # Keys whose values aren't part of the user's processing intent
+    # (program metadata, transform matrices that are recomputed every
+    # run, the fingerprint itself, or runtime bookkeeping). Including
+    # them in the fingerprint would cause spurious mismatches.
+    _NON_FINGERPRINT_KEYS = (
+        'program_version',
+        'cache_format_version',
+        'processing_fingerprint',
+        'transform',
+        'inv_transform',
+        'centImgTransMat',
+        'folded',
+    )
 
     def cacheInfo(self):
         """
-        Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
-        :return: -
+        Save info dict to cache (qf_cache/<name>.info).
+
+        With CACHE_FORMAT_VERSION 2, the file holds only scalar parameters,
+        small matrices, and a comprehensive fingerprint. Image-bearing
+        intermediates (avg_fold, bgimg1/2, bg_line) are NOT pickled; the
+        canonical image lives at qf_results/<name>_folded.tif.
         """
         cache_file = fullPath(fullPath(self.output_dir, "qf_cache"), self.img_name + ".info")
         createFolder(fullPath(self.output_dir, "qf_cache"))
         self.info['program_version'] = self.version
-        
-        # Save processing fingerprint for cache validation
-        # (uses ImageData's fingerprint - includes config files, manual settings, preprocessing flags)
-        self.info['processing_fingerprint'] = self._image_data.get_fingerprint()
+        self.info['cache_format_version'] = CACHE_FORMAT_VERSION
 
-        # Build the on-disk dict without transient keys.
+        # Build the on-disk dict without non-cached keys.
         to_dump = {k: v for k, v in self.info.items() if k not in self._NON_CACHED_KEYS}
         with open(cache_file, "wb") as c:
             pickle.dump(to_dump, c)
 
     def loadCache(self):
         """
-        Load info dict from cache. Only validates program version.
-        All other validations (config files, center, rotation) are done in process().
-        
-        :return: cached info (dict) or None if cache doesn't exist or version mismatch
+        Load info dict from cache.
+
+        Returns None if:
+          - cache doesn't exist
+          - program version mismatch (handled the same way as before)
+          - cache_format_version mismatch (older caches that contained
+            image arrays — they're now stale)
         """
         cache_file = fullPath(fullPath(self.output_dir, "qf_cache"), self.img_name+".info")
-        if os.path.isfile(cache_file):
+        if not os.path.isfile(cache_file):
+            return None
+        try:
             with open(cache_file, "rb") as c:
                 info = pickle.load(c)
-            if info is not None:
-                if info['program_version'] == self.version:
-                    return info
-                print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
-                print("Invalidating cache and reprocessing the image")
-        return None
-    
-    def _clearDependentCaches(self):
-        """
-        Clear QuadrantFolder's processing results cache.
-        
-        Called when ImageData's fingerprint changes (indicating that
-        preprocessing, geometry, or configuration has changed).
-        """
-        print("  Clearing processing results cache")
-        self.deleteFromDict(self.info, 'avg_fold')
-        self.deleteFromDict(self.info, 'rmin')
-        self.deleteFromDict(self.info, 'rmax')
+        except Exception as e:
+            print(f"Failed to read cache for {self.img_name}: {e}; treating as no cache.")
+            return None
+        if info is None:
+            return None
+        if info.get('program_version') != self.version:
+            print("Cache version " + str(info.get('program_version')) +
+                  " did not match with Program version " + self.version)
+            print("Invalidating cache and reprocessing the image")
+            return None
+        if info.get('cache_format_version') != CACHE_FORMAT_VERSION:
+            print(f"Cache format version mismatch (cache={info.get('cache_format_version')}, "
+                  f"expected={CACHE_FORMAT_VERSION}); discarding old cache for {self.img_name}.")
+            return None
+        return info
 
     def delCache(self):
         """
@@ -190,6 +242,90 @@ class QuadrantFolder:
         cache_file = fullPath(cache_path, self.img_name + '.info')
         if os.path.exists(cache_path) and os.path.isfile(cache_file):
             os.remove(cache_file)
+
+    # ==================== Fingerprint ====================
+
+    def _normalize_for_fingerprint(self, value):
+        """
+        Recursively normalize a value into something json-serializable AND
+        deterministic across runs. In particular: sets become sorted
+        tuples, tuples/lists are recursed into, dicts have their keys
+        sorted, floats/ints/strings/bools/None pass through, anything
+        else is stringified.
+        """
+        if isinstance(value, dict):
+            return {k: self._normalize_for_fingerprint(value[k]) for k in sorted(value.keys(), key=str)}
+        if isinstance(value, set):
+            return sorted([self._normalize_for_fingerprint(v) for v in value], key=str)
+        if isinstance(value, (list, tuple)):
+            return [self._normalize_for_fingerprint(v) for v in value]
+        if isinstance(value, (str, bool)) or value is None:
+            return value
+        if isinstance(value, (int, float)):
+            return value
+        # numpy scalars -> python; numpy arrays -> stringified shape (matrices etc. shouldn't be in fingerprint)
+        try:
+            return value.item()
+        except Exception:
+            return repr(value)
+
+    def computeFingerprint(self, info_for_fp=None):
+        """
+        Build the comprehensive fingerprint used to decide whether the
+        canonical _folded.tif on disk is still valid for the current
+        request.
+
+        Combines:
+          - ImageData fingerprint (mask/blank checksums, manual center/
+            rotation, preprocessing flags, detector, orientation_model)
+          - All keys in info that aren't bookkeeping or image arrays.
+            ROI (roi_w/roi_h) is INCLUDED here even though it's
+            excluded from _NON_CACHED_KEYS -- it affects the result
+            and must invalidate the fast-path when changed; the cache
+            stamps the fingerprint that was computed *with* ROI, and
+            ROI is re-applied from flags on every load.
+
+        Returns a hex-digest string so it can be compared/printed cheaply.
+        """
+        info = info_for_fp if info_for_fp is not None else self.info
+
+        params = {
+            k: self._normalize_for_fingerprint(v)
+            for k, v in info.items()
+            if (k not in self._NON_FINGERPRINT_KEYS
+                and k not in self._IMAGE_ARRAY_KEYS)
+        }
+
+        payload = {
+            'cache_format_version': CACHE_FORMAT_VERSION,
+            'program_version': self.version,
+            'image_data': self._normalize_for_fingerprint(self._image_data.get_fingerprint()),
+            'params': params,
+        }
+        try:
+            blob = json.dumps(payload, sort_keys=True, default=str).encode('utf-8')
+        except Exception:
+            # Defensive: any unhashable corner case -> fall back to repr
+            blob = repr(payload).encode('utf-8')
+        return hashlib.sha1(blob).hexdigest()
+
+    def fastPathCandidates(self):
+        """
+        Return the on-disk paths that the fast-path will try, in order.
+
+        We accept both _folded.tif and _folded_compressed.tif because
+        either is a faithful, full-size copy of resultImg. _folded_cropped*
+        variants are excluded -- cropping is destructive and would break
+        GUI coordinate handling on reload.
+
+        The filename convention matches the GUI/headless save path,
+        which strips the original image extension before appending the
+        suffix (e.g. "img.tif" -> "img_folded.tif").
+        """
+        result_dir = fullPath(self.output_dir, 'qf_results')
+        base, _ = os.path.splitext(self.img_name)
+        return [fullPath(result_dir, base + suffix)
+                for suffix in FAST_PATH_RESULT_SUFFIXES]
 
     def deleteFromDict(self, dicto, delStr):
         """
@@ -203,49 +339,59 @@ class QuadrantFolder:
 
     def process(self, flags):
         """
-        All processing steps - all flags are provided by Quadrant Folding app as a dictionary
-        settings must have ...
-        ignore_folds - ignored quadrant = quadrant that will not be averaged
-        bgsub - background subtraction method (-1 = no bg sub, 0 = Circular, 1 = 2D convex hull, 2 = white-top-hat)
-        sigmoid - merging gradient
-        other backgound subtraction params - cirmin, cirmax, nbins, tophat1, tophat2
+        Run all processing steps for the current image. The pipeline is:
+
+            updateInfo -> initParams -> findCenter -> getRotationAngle ->
+            (fast-path check: load _folded.tif if fingerprint matches) ->
+            transformImage -> calculateAvgFold -> [fold_image bypass] ->
+            getRminmax -> getTransitionRad -> applyBackgroundSubtraction ->
+            mergeImages -> generateResultImage -> (stamp fingerprint + cache)
+
+        The actual result tif is written by the GUI / headless caller
+        (they choose between cropped / compressed variants); next
+        session's fast-path picks up whichever uncropped variant they
+        wrote (see FAST_PATH_RESULT_SUFFIXES).
+
+        flags keys (notable):
+            ignore_folds - quadrants excluded from averaging
+            bgsub        - background-subtraction method (in-radius)
+            bgsub2       - background-subtraction method (out-radius)
+            sigmoid      - merge gradient between bgimg1 and bgimg2
+            cirmin/cirmax/tophat1/tophat2/...  - method-specific params
+            no_cache     - if present, skip writing the disk cache
+            no_fast_path - if present, force a full reprocess even when
+                           the cached fingerprint matches the current one
+
+        Returns True if a full processing pass was performed, False if
+        the fast-path was used. Callers use this to decide whether
+        downstream work that depends on slow-path-only intermediates
+        (saveBackground needs avg_fold + BgSubFold) is needed.
         """
         print(str(self.img_name) + " is being processed...")
 
         self.updateInfo(flags)
         self.initParams()
-        
+
         # Note: Blank/mask preprocessing is already applied by ImageData.get_working_image()
         # No need to apply again here (would cause double subtraction of blank image)
-        
-        # Determine center and rotation to use for this run
+
+        # Determine center and rotation to use for this run. These are
+        # required even on the fast-path so the GUI's coordinate
+        # conversions (click handlers, ROI overlays) keep working.
         self.findCenter()        # Sets self.center from ImageData
         self.getRotationAngle()  # Sets self.rotation (if not already set by GUI)
-        
+
         # ==========================================
-        # Unified validation point: Check if processing parameters changed
+        # Fast-path: if all parameters match what produced the canonical
+        # _folded.tif on disk, just reload that tif and skip the
+        # expensive pipeline entirely.
         # ==========================================
-        current_fingerprint = self._image_data.get_fingerprint()
-        cached_fingerprint = self.info.get('processing_fingerprint', {})
-        
-        if current_fingerprint != cached_fingerprint:
-            # Use ImageData's fingerprint comparison
-            has_changes, changes = ImageData.compare_fingerprints(
-                cached_fingerprint, current_fingerprint
-            )
-            
-            if has_changes:
-                print("Processing parameters changed. Clearing dependent caches.")
-                print(f"  Changed items: {changes}")
-                
-                # Clear QuadrantFolder's processing results
-                self._clearDependentCaches()
-                
-                # Update fingerprint in cache
-                self.info['processing_fingerprint'] = current_fingerprint
-        
+        if 'no_fast_path' not in flags and self._tryFastLoad():
+            self.parent.statusPrint("")
+            return False
+
         # ==========================================
-        # Continue normal processing
+        # Slow path: full pipeline
         # ==========================================
         self.transformImage()
         self.calculateAvgFold()
@@ -266,13 +412,6 @@ class QuadrantFolder:
 
             self.info['avg_fold'] = top_left
 
-
-            #self.initImg = self.orig_img
-
-            # if self.initImg is not None:
-            #     self.info['avg_fold'] = self.initImg
-            # else:
-            #     self.info['avg_fold'] = self.orig_img
         self.getRminmax()
         self.getTransitionRad()
 
@@ -280,7 +419,16 @@ class QuadrantFolder:
         self.mergeImages()
         self.generateResultImage()
 
+        # The actual tif write is left to the GUI / headless caller --
+        # they decide which variant (compressed / cropped) the user wants.
+        # As long as the caller writes one of FAST_PATH_RESULT_SUFFIXES
+        # the next session can avoid recomputation entirely.
         if "no_cache" not in flags:
+            # Stamp the fingerprint into info immediately before pickling
+            # so the next session can decide fast-path validity from the
+            # cache alone. Skipped in no_cache mode so test fixtures that
+            # snapshot the full info dict aren't affected by this field.
+            self.info['processing_fingerprint'] = self.computeFingerprint()
             try:
                 self.cacheInfo()
             except (OSError, IOError) as e:
@@ -290,8 +438,59 @@ class QuadrantFolder:
                 import traceback
                 traceback.print_exc()
 
-
         self.parent.statusPrint("")
+        return True
+
+    def _tryFastLoad(self):
+        """
+        If cache fingerprint matches current params AND a usable result
+        tif exists on disk (uncropped _folded.tif or _folded_compressed.tif),
+        populate imgCache['resultImg'] from it, set up runtime state,
+        and return True.
+
+        Returns False if either condition fails (forces full reprocess).
+        """
+        cached_fp = self.info.get('processing_fingerprint')
+        if not cached_fp:
+            return False
+
+        current_fp = self.computeFingerprint()
+        if cached_fp != current_fp:
+            print(f"Fingerprint changed for {self.img_name}; running full processing.")
+            return False
+
+        result_path = None
+        for candidate in self.fastPathCandidates():
+            if os.path.isfile(candidate):
+                result_path = candidate
+                break
+        if result_path is None:
+            print(f"Cached fingerprint matches but no usable result tif found "
+                  f"in {fullPath(self.output_dir, 'qf_results')} for {self.img_name}; "
+                  f"running full processing.")
+            return False
+
+        try:
+            img = fabio.open(result_path).data.astype("float32")
+        except Exception as e:
+            print(f"Failed to load cached result {result_path}: {e}; running full processing.")
+            return False
+
+        # Reproduce the runtime transformation that transformImage()
+        # would have written to info, so coordinate-conversion code in
+        # the GUI keeps working. transformImage() also moves
+        # self.center to the middle of the transformed image, which
+        # downstream UI code expects.
+        self.transformImage()
+
+        # Only the displayed image is restored; intermediates like
+        # BgSubFold / avg_fold / bgimg1 / bgimg2 are NOT recovered.
+        # Callers that need those (e.g. saveBackground) must check the
+        # process() return value and skip on the fast-path.
+        self.imgCache['resultImg'] = img
+
+        print(f"Fast-path: loaded {result_path}")
+        return True
 
 
     def updateInfo(self, flags):
@@ -338,14 +537,13 @@ class QuadrantFolder:
         if 'fixed_roi_h' in self.info:
             self.info['roi_h'] = self.info['fixed_roi_h']
 
-        # ROI feeds into background subtraction (only ROI pixels are used
-        # to fit the background model), so any cached intermediate that
-        # depends on it must be invalidated when the resolved ROI changes
-        # -- otherwise unset/resize ROI would have no visible effect.
+        # In-memory caches that may have been populated by a previous
+        # process() call on this same QF instance are invalidated when
+        # the resolved ROI changes. The on-disk cache no longer keeps
+        # bgimg1/bgimg2 (see _NON_CACHED_KEYS) so their info-level
+        # deletion has been dropped here.
         new_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
         if old_roi != new_roi:
-            for key in ('bgimg1', 'bgimg2'):
-                self.deleteFromDict(self.info, key)
             for key in ('BgSubFold', 'resultImg'):
                 self.deleteFromDict(self.imgCache, key)
 
@@ -1098,55 +1296,61 @@ class QuadrantFolder:
 
     def calculateAvgFold(self):
         """
-        Calculate an average fold for 1-4 quadrants. Quadrants are splitted by center and rotation
+        Calculate an average fold for 1-4 quadrants. Quadrants are
+        splitted by center and rotation.
+
+        Always recomputes (no info-cache short-circuit) since image
+        arrays no longer live in the disk cache; if process() reached
+        this point we already failed the fingerprint fast-path and
+        therefore want a fresh fold.
         """
         self.parent.statusPrint("Calculating Avg Fold...")
-        if 'avg_fold' not in self.info.keys():
-            self.deleteFromDict(self.info, 'rmin')
-            self.deleteFromDict(self.info, 'rmax')
-            # self.imgResultForDisplay = None
-            rotate_img = self.orig_img #copy.copy(self.getRotatedImage())
-            center = self.center
-            center_x = int(center[0])
-            center_y = int(center[1])
+        # rmin/rmax are derived from avg_fold; force re-derivation.
+        self.deleteFromDict(self.info, 'rmin')
+        self.deleteFromDict(self.info, 'rmax')
 
-            print("Quadrant folding is being processed...")        
-            img_width = rotate_img.shape[1]
-            img_height = rotate_img.shape[0]
-            fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
-            fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
+        rotate_img = self.orig_img #copy.copy(self.getRotatedImage())
+        center = self.center
+        center_x = int(center[0])
+        center_y = int(center[1])
 
-            if img_width < center_x or img_height < center_y:
-                print("ALERT: THE CENTER IS NOT INSIDE OF THE IMAGE!  THIS WILL LIKELY CAUSE AN ERROR") #Make future debugging easier
+        print("Quadrant folding is being processed...")
+        img_width = rotate_img.shape[1]
+        img_height = rotate_img.shape[0]
+        fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
+        fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
 
-            # Get each fold, and flip them to the same direction
-            top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
+        if img_width < center_x or img_height < center_y:
+            print("ALERT: THE CENTER IS NOT INSIDE OF THE IMAGE!  THIS WILL LIKELY CAUSE AN ERROR") #Make future debugging easier
 
-            top_right = rotate_img[max(center_y-fold_height,0):center_y, center_x:center_x+fold_width]
-            top_right = cv2.flip(top_right,1)
+        # Get each fold, and flip them to the same direction
+        top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
 
-            buttom_left = rotate_img[center_y:center_y+fold_height, max(center_x-fold_width,0):center_x]
-            buttom_left = cv2.flip(buttom_left,0)
+        top_right = rotate_img[max(center_y-fold_height,0):center_y, center_x:center_x+fold_width]
+        top_right = cv2.flip(top_right,1)
 
-            buttom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
-            buttom_right = cv2.flip(buttom_right,1)
-            buttom_right = cv2.flip(buttom_right,0)
+        buttom_left = rotate_img[center_y:center_y+fold_height, max(center_x-fold_width,0):center_x]
+        buttom_left = cv2.flip(buttom_left,0)
 
-            # Add all folds which are not ignored
-            # Initialize quadrants array with invalid threshold (marks empty/invalid pixels)
-            quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * INVALID_PIXEL_THRESHOLD
-            for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
-                quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
-            remained = np.ones(4, dtype=bool)
-            remained[list(self.info["ignore_folds"])] = False
-            quadrants = quadrants[remained]
+        buttom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
+        buttom_right = cv2.flip(buttom_right,1)
+        buttom_right = cv2.flip(buttom_right,0)
 
-            # Get average fold from all folds
-            self.get_avg_fold(quadrants,fold_height,fold_width)
-            if 'resultImg' in self.imgCache:
-                del self.imgCache['resultImg']
+        # Add all folds which are not ignored
+        # Initialize quadrants array with invalid threshold (marks empty/invalid pixels)
+        quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * INVALID_PIXEL_THRESHOLD
+        for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
+            quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
+        remained = np.ones(4, dtype=bool)
+        remained[list(self.info["ignore_folds"])] = False
+        quadrants = quadrants[remained]
 
-            print("Done.")
+        # Get average fold from all folds
+        self.get_avg_fold(quadrants,fold_height,fold_width)
+        if 'resultImg' in self.imgCache:
+            del self.imgCache['resultImg']
+
+        print("Done.")
 
     def get_avg_fold(self, quadrants, fold_height, fold_width):
         """
@@ -1175,6 +1379,10 @@ class QuadrantFolder:
         Apply background subtraction by user's choice. There are 2 images produced in this process
         - bgimg1 : image after applying background subtraction INSIDE merge radius
         - bgimg2 : image after applying background subtraction OUTSIDE merge radius
+
+        Always recomputes (no info-cache short-circuit) since bgimg1/bgimg2
+        are no longer persisted to disk and process() only reaches here on
+        the slow path.
         """
         self.parent.statusPrint("Applying Background Subtraction...")
         method = self.info["bgsub"]
@@ -1182,46 +1390,44 @@ class QuadrantFolder:
         print(f"Background Subtraction is being processed... In method: {method}, Out method: {method2}")
 
         # Produce bgimg1
-        if "bgimg1" not in self.info:
-            avg_fold = np.array(self.info['avg_fold'], dtype="float32")
-            if method == 'None':
-                self.info["bgimg1"] = avg_fold # if method is None, original average fold will be used
-            elif method == '2D Convexhull':
-                self.info["bgimg1"] = self.apply2DConvexhull(avg_fold, self.info['rmin'], self.info['deg1'])
-            elif method == 'Circularly-symmetric':
-                self.info["bgimg1"] = self.applyCircularlySymBGSub2(bgsub=1)
-            elif method == 'White-top-hats':
-                self.info["bgimg1"] = white_tophat(avg_fold, disk(self.info["tophat1"]))
-            elif method == 'Roving Window':
-                self.info["bgimg1"] = self.applyRovingWindowBGSub(bgsub=1)
-            elif method == 'Smoothed-Gaussian':
-                self.info["bgimg1"] = self.applySmoothedBGSub('gauss', bgsub=1)
-            elif method == 'Smoothed-BoxCar':
-                self.info["bgimg1"] = self.applySmoothedBGSub('boxcar', bgsub=1)
-            else:
-                self.info["bgimg1"] = avg_fold
-            self.deleteFromDict(self.imgCache, "BgSubFold")
+        avg_fold = np.array(self.info['avg_fold'], dtype="float32")
+        if method == 'None':
+            self.info["bgimg1"] = avg_fold # if method is None, original average fold will be used
+        elif method == '2D Convexhull':
+            self.info["bgimg1"] = self.apply2DConvexhull(avg_fold, self.info['rmin'], self.info['deg1'])
+        elif method == 'Circularly-symmetric':
+            self.info["bgimg1"] = self.applyCircularlySymBGSub2(bgsub=1)
+        elif method == 'White-top-hats':
+            self.info["bgimg1"] = white_tophat(avg_fold, disk(self.info["tophat1"]))
+        elif method == 'Roving Window':
+            self.info["bgimg1"] = self.applyRovingWindowBGSub(bgsub=1)
+        elif method == 'Smoothed-Gaussian':
+            self.info["bgimg1"] = self.applySmoothedBGSub('gauss', bgsub=1)
+        elif method == 'Smoothed-BoxCar':
+            self.info["bgimg1"] = self.applySmoothedBGSub('boxcar', bgsub=1)
+        else:
+            self.info["bgimg1"] = avg_fold
+        self.deleteFromDict(self.imgCache, "BgSubFold")
 
         # Produce bgimg2
-        if "bgimg2" not in self.info:
-            avg_fold = np.array(self.info['avg_fold'], dtype="float32")
-            if method2 == 'None':
-                self.info["bgimg2"] = avg_fold # if method is 'None', original average fold will be used
-            elif method2 == '2D Convexhull':
-                self.info["bgimg2"] = self.apply2DConvexhull(avg_fold, self.info['transition_radius']-self.info['transition_delta']//2-1, self.info['deg2'])
-            elif method == 'Circularly-symmetric':
-                self.info["bgimg2"] = self.applyCircularlySymBGSub2(bgsub=2)
-            elif method2 == 'White-top-hats':
-                self.info["bgimg2"] = white_tophat(avg_fold, disk(self.info["tophat2"]))
-            elif method == 'Roving Window':
-                self.info["bgimg2"] = self.applyRovingWindowBGSub(bgsub=2)
-            elif method2 == 'Smoothed-Gaussian':
-                self.info["bgimg2"] = self.applySmoothedBGSub('gauss', bgsub=2)
-            elif method2 == 'Smoothed-BoxCar':
-                self.info["bgimg2"] = self.applySmoothedBGSub('boxcar', bgsub=2)
-            else:
-                self.info["bgimg2"] = avg_fold
-            self.deleteFromDict(self.imgCache, "BgSubFold")
+        avg_fold = np.array(self.info['avg_fold'], dtype="float32")
+        if method2 == 'None':
+            self.info["bgimg2"] = avg_fold # if method is 'None', original average fold will be used
+        elif method2 == '2D Convexhull':
+            self.info["bgimg2"] = self.apply2DConvexhull(avg_fold, self.info['transition_radius']-self.info['transition_delta']//2-1, self.info['deg2'])
+        elif method == 'Circularly-symmetric':
+            self.info["bgimg2"] = self.applyCircularlySymBGSub2(bgsub=2)
+        elif method2 == 'White-top-hats':
+            self.info["bgimg2"] = white_tophat(avg_fold, disk(self.info["tophat2"]))
+        elif method == 'Roving Window':
+            self.info["bgimg2"] = self.applyRovingWindowBGSub(bgsub=2)
+        elif method2 == 'Smoothed-Gaussian':
+            self.info["bgimg2"] = self.applySmoothedBGSub('gauss', bgsub=2)
+        elif method2 == 'Smoothed-BoxCar':
+            self.info["bgimg2"] = self.applySmoothedBGSub('boxcar', bgsub=2)
+        else:
+            self.info["bgimg2"] = avg_fold
+        self.deleteFromDict(self.imgCache, "BgSubFold")
         print("Done.")
 
     def mergeImages(self):

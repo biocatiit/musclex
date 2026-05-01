@@ -215,14 +215,19 @@ class QuadrantFoldingh:
     def processImage(self):
         """
         Process Image by getting all flags and call process() of QuadrantFolder object
-        Then, write data and update UI
+        Then, write data and save result tif.
+
+        QuadrantFolder.process() returns True for the slow path and False
+        for the fast-path (cached fingerprint matched, _folded.tif reused).
+        On the fast-path we still re-emit the user-requested tif variant
+        but skip background regeneration.
         """
         if self.ableToProcess():
             flags = self.getFlags()
             self.statusPrint("Flags in processImage:")
             self.statusPrint(flags)
             try:
-                self.quadFold.process(flags)
+                full_process = self.quadFold.process(flags)
             except Exception:
                 self.statusPrint('Unexpected error')
                 msg = 'Please report the problem with error message below and the input image\n\n'
@@ -257,9 +262,11 @@ class QuadrantFoldingh:
                     result_file += '_folded_compressed.tif'
                     tif_img = Image.fromarray(img)
                     tif_img.save(result_file, compression='tiff_lzw')
-                # metadata = json.dumps([True, self.quadFold.initImg.shape])
-                # imsave(result_file, img, description=metadata)
-                self.saveBackground()
+                # bg.tif from a previous session is still on disk on the
+                # fast-path, and BgSubFold / avg_fold weren't reconstructed
+                # so saveBackground is skipped.
+                if full_process:
+                    self.saveBackground()
 
     def saveBackground(self):
         """

@@ -137,8 +137,12 @@ class Worker(QRunnable):
             # Only set specific fields that need to be set
             self.quadFold.info['bgsub'] = self.bgsub
 
-            self.quadFold.process(self.flags)
-            self.saveBackground()
+            full_process = self.quadFold.process(self.flags)
+            # bg.tif is already on disk on the fast-path, and BgSubFold /
+            # avg_fold weren't reconstructed, so we only generate the
+            # background image when the slow path actually ran.
+            if full_process:
+                self.saveBackground()
         except Exception as e:
             traceback.print_exc()
             self.signals.error.emit(traceback.format_exc(), self.params)
@@ -1781,9 +1785,15 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.resultZoomInB.setChecked(False)
                     self.refreshResultTab()
             elif func[0] == "rminmax":
-                # Set new R-min and R-max
-                img = self.quadFold.info['avg_fold']
-                center = (img.shape[1], img.shape[0])
+                # Set new R-min and R-max. The result image is 2x the
+                # avg_fold (top-left quadrant mirrored 4 ways), so its
+                # geometric center is exactly (avg_fold.shape[1],
+                # avg_fold.shape[0]) -- which is shape // 2 of the
+                # full result. Using resultImg directly avoids
+                # depending on info['avg_fold'] being in memory (it
+                # isn't on the fast-path).
+                img = self.quadFold.imgCache['resultImg']
+                center = (img.shape[1] / 2, img.shape[0] / 2)
                 radius = distance((x, y), center)
                 func.append(radius)
                 self.display_points.append(radius)
@@ -1872,9 +1882,11 @@ class QuadrantFoldingGUI(BaseGUI):
                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.resultCanvas.draw_idle()
         elif func[0] == "rminmax":
-            # draw circles
-            img = self.quadFold.info['avg_fold']
-            center = (img.shape[1] - 1, img.shape[0] - 1)
+            # draw circles. See the resultClicked() rminmax branch for
+            # why we read the center from imgCache['resultImg'] instead
+            # of info['avg_fold'].
+            img = self.quadFold.imgCache['resultImg']
+            center = (img.shape[1] / 2 - 1, img.shape[0] / 2 - 1)
             radius = distance((x, y), center)
             if len(ax.patches) > len(self.function) - 1:
                 ax.patches[-1].remove()
@@ -2701,7 +2713,13 @@ class QuadrantFoldingGUI(BaseGUI):
     def processImage(self):
         """
         Process Image by getting all flags and call process() of QuadrantFolder object
-        Then, write data and update UI
+        Then, write data and update UI.
+
+        QuadrantFolder.process() returns True when it actually ran the
+        full pipeline and False when it took the fast-path (cached
+        _folded.tif still valid). On the fast-path we still update the
+        UI / CSV / save user variants, but we skip background-image
+        regeneration since BgSubFold / avg_fold weren't reconstructed.
         """
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -2711,7 +2729,7 @@ class QuadrantFoldingGUI(BaseGUI):
             try:
                 # Center is already set in quadFold.center (if manual mode)
                 # by _on_file_manager_changed()
-                self.quadFold.process(flags)
+                full_process = self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2745,7 +2763,11 @@ class QuadrantFoldingGUI(BaseGUI):
                         self.quadFold.center  # Transformed coordinates
                     )
 
-            self.saveResults()
+            # Always re-emit user-facing tif variants (cropped/compressed)
+            # since user toggles for these aren't part of the fingerprint.
+            # The canonical _folded.tif is written by QuadrantFolder.process()
+            # itself on the slow path.
+            self.saveResults(full_process=full_process)
             QApplication.restoreOverrideCursor()
 
 
@@ -2898,64 +2920,65 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
 
-    def saveResults(self):
+    def saveResults(self, full_process=True):
         """
-        Save result to folder qf_results
+        Save the result image to qf_results in the variant the user
+        requested via the Crop / Compress checkboxes.
+
+        Filename rules (uncropped variants are eligible for fast-path
+        reuse next session; the cropped variants are not, because crop
+        is destructive):
+          - both unchecked        -> <name>_folded.tif
+          - compress only         -> <name>_folded_compressed.tif
+          - crop only             -> <name>_folded_cropped.tif
+          - crop + compress       -> <name>_folded_cropped_compressed.tif
+
+        :param full_process: True if the slow-path ran (process() did
+            the full pipeline). When False (fast-path), bg.tif from a
+            previous session is still on disk and BgSubFold / avg_fold
+            weren't reconstructed, so saveBackground is skipped. The
+            result tif is also still on disk (that's how we got here),
+            but we re-emit it anyway to honor any newly-requested
+            variant change.
         """
         print("SAVE RESULTS")
-        if 'resultImg' in self.quadFold.imgCache:
-            out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
-            result_path = fullPath(out, 'qf_results')
-            createFolder(result_path)
+        if 'resultImg' not in self.quadFold.imgCache:
+            return
 
-            result_file = str(join(result_path, self.quadFold.img_name))
-            result_file, _ = splitext(result_file)
-            img = self.quadFold.imgCache['resultImg']
-            img = img.astype("float32")
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+        result_path = fullPath(out, 'qf_results')
+        createFolder(result_path)
 
-            # metadata = json.dumps([True, self.quadFold.initImg.shape])
-            if self.cropFoldedImageChkBx.isChecked():
-                print("Cropping folded image ")
+        base, _ = splitext(str(join(result_path, self.quadFold.img_name)))
+        img = self.quadFold.imgCache['resultImg'].astype("float32")
+
+        crop = self.cropFoldedImageChkBx.isChecked()
+        compress = self.compressFoldedImageChkBx.isChecked()
+
+        try:
+            if crop:
                 ylim, xlim = self.quadFold.initImg.shape
                 xlim, ylim = int(xlim / 2), int(ylim / 2)
-                cx,cy = self.quadFold.center
-                xl,xh = (cx - xlim, cx + xlim)
-                yl,yh = (cy - ylim, cy + ylim)
-                print("Before cropping ", img.shape)
-                img = img[max(yl,0):yh, max(xl,0):xh]
-                print("After cropping, ", img.shape)
-                result_file += '_folded_cropped.tif'
-                try:
-                    if self.compressFoldedImageChkBx.isChecked():
-                        result_file += '_folded_cropped_compressed.tif'
-                        tif_img = Image.fromarray(img)
-                        tif_img.save(result_file, compression='tiff_lzw')
-                    else:
-                        result_file += '_folded_cropped.tif'
-                        fabio.tifimage.tifimage(data=img).write(result_file)
-                except Exception as e:
-                    print("Error saving cropped image", e)
-                    # Record save error for logging
-                    if self.batchProcessing and hasattr(self, 'saveErrors'):
-                        import traceback
-                        filename = self.quadFold.img_name
-                        self.saveErrors[filename] = traceback.format_exc()
+                cx, cy = self.quadFold.center
+                xl, xh = (cx - xlim, cx + xlim)
+                yl, yh = (cy - ylim, cy + ylim)
+                payload = img[max(yl, 0):yh, max(xl, 0):xh]
+                suffix = '_folded_cropped_compressed.tif' if compress else '_folded_cropped.tif'
             else:
-                try:
-                    if self.compressFoldedImageChkBx.isChecked():
-                        result_file += '_folded_compressed.tif'
-                        tif_img = Image.fromarray(img)
-                        tif_img.save(result_file, compression='tiff_lzw')
-                    else:
-                        result_file += '_folded.tif'
-                        fabio.tifimage.tifimage(data=img).write(result_file)
-                except Exception as e:
-                    print("Error saving image", e)
-                    # Record save error for logging
-                    if self.batchProcessing and hasattr(self, 'saveErrors'):
-                        import traceback
-                        filename = self.quadFold.img_name
-                        self.saveErrors[filename] = traceback.format_exc()
+                payload = img
+                suffix = '_folded_compressed.tif' if compress else '_folded.tif'
+            out_file = base + suffix
+            if compress:
+                Image.fromarray(payload).save(out_file, compression='tiff_lzw')
+            else:
+                fabio.tifimage.tifimage(data=payload).write(out_file)
+        except Exception as e:
+            print("Error saving image", e)
+            if self.batchProcessing and hasattr(self, 'saveErrors'):
+                import traceback
+                self.saveErrors[self.quadFold.img_name] = traceback.format_exc()
+
+        if full_process:
             self.saveBackground()
 
     def saveBackground(self):
