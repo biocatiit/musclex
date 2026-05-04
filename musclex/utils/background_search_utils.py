@@ -14,7 +14,7 @@ method_bounds = {
         "cirmax": [5, 40], # in pixels
     },
     "White-top-hats": {
-        "tophat": [1, 150],
+        "tophat": [1, 200],
     },
     "Roving Window": {
         "tension": [1, 5],  # must be 1 <= t <= 5 (3 is a cubic spline)
@@ -28,12 +28,12 @@ method_bounds = {
     },
     "Smoothed-Gaussian": {
         "fwhm": [1, 100], # in pixels
-        "cycles": [40, 260],
+        "cycles": [40, 2000],
     },
     "Smoothed-BoxCar": {
         "boxcar_x": [1, 100],
         "boxcar_y": [1, 100],
-        "cycles": [40, 260],
+        "cycles": [40, 2000],
     },
 }
 

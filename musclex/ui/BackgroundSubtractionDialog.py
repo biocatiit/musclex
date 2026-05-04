@@ -2,27 +2,207 @@
 Background subtraction settings popup for Quadrant Folding.
 """
 
+import copy
+
 from .pyqt_utils import *
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
+from .ManualBackgroundAssignmentDialog import ManualBackgroundAssignmentDialog
+from ..utils.optimization_cache import get_user_background_configurations, set_user_background_configurations
+from ..utils.file_manager import *
+from pathlib import Path
 
 
 class BackgroundSubtractionDialog(QDialog):
     """Popup window that contains all background subtraction controls."""
+
+    ### ===== Class Constants =====
+    # Spinbox Ranges
+    RMIN_RMAX_RANGE = (-1, 5000)
+    EQUATOR_HEIGHT_RANGE = (1, 1000)
+    EQUATOR_CENTER_RANGE = (1, 1000)
+    LAYER_LINE_RANGE = (1, 1000)
+    BG_PARAM_RANGE = (1, 1000)
+    TOPHAT_RANGE = (1, 200)
+    RADIAL_BIN_RANGE = (1, 200)
+    ITERATIONS_RANGE = (1, 1000)
+    PIXEL_RANGE_LIMIT = (0, 100) # percent
+    
+    # Default Values
+    DEFAULT_RMIN_RMAX = -1
+    DEFAULT_EQUATOR_HEIGHT = 70
+    DEFAULT_EQUATOR_CENTER = 70
+    DEFAULT_LAYER_SPACING = 100
+    DEFAULT_LAYER_WIDTH = 5
+    DEFAULT_GAUSSIAN_FWHM = 15
+    DEFAULT_BOXCAR_SIZE = 15
+    DEFAULT_CYCLES = 250
+    DEFAULT_WINDOW_SIZE = 15
+    DEFAULT_WINDOW_SEP = 10
+    DEFAULT_PIXEL_MIN = 0
+    DEFAULT_PIXEL_MAX = 25
+    DEFAULT_THETA_BIN_INDEX = 4
+    DEFAULT_DEGREE_INDEX = 1
+    DEFAULT_RADIAL_BIN = 10
+    DEFAULT_SMOOTHING = 0.1
+    DEFAULT_TENSION = 1.0
+    DEFAULT_TOPHAT_SIZE = 50
+    DEFAULT_MAX_ITERATIONS = 10
+    DEFAULT_EARLY_STOP = 0.01
+    DEFAULT_MEAN_MSE = 100.0
+    DEFAULT_MEAN_NEG_SYN = 20.0
+    DEFAULT_MEAN_BASELINE = 35.0
+    DEFAULT_MEAN_NEG_CON = 7.0
+    DEFAULT_MEAN_SMOOTH = 30.0
+    DEFAULT_EVAL_BASELINE = 0.0
+    DEFAULT_AMP = 0.01
+    DEFAULT_SIGMA_X = 5.0
+    DEFAULT_SIGMA_Y = 10.0
+    DEFAULT_WEIGHT_MSE = 0.1
+    DEFAULT_WEIGHT_NEG_SYN = 0.3
+    DEFAULT_WEIGHT_BASELINE = 0.1
+    DEFAULT_WEIGHT_NEG_CON = 0.1
+    DEFAULT_WEIGHT_SMOOTH = 0.4
+    
+    # Downsample and Frequency Options
+    DOWNSAMPLE_OPTIONS = ["1", "2", "4"]
+    DEFAULT_DOWNSAMPLE_INDEX = 1
+    THETA_BIN_OPTIONS = ["3", "5", "10", "15", "30", "45", "90"]
+    DEGREE_OPTIONS = ["0.5", "1", "2", "3", "5", "9", "10", "15"]
+    FREQ_OPTIONS = ["sparse", "medium", "dense"]
+    DEFAULT_FREQ = "medium"
+    
+    # BG Subtraction Methods
+    BG_METHODS = [
+        'None',
+        '2D Convexhull',
+        'Circularly-symmetric',
+        'White-top-hats',
+        'Smoothed-Gaussian',
+        'Smoothed-BoxCar',
+        'Roving Window'
+    ]
+    OPTIMIZATION_METHODS = BG_METHODS[1:]  # Exclude 'None' from optimization options
+    DEFAULT_OPTIMIZATION_METHODS = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
+    DEFAULT_OPTIMIZATION_STEPS = "500, 250, 100, 50, 25, 10, 5, 3, 1"
+    
+    # Styles
+    STYLES = {
+        "doc_panel": "#documentationPanel { background: #F1F8E9; border: 1px solid #C8E6C9; border-radius: 4px; }",
+        "label_small": "QLabel { font-size: 12px; }",
+        "label_bold_small": "font-size: 11px; font-weight: 700; color: #444;",
+        "step_label": "font-weight: 700; font-size: 15px; color: #990000;",
+        "apply_button": "QPushButton { color: #ededed; background-color: #999999; }",
+        "process_button": "QPushButton { color: #ededed; background-color: #af6207; }",
+        "metrics_title": "font-weight: bold; font-size: 14px; color: #d35400;",
+        "table_widget": "QTableWidget { font-size: 13px; }",
+        "table_header": "QHeaderView::section { font-size: 11px; padding: 2px 4px; }",
+        "groupbox_border": "QGroupBox { border: 1; margin-top: 0px; }",
+    }
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Background Subtraction Settings")
         self.resize(620, 760)
 
+        self._parent_gui = parent
+        self.backgroundConfigurations = []
+        self.manualBackgroundAssignments = {}
+
         self._create_widgets()
         self._create_layout()
 
+    def _get_parent_gui(self):
+        parent = self.parent()
+        return parent if parent is not None else self._parent_gui
+
+    def _get_parent_attr(self, name, default=None):
+        parent = self._get_parent_gui()
+        return getattr(parent, name, default) if parent is not None else default
+
+    def _able_to_process(self):
+        parent = self._get_parent_gui()
+        if parent is not None and hasattr(parent, "ableToProcess"):
+            return parent.ableToProcess()
+        return False
+
+    def _format_bg_params_text(self, params):
+        parent = self._get_parent_gui()
+        if parent is not None and hasattr(parent, "_format_bg_params_text"):
+            return parent._format_bg_params_text(params)
+        if not isinstance(params, dict) or len(params) == 0:
+            return "None"
+        parts = []
+        for key in sorted(params.keys()):
+            value = params[key]
+            try:
+                value_text = f"{float(value):.6g}"
+            except Exception:
+                value_text = str(value)
+            parts.append(f"{key}={value_text}")
+        return ", ".join(parts)
+
+    # ===== Factory Methods =====
+    def _create_spinbox(self, min_val=0, max_val=100, value=0, step=1, suffix="", prefix="", tooltip=""):
+        """Factory method for consistent QSpinBox creation."""
+        spnbx = QSpinBox()
+        spnbx.setRange(min_val, max_val)
+        spnbx.setValue(value)
+        spnbx.setSingleStep(step)
+        spnbx.setKeyboardTracking(False)
+        if suffix:
+            spnbx.setSuffix(suffix)
+        if prefix:
+            spnbx.setPrefix(prefix)
+        if tooltip:
+            spnbx.setToolTip(tooltip)
+        return spnbx
+
+    def _create_double_spinbox(self, min_val=0.0, max_val=100.0, value=0.0, decimals=2, 
+                              step=0.1, suffix="", prefix="", tooltip=""):
+        """Factory method for consistent QDoubleSpinBox creation."""
+        spnbx = QDoubleSpinBox()
+        spnbx.setRange(min_val, max_val)
+        spnbx.setValue(value)
+        spnbx.setDecimals(decimals)
+        spnbx.setSingleStep(step)
+        spnbx.setKeyboardTracking(False)
+        if suffix:
+            spnbx.setSuffix(suffix)
+        if prefix:
+            spnbx.setPrefix(prefix)
+        if tooltip:
+            spnbx.setToolTip(tooltip)
+        return spnbx
+
+    def _create_label(self, text, style_key=None):
+        """Create a QLabel with optional preset styling."""
+        label = QLabel(text)
+        if style_key == "small":
+            label.setStyleSheet("QLabel { font-size: 12px; }")
+        elif style_key == "bold_small":
+            label.setStyleSheet("font-size: 11px; font-weight: 700; color: #444;")
+        return label
+
+    # ===== Widget Creation Methods =====
     def _create_widgets(self):
+        """Create all UI widgets by delegating to specialized helper methods."""
+        self._create_documentation_panel()
+        self._create_processing_mode_widgets()
+        self._create_rmin_rmax_widgets()
+        self._create_image_processing_widgets()
+        self._create_evaluation_mask_widgets()
+        self._create_background_parameter_widgets()
+        self._create_optimization_widgets()
+        self._create_evaluation_metric_widgets()
+        self._create_table_and_button_widgets()
+        self._create_group_boxes()
+        self._update_processing_mode_visibility()
+
+    def _create_documentation_panel(self):
+        """Create documentation panel at the top of the dialog."""
         self.documentationPanel = QFrame()
         self.documentationPanel.setObjectName("documentationPanel")
-        self.documentationPanel.setStyleSheet(
-            "#documentationPanel { background: #F1F8E9; border: 1px solid #C8E6C9; border-radius: 4px; }"
-        )
+        self.documentationPanel.setStyleSheet(self.STYLES["doc_panel"])
         self.documentationLabel = QLabel(
             "<span style='color:#2e7d32;'>"
             "For information on how to use these settings and interpret the metrics, "
@@ -37,378 +217,341 @@ class BackgroundSubtractionDialog(QDialog):
         self.documentationLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
         self.documentationLabel.setOpenExternalLinks(True)
 
-        self.currentBGMethodLabel = QLabel("None")
-        self.currentBGModeLabel = QLabel("None")
-        self.currentBGParamsLabel = QLabel("None")
-        self.currentBGLossLabel = QLabel("None")
-        self.currentBGParamsLabel.setWordWrap(True)
-        # Backward-compat aliases
-        self.currentMethodLabel = self.currentBGMethodLabel
-        self.currentModeLabel = self.currentBGModeLabel
-        self.currentParamsLabel = self.currentBGParamsLabel
-        self.currentLossLabel = self.currentBGLossLabel
-
+    def _create_processing_mode_widgets(self):
+        """Create processing mode selection and background choice widgets."""
+        # ===== Background Removal Mode Selection =====
         self.processingModeLabel = QLabel("Processing Mode:")
         self.processingModeCB = QComboBox()
         self.processingModeCB.addItems(["Manual", "Automated"])
         self.processingModeCB.setCurrentIndex(0)
+        self.processingModeCB.currentIndexChanged.connect(self._update_processing_mode_visibility)
 
-        # ===== ROI Settings =====
-        # self.setFitRoi = QPushButton("Set Crop ROI")
-        # self.setFitRoi.setCheckable(True)
-        # self.unsetRoi = QPushButton("Unset ROI")
-        # self.fixedRoiChkBx = QCheckBox("Fixed ROI Radius:")
-        # self.fixedRoiChkBx.setChecked(False)
-        # self.fixedRoi = QSpinBox()
-        # self.fixedRoi.setObjectName('fixedRoi')
-        # self.fixedRoi.setKeyboardTracking(False)
-        # self.fixedRoi.setRange(1, 10000)
-        # self.fixedRoi.setEnabled(False)
-
-        # ===== Background Choice Dropdown =====
-        self.allBGChoices = [
-            'None',
-            '2D Convexhull',
-            'Circularly-symmetric',
-            'White-top-hats',
-            'Smoothed-Gaussian',
-            'Smoothed-BoxCar',
-            'Roving Window'
-        ]
+        self.allBGChoices = self.BG_METHODS
         self.bgChoiceIn = QComboBox()
         self.bgChoiceIn.setCurrentIndex(0)
         for c in self.allBGChoices:
             self.bgChoiceIn.addItem(c)
 
-        # ===== R-min / R-max Settings =====
+    def _create_rmin_rmax_widgets(self):
+        """Create R-min/R-max settings widgets."""
         self.setRminRmaxButton = QPushButton("Manual R-min/max")
         self.setRminRmaxButton.setCheckable(True)
 
-        self.rminSpnBx = QSpinBox()
-        self.rminSpnBx.setSingleStep(2)
-        self.rminSpnBx.setValue(-1)
-        self.rminSpnBx.setRange(-1, 3000)
-        self.rminSpnBx.setKeyboardTracking(False)
+        self.rminSpnBx = self._create_spinbox(min_val=self.RMIN_RMAX_RANGE[0], max_val=self.RMIN_RMAX_RANGE[1], 
+                                              value=self.DEFAULT_RMIN_RMAX, step=2)
         self.rminLabel = QLabel("R-min")
 
-        self.rmaxSpnBx = QSpinBox()
-        self.rmaxSpnBx.setSingleStep(2)
-        self.rmaxSpnBx.setValue(-1)
-        self.rmaxSpnBx.setRange(-1, 3000)
-        self.rmaxSpnBx.setKeyboardTracking(False)
+        self.rmaxSpnBx = self._create_spinbox(min_val=self.RMIN_RMAX_RANGE[0], max_val=self.RMIN_RMAX_RANGE[1], 
+                                              value=self.DEFAULT_RMIN_RMAX, step=2)
         self.rmaxLabel = QLabel("R-max")
 
+        self.showRminRmaxChkBx = QCheckBox("Show R-min/max")
+        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min/max")
+
+    def _create_image_processing_widgets(self):
+        """Create image processing settings widgets."""
         self.downsampleLabel = QLabel("Downsample")
         self.downsampleCB = QComboBox()
-        self.downsampleCB.addItems(["1", "2", "4"])
-        self.downsampleCB.setCurrentIndex(1)
+        self.downsampleCB.addItems(self.DOWNSAMPLE_OPTIONS)
+        self.downsampleCB.setCurrentIndex(self.DEFAULT_DOWNSAMPLE_INDEX)
 
         self.smoothImageChkbx = QCheckBox("Smooth Image")
         self.smoothImageChkbx.setChecked(False)
 
-        self.showResultMaskChkBx = QCheckBox("Show Evaluation Mask")
-        self.showRminRmaxChkBx = QCheckBox("Show R-min/max")
-        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min/max")
-        self.equatorYLengthLabel = QLabel("Equator Height : ")
-        self.equatorYLengthSpnBx = QSpinBox()
-        self.equatorYLengthSpnBx.setRange(1, 10000)
-        self.equatorYLengthSpnBx.setValue(30)
-        self.equatorYLengthSpnBx.setKeyboardTracking(False)
+    def _create_evaluation_mask_widgets(self):
+        """Create evaluation mask settings widgets."""
+
+        self.equatorMaskHeightLabel = QLabel("Equator Height : ")
+        self.equatorMaskHeightSpnBx = self._create_spinbox(min_val=self.EQUATOR_HEIGHT_RANGE[0], 
+                                                        max_val=self.EQUATOR_HEIGHT_RANGE[1], 
+                                                        value=self.DEFAULT_EQUATOR_HEIGHT)
 
         self.equatorCenterBeamLabel = QLabel("Equator Center Radius : ")
-        self.equatorCenterBeamSpnBx = QSpinBox()
-        self.equatorCenterBeamSpnBx.setRange(1, 10000)
-        self.equatorCenterBeamSpnBx.setValue(20)
-        self.equatorCenterBeamSpnBx.setKeyboardTracking(False)
+        self.equatorCenterBeamSpnBx = self._create_spinbox(min_val=self.EQUATOR_CENTER_RANGE[0], 
+                                                           max_val=self.EQUATOR_CENTER_RANGE[1], 
+                                                           value=self.DEFAULT_EQUATOR_CENTER)
 
         self.m1Label = QLabel("Layer line spacing : ")
-        self.m1SpnBx = QSpinBox()
-        self.m1SpnBx.setRange(1, 10000)
-        self.m1SpnBx.setValue(50)
-        self.m1SpnBx.setKeyboardTracking(False)
+        self.m1SpnBx = self._create_spinbox(min_val=self.LAYER_LINE_RANGE[0], 
+                                            max_val=self.LAYER_LINE_RANGE[1], 
+                                            value=self.DEFAULT_LAYER_SPACING)
 
         self.layerLineWidthLabel = QLabel("Layer line width : ")
-        self.layerLineWidthSpnBx = QSpinBox()
-        self.layerLineWidthSpnBx.setRange(1, 10000)
-        self.layerLineWidthSpnBx.setValue(5)
-        self.layerLineWidthSpnBx.setKeyboardTracking(False)
+        self.layerLineWidthSpnBx = self._create_spinbox(min_val=self.LAYER_LINE_RANGE[0], 
+                                                        max_val=self.LAYER_LINE_RANGE[1], 
+                                                        value=self.DEFAULT_LAYER_WIDTH)
 
-        # ===== Background Parameters =====
+    def _create_background_parameter_widgets(self):
+        """Create background subtraction parameter widgets."""
+        # Gaussian parameters
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
-        self.gaussFWHM = QSpinBox()
-        self.gaussFWHM.setRange(1, 3000)
-        self.gaussFWHM.setValue(15)
-        self.gaussFWHM.setKeyboardTracking(False)
+        self.gaussFWHM = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                              value=self.DEFAULT_GAUSSIAN_FWHM)
 
+        # Boxcar parameters
         self.boxcarLabel = QLabel("Box Car Size : ")
-        self.boxcarX = QSpinBox()
-        self.boxcarX.setRange(1, 3000)
-        self.boxcarX.setValue(15)
-        self.boxcarX.setPrefix('X:')
-        self.boxcarX.setKeyboardTracking(False)
-        self.boxcarY = QSpinBox()
-        self.boxcarY.setRange(1, 3000)
-        self.boxcarY.setValue(15)
-        self.boxcarY.setPrefix('Y:')
-        self.boxcarY.setKeyboardTracking(False)
+        self.boxcarX = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                            value=self.DEFAULT_BOXCAR_SIZE, prefix='X:')
+        self.boxcarY = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                            value=self.DEFAULT_BOXCAR_SIZE, prefix='Y:')
 
+        # Cycle parameters
         self.cycleLabel = QLabel("Number of Cycles : ")
-        self.cycle = QSpinBox()
-        self.cycle.setValue(250)
-        self.cycle.setKeyboardTracking(False)
-        self.cycle.setRange(1, 3000)
+        self.cycle = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                          value=self.DEFAULT_CYCLES)
 
+        # Window size parameters
         self.windowSizeLabel = QLabel("Window Size : ")
-        self.winSizeX = QSpinBox()
-        self.winSizeX.setPrefix('X:')
-        self.winSizeX.setKeyboardTracking(False)
-        self.winSizeX.setRange(1, 3000)
-        self.winSizeX.setValue(15)
-        self.winSizeY = QSpinBox()
-        self.winSizeY.setPrefix('Y:')
-        self.winSizeY.setKeyboardTracking(False)
-        self.winSizeY.setRange(1, 3000)
-        self.winSizeY.setValue(15)
+        self.winSizeX = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                             value=self.DEFAULT_WINDOW_SIZE, prefix='X:')
+        self.winSizeY = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                             value=self.DEFAULT_WINDOW_SIZE, prefix='Y:')
 
+        # Window separation parameters
         self.windowSepLabel = QLabel("Window Separation : ")
-        self.winSepX = QSpinBox()
-        self.winSepX.setPrefix('X:')
-        self.winSepX.setKeyboardTracking(False)
-        self.winSepX.setRange(1, 3000)
-        self.winSepX.setValue(10)
-        self.winSepY = QSpinBox()
-        self.winSepY.setPrefix('Y:')
-        self.winSepY.setKeyboardTracking(False)
-        self.winSepY.setRange(1, 3000)
-        self.winSepY.setValue(10)
+        self.winSepX = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                            value=self.DEFAULT_WINDOW_SEP, prefix='X:')
+        self.winSepY = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
+                                            value=self.DEFAULT_WINDOW_SEP, prefix='Y:')
 
-        self.minPixRange = QDoubleSpinBox()
-        self.minPixRange.setSuffix("%")
-        self.minPixRange.setDecimals(2)
-        self.minPixRange.setSingleStep(2)
-        self.minPixRange.setValue(0)
-        self.minPixRange.setRange(0, 100)
-        self.minPixRange.setKeyboardTracking(False)
-
-        self.maxPixRange = QDoubleSpinBox()
-        self.maxPixRange.setSuffix("%")
-        self.maxPixRange.setDecimals(2)
-        self.maxPixRange.setSingleStep(2)
-        self.maxPixRange.setValue(25)
-        self.maxPixRange.setRange(0, 100)
-        self.maxPixRange.setKeyboardTracking(False)
+        # Pixel range parameters
+        self.minPixRange = self._create_double_spinbox(min_val=self.PIXEL_RANGE_LIMIT[0], 
+                                                       max_val=self.PIXEL_RANGE_LIMIT[1], 
+                                                       value=self.DEFAULT_PIXEL_MIN, 
+                                                       decimals=2, step=2, suffix="%")
+        self.maxPixRange = self._create_double_spinbox(min_val=self.PIXEL_RANGE_LIMIT[0], 
+                                                       max_val=self.PIXEL_RANGE_LIMIT[1], 
+                                                       value=self.DEFAULT_PIXEL_MAX, 
+                                                       decimals=2, step=2, suffix="%")
         self.pixRangeLabel = QLabel("Pixel Range : ")
 
+        # Theta bin
         self.thetaBinLabel = QLabel("Bin Theta (deg) : ")
         self.thetabinCB = QComboBox()
-        self.thetabinCB.addItems(["3", "5", "10", "15", "30", "45", "90"])
-        self.thetabinCB.setCurrentIndex(4)
+        self.thetabinCB.addItems(self.THETA_BIN_OPTIONS)
+        self.thetabinCB.setCurrentIndex(self.DEFAULT_THETA_BIN_INDEX)
 
-        self.radialBinSpnBx = QSpinBox()
-        self.radialBinSpnBx.setRange(1, 100)
-        self.radialBinSpnBx.setValue(10)
-        self.radialBinSpnBx.setKeyboardTracking(False)
-        self.radialBinSpnBx.setSuffix(" Pixel(s)")
+        # Radial bin
         self.radialBinLabel = QLabel("Radial Bin : ")
+        self.radialBinSpnBx = self._create_spinbox(min_val=self.RADIAL_BIN_RANGE[0], 
+                                                   max_val=self.RADIAL_BIN_RANGE[1], 
+                                                   value=self.DEFAULT_RADIAL_BIN, suffix=" Pixel(s)")
 
-        self.smoothSpnBx = QDoubleSpinBox()
-        self.smoothSpnBx.setRange(0, 10000)
-        self.smoothSpnBx.setValue(0.1)
-        self.smoothSpnBx.setKeyboardTracking(False)
+        # Smoothing and tension
         self.smoothLabel = QLabel("Smoothing factor : ")
+        self.smoothSpnBx = self._create_double_spinbox(min_val=0, max_val=10000, 
+                                                       value=self.DEFAULT_SMOOTHING, 
+                                                       decimals=2, step=0.1)
 
-        self.tensionSpnBx = QDoubleSpinBox()
-        self.tensionSpnBx.setRange(0, 100)
-        self.tensionSpnBx.setValue(1)
-        self.tensionSpnBx.setKeyboardTracking(False)
         self.tensionLabel = QLabel("Tension factor : ")
+        self.tensionSpnBx = self._create_double_spinbox(min_val=0, max_val=100, 
+                                                        value=self.DEFAULT_TENSION, 
+                                                        decimals=2, step=0.1)
 
-        self.tophat1SpnBx = QSpinBox()
-        self.tophat1SpnBx.setRange(1, 100)
-        self.tophat1SpnBx.setValue(50)
-        self.tophat1SpnBx.setKeyboardTracking(False)
+        # Top-hat
         self.tophat1Label = QLabel("Top-hat Disk Size: ")
+        self.tophat1SpnBx = self._create_spinbox(min_val=self.TOPHAT_RANGE[0], 
+                                                 max_val=self.TOPHAT_RANGE[1], 
+                                                 value=self.DEFAULT_TOPHAT_SIZE)
 
+        # Degree
         self.deg1Label = QLabel("Step Degree : ")
         self.deg1CB = QComboBox()
-        self.deg1CB.addItems(["0.5", "1", "2", "3", "5", "9", "10", "15"])
-        self.deg1CB.setCurrentIndex(1)
+        self.deg1CB.addItems(self.DEGREE_OPTIONS)
+        self.deg1CB.setCurrentIndex(self.DEFAULT_DEGREE_INDEX)
 
-        # ===== Automated Processing / Optimization =====
-        self.optimizeChkBx = QCheckBox("Enable optimization")
-        self.optimizeChkBx.setChecked(False)
-        self.optimizeChkBx.setVisible(False)
+    def _create_optimization_widgets(self):
+        """Create optimization/automated processing widgets."""
+        self.optimizeFlag = False
 
-        self.optimizationMethodsLabel = QLabel("BG Subtraction Methods:")
+        self.optimizationMethodsLabel = QLabel("BG Subtraction Methods (Multi-select):")
         self.optimizationMethodsList = QListWidget()
         self.optimizationMethodsList.setSelectionMode(QAbstractItemView.MultiSelection)
-        self.optimizationMethodsList.setMaximumHeight(120)
-        self.optimizationMethods = [
-            '2D Convexhull',
-            'Circularly-symmetric',
-            'White-top-hats',
-            'Smoothed-Gaussian',
-            'Smoothed-BoxCar',
-            'Roving Window'
-        ]
+        self.optimizationMethodsList.setMaximumHeight(150)
+        self.optimizationMethods = self.OPTIMIZATION_METHODS
         for method in self.optimizationMethods:
             self.optimizationMethodsList.addItem(method)
 
         # Default methods aligned with current optimization workflow
-        self._set_selected_methods(['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian'])
+        self._set_selected_methods(self.DEFAULT_OPTIMIZATION_METHODS)
 
         self.stepsLabel = QLabel("Step Sizes:")
-        self.stepsLineEdit = QLineEdit("50, 30, 10, 7, 5, 3, 1")
+        self.stepsLineEdit = QLineEdit(self.DEFAULT_OPTIMIZATION_STEPS)
         self.stepsLineEdit.setToolTip("Comma-separated values used for optimization step schedule.")
 
         self.maxIterationsLabel = QLabel("Max Iterations:")
-        self.maxIterationsSpnBx = QSpinBox()
-        self.maxIterationsSpnBx.setRange(1, 1000)
-        self.maxIterationsSpnBx.setValue(10)
-        self.maxIterationsSpnBx.setKeyboardTracking(False)
+        self.maxIterationsSpnBx = self._create_spinbox(min_val=self.ITERATIONS_RANGE[0], 
+                                                       max_val=self.ITERATIONS_RANGE[1], 
+                                                       value=self.DEFAULT_MAX_ITERATIONS,
+            tooltip="Maximum number of candidate (+/- step) evaluations per background subtraction parameter.")
 
-        self.earlyStopLabel = QLabel("Early Stop Threshold:")
-        self.earlyStopSpnBx = QDoubleSpinBox()
-        self.earlyStopSpnBx.setDecimals(4)
-        self.earlyStopSpnBx.setRange(0.0, 1.0)
-        self.earlyStopSpnBx.setSingleStep(0.0001)
-        self.earlyStopSpnBx.setValue(0.001)
-        self.earlyStopSpnBx.setKeyboardTracking(False)
+        self.earlyStopLabel = QLabel("Early Stop Loss Threshold:")
+        self.earlyStopSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1.0, 
+                                                          value=self.DEFAULT_EARLY_STOP,
+            decimals=4, step=0.01,
+            tooltip="Threshold for early stopping during optimization per background subtraction parameter.")
+        
+        
 
-        self.normalizationMeansLabel = QLabel("Normalization Means:")
-        self.meanMSELabel = QLabel("Mean Squared Error of Synthetic Signal")
-        self.meanMSELabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.meanMSESpnBx = QDoubleSpinBox()
-        self.meanMSESpnBx.setDecimals(2)
-        self.meanMSESpnBx.setRange(1e-6, 1e9)
-        self.meanMSESpnBx.setValue(100.0)
-        self.meanMSESpnBx.setKeyboardTracking(False)
+    def _create_evaluation_metric_widgets(self):
+        """Create normalization means, evaluation metrics, and metric weight widgets."""
+        # ===== Normalization Means (Used in table) =====
+        self.meanMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
+        self.meanMSESpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e9, 
+                                                        value=self.DEFAULT_MEAN_MSE, decimals=2)
 
-        self.meanNegSynLabel = QLabel("Fraction of Synthetic Oversubtraction")
-        self.meanNegSynLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.meanNegSynSpnBx = QDoubleSpinBox()
-        self.meanNegSynSpnBx.setDecimals(2)
-        self.meanNegSynSpnBx.setSuffix(" %")
-        self.meanNegSynSpnBx.setRange(1e-6, 100.0)
-        self.meanNegSynSpnBx.setValue(20.0)
-        self.meanNegSynSpnBx.setKeyboardTracking(False)
+        self.meanNegSynLabel = self._create_label("Fraction of Synthetic Oversubtraction, %", "small")
+        self.meanNegSynSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
+                                                           value=self.DEFAULT_MEAN_NEG_SYN, 
+                                                           decimals=2, suffix=" %")
 
-        self.meanNonBaselineLabel = QLabel("Fraction of Non Near Baseline Pixels")
-        self.meanNonBaselineLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.meanNonBaselineSpnBx = QDoubleSpinBox()
-        self.meanNonBaselineSpnBx.setDecimals(2)
-        self.meanNonBaselineSpnBx.setSuffix(" %")
-        self.meanNonBaselineSpnBx.setRange(1e-6, 100.0)
-        self.meanNonBaselineSpnBx.setValue(35.0)
-        self.meanNonBaselineSpnBx.setKeyboardTracking(False)
+        self.meanNonBaselineLabel = self._create_label("Fraction of Non Near-Zero Baseline Pixels, %", "small")
+        self.meanNonBaselineSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
+                                                                value=self.DEFAULT_MEAN_BASELINE, 
+                                                                decimals=2, suffix=" %")
 
-        self.meanNegConLabel = QLabel("Fraction of Negative Connected Pixels")
-        self.meanNegConLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.meanNegConSpnBx = QDoubleSpinBox()
-        self.meanNegConSpnBx.setDecimals(2)
-        self.meanNegConSpnBx.setSuffix(" %")
-        self.meanNegConSpnBx.setRange(1e-6, 100.0)
-        self.meanNegConSpnBx.setValue(7.0)
-        self.meanNegConSpnBx.setKeyboardTracking(False)
+        self.meanNegConLabel = self._create_label("Fraction of Negative Connected Pixels, %", "small")
+        self.meanNegConSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
+                                                           value=self.DEFAULT_MEAN_NEG_CON, 
+                                                           decimals=2, suffix=" %")
 
-        self.meanSmoothLabel = QLabel("Smoothness Metric")
-        self.meanSmoothLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.meanSmoothSpnBx = QDoubleSpinBox()
-        self.meanSmoothSpnBx.setDecimals(2)
-        self.meanSmoothSpnBx.setRange(1e-6, 1e6)
-        self.meanSmoothSpnBx.setValue(0.03)
-        self.meanSmoothSpnBx.setKeyboardTracking(False)
+        self.meanSmoothLabel = self._create_label("Smoothness Metric", "small")
+        self.meanSmoothSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e6, 
+                                                           value=self.DEFAULT_MEAN_SMOOTH, decimals=2)
 
+        # ===== Evaluation Metrics Settings =====
+        self.evaluationBaselineLabel = self._create_label("Evaluation Baseline:", "small")
+        self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e9, 
+                                                                   value=self.DEFAULT_EVAL_BASELINE,
+            decimals=4, step=0.01,
+            tooltip="Baseline value for near-zero pixel evaluation.")
+
+        self.ampLabel = self._create_label("Amplitude multiplier (I10):", "small")
+        self.ampSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                                    value=self.DEFAULT_AMP, 
+                                                    decimals=2, step=0.001)
+
+        self.sigmaXDivLabel = self._create_label("Sigma X divisor (I01):", "small")
+        self.sigmaXDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
+                                                          value=self.DEFAULT_SIGMA_X, 
+                                                          decimals=2, step=0.5)
+
+        self.sigmaYDivLabel = self._create_label("Sigma Y divisor (M1):", "small")
+        self.sigmaYDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
+                                                          value=self.DEFAULT_SIGMA_Y, 
+                                                          decimals=2, step=0.5)
+
+        self.freqLabel = self._create_label("Sampling Frequency:", "small")
+        self.freqCB = QComboBox()
+        self.freqCB.addItems(self.FREQ_OPTIONS)
+        self.freqCB.setCurrentText(self.DEFAULT_FREQ)
+
+        # ===== Metric Weights (Used in table) =====
         self.metricWeightsLabel = QLabel("Metric Weights:")
-        self.weightMSELabel = QLabel("Mean Squared Error of Synthetic Signal")
-        self.weightMSELabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.weightMSESpnBx = QDoubleSpinBox()
-        self.weightMSESpnBx.setDecimals(2)
-        self.weightMSESpnBx.setRange(0.0, 1e6)
-        self.weightMSESpnBx.setValue(0.1)
-        self.weightMSESpnBx.setKeyboardTracking(False)
+        self.weightMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
+        self.weightMSESpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                                          value=self.DEFAULT_WEIGHT_MSE, decimals=2)
 
-        self.weightNegSynLabel = QLabel("Fraction of Synthetic Oversubtraction")
-        self.weightNegSynLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.weightNegSynSpnBx = QDoubleSpinBox()
-        self.weightNegSynSpnBx.setDecimals(2)
-        self.weightNegSynSpnBx.setRange(0.0, 1e6)
-        self.weightNegSynSpnBx.setValue(0.1)
-        self.weightNegSynSpnBx.setKeyboardTracking(False)
+        self.weightNegSynLabel = self._create_label("Fraction of Synthetic Oversubtraction, %", "small")
+        self.weightNegSynSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                                             value=self.DEFAULT_WEIGHT_NEG_SYN, decimals=2)
 
-        self.weightNonBaselineLabel = QLabel("Fraction of Non Near Baseline Pixels")
-        self.weightNonBaselineLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.weightNonBaselineSpnBx = QDoubleSpinBox()
-        self.weightNonBaselineSpnBx.setDecimals(2)
-        self.weightNonBaselineSpnBx.setRange(0.0, 1e6)
-        self.weightNonBaselineSpnBx.setValue(0.1)
-        self.weightNonBaselineSpnBx.setKeyboardTracking(False)
+        self.weightNonBaselineLabel = self._create_label("Fraction of Non Near-Zero Baseline Pixels, %", "small")
+        self.weightNonBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                                                  value=self.DEFAULT_WEIGHT_BASELINE, decimals=2)
 
-        self.weightNegConLabel = QLabel("Fraction of Negative Connected Pixels")
-        self.weightNegConLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.weightNegConSpnBx = QDoubleSpinBox()
-        self.weightNegConSpnBx.setDecimals(2)
-        self.weightNegConSpnBx.setRange(0.0, 1e6)
-        self.weightNegConSpnBx.setValue(0.3)
-        self.weightNegConSpnBx.setKeyboardTracking(False)
+        self.weightNegConLabel = self._create_label("Fraction of Negative Connected Pixels, %", "small")
+        self.weightNegConSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                                             value=self.DEFAULT_WEIGHT_NEG_CON, decimals=2)
 
-        self.weightSmoothLabel = QLabel("Smoothness Metric")
-        self.weightSmoothLabel.setStyleSheet("QLabel { font-size: 12px; }")
-        self.weightSmoothSpnBx = QDoubleSpinBox()
-        self.weightSmoothSpnBx.setDecimals(2)
-        self.weightSmoothSpnBx.setRange(0.0, 1e6)
-        self.weightSmoothSpnBx.setValue(0.4)
-        self.weightSmoothSpnBx.setKeyboardTracking(False)
+        self.weightSmoothLabel = self._create_label("Smoothness Metric, intst. cnts.", "small")
+        self.weightSmoothSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                                             value=self.DEFAULT_WEIGHT_SMOOTH, decimals=2)
 
         self.metricWeightsHintLabel = QLabel(
             "<i><span style='color:#2e7d32;'>"
-            "Weights should roughly add up to 1.0 and may be adjusted as needed."
+            "Compound Loss weights may be adjusted as needed and should roughly add up to 1."
             "</span></i>"
         )
         self.metricWeightsHintLabel.setTextFormat(Qt.RichText)
         self.metricWeightsHintLabel.setWordWrap(True)
 
-        self.normalizationMeansHintLabel = QLabel(
-            "<i><span style='color:#2e7d32;'>"
-            "Normalization means are tunable reference values and may be adjusted for your data."
-            "</span></i>"
+        # ===== Loss Parameter Table (Weights and Means) =====
+        self.lossParamsTable = QTableWidget(5, 2)
+        self.lossParamsTable.setHorizontalHeaderLabels(["Mean", "Weight"])
+        self.lossParamsTable.setVerticalHeaderLabels([
+            "Mean Squared Error of Synthetic Signal, intst. cnts.",
+            "Fraction of Synthetic Oversubtraction, %",
+            "Fraction of Non Near-Zero Baseline Pixels, %",
+            "Fraction of Negative Connected Pixels, %",
+            "Smoothness Metric, intst. cnts."
+        ])
+        
+        self.lossParamsTable.setAlternatingRowColors(True)
+        self.lossParamsTable.setMinimumHeight(180)
+        self.lossParamsTable.setMaximumHeight(200)
+        self.lossParamsTable.setEditTriggers(
+            QAbstractItemView.DoubleClicked
+            | QAbstractItemView.EditKeyPressed
+            | QAbstractItemView.AnyKeyPressed
         )
-        self.normalizationMeansHintLabel.setTextFormat(Qt.RichText)
-        self.normalizationMeansHintLabel.setWordWrap(True)
+        self.lossParamsTable.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self.lossParamsTable.setStyleSheet(self.STYLES["table_widget"])
+        self.lossParamsTable.horizontalHeader().setStyleSheet(self.STYLES["table_header"])
+        self.lossParamsTable.verticalHeader().setStyleSheet(
+            "QHeaderView::section { font-size: 13px; padding: 2px 4px; }"
+        )
+        self.lossParamsTable.horizontalHeader().setStretchLastSection(False)
+        self.lossParamsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.lossParamsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.lossParamsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
 
-        # ===== Subtraction Evaluation Metrics =====
-        self.bgMetricsTable = QTableWidget(0, 3)
-        self.bgMetricsTable.setHorizontalHeaderLabels(["Metric", "Raw", "Normalized"])
+        self._populate_loss_params_table()
+        self.lossParamsTable.itemChanged.connect(self._on_loss_params_table_changed)
+
+        self.lossParamsTable.setColumnHidden(0, True)
+
+        header = self.lossParamsTable.horizontalHeader()
+        header.setSectionsClickable(True)
+        header.setContextMenuPolicy(Qt.CustomContextMenu)
+        header.sectionDoubleClicked.connect(self._hide_unhide_means_column)
+        header.setToolTip("Double-click to show normalization means.")
+
+        # ===== Subtraction Evaluation Metrics Table =====
+        self.bgMetricsTableTitle = QLabel("Loss = ")
+        self.bgMetricsTableTitle.setStyleSheet(self.STYLES["metrics_title"])
+        self.bgMetricsTable = QTableWidget(0, 4)
+        self.bgMetricsTable.setHorizontalHeaderLabels(["Metric", "Raw", "Normalized", "Loss Contrib."])
         self.bgMetricsTable.verticalHeader().setVisible(False)
         self.bgMetricsTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.bgMetricsTable.setSelectionMode(QAbstractItemView.NoSelection)
         self.bgMetricsTable.setFocusPolicy(Qt.NoFocus)
         self.bgMetricsTable.setAlternatingRowColors(True)
-        self.bgMetricsTable.setMinimumHeight(234)
-        self.bgMetricsTable.setMaximumHeight(334)
+        self.bgMetricsTable.setMinimumHeight(200)
+        self.bgMetricsTable.setMaximumHeight(320)
         self.bgMetricsTable.horizontalHeader().setStretchLastSection(False)
         self.bgMetricsTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.bgMetricsTable.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
         self.bgMetricsTable.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.bgMetricsTable.setColumnWidth(1, 110)
-        self.bgMetricsTable.setColumnWidth(2, 110)
+        self.bgMetricsTable.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        self.bgMetricsTable.setColumnWidth(1, 80)
+        self.bgMetricsTable.setColumnWidth(2, 80)
+        self.bgMetricsTable.setColumnWidth(3, 80)
         self.bgMetricsTable.setStyleSheet(
             "QTableWidget { font-size: 13px; }"
-            "QHeaderView::section { font-size: 13px; }"
+            "QHeaderView::section { font-size: 11px; padding: 2px 4px; }"
         )
 
+
+        # ===== Configuration Selection Widgets =====
+
+    def _create_table_and_button_widgets(self):
+        """Create tables, buttons, and other control widgets."""
         # ===== Apply Button =====
         self.applyBGButton = QPushButton("Apply Selected Subtraction Settings")
-        self.applyBGButton.setStyleSheet("QPushButton { color: #ededed; background-color: #999999; }") # 2986cc  2e7d32
+        self.applyBGButton.setStyleSheet(self.STYLES["apply_button"])
 
-        # ===== Section Groups =====
-        # self.currentGroup = QGroupBox("Current Background Subtraction")
-        self.settingsGroup = QGroupBox("Subtraction Settings")
-        self.evaluationGroup = QGroupBox("Subtraction Evaluation Settings")
-        self.evaluationMetricsGroup = QGroupBox("Subtraction Evaluation")
-        self.batchProcessingGroup = QGroupBox("Batch Processing Settings")
-
-
+        # ===== Background Configurations Table =====
         self.addBackgroundConfigButton = QPushButton("Add Background Configuration")
 
         self.backgroundConfigsTable = QTableWidget(0, 4)
@@ -431,6 +574,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.deleteBackgroundConfigButton = QPushButton("Delete Selected Configuration")
         self.deleteBackgroundConfigButton.setEnabled(False)
 
+        # ===== Batch Processing Controls =====
         self.chooseConfigurationsAutoChkBx = QCheckBox("Choose best configuration for images automatically")
         self.chooseConfigurationsAutoChkBx.setToolTip(
             "Automatically choose the best background configuration for each image based on background metrics"
@@ -446,184 +590,281 @@ class BackgroundSubtractionDialog(QDialog):
         self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
 
         self.processFolderWithSelections = QPushButton("Process Current Folder")
-        self.processFolderWithSelections.setStyleSheet("QPushButton { color: #ededed; background-color: #af6207}") #  2e7d32
+        self.processFolderWithSelections.setStyleSheet(self.STYLES["process_button"])
 
+    def _create_group_boxes(self):
+        """Create group boxes and collapsible sections."""
+        # ===== Section Groups =====
+        self.settingsGroup = QGroupBox("Subtraction Settings")
+        self.evaluationGroup = QGroupBox("Optimization Target and Evaluation Settings")
+        self.evaluationMetricsGroup = QGroupBox("Results")
+        self.batchProcessingGroup = QGroupBox("Batch Processing Settings")
+
+        # ===== Manual/Automated Groups =====
         self.manualGroup = QGroupBox("Manual Processing")
         self.autoGroup = QGroupBox("Automated Processing")
         self.manualGroup.setTitle("")
         self.autoGroup.setTitle("")
-        self.manualGroup.setStyleSheet("QGroupBox { border: 1; margin-top: 0px; }")
-        self.autoGroup.setStyleSheet("QGroupBox { border: 1; margin-top: 0px; }")
+        self.manualGroup.setStyleSheet(self.STYLES["groupbox_border"])
+        self.autoGroup.setStyleSheet(self.STYLES["groupbox_border"])
 
-
+        # ===== Collapsible Groups =====
         self.rminGroup = CollapsibleGroupBox("R-min/R-max", start_expanded=False)
         self.imageProcGroup = CollapsibleGroupBox("Image Processing", start_expanded=False)
         self.subtractionGroup = CollapsibleGroupBox("Subtraction", start_expanded=False)
         self.configurationGroup = CollapsibleGroupBox("Configurations", start_expanded=False)
         self.folderGroup = CollapsibleGroupBox("Folder Processing", start_expanded=False)
-
-        self.evalGroup = CollapsibleGroupBox("Evaluation Metrics", start_expanded=False)
-
+        self.evalGroup = CollapsibleGroupBox("Results", start_expanded=False)
         self.evalMaskGroup = CollapsibleGroupBox("Evaluation Masks", start_expanded=False)
-        self.metricWeightsGroup = CollapsibleGroupBox("Metric Weights", start_expanded=False)
-        self.normalizationMeansGroup = CollapsibleGroupBox("Normalization Means", start_expanded=False)
-
-
-
-        self.optimizeChkBx.stateChanged.connect(self._update_optimization_widgets_state)
-        self.processingModeCB.currentIndexChanged.connect(self._update_processing_mode_visibility)
-        self.processingModeCB.currentIndexChanged.connect(self._sync_mode_to_optimization_flag)
-        self._update_optimization_widgets_state()
-        self._sync_mode_to_optimization_flag()
-        self._update_processing_mode_visibility()
-
-    def _set_selected_methods(self, methods):
-        method_set = set(methods)
-        for i in range(self.optimizationMethodsList.count()):
-            item = self.optimizationMethodsList.item(i)
-            item.setSelected(item.text() in method_set)
-
-    def _update_optimization_widgets_state(self):
-        enabled = self.optimizeChkBx.isChecked()
-        self.optimizationMethodsList.setEnabled(enabled)
-        self.stepsLineEdit.setEnabled(enabled)
-        self.maxIterationsSpnBx.setEnabled(enabled)
-        self.earlyStopSpnBx.setEnabled(enabled)
-
-    def _sync_mode_to_optimization_flag(self):
-        automated = self.processingModeCB.currentText() == "Automated"
-        self.optimizeChkBx.setChecked(automated)
-
-    def _update_processing_mode_visibility(self):
-        automated = self.processingModeCB.currentText() == "Automated"
-        self.manualGroup.setVisible(not automated)
-        self.autoGroup.setVisible(automated)
+        self.metricsGroup = CollapsibleGroupBox("Metric Settings", start_expanded=False)
 
     def _create_layout(self):
+        """Create the main dialog layout by delegating to helper methods."""
         main_layout = QVBoxLayout(self)
+        
+        # Add documentation panel at top
+        self._setup_documentation_layout(main_layout)
+        
+        # Create scrollable container with all sections
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        container_layout = self._create_main_container_layout()
+        main_layout.addWidget(scroll_area)
+        
+        # Set scroll area widget
+        container = QWidget()
+        container.setLayout(container_layout)
+        scroll_area.setWidget(container)
 
+    def _setup_documentation_layout(self, parent_layout):
+        """Setup the documentation panel layout."""
         doc_layout = QVBoxLayout(self.documentationPanel)
         doc_layout.setContentsMargins(10, 8, 10, 8)
         doc_layout.addWidget(self.documentationLabel)
-        main_layout.addWidget(self.documentationPanel)
+        parent_layout.addWidget(self.documentationPanel)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        container = QWidget()
-        container_layout = QVBoxLayout(container)
+    def _create_main_container_layout(self):
+        """Create the main container layout with all sections."""
+        container_layout = QVBoxLayout()
+        
+        # Setup all group layouts
+        common_layout, evaluation_layout = self._setup_common_and_evaluation_layouts()
+        self._setup_subtraction_layout()
+        self._setup_metrics_layout()
+        self._setup_rmin_rmax_layout()
+        self._setup_image_processing_layout()
+        self._setup_evaluation_mask_layout()
+        self._setup_evaluation_results_layout()
+        
+        # Build the container with sections
+        container_layout.addWidget(self._create_step_label("Step 1: Adjust Image Setting and Process"))
+        container_layout.addWidget(self.settingsGroup)
+        container_layout.addWidget(self.evaluationGroup)
+        container_layout.addWidget(self.applyBGButton)
+        
+        container_layout.addWidget(self._create_step_label("Step 2: Review Results"))
+        container_layout.addWidget(self.evalGroup)
+        
+        container_layout.addWidget(self._create_step_label("Step 3: Adjust Batch Processing Settings and Launch"))
+        self._create_current_configs()
+        container_layout.addWidget(self.configurationGroup)
+        container_layout.addWidget(self.folderGroup)
+        self._setup_folder_layout()
+        container_layout.addWidget(self.processFolderWithSelections)
+        container_layout.addStretch(1)
+        
+        return container_layout
 
+    def _create_step_label(self, text):
+        """Create a formatted step label."""
+        label = QLabel(text)
+        label.setStyleSheet(self.STYLES["step_label"])
+        return label
+
+    def _setup_common_and_evaluation_layouts(self):
+        """Setup common (settings) and evaluation layouts."""
+        common_layout = QVBoxLayout(self.settingsGroup)
+        evaluation_layout = QVBoxLayout(self.evaluationGroup)
+        
+        common_layout.addWidget(self.rminGroup)
+        common_layout.addWidget(self.imageProcGroup)
+        common_layout.addWidget(self.subtractionGroup)
+        
+        evaluation_layout.addWidget(self.evalMaskGroup)
+        evaluation_layout.addWidget(self.metricsGroup)
+        
+        return common_layout, evaluation_layout
+
+    def _setup_subtraction_layout(self):
+        """Setup background subtraction settings layout (manual and automated)."""
         modeWidget = QWidget()
         modeLayout = QGridLayout(modeWidget)
         modeLayout.setContentsMargins(0, 0, 0, 0)
         modeLayout.addWidget(self.processingModeLabel, 0, 0, 1, 2)
-        modeLayout.addWidget(self.processingModeCB, 0, 2, 1, 2) 
+        modeLayout.addWidget(self.processingModeCB, 0, 2, 1, 2)
 
-        # currentLayout = QVBoxLayout(self.currentGroup)
-        # currentLayout.setContentsMargins(8, 8, 8, 8)
-        # currentLayout.addWidget(self.currentMethodLabel)
-        # currentLayout.addWidget(self.currentModeLabel)
-        # currentLayout.addWidget(self.currentParamsLabel)
-        # currentLayout.addWidget(self.currentLossLabel)
+        # Manual processing layout
+        manual_layout = QGridLayout(self.manualGroup)
+        self._populate_manual_processing_layout(manual_layout)
 
-        commonLayout = QVBoxLayout(self.settingsGroup)
-        evaluationLayout = QVBoxLayout(self.evaluationGroup)
-        batchLayout = QVBoxLayout(self.batchProcessingGroup)
+        # Automated processing layout
+        auto_layout = QGridLayout(self.autoGroup)
+        self._populate_automated_processing_layout(auto_layout)
 
-        manualLayout = QGridLayout(self.manualGroup)
-        autoLayout = QGridLayout(self.autoGroup)
+        # Combine into subtraction group
+        subtraction_layout = QGridLayout()
+        subtraction_layout.setContentsMargins(8, 8, 8, 8)
+        subtraction_layout.addWidget(modeWidget, 0, 0, 1, 4)
+        subtraction_layout.addWidget(self.manualGroup, 1, 0, 1, 4)
+        subtraction_layout.addWidget(self.autoGroup, 2, 0, 1, 4)
+        self.subtractionGroup.setLayout(subtraction_layout)
+
+    def _populate_manual_processing_layout(self, layout):
+        """Populate manual processing controls."""
+        layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
+        layout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
+        layout.addWidget(self.gaussFWHMLabel, 4, 2, 1, 1)
+        layout.addWidget(self.gaussFWHM, 4, 3, 1, 1)
+        layout.addWidget(self.boxcarLabel, 4, 2, 1, 1)
+        layout.addWidget(self.boxcarX, 4, 3, 1, 1)
+        layout.addWidget(self.boxcarY, 5, 3, 1, 1)
+        layout.addWidget(self.cycleLabel, 3, 2, 1, 1)
+        layout.addWidget(self.cycle, 3, 3, 1, 1)
+        layout.addWidget(self.thetaBinLabel, 6, 2, 1, 1)
+        layout.addWidget(self.thetabinCB, 6, 3, 1, 1)
+        layout.addWidget(self.radialBinLabel, 7, 2, 1, 1)
+        layout.addWidget(self.radialBinSpnBx, 7, 3, 1, 1)
+        layout.addWidget(self.windowSizeLabel, 6, 2, 1, 1)
+        layout.addWidget(self.winSizeX, 6, 3, 1, 1)
+        layout.addWidget(self.winSizeY, 7, 3, 1, 1)
+        layout.addWidget(self.windowSepLabel, 8, 2, 1, 1)
+        layout.addWidget(self.winSepX, 8, 3, 1, 1)
+        layout.addWidget(self.winSepY, 9, 3, 1, 1)
+        layout.addWidget(self.pixRangeLabel, 10, 2, 1, 1)
+        layout.addWidget(self.minPixRange, 10, 3, 1, 1)
+        layout.addWidget(self.maxPixRange, 11, 3, 1, 1)
+        layout.addWidget(self.smoothLabel, 14, 2, 1, 1)
+        layout.addWidget(self.smoothSpnBx, 14, 3, 1, 1)
+        layout.addWidget(self.tensionLabel, 11, 2, 1, 1)
+        layout.addWidget(self.tensionSpnBx, 11, 3, 1, 1)
+        layout.addWidget(self.deg1Label, 12, 2, 1, 1)
+        layout.addWidget(self.deg1CB, 12, 3, 1, 1)
+        layout.addWidget(self.tophat1Label, 13, 2, 1, 1)
+        layout.addWidget(self.tophat1SpnBx, 13, 3, 1, 1)
+
+    def _populate_automated_processing_layout(self, layout):
+        """Populate automated processing controls."""
+        layout.addWidget(self.optimizationMethodsLabel, 1, 0, 1, 2)
+        layout.addWidget(self.optimizationMethodsList, 2, 0, 1, 2)
+        layout.addWidget(self.stepsLabel, 3, 0, 1, 1)
+        layout.addWidget(self.stepsLineEdit, 3, 1, 1, 3)
+        layout.addWidget(self.maxIterationsLabel, 4, 0, 1, 1)
+        layout.addWidget(self.maxIterationsSpnBx, 4, 1, 1, 1)
+        layout.addWidget(self.earlyStopLabel, 4, 2, 1, 1)
+        layout.addWidget(self.earlyStopSpnBx, 4, 3, 1, 1)
+
+    def _setup_metrics_layout(self):
+        """Setup evaluation metrics settings layout."""
+        metric_layout = QGridLayout()
+        metric_layout.addWidget(self.evaluationBaselineLabel, 0, 0, 1, 1)
+        metric_layout.addWidget(self.evaluationBaselineSpnBx, 0, 1, 1, 1)
+        metric_layout.addWidget(self.ampLabel, 1, 0, 1, 1)
+        metric_layout.addWidget(self.ampSpnBx, 1, 1, 1, 1)
+        metric_layout.addWidget(self.sigmaXDivLabel, 1, 2, 1, 1)
+        metric_layout.addWidget(self.sigmaXDivSpnBx, 1, 3, 1, 1)
+        metric_layout.addWidget(self.sigmaYDivLabel, 2, 0, 1, 1)
+        metric_layout.addWidget(self.sigmaYDivSpnBx, 2, 1, 1, 1)
+        metric_layout.addWidget(self.freqLabel, 2, 2, 1, 1)
+        metric_layout.addWidget(self.freqCB, 2, 3, 1, 1)
+        metric_layout.addWidget(self.lossParamsTable, 3, 0, 1, 4)
+        metric_layout.addWidget(self.metricWeightsHintLabel, 4, 0, 1, 4)
+        self.metricsGroup.setLayout(metric_layout)
+
+    def _setup_rmin_rmax_layout(self):
+        """Setup R-min/R-max settings layout."""
+        rmin_layout = QGridLayout()
+        rmin_layout.addWidget(self.showRminRmaxChkBx, 0, 0, 1, 2)
+        rmin_layout.addWidget(self.rminLabel, 2, 0, 1, 1)
+        rmin_layout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
+        rmin_layout.addWidget(self.rmaxLabel, 3, 0, 1, 1)
+        rmin_layout.addWidget(self.rmaxSpnBx, 3, 1, 1, 1)
+        rmin_layout.addWidget(self.setRminRmaxButton, 3, 2, 1, 2)
+        rmin_layout.addWidget(self.fixedRadiusRangeChkBx, 5, 0, 1, 2)
+        self.rminGroup.setLayout(rmin_layout)
+
+    def _setup_image_processing_layout(self):
+        """Setup image processing settings layout."""
+        image_proc_layout = QGridLayout()
+        image_proc_layout.addWidget(self.smoothImageChkbx, 4, 3, 1, 2)
+        image_proc_layout.addWidget(self.downsampleLabel, 4, 0, 1, 1)
+        image_proc_layout.addWidget(self.downsampleCB, 4, 1, 1, 1)
+        self.imageProcGroup.setLayout(image_proc_layout)
+
+    def _setup_evaluation_mask_layout(self):
+        """Setup evaluation mask settings layout."""
+        eval_mask_layout = QGridLayout()
+        eval_mask_layout.addWidget(self.equatorMaskHeightLabel, 1, 0, 1, 1)
+        eval_mask_layout.addWidget(self.equatorMaskHeightSpnBx, 1, 1, 1, 1)
+        eval_mask_layout.addWidget(self.equatorCenterBeamLabel, 2, 0, 1, 1)
+        eval_mask_layout.addWidget(self.equatorCenterBeamSpnBx, 2, 1, 1, 1)
+        eval_mask_layout.addWidget(self.m1Label, 1, 2, 1, 1)
+        eval_mask_layout.addWidget(self.m1SpnBx, 1, 3, 1, 1)
+        eval_mask_layout.addWidget(self.layerLineWidthLabel, 2, 2, 1, 1)
+        eval_mask_layout.addWidget(self.layerLineWidthSpnBx, 2, 3, 1, 1)
+        self.evalMaskGroup.setLayout(eval_mask_layout)
+
+    def _setup_evaluation_results_layout(self):
+        """Setup evaluation results display layout."""
+        eval_group_layout = QGridLayout()
+        eval_group_layout.addWidget(self.bgMetricsTableTitle, 0, 0)
+        eval_group_layout.addWidget(self.bgMetricsTable, 1, 0)
+        self.evalGroup.setLayout(eval_group_layout)
+
+    def _setup_folder_layout(self):
+        """Setup folder processing settings layout."""
+        folder_layout = QGridLayout()
+        folder_layout.addWidget(self.chooseConfigurationsAutoChkBx)
+        folder_layout.addWidget(self.createNewConfigurationsChkBx)
+        folder_layout.addWidget(self.assignConfgurationsManually)
+        self.folderGroup.setLayout(folder_layout)
+
+    
 
 
-        manualLayout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
-        manualLayout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
-        manualLayout.addWidget(self.gaussFWHMLabel, 4, 2, 1, 1)
-        manualLayout.addWidget(self.gaussFWHM, 4, 3, 1, 1)
-        manualLayout.addWidget(self.boxcarLabel, 4, 2, 1, 1)
-        manualLayout.addWidget(self.boxcarX, 4, 3, 1, 1)
-        manualLayout.addWidget(self.boxcarY, 5, 3, 1, 1)
-        manualLayout.addWidget(self.cycleLabel, 3, 2, 1, 1)
-        manualLayout.addWidget(self.cycle, 3, 3, 1, 1)
-        manualLayout.addWidget(self.thetaBinLabel, 6, 2, 1, 1)
-        manualLayout.addWidget(self.thetabinCB, 6, 3, 1, 1)
-        manualLayout.addWidget(self.radialBinLabel, 7, 2, 1, 1)
-        manualLayout.addWidget(self.radialBinSpnBx, 7, 3, 1, 1)
-        manualLayout.addWidget(self.windowSizeLabel, 6, 2, 1, 1)
-        manualLayout.addWidget(self.winSizeX, 6, 3, 1, 1)
-        manualLayout.addWidget(self.winSizeY, 7, 3, 1, 1)
-        manualLayout.addWidget(self.windowSepLabel, 8, 2, 1, 1)
-        manualLayout.addWidget(self.winSepX, 8, 3, 1, 1)
-        manualLayout.addWidget(self.winSepY, 9, 3, 1, 1)
-        manualLayout.addWidget(self.pixRangeLabel, 10, 2, 1, 1)
-        manualLayout.addWidget(self.minPixRange, 10, 3, 1, 1)
-        manualLayout.addWidget(self.maxPixRange, 11, 3, 1, 1)
-        manualLayout.addWidget(self.smoothLabel, 14, 2, 1, 1)
-        manualLayout.addWidget(self.smoothSpnBx, 14, 3, 1, 1)
-        manualLayout.addWidget(self.tensionLabel, 11, 2, 1, 1)
-        manualLayout.addWidget(self.tensionSpnBx, 11, 3, 1, 1)
-        manualLayout.addWidget(self.deg1Label, 12, 2, 1, 1)
-        manualLayout.addWidget(self.deg1CB, 12, 3, 1, 1)
-        manualLayout.addWidget(self.tophat1Label, 13, 2, 1, 1)
-        manualLayout.addWidget(self.tophat1SpnBx, 13, 3, 1, 1)
+    # ===== Current Background Configuration Display =====
 
-        autoLayout.addWidget(self.optimizeChkBx, 0, 0, 1, 2)
-        autoLayout.addWidget(self.optimizationMethodsLabel, 1, 0, 1, 2)
-        autoLayout.addWidget(self.optimizationMethodsList, 2, 0, 1, 2)
-        autoLayout.addWidget(self.stepsLabel, 3, 0, 1, 1)
-        autoLayout.addWidget(self.stepsLineEdit, 3, 1, 1, 1)
-        autoLayout.addWidget(self.maxIterationsLabel, 4, 0, 1, 1)
-        autoLayout.addWidget(self.maxIterationsSpnBx, 4, 1, 1, 1)
-        autoLayout.addWidget(self.earlyStopLabel, 4, 2, 1, 1)
-        autoLayout.addWidget(self.earlyStopSpnBx, 4, 3, 1, 1)
+    def _create_current_configs(self):
+        self.currentBGMethodLabel = QLabel("None")
+        self.currentBGModeLabel = QLabel("None")
+        self.currentBGParamsLabel = QLabel("None")
+        self.currentBGLossLabel = QLabel("None")
+        self.currentBGParamsLabel.setWordWrap(True)
 
-        metricWeightsLayout = QGridLayout()
-        metricWeightsLayout.addWidget(self.weightMSELabel, 0, 0, 1, 3)
-        metricWeightsLayout.addWidget(self.weightMSESpnBx, 0, 3, 1, 1)
-        metricWeightsLayout.addWidget(self.weightNegSynLabel, 1, 0, 1, 3)
-        metricWeightsLayout.addWidget(self.weightNegSynSpnBx, 1, 3, 1, 1)
-        metricWeightsLayout.addWidget(self.weightNonBaselineLabel, 2, 0, 1, 3)
-        metricWeightsLayout.addWidget(self.weightNonBaselineSpnBx, 2, 3, 1, 1)
-        metricWeightsLayout.addWidget(self.weightNegConLabel, 3, 0, 1, 3)
-        metricWeightsLayout.addWidget(self.weightNegConSpnBx, 3, 3, 1, 1)
-        metricWeightsLayout.addWidget(self.weightSmoothLabel, 4, 0, 1, 3)
-        metricWeightsLayout.addWidget(self.weightSmoothSpnBx, 4, 3, 1, 1)
-        metricWeightsLayout.addWidget(self.metricWeightsHintLabel, 5, 0, 1, 4)
-        self.metricWeightsGroup.setLayout(metricWeightsLayout)
+        value_style = "font-size: 13px; color: #222;"
+        for label in [self.currentBGMethodLabel, self.currentBGParamsLabel, self.currentBGLossLabel]:
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setStyleSheet(value_style)
 
-        normalizationMeansLayout = QGridLayout()
-        normalizationMeansLayout.addWidget(self.meanMSELabel, 0, 0, 1, 3)
-        normalizationMeansLayout.addWidget(self.meanMSESpnBx, 0, 3, 1, 1)
-        normalizationMeansLayout.addWidget(self.meanNegSynLabel, 1, 0, 1, 3)
-        normalizationMeansLayout.addWidget(self.meanNegSynSpnBx, 1, 3, 1, 1)
-        normalizationMeansLayout.addWidget(self.meanNonBaselineLabel, 2, 0, 1, 3)
-        normalizationMeansLayout.addWidget(self.meanNonBaselineSpnBx, 2, 3, 1, 1)
-        normalizationMeansLayout.addWidget(self.meanNegConLabel, 3, 0, 1, 3)
-        normalizationMeansLayout.addWidget(self.meanNegConSpnBx, 3, 3, 1, 1)
-        normalizationMeansLayout.addWidget(self.meanSmoothLabel, 4, 0, 1, 3)
-        normalizationMeansLayout.addWidget(self.meanSmoothSpnBx, 4, 3, 1, 1)
-        normalizationMeansLayout.addWidget(self.normalizationMeansHintLabel, 5, 0, 1, 4)
-        self.normalizationMeansGroup.setLayout(normalizationMeansLayout)
+        current_summary_widget = QWidget()
+        current_summary_widget.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        form = QFormLayout(current_summary_widget)
+        form.setContentsMargins(6, 4, 6, 4)
+        form.setHorizontalSpacing(8)
+        form.setVerticalSpacing(4)
 
-        rminLayout = QGridLayout()
-        rminLayout.addWidget(self.showRminRmaxChkBx, 0, 0, 1, 2)
-        rminLayout.addWidget(self.rminLabel, 2, 0, 1, 1)
-        rminLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
-        rminLayout.addWidget(self.rmaxLabel, 3, 0, 1, 1)
-        rminLayout.addWidget(self.rmaxSpnBx, 3, 1, 1, 1)
-        rminLayout.addWidget(self.setRminRmaxButton, 3, 2, 1, 2)
-        rminLayout.addWidget(self.fixedRadiusRangeChkBx, 5, 0, 1, 2)
-        self.rminGroup.setLayout(rminLayout)
-
-        imageProcLayout = QGridLayout()
-        imageProcLayout.addWidget(self.smoothImageChkbx, 4, 3, 1, 2)
-        imageProcLayout.addWidget(self.downsampleLabel, 4, 0, 1, 1)
-        imageProcLayout.addWidget(self.downsampleCB, 4, 1, 1, 1)
-        self.imageProcGroup.setLayout(imageProcLayout)
-
-        subtractionLayout = QGridLayout()
-        subtractionLayout.setContentsMargins(8, 8, 8, 8)
-        subtractionLayout.addWidget(modeWidget, 0, 0, 1, 4)
-        subtractionLayout.addWidget(self.manualGroup, 1, 0, 1, 4)
-        subtractionLayout.addWidget(self.autoGroup, 2, 0, 1, 4)
-        self.subtractionGroup.setLayout(subtractionLayout)
+        current_config_title = QLabel("Current Configuration")
+        current_config_title.setStyleSheet("font-size: 11px; font-weight: 700; color: #444;")
+        field_label_style = "font-size: 11px; font-weight: 700; color: #444;"
+        method_label = QLabel("Method:")
+        method_label.setStyleSheet(field_label_style)
+        params_label = QLabel("Parameters:")
+        params_label.setStyleSheet(field_label_style)
+        loss_label = QLabel("Loss:")
+        loss_label.setStyleSheet(field_label_style)
+        form.addRow(current_config_title)
+        form.addRow(method_label, self.currentBGMethodLabel)
+        form.addRow(params_label, self.currentBGParamsLabel)
+        form.addRow(loss_label, self.currentBGLossLabel)
 
         current_config_section = QWidget()
         current_config_layout = QGridLayout(current_config_section)
@@ -634,116 +875,524 @@ class BackgroundSubtractionDialog(QDialog):
         saved_configs_layout.setContentsMargins(8, 8, 8, 8)
         saved_configs_layout.setSpacing(6)
         saved_configs_layout.addWidget(self.backgroundConfigsTable, 0, 0, 1, 4)
-        # saved_configs_layout.addWidget(self.deleteBackgroundConfigButton, 1, 0, 1, 2)
 
         configurationLayout = QGridLayout()
         configurationLayout.addWidget(current_config_section)
         configurationLayout.addWidget(saved_configs_section)
-        # configurationLayout.addStretch(1)
         self.configurationGroup.setLayout(configurationLayout)
 
-        folderLayout = QGridLayout()
-        folderLayout.addWidget(self.chooseConfigurationsAutoChkBx)
-        folderLayout.addWidget(self.createNewConfigurationsChkBx)
-        folderLayout.addWidget(self.assignConfgurationsManually)
-        folderLayout.addWidget(self.processFolderWithSelections)
-        # folderLayout.addStretch(1)
-        self.folderGroup.setLayout(folderLayout)
+        current_config_layout.addWidget(current_summary_widget, 0, 0, 1, 2, Qt.AlignLeft | Qt.AlignTop)
+        current_config_layout.addWidget(self.addBackgroundConfigButton, 1, 0, 1, 1)
 
-        batchLayout.addWidget(self.configurationGroup)
-        batchLayout.addWidget(self.folderGroup)
+    def _hide_unhide_means_column(self):
+        if self.lossParamsTable.isColumnHidden(0):
+            self.lossParamsTable.setColumnHidden(0, False)
+        else:
+            self.lossParamsTable.setColumnHidden(0, True)
+
+    def _set_selected_methods(self, methods):
+        method_set = set(methods)
+        for i in range(self.optimizationMethodsList.count()):
+            item = self.optimizationMethodsList.item(i)
+            item.setSelected(item.text() in method_set)
+
+    def _update_processing_mode_visibility(self):
+        automated = self.processingModeCB.currentText() == "Automated"
+        self.manualGroup.setVisible(not automated)
+        self.autoGroup.setVisible(automated)
+        self.optimizeFlag = automated
+
+    def _populate_loss_params_table(self):
+        """Sync internal SpinBox values to the editable table."""
+        data = [
+            (self.meanMSESpnBx, self.weightMSESpnBx),
+            (self.meanNegSynSpnBx, self.weightNegSynSpnBx),
+            (self.meanNonBaselineSpnBx, self.weightNonBaselineSpnBx),
+            (self.meanNegConSpnBx, self.weightNegConSpnBx),
+            (self.meanSmoothSpnBx, self.weightSmoothSpnBx),
+        ]
+        self.lossParamsTable.blockSignals(True)
+        for row, (mean_sb, weight_sb) in enumerate(data):
+            self.lossParamsTable.setItem(row, 0, QTableWidgetItem(f"{mean_sb.value():.4g}"))
+            self.lossParamsTable.setItem(row, 1, QTableWidgetItem(f"{weight_sb.value():.4g}"))
+        self.lossParamsTable.blockSignals(False)
+
+    def _on_loss_params_table_changed(self, item):
+        """Sync table edits back to the internal SpinBoxes."""
+        row, col = item.row(), item.column()
+        try:
+            val = float(item.text())
+            data = [
+                (self.meanMSESpnBx, self.weightMSESpnBx),
+                (self.meanNegSynSpnBx, self.weightNegSynSpnBx),
+                (self.meanNonBaselineSpnBx, self.weightNonBaselineSpnBx),
+                (self.meanNegConSpnBx, self.weightNegConSpnBx),
+                (self.meanSmoothSpnBx, self.weightSmoothSpnBx),
+            ]
+            spinbox = data[row][col]
+            spinbox.setValue(val)
+        except ValueError:
+            # Revert on invalid input
+            self._populate_loss_params_table()
 
 
-        evalMaskLayout = QGridLayout()
-        # evalMaskLayout.addWidget(self.showResultMaskChkBx, 0, 0, 1, 1)
-        evalMaskLayout.addWidget(self.equatorYLengthLabel, 1, 0, 1, 1)
-        evalMaskLayout.addWidget(self.equatorYLengthSpnBx, 1, 1, 1, 1)
-        evalMaskLayout.addWidget(self.equatorCenterBeamLabel, 2, 0, 1, 1)
-        evalMaskLayout.addWidget(self.equatorCenterBeamSpnBx, 2, 1, 1, 1)
-        evalMaskLayout.addWidget(self.m1Label, 1, 2, 1, 1)
-        evalMaskLayout.addWidget(self.m1SpnBx, 1, 3, 1, 1)
-        evalMaskLayout.addWidget(self.layerLineWidthLabel, 2, 2, 1, 1)
-        evalMaskLayout.addWidget(self.layerLineWidthSpnBx, 2, 3, 1, 1)
-        self.evalMaskGroup.setLayout(evalMaskLayout)
 
-        evalGroupLayout = QGridLayout()
-        evalGroupLayout.addWidget(self.bgMetricsTable)
-        self.evalGroup.setLayout(evalGroupLayout)
+    # ==== Evaluation Table ======
 
+    def _set_table_item(self, row, col, text):
+        item = QTableWidgetItem(text)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        self.bgMetricsTable.setItem(row, col, item)
+        
+    def _clear_bg_metrics_table(self):
+        if not hasattr(self, 'bgMetricsTable'):
+            return
+        if hasattr(self, 'bgMetricsTableTitle'):
+            self.bgMetricsTableTitle.setText("Loss = —")
+        self.bgMetricsTable.setRowCount(0)
+    
+    def _update_bg_metrics_table(self):
+        if not hasattr(self, 'bgMetricsTable'):
+            return
 
+        parent = self._get_parent_gui()
+        if parent is None or parent.quadFold is None:
+            self._clear_bg_metrics_table()
+            return
 
+        result_bg = parent.quadFold.info.get('result_bg', {})
+        raw_metrics = result_bg.get('metrics_raw', {}) or {}
+        norm_metrics = result_bg.get('metrics_normalized', {}) or {}
+        loss = result_bg.get('loss', None)
 
-        current_summary_frame = QFrame()
-        current_summary_frame.setObjectName("bgSummaryFrame")
-        current_summary_frame.setStyleSheet(
-            "#bgSummaryFrame { background: #F7F9FB; border: 1px solid #E6E6E6; border-radius: 4px; }"
+        if hasattr(self, 'bgMetricsTableTitle'):
+            loss_text = _to_metric_text(loss)
+            self.bgMetricsTableTitle.setText(f"Loss = {loss_text}")
+
+        metric_rows = [
+            ("MSE of Synthetic Signal, intst. cnt.", "MSE"),
+            ("Fraction of Synthetic Oversubtraction, %", "Share_Neg_Synthetic"),
+            ("Fraction of Non Near Baseline Pixels, %", "Share_Non_Baseline"),
+            ("Fraction of Negative Connected Pixels, %", "Share_Neg_Connected"),
+            ("Smoothness Metric, intst. cnt.", "Smoothness"),
+        ]
+        fraction_metric_keys = {
+            "Share_Neg_Synthetic",
+            "Share_Non_Baseline",
+            "Share_Neg_Connected",
+        }
+
+        # Loss metrics mapping for weights
+        weight_keys = {
+            "MSE": "MSE",
+            "Share_Neg_Synthetic": "Neg_Synthetic",
+            "Share_Non_Baseline": "Non_Baseline",
+            "Share_Neg_Connected": "Neg_Connected",
+            "Smoothness": "Smoothness"
+        }
+
+        weights = {}
+        if hasattr(self, 'weightMSESpnBx'):
+            weights = {
+                "MSE": self.weightMSESpnBx.value(),
+                "Neg_Synthetic": self.weightNegSynSpnBx.value(),
+                "Non_Baseline": self.weightNonBaselineSpnBx.value(),
+                "Neg_Connected": self.weightNegConSpnBx.value(),
+                "Smoothness": self.weightSmoothSpnBx.value()
+            }
+
+        mapped_keys = {raw_key for _, raw_key in metric_rows}
+        available_keys = set(raw_metrics.keys()) | set(norm_metrics.keys())
+        for key in sorted(available_keys):
+            if key not in mapped_keys and key != "Loss":
+                metric_rows.append((key, key))
+
+        if len(metric_rows) == 0:
+            self._clear_bg_metrics_table()
+            return
+
+        self.bgMetricsTable.setRowCount(len(metric_rows))
+        for row, (label, raw_key) in enumerate(metric_rows):
+            self._set_table_item(row, 0, label)
+            raw_value = raw_metrics.get(raw_key, None)
+            norm_value = norm_metrics.get(raw_key, None)
+            
+            self._set_table_item(row, 1, _to_metric_text(raw_value, as_percent=raw_key in fraction_metric_keys))
+            self._set_table_item(row, 2, _to_metric_text(norm_value))
+
+            # Calculate and set contribution as percentage of total loss
+            contribution_text = "—"
+            if norm_value is not None and loss and float(loss) > 0:
+                w_key = weight_keys.get(raw_key)
+                if w_key and w_key in weights:
+                    contribution_val = (float(norm_value) * float(weights[w_key])) / float(loss)
+                    contribution_text = _to_metric_text(contribution_val, as_contribution=True)
+            
+            self._set_table_item(row, 3, contribution_text)
+   
+
+    # ==== Background Config Table & Configuration Cache ======
+
+    def _set_config_table_item(self, row, col, text):
+        item = QTableWidgetItem(text)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        self.backgroundConfigsTable.setItem(row, col, item)
+
+    def _find_config_row_by_name(self, name):
+        if not hasattr(self, 'backgroundConfigsTable'):
+            return -1
+        for row in range(self.backgroundConfigsTable.rowCount()):
+            item = self.backgroundConfigsTable.item(row, 0)
+            if item is not None and item.text() == name:
+                return row
+        return -1
+
+    def _upsert_background_configuration(self, name, method, params_text, loss_text):
+        row = self._find_config_row_by_name(name)
+        if row < 0:
+            row = self.backgroundConfigsTable.rowCount()
+            self.backgroundConfigsTable.insertRow(row)
+        self._set_config_table_item(row, 0, name)
+        self._set_config_table_item(row, 1, method)
+        self._set_config_table_item(row, 2, params_text)
+        self._set_config_table_item(row, 3, loss_text)
+
+    def _clear_background_configurations_table(self):
+        if hasattr(self, 'backgroundConfigsTable'):
+            self.backgroundConfigsTable.setRowCount(0)
+        self.backgroundConfigurations = []
+        self._on_background_config_selection_changed()
+
+    def _on_background_config_selection_changed(self):
+        if not hasattr(self, 'deleteBackgroundConfigButton'):
+            return
+        has_selection = len(self.backgroundConfigsTable.selectionModel().selectedRows()) > 0
+        self.deleteBackgroundConfigButton.setEnabled(has_selection)
+
+    def _show_background_config_context_menu(self, pos):
+        if not hasattr(self, 'backgroundConfigsTable'):
+            return
+        row = self.backgroundConfigsTable.rowAt(pos.y())
+        if row < 0:
+            return
+        self.backgroundConfigsTable.selectRow(row)
+        menu = QMenu(self)
+        delete_action = menu.addAction("Delete Configuration")
+        chosen = menu.exec_(self.backgroundConfigsTable.viewport().mapToGlobal(pos))
+        if chosen == delete_action:
+            self.deleteSelectedBackgroundConfiguration()
+
+    def deleteSelectedBackgroundConfiguration(self):
+        """Delete selected background configuration row and its in-memory entry."""
+        if not hasattr(self, 'backgroundConfigsTable'):
+            return
+
+        selected_rows = self.backgroundConfigsTable.selectionModel().selectedRows()
+        if len(selected_rows) == 0:
+            QMessageBox.information(self, "Delete Configuration", "Please select a configuration row to delete.")
+            return
+
+        row = selected_rows[0].row()
+        name_item = self.backgroundConfigsTable.item(row, 0)
+        config_name = name_item.text() if name_item is not None else "this configuration"
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Configuration",
+            f"Delete '{config_name}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
         )
-        current_table_layout = QGridLayout(current_summary_frame)
-        current_table_layout.setContentsMargins(6, 4, 6, 4)
-        current_table_layout.setHorizontalSpacing(10)
-        current_table_layout.setVerticalSpacing(4)
+        if reply != QMessageBox.Yes:
+            return
 
-        header_style = "font-weight: 600; color: #444; font-size: 12px;"
-        mode_header = QLabel("Mode")
-        mode_header.setStyleSheet(header_style)
-        method_header = QLabel("Method")
-        method_header.setStyleSheet(header_style)
-        params_header = QLabel("Parameters")
-        params_header.setStyleSheet(header_style)
-        loss_header = QLabel("Loss")
-        loss_header.setStyleSheet(header_style)
+        self.backgroundConfigsTable.removeRow(row)
+        self.backgroundConfigurations = [
+            c for c in self.backgroundConfigurations if c.get('name') != config_name
+        ]
+        self._on_background_config_selection_changed()
+        self._save_background_configurations_to_cache()
 
-        value_style = "font-size: 13px; color: #222;"
-        self.currentBGModeLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGMethodLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGParamsLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGLossLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGModeLabel.setStyleSheet(value_style)
-        self.currentBGMethodLabel.setStyleSheet(value_style)
-        self.currentBGParamsLabel.setStyleSheet(value_style)
-        self.currentBGLossLabel.setStyleSheet(value_style)
+    def addBackgroundConfiguration(self, name=None):
+        """Add current background method/result into Background Configurations table with a user-defined name."""
+        if not self._able_to_process():
+            return
+        parent = self._get_parent_gui()
+        if not name:
+            name, ok = QInputDialog.getText(
+                self,
+                "Save Configuration",
+                "Enter configuration name:"
+            )
+            name = (name or "").strip()
+            if not ok or not name:
+                return
 
-        current_table_layout.addWidget(mode_header, 0, 0)
-        current_table_layout.addWidget(method_header, 0, 1)
-        current_table_layout.addWidget(params_header, 2, 0)
-        current_table_layout.addWidget(loss_header, 2, 1)
-        current_table_layout.addWidget(self.currentBGModeLabel, 1, 0)
-        current_table_layout.addWidget(self.currentBGMethodLabel, 1, 1)
-        current_table_layout.addWidget(self.currentBGParamsLabel, 3, 0)
-        current_table_layout.addWidget(self.currentBGLossLabel, 3, 1)
+        if parent is None or parent.quadFold is None:
+            return
 
-        current_config_layout.addWidget(current_summary_frame, 0, 0, 1, 4)
-        current_config_layout.addWidget(self.addBackgroundConfigButton, 1, 0, 1, 2)
+        result_bg = parent.quadFold.info.get('result_bg', {}) or {}
+        method = result_bg.get('method', None)
+        if method in (None, ""):
+            method = parent.quadFold.info.get('bgsub', 'None')
+
+        params = result_bg.get('final_params', None)
+        config_context = self._get_background_configuration_context()
+        params_text = self._format_bg_params_text(params)
+        loss_value = result_bg.get('loss', None)
+        loss_text = "—" if loss_value is None else _to_metric_text(loss_value)
+
+        self._upsert_background_configuration(
+            name=name,
+            method=str(method),
+            params_text=params_text,
+            loss_text=loss_text,
+        )
+
+        _, _, additional_info = self._get_optimization_cache_file_and_key()
+
+        config_entry = {
+            'name': name,
+            'method': str(method),
+            'params': params if isinstance(params, dict) else None,
+            'loss': loss_value,
+            'downsample': config_context.get('downsample', 1),
+            'smooth_image': config_context.get('smooth_image', False),
+            'additional_info': additional_info or {},
+        }
+        existing_idx = next((i for i, c in enumerate(self.backgroundConfigurations) if c.get('name') == name), -1)
+        if existing_idx >= 0:
+            self.backgroundConfigurations[existing_idx] = config_entry
+        else:
+            self.backgroundConfigurations.append(config_entry)
+        self._save_background_configurations_to_cache()
+
+    ### Configration cache management
+    def _get_optimization_cache_file_and_key(self):
+        """Build shared optimization cache path/key matching QuadrantFolder."""
+        parent = self._get_parent_gui()
+        if parent is None or not getattr(parent, "filePath", None):
+            return None, None, None
+
+        cache_dir = fullPath(parent.filePath, "qf_cache")
+        createFolder(cache_dir)
+        cache_file = fullPath(cache_dir, "background_cache.json")
+
+        flags = parent.getFlags() if parent is not None else {}
+        dataset_key = Path(parent.filePath).resolve().name
+        additional_info = {
+            'methods': flags.get('methods', []),
+            'steps': flags.get('steps', []),
+            'early_stop': flags.get('early_stop', 0.01),
+            'max_iterations': flags.get('max_iterations', 15),
+            'mean_metric_values': flags.get('mean_metric_values', None),
+            'metric_weights': flags.get('metric_weights', None),
+            'detector': flags.get('detector', None),
+            'orientation_model': flags.get('orientation_model', None),
+        }
+        return cache_file, dataset_key, additional_info
+
+    def _get_background_configuration_context(self):
+        parent = self._get_parent_gui()
+        flags = parent.getFlags() if parent is not None else {}
+        return {
+            'downsample': int(flags.get('downsample', 1) or 1),
+            'smooth_image': bool(flags.get('smooth_image', False)),
+        }
+    
+    def _save_background_configurations_to_cache(self):
+        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        if not cache_file or cache_key is None:
+            return
+
+        try:
+            set_user_background_configurations(
+                cache_file,
+                cache_key,
+                self.backgroundConfigurations,
+                additional_info=additional_info,
+            )
+        except Exception as e:
+            print(f"Failed to save background configurations to cache: {e}")
+
+    def _load_background_configurations_from_cache(self):
+        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        self._clear_background_configurations_table()
+        if not cache_file or cache_key is None:
+            return
+
+        try:
+            configs = get_user_background_configurations(cache_file, cache_key)
+        except Exception as e:
+            print(f"Failed to load background configurations from cache: {e}")
+            return
+
+        for config in configs:
+            name = str(config.get('name', '') or '').strip()
+            method = str(config.get('method', 'None') or 'None')
+            params = config.get('params', {}) if isinstance(config.get('params', {}), dict) else {}
+            loss_value = config.get('loss', None)
+            downsample = int(config.get('downsample', 1) or 1)
+            smooth_image = bool(config.get('smooth_image', False))
+            row_additional_info = config.get('additional_info', additional_info)
+            params_text = self._format_bg_params_text(params)
+            loss_text = "—" if loss_value is None else _to_metric_text(loss_value)
+
+            if not name:
+                name = f"Config {self.backgroundConfigsTable.rowCount() + 1}"
+
+            self._upsert_background_configuration(
+                name=name,
+                method=method,
+                params_text=params_text,
+                loss_text=loss_text,
+            )
+
+            self.backgroundConfigurations.append({
+                'name': name,
+                'method': method,
+                'params': params,
+                'loss': loss_value,
+                'downsample': downsample,
+                'smooth_image': smooth_image,
+                'additional_info': row_additional_info,
+            })
+
+        self._on_background_config_selection_changed()
+    
+    def _read_background_configurations(self):
+        """
+        Read saved user background configurations from cache for the current folder context.
+        Returns only minimally valid rows (method + params dict).
+        """
+        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        if not cache_file or cache_key is None:
+            return []
+
+        try:
+            configs = get_user_background_configurations(cache_file, cache_key)
+        except Exception as e:
+            print(f"Failed to read background configurations for batch processing: {e}")
+            return []
+
+        cleaned = []
+        for config in configs:
+            if not isinstance(config, dict):
+                continue
+            method = str(config.get('method', '') or '').strip()
+            params = config.get('params', {})
+            if not method or not isinstance(params, dict):
+                continue
+            cleaned.append({
+                'name': str(config.get('name', '') or '').strip(),
+                'method': method,
+                'params': dict(params),
+            })
+        return cleaned
+
+
+    # ===== Manual Assignment for Batch Processing ======
+    def _on_manual_assignment_accepted(self, dialog):
+        self.manualBackgroundAssignments = dialog.get_assignments()
+        QMessageBox.information(
+            self,
+            "Manual Assignment",
+            f"Saved manual assignments for {len(self.manualBackgroundAssignments)} image(s)."
+        )
+
+    def openManualBackgroundAssignmentsDialog(self):
+        """Open dialog to manually assign saved background configurations to images."""
+        parent = self._get_parent_gui()
+        if parent is None or parent.file_manager is None or not parent.file_manager.names:
+            QMessageBox.information(self, "Manual Assignment", "Please load a folder with images first.")
+            return
+
+        config_names = [str(c.get('name', '') or '').strip() for c in self.backgroundConfigurations]
+        config_names = [n for n in config_names if n]
+        if len(config_names) == 0:
+            QMessageBox.information(
+                self,
+                "Manual Assignment",
+                "No saved background configurations are available. Add configurations first."
+            )
+            return
+
+        dialog = ManualBackgroundAssignmentDialog(
+            image_names=parent.file_manager.names,
+            configuration_names=config_names,
+            current_assignments=self.manualBackgroundAssignments,
+            parent=self,
+        )
+        dialog.accepted.connect(lambda: self._on_manual_assignment_accepted(dialog))
+        dialog.show()
+
+    def _resolve_manual_background_assignments_for_batch(self, configurations):
+        """
+        Resolve manual image->configuration-name selections into image->configuration records.
+        """
+        if not isinstance(configurations, list) or len(configurations) == 0:
+            return {}
+
+        config_by_name = {}
+        for config in configurations:
+            if not isinstance(config, dict):
+                continue
+            name = str(config.get('name', '') or '').strip()
+            method = str(config.get('method', '') or '').strip()
+            params = config.get('params', {})
+            if not name or not method or not isinstance(params, dict):
+                continue
+            config_by_name[name] = {
+                'name': name,
+                'method': method,
+                'params': dict(params),
+            }
+
+        resolved = {}
+        for img_name, cfg_name in (self.manualBackgroundAssignments or {}).items():
+            cfg_key = str(cfg_name or '').strip()
+            if cfg_key in config_by_name:
+                resolved[str(img_name)] = copy.deepcopy(config_by_name[cfg_key])
+        return resolved
+    
 
 
 
 
 
 
-        commonLayout.addWidget(self.rminGroup)
-        commonLayout.addWidget(self.imageProcGroup)
-        commonLayout.addWidget(self.subtractionGroup)
-        # commonLayout.addStretch(1)
-
-        evaluationLayout.addWidget(self.evalMaskGroup)
-        evaluationLayout.addWidget(self.metricWeightsGroup)
-        evaluationLayout.addWidget(self.normalizationMeansGroup)
-        # evaluationLayout.addStretch(1)
-
-        evaluationMetricsGroupLayout = QVBoxLayout(self.evaluationMetricsGroup)
-        evaluationMetricsGroupLayout.addWidget(self.evalGroup)
-
-        container_layout.addWidget(self.settingsGroup)
-        container_layout.addWidget(self.evaluationGroup)
-        
-        container_layout.addWidget(self.applyBGButton)
-        container_layout.addWidget(self.evaluationMetricsGroup)
-        
-        container_layout.addWidget(self.batchProcessingGroup)
 
 
-        container_layout.addStretch(1)
 
-        scroll_area.setWidget(container)
-        main_layout.addWidget(scroll_area)
-        # main_layout.addWidget(self.applyBGButton)
+# === Utility Functions for Metrics Formatting ===
+def _to_metric_text(value, as_percent=False, as_contribution=False):
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+        if as_contribution:
+            # Format as "+ X.X%" or "0.0%"
+            prefix = "+" if numeric > 0.004 else ""
+            return f"{prefix}{numeric * 100:.0f} %"
+        if as_percent:
+            return f"{numeric * 100:.0f} %"
+        return f"{numeric:.2f}"
+    except Exception:
+        return str(value)
+
+def _fraction_to_percent_for_ui(value):
+    """Map stored fraction values (0..1) to percentage UI values (0..100)."""
+    try:
+        numeric = float(value)
+    except Exception:
+        return value
+    if 0.0 <= numeric <= 1.0:
+        return numeric * 100.0
+    return numeric
+
+def _percent_to_fraction_for_flags(value):
+    """Map percentage UI values (0..100) to stored fraction values (0..1)."""
+    try:
+        return float(value) / 100.0
+    except Exception:
+        return value

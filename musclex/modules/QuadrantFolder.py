@@ -162,6 +162,12 @@ class QuadrantFolder:
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
         return None
+
+    def _check_stop(self):
+        if self.parent is not None and getattr(self.parent, "stop_process", False):
+            self.info['stopped'] = True
+            return True
+        return False
     
     def _clearDependentCaches(self):
         """
@@ -215,6 +221,7 @@ class QuadrantFolder:
         """
         print(str(self.img_name) + " is being processed...")
 
+        self.info.pop('stopped', None)
         self.updateInfo(flags)
         self.initParams()
         
@@ -254,13 +261,14 @@ class QuadrantFolder:
         self.calculateAvgFold()
         self.getRminmax()
         self.createMask()
-
-        # try:
-        
         self.createArtificialData()
         self.smoothFold()
         self.downsampleImage()
+        if self._check_stop():
+            return
         self.searchBackground()
+        if self._check_stop():
+            return
         # self.applyBackgroundSubtraction()
         # except Exception as e:
         #     print("ERROR: Background subtraction failed.")
@@ -271,8 +279,6 @@ class QuadrantFolder:
 
         if "no_cache" not in flags:
             self.cacheInfo()
-
-
         self.parent.statusPrint("")
 
 
@@ -904,8 +910,8 @@ class QuadrantFolder:
         m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info['rmin'])
         auto_y_height = ((m1_peak * 2) +  eq_fwhm) //2
         auto_y_height = max(30, auto_y_height)
-        y_height = int(self.info.get('equator_y_height', auto_y_height))
-        self.info['equator_y_height'] = y_height
+        y_height = int(self.info.get('equator_mask_height', auto_y_height))
+        self.info['equator_mask_height'] = y_height
         self.parent.statusPrint(f"Equator width for eval mask: {y_height}.")
         mask = create_rectangle_mask(h, w, x_length=w, y_height=y_height)
         return mask.astype(int)
@@ -973,10 +979,10 @@ class QuadrantFolder:
 
 
     def createArtificialData(self):
-        AMP = 0.01
-        SIGMA_X_DIV = 5
-        SIGMA_Y_DIV = 10
-        FREQ = 'medium'
+        amp = float(self.info.get('amp', 0.01))
+        sigma_x_div = max(float(self.info.get('sigma_x_div', 5.0)), 1e-6)
+        sigma_y_div = max(float(self.info.get('sigma_y_div', 10.0)), 1e-6)
+        freq = str(self.info.get('freq', 'medium')).lower()
 
         fullImg = makeFullImage(self.info['avg_fold'])
 
@@ -985,21 +991,26 @@ class QuadrantFolder:
         m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
         m1 = 50 if abs(m1-50) > 50 else m1
 
-        if FREQ == 'sparce':
+        if freq == 'sparse':
             offset_x = int(i0 / 2)
             step_x = int(i0*2)
             offset_y = int(m1 / 2)
             step_y = int(m1*2)
-        elif FREQ == 'medium':
+        elif freq == 'medium':
             offset_x = int(i0 / 2)
             step_x = int(i0)
             offset_y = int(m1 / 2)
             step_y = int(m1)
-        elif FREQ == 'dense':
+        elif freq == 'dense':
             offset_x = int(i0 / 4)
             step_x = int(i0 / 2)
             offset_y = int(m1 / 4)
             step_y = int(m1 / 2)
+        else:
+            offset_x = int(i0 / 2)
+            step_x = int(i0)
+            offset_y = int(m1 / 2)
+            step_y = int(m1)
     
         grid = get_grid(image_shape=fullImg.shape, 
             step_x=step_x, step_y=step_y, 
@@ -1007,11 +1018,11 @@ class QuadrantFolder:
         
         equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
 
-        amplitude = equator_half[i0] * AMP * i0
+        amplitude = equator_half[i0] * amp * i0
         amplitude = 4000 if amplitude < 4000 else amplitude
 
-        sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
-        sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
+        sigma_x = i0 / sigma_x_div / (2 * np.sqrt(2 * np.log(2)))
+        sigma_y = m1 / sigma_y_div / (2 * np.sqrt(2 * np.log(2)))
 
         print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
 
@@ -1182,11 +1193,10 @@ class QuadrantFolder:
         folded_image = makeFullImage(self.info['avg_fold'])
 
         kwargs = {
-            # 'steps': self.info['steps'],
-            # 'early_stop': self.info['early_stop'],
+            'steps': self.info['steps'],
+            'early_stop': self.info['early_stop'],
             'max_iterations': self.info['max_iterations'],
-            # 'refine_params': -1,
-            # 'integers': True,
+            'evaluation_baseline': self.info['evaluation_baseline'],  
             'tmp_avg_fold': self.info['_avg_fold'],
             'avg_fold': self.info['avg_fold'],
             'tmp_rmin': self.info['_rmin'],
@@ -1366,6 +1376,14 @@ class QuadrantFolder:
                 while done < total:
                     done = sum(1 for ar in async_results if ar.ready())
 
+                    if self._check_stop():
+                        try:
+                            pool.terminate()
+                            pool.join()
+                        finally:
+                            self.info['optimize'] = False
+                        return
+
                     # Allow GUI hosts to pump pending UI events while optimization runs.
                     # (No-op in headless mode.)
                     if hasattr(self.parent, 'processPendingEvents'):
@@ -1376,9 +1394,9 @@ class QuadrantFolder:
 
                     now = time.time()
                     # Throttle status updates to avoid flooding
-                    if now - last_report_t > 5:
+                    if now - last_report_t > 30:
                         self.parent.statusPrint(
-                            f"Optimizing background subtraction... {done}/{total} method(s) complete. Time: {int(now - start)}s"
+                            f"Optimizing background subtraction... {done}/{total} method(s) complete. Elasped time: {int(now - start)}s"
                         )
                         last_report_t = now
                     time.sleep(0.5)
@@ -1415,6 +1433,8 @@ class QuadrantFolder:
             self.info['bgsub'] = best_method
             for key, value in best_params.items():
                 self.info[f"{key}"] = value
+
+            self.info['optimize'] = False  # reset optimization flag after applying best params
 
         elif self.info['result_bg']['method'] is not None and self.info['result_bg']['final_params'] is not None:
             method = self.info['result_bg']['method']
@@ -1553,6 +1573,12 @@ class QuadrantFolder:
         bg_scaled = self._applyTransformations(bg)
         self.imgCache['resultBg'] = bg_scaled
 
+        baseline = self.info.get('evaluation_baseline', None)
+        if baseline is None or float(baseline) <= 0.0:
+            baseline = get_radial_average_rmax(result_scaled + bg_scaled, self.info['rmax'], band_width=30) * 0.2
+            baseline = max(float(baseline), 0.0001)
+            self.info['evaluation_baseline'] = baseline
+
         if self.info["bgsub"] == 'None':
             self.info['resultFolded'] = result_scaled
         else:
@@ -1596,7 +1622,11 @@ class QuadrantFolder:
         result = self.imgCache['resultImg']
         bg = self.imgCache.get('resultBg', None)
 
-        baseline = get_radial_average_rmax(result+bg, self.info['rmax'], band_width=30)*0.2
+        baseline = self.info.get('evaluation_baseline', None)
+        if baseline is None or float(baseline) <= 0.0:
+            baseline = get_radial_average_rmax(result + bg, self.info['rmax'], band_width=30) * 0.2
+            self.info['evaluation_baseline'] = baseline
+        baseline = max(float(baseline), 0.0001)
         syn_srt = self.info.get('synthetic_data', None)
         syn_mask = self.info.get('synthetic_mask', None)
         syn_fold = self.info.get('bgsubimg_syn', None)
@@ -1621,6 +1651,7 @@ class QuadrantFolder:
         self.info['result_bg']['metric_weights'] = eval_result.get('metric_weights', None)
         self.info['result_bg']['intensity'] = np.sum(bg)
 
+        print("Evaluation complete. Loss: ", self.info['result_bg']['loss'])
 
 
     def statusPrint(self, text):

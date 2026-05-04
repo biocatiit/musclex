@@ -353,7 +353,7 @@ def get_grid(image_shape=(1000, 1000), \
 MEAN_METRIC_VALUES = {
     "SHARE_NON_BASELINE_MEAN": 0.35,
     "MSE_SYN_MEAN": 100,
-    "SMOOTH_MEAN": 0.03,
+    "SMOOTH_MEAN": 30.0, #0.03,
     "SHARE_NEG_SYN_MEAN": 0.20,
     "SHARE_NEG_CON_MEAN": 0.07,
     }
@@ -376,7 +376,7 @@ def full_eval_metrics(dimg, dbg, syn_img, syn_str, syn_mask, gen_mask, baseline_
         mse = artificial_data_mse(syn_img, syn_str, syn_mask, gen_mask, normalize=True)
         share_neg_synthetic = share_neg_syn(syn_img, syn_str, syn_mask)
     
-    share_non_baseline_pixels = share_non_baseline(dimg, baseline_value, gen_mask, clip=[2,5])
+    share_non_baseline_pixels = share_non_baseline(dimg, baseline_value, gen_mask)
     share_neg_connected = share_neg_con(dimg, gen_mask, min_pixels=min_neg_con_pixels)
     smoothness_value = smoothness(dimg, dbg, gen_mask)
 
@@ -446,8 +446,7 @@ def share_neg_syn(dimg, syn_str, syn_mask):
 #     return share_neg
 
 
-def share_non_baseline(dimg, baseline_value, mask_equator, clip=[2,5]):
-    baseline_value = np.clip(baseline_value, clip[0], clip[1])
+def share_non_baseline(dimg, baseline_value, mask_equator):
     dimg = dimg * mask_equator
     non_baseline_pixels = np.sum(dimg > baseline_value)
     total_pixels = np.sum(mask_equator)
@@ -475,11 +474,12 @@ def smoothness(dimg, dbg, mask_equator):
     dy = dy * mask_equator[:-1, :]  # Mask only valid rows
     denominator = np.sum((dimg + dbg) * mask_equator)
     smoothness_value = np.sum(dy) / denominator if denominator > 0 else 0.0
+    smoothness_value *= 1000
     return smoothness_value
 
 
 def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mean_metric_values=None, metric_weights=None, return_details=False):
-    
+
     normalized_metrics = full_eval_metrics(
         dimg,
         dbg,
@@ -505,6 +505,10 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mea
         metric_weights=metric_weights,
     )
     
+    print("Evaluation Metrics (raw):")
+    for key, value in raw_metrics.items():
+        print(f"{key}: {value:.4f}")
+
     print("Evaluation Metrics (normalized):")
     for key, value in normalized_metrics.items():
         print(f"{key}: {value:.4f}")
@@ -552,7 +556,7 @@ def applyWhiteTophat(img, radius):
     tophat = cv2.morphologyEx(img32, cv2.MORPH_TOPHAT, kernel, borderType=cv2.BORDER_REPLICATE)
     return img-tophat
 
-def applySmoothedBGSub(fold, center, fwhm=15, boxcar_x=15, boxcar_y=15, cycles=250, typ='gauss'):
+def applySmoothedBGSub(fold, fwhm=15, boxcar_x=15, boxcar_y=15, cycles=250, typ='gauss'):
     """
     Apply the Iterative Low Pass Filter Background Subtraction.
     :param typ: type of the subtraction, default to 'gauss', other option is 'boxcar'
@@ -710,9 +714,9 @@ def applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
     elif method == 'Roving Window':
         bg = applyRovingWindowBGSub(tmp_avg_fold, tmp_center, win_size_x=params["win_size_x"], win_size_y=params["win_size_y"], win_sep_x=params["win_sep_x"], win_sep_y=params["win_sep_y"], smooth=params["smooth"], tension=params["tension"], pc1=params["cirmin"], pc2=params["cirmax"])
     elif method == 'Smoothed-Gaussian':
-        bg = applySmoothedBGSub(tmp_avg_fold, tmp_rmin, params["fwhm"], params["cycles"], typ='gauss')
+        bg = applySmoothedBGSub(fold=tmp_avg_fold, fwhm=params["fwhm"], cycles=params["cycles"], typ='gauss')
     elif method == 'Smoothed-BoxCar':
-        bg = applySmoothedBGSub(tmp_avg_fold, tmp_rmin, params["boxcar_x"], params["boxcar_y"], params["cycles"], typ='boxcar')
+        bg = applySmoothedBGSub(fold=tmp_avg_fold, boxcar_x=params["boxcar_x"], boxcar_y=params["boxcar_y"], cycles=params["cycles"], typ='boxcar')
     else:
         print(f"Unknown background removal method: {method}. Not applying background removal.")
         bg = np.zeros_like(avg_fold)
@@ -767,7 +771,8 @@ def optimize_mp_wrapper(method, **kwargs):
 def optimize(method, **kwargs):
     
     steps = kwargs.get('steps', [10, 7, 5, 3, 1])
-    early_stop = kwargs.get('early_stop', 0.0001)
+    early_stop = kwargs.get('early_stop', 0.01)
+    print(f"Optimization parameters: steps={steps}, early_stop={early_stop}")
     max_iterations = kwargs.get('max_iterations', 15)
     refine_params = kwargs.get('refine_params', -1)
 
@@ -781,7 +786,7 @@ def optimize(method, **kwargs):
     cur_params = initial_params.copy()
     all_results = []
     history = {}    
-
+    done = False
     param_order = method_order[method]
     
     # log("\n>_ Main optimization loop:")
@@ -803,7 +808,7 @@ def optimize(method, **kwargs):
             candidates = [max(bounds[param_idx][0], min(bounds[param_idx][1], v)) for v in candidates]
             candidates = sorted(set(candidates))  # Remove duplicates
             improved = False
-            # log(f" Testing candidates: {candidates} with step size {step}")
+            log(f"Iteration #{iter}. Testing candidates: {candidates} with step size {step}")
             for v in candidates:
                 test_params = cur_params.copy()
                 test_params[param_idx] = v
@@ -814,7 +819,10 @@ def optimize(method, **kwargs):
                     history[tuple(test_params)] = loss
                     all_results.extend(result)
                 log(f"  Param {param_idx} = {v}, Loss = {loss:.6f}")
-                if loss < best_loss - early_stop:
+                if loss < best_loss:
+                    if  best_loss - loss < early_stop:
+                        log(f"  Early stopping: improvement {best_loss - loss:.6f} is less than threshold {early_stop}. Stopping optimization for this parameter.")
+                        done=True
                     best_loss = loss
                     best_value = v
                     improved = True
@@ -825,13 +833,15 @@ def optimize(method, **kwargs):
             iter += 1
             if iter >= max_iterations:
                 log(f"Reached maximum iterations ({max_iterations}) for parameter {param_idx+1}. Stopping optimization for this parameter.")
+                done=True
+            if done:
                 break
         cur_params[param_idx] = best_value
         # log(f"Best value for param {param_idx+1}: {best_value}, Loss: {best_loss:.6f}")
 
+    best_params = cur_params.copy()
     # --- Final refinement: grid search with last three step sizes ---
     final_steps = steps[-2:-1]  # last two step sizes
-    best_params = cur_params.copy()
     best_loss, result = process_file_with_timeout(best_params, method=method, **kwargs)
     improved = False
 
@@ -941,7 +951,7 @@ def process_file(values=None, **kwargs):
     # dimg = _match_shape_to_mask(dimg, orig_img.shape)
 
     dbg = orig_img - dimg
-    baseline = get_radial_average_rmax(dimg+dbg, kwargs['rmax'], band_width=30)*0.2
+    baseline = kwargs.get('evaluation_baseline', None)
     syn_srt = kwargs.get('synthetic_data', None)
     syn_mask = kwargs.get('synthetic_mask', None)
     gen_mask = kwargs.get('mask', None)

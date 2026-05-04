@@ -341,7 +341,7 @@ class QuadrantFoldingh:
         flags['optimize'] = True
         flags['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric'] #, 'Smoothed-BoxCar']
         flags['steps']  = [50, 30, 10, 7, 5, 3, 1]
-        flags['early_stop'] = 0.0007
+        flags['early_stop'] = 0.01
         flags['max_iterations'] = 15
 
         if self.calSettings is not None:
