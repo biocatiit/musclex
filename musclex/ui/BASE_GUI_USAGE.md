@@ -435,13 +435,9 @@ class QuadrantFoldingGUI(BaseGUI):
         """Add quadrant-specific display options"""
         self.showSeparator = QCheckBox("Show Quadrant Separator")
         self.showSeparator.setChecked(True)
-        
-        self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image")
-        self.cropFoldedImageChkBx.setChecked(False)
-        
+
         # Add to display panel
         self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
-        self.image_viewer.display_panel.add_to_top_slot(self.cropFoldedImageChkBx)
     
     def _create_quadrant_settings(self):
         """Add quadrant-specific settings to right panel"""

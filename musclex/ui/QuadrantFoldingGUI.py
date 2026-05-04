@@ -508,14 +508,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.showSeparator.setChecked(True)
         self.showSeparator.setToolTip("Draw the horizontal/vertical lines separating the four quadrants on the result image")
 
-        self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
-        self.cropFoldedImageChkBx.setChecked(False)
-        self.cropFoldedImageChkBx.setToolTip(
-            "Also save the folded image cropped back to the original input dimensions, in addition to the standard square output")
-        
         # Add quadrant-specific options to display panel's top slot
         self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
-        self.image_viewer.display_panel.add_to_top_slot(self.cropFoldedImageChkBx)
         
         # QuadrantFolding-specific: start with 0 decimals
         self.spminInt.setDecimals(0)
@@ -1173,7 +1167,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
-        self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
 
         self.showRminChkBx.stateChanged.connect(self.toggleCircleRmin)
@@ -1290,13 +1283,6 @@ class QuadrantFoldingGUI(BaseGUI):
             # Set the minimum width when only buttons are showing
             self.leftWidget.setMinimumWidth(650)
 
-
-    def cropFoldedImageChanged(self):
-        """
-        Handle when the crop to original size checkbox is checked or unchecked
-        """
-        if self.quadFold is not None and not self.uiUpdating:
-            self.saveResults()
 
     def compressFoldedImageChanged(self):
         """
@@ -2922,16 +2908,14 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def saveResults(self, full_process=True):
         """
-        Save the result image to qf_results in the variant the user
-        requested via the Crop / Compress checkboxes.
+        Save the result image to qf_results.
 
-        Filename rules (uncropped variants are eligible for fast-path
-        reuse next session; the cropped variants are not, because crop
-        is destructive):
-          - both unchecked        -> <name>_folded.tif
-          - compress only         -> <name>_folded_compressed.tif
-          - crop only             -> <name>_folded_cropped.tif
-          - crop + compress       -> <name>_folded_cropped_compressed.tif
+        Filename rules:
+          - compress unchecked  -> <name>_folded.tif
+          - compress checked    -> <name>_folded_compressed.tif
+
+        Both variants are full-size copies of resultImg and are eligible
+        for fast-path reload next session.
 
         :param full_process: True if the slow-path ran (process() did
             the full pipeline). When False (fast-path), bg.tif from a
@@ -2952,26 +2936,15 @@ class QuadrantFoldingGUI(BaseGUI):
         base, _ = splitext(str(join(result_path, self.quadFold.img_name)))
         img = self.quadFold.imgCache['resultImg'].astype("float32")
 
-        crop = self.cropFoldedImageChkBx.isChecked()
         compress = self.compressFoldedImageChkBx.isChecked()
 
         try:
-            if crop:
-                ylim, xlim = self.quadFold.initImg.shape
-                xlim, ylim = int(xlim / 2), int(ylim / 2)
-                cx, cy = self.quadFold.center
-                xl, xh = (cx - xlim, cx + xlim)
-                yl, yh = (cy - ylim, cy + ylim)
-                payload = img[max(yl, 0):yh, max(xl, 0):xh]
-                suffix = '_folded_cropped_compressed.tif' if compress else '_folded_cropped.tif'
-            else:
-                payload = img
-                suffix = '_folded_compressed.tif' if compress else '_folded.tif'
+            suffix = '_folded_compressed.tif' if compress else '_folded.tif'
             out_file = base + suffix
             if compress:
-                Image.fromarray(payload).save(out_file, compression='tiff_lzw')
+                Image.fromarray(img).save(out_file, compression='tiff_lzw')
             else:
-                fabio.tifimage.tifimage(data=payload).write(out_file)
+                fabio.tifimage.tifimage(data=img).write(out_file)
         except Exception as e:
             print("Error saving image", e)
             if self.batchProcessing and hasattr(self, 'saveErrors'):
@@ -3061,16 +3034,6 @@ class QuadrantFoldingGUI(BaseGUI):
             if 'orientation_model' in info:
                 # Update Panel's orientation model from cached info
                 self.workspace._orientation_model = info['orientation_model']
-            if not self.zoomOutClicked and self.quadFold.initImg is not None:
-                _, center = self.getExtentAndCenter()
-                print(center)
-                cx, cy = center
-                cxr, cyr = self.quadFold.center
-                print(self.quadFold.initImg)
-                xlim, ylim = self.quadFold.initImg.shape
-                xlim, ylim = int(xlim/2), int(ylim/2)
-                self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
-                self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
         except:
             print("EXCEPTION IN UPDATE PARAMS")
         else:
@@ -3604,11 +3567,7 @@ class QuadrantFoldingGUI(BaseGUI):
             # Initialize widgets with previous info
             self.initialWidgets(original_image, previnfo)
             self.markFixedInfo(self.quadFold.info, previnfo)
-            
-            # Handle crop checkbox
-            if 'saveCroppedImage' not in self.quadFold.info:
-                self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
-        
+
         # Update workspace display (includes blank/mask states)
         self.workspace.update_display(self.current_image_data)
 

@@ -53,10 +53,6 @@ By selecting this option, the resulting quadrant folded image (which is saved in
 .. note:: This compression format might create errors when you open the resulting Quadrant folded images through another software than MuscleX.
 ```
 
-##### Save Cropped Image Checkbox
-As discussed in the working of Quadrant Folding, we enlarge the image such that the diffraction center is at the center of the resulting image.
-By selecting this option the resulting quadrant folded image (which is saved in qf_results) is cropped such that the size of the image is same as the original input image size.
-
 ##### Quick Center and Rotation Angle
 
 ```eval_rst

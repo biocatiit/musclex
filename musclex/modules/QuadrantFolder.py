@@ -103,7 +103,6 @@ class QuadrantFolder:
         self.ignoreFolds = set()
         self.version = __version__
         cache = self.loadCache() # load from cache if it's available
-        self.initImg = None
         self.centImgTransMat = None # Centerize image transformation matrix
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
@@ -313,10 +312,8 @@ class QuadrantFolder:
         """
         Return the on-disk paths that the fast-path will try, in order.
 
-        We accept both _folded.tif and _folded_compressed.tif because
-        either is a faithful, full-size copy of resultImg. _folded_cropped*
-        variants are excluded -- cropping is destructive and would break
-        GUI coordinate handling on reload.
+        We accept both _folded.tif and _folded_compressed.tif: either is
+        a faithful, full-size copy of resultImg.
 
         The filename convention matches the GUI/headless save path,
         which strips the original image extension before appending the
