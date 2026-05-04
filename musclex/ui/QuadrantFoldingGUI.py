@@ -604,31 +604,13 @@ class QuadrantFoldingGUI(BaseGUI):
         current_section, current_layout = _make_section("Current Configuration")
         # TODO: define table in one place to be reused in the pop up window
 
-        current_summary_widget = QWidget()
-        current_summary_widget.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        form = QFormLayout(current_summary_widget)
-        form.setContentsMargins(6, 4, 6, 4)
-        form.setHorizontalSpacing(8)
-        form.setVerticalSpacing(4)
-
-        value_style = "font-size: 13px; color: #222;"
-        self.currentBGMethodLabelMain.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGParamsLabelMain.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGLossLabelMain.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.currentBGMethodLabelMain.setStyleSheet(value_style)
-        self.currentBGParamsLabelMain.setStyleSheet(value_style)
-        self.currentBGLossLabelMain.setStyleSheet(value_style)
-
-        field_label_style = "font-size: 11px; font-weight: 700; color: #444;"
-        method_label = QLabel("Method:")
-        method_label.setStyleSheet(field_label_style)
-        params_label = QLabel("Parameters:")
-        params_label.setStyleSheet(field_label_style)
-        loss_label = QLabel("Loss:")
-        loss_label.setStyleSheet(field_label_style)
-        form.addRow(method_label, self.currentBGMethodLabelMain)
-        form.addRow(params_label, self.currentBGParamsLabelMain)
-        form.addRow(loss_label, self.currentBGLossLabelMain)
+        current_summary_widget = BackgroundSubtractionDialog.build_current_config_summary_widget(
+            method_label=self.currentBGMethodLabelMain,
+            params_label=self.currentBGParamsLabelMain,
+            loss_label=self.currentBGLossLabelMain,
+            title=None,
+            min_params_width=320,
+        )
 
         current_layout.addWidget(current_summary_widget, 1, 0, 1, 4)
 

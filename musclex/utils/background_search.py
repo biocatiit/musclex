@@ -4,9 +4,17 @@ import cv2
 import numpy as np
 from scipy.signal import find_peaks, peak_widths
 from scipy import ndimage
-from ..modules.QF_utilities import replaceRmin
+from scipy.ndimage.filters import gaussian_filter, convolve1d
+
 from. background_search_utils import *
 from ..converted_fortran.converted_fortran import *
+try:
+    from ..utils.histogram_processor import *
+    from ..utils.image_processor import *
+except: # for coverage
+    from utils.histogram_processor import *
+    from utils.image_processor import *
+
 
 # =============== Utils for Masking ===============
 
@@ -545,6 +553,64 @@ def padToShape(img, target_shape=None):
     return img
 
 
+
+def apply2DConvexhull(img, rmin, step=1):
+    """
+    Apply 2D Convex hull Background Subtraction to average fold
+    """
+    from ..modules import QF_utilities as qfu
+    center = [img.shape[1] - 1, img.shape[0] - 1]
+    rmax = img.shape[0] + 10
+
+    hist_x = list(np.arange(rmin, rmax + 1))
+    pchiplines = []
+
+    det = "agilent_titan"
+    npt_rad = int(distance(center, (0, 0)))
+    ai = AzimuthalIntegrator(detector=det)
+    ai.setFit2D(100, center[0], center[1])
+
+    integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+    step = 1 if step not in [0.5, 1, 2, 3, 5, 9, 10, 15, 18] else step
+    for deg in np.arange(180, 270 + step, step):
+
+        if deg == 180 :
+            start_deg = 180
+            end_deg = 180 + step/2
+        elif deg >= 270:
+            start_deg=270 - step/2
+            end_deg=270
+        else:
+            start_deg=deg-step/2
+            end_deg=deg+step/2
+
+        # Integrate the image and base image to get the volume
+        _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg), correctSolidAngle=False)
+        hist_y = I[int(rmin):int(rmax+1)]
+        hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
+
+        hull_x, hull_y = getHull(hist_x, hist_y)
+        y_pchip = pchip(hull_x, hull_y, hist_x)
+        pchiplines.append(y_pchip)
+
+    # Smooth each histogram by radius
+    pchiplines = np.array(pchiplines, dtype="float32")
+    pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
+
+    # Smooth between neighboring histograms
+    pchiplines3 = weighted_neighborhood_average(pchiplines2, weights=[0.25, 0.5, 0.25])
+
+    # Produce Background from each pchip line
+    background = qfu.make2DConvexhullBG2(pchiplines3, img.shape[1], img.shape[0], center[0], center[1], rmin, rmax, step)
+
+    # Smooth background image by gaussian filter
+    s = 10
+    w = 4
+    t = (((w - 1.) / 2.) - 0.5) / s
+    background = gaussian_filter(background, sigma=s, truncate=t)
+    return background
+
+
 def applyWhiteTophat(img, radius):
     """
     Fast white top-hat using OpenCV
@@ -705,8 +771,11 @@ def applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
     """
     Apply background removal 
     """
+    from ..modules import QF_utilities as qfu
     if method == 'None':
         bg = np.zeros_like(avg_fold)
+    elif method == '2D Convexhull':
+        bg = apply2DConvexhull(tmp_avg_fold, tmp_rmin, params['degree'])
     elif method == 'White-top-hats':
         bg = applyWhiteTophat(tmp_avg_fold, params["tophat"])
     elif method == 'Circularly-symmetric':

@@ -31,9 +31,7 @@ import json
 import pickle
 import time
 import multiprocessing as mp
-from scipy.ndimage.filters import gaussian_filter, convolve1d
-from scipy.interpolate import UnivariateSpline
-from skimage.morphology import white_tophat, disk
+
 #import ccp13
 from ..converted_fortran.converted_fortran import *
 from pyFAI.method_registry import IntegrationMethod
@@ -47,7 +45,7 @@ try:
     from ..utils.background_search import *
     from ..utils.image_data import ImageData
 except: # for coverage
-    from modules import QF_utilities as qfu
+    # from modules import QF_utilities as qfu
     from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
     from utils.histogram_processor import *
     from utils.image_processor import *
@@ -533,302 +531,302 @@ class QuadrantFolder:
     
         
         
-    def applyAngularBGSub(self):
-        """
-        Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
-        """
+    # def applyAngularBGSub(self):
+    #     """
+    #     Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
+    #     """
 
-        copy_img = copy.copy(self.info['_avg_fold'])
-        center = [copy_img.shape[1]-1, copy_img.shape[0]-1]
-        npt_rad = int(distance(center,(0,0)))
-        det = find_detector(copy_img, man_det=self.info['detector']) if 'detector' in self.info else find_detector(copy_img)
-        ai = AzimuthalIntegrator(detector=det)
-        ai.setFit2D(100, center[0], center[1])
-        mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
+    #     copy_img = copy.copy(self.info['_avg_fold'])
+    #     center = [copy_img.shape[1]-1, copy_img.shape[0]-1]
+    #     npt_rad = int(distance(center,(0,0)))
+    #     det = find_detector(copy_img, man_det=self.info['detector']) if 'detector' in self.info else find_detector(copy_img)
+    #     ai = AzimuthalIntegrator(detector=det)
+    #     ai.setFit2D(100, center[0], center[1])
+    #     mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
-        start_p = self.info["cirmin"] # minimum value of circular background subtraction pixel range in percent
-        end_p = self.info["cirmax"] # maximum value of circular background subtraction pixel range in percent
-        rmin = self.info["rmin"] # minimum radius for background subtraction
-        rmax = self.info["rmax"] # maximum radius for background subtraction
-        theta_size = self.info["bin_theta"] # bin size in degree
-        nBins = 90/theta_size
+    #     start_p = self.info["cirmin"] # minimum value of circular background subtraction pixel range in percent
+    #     end_p = self.info["cirmax"] # maximum value of circular background subtraction pixel range in percent
+    #     rmin = self.info["rmin"] # minimum radius for background subtraction
+    #     rmax = self.info["rmax"] # maximum radius for background subtraction
+    #     theta_size = self.info["bin_theta"] # bin size in degree
+    #     nBins = 90/theta_size
 
-        I2D = []
-        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
-        for deg in range(180, 271):
-            _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method=integration_method, azimuth_range=(deg, deg+1))
-            I2D.append(I)
+    #     I2D = []
+    #     integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+    #     for deg in range(180, 271):
+    #         _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method=integration_method, azimuth_range=(deg, deg+1))
+    #         I2D.append(I)
 
-        I2D = np.array(I2D)
+    #     I2D = np.array(I2D)
 
-        sub_tr = []
-        for i in range(nBins):
-            # loop in each theta range
-            subr = []
-            theta1 = i * theta_size
-            theta2 = (i+1) * theta_size
-            if i+1 == nBins:
-                theta2 += 1
+    #     sub_tr = []
+    #     for i in range(nBins):
+    #         # loop in each theta range
+    #         subr = []
+    #         theta1 = i * theta_size
+    #         theta2 = (i+1) * theta_size
+    #         if i+1 == nBins:
+    #             theta2 += 1
 
-            for r in range(0, I2D.shape[1]):
-                # Get azimuth line on each radius (in theta range)
-                rad = I2D[theta1:theta2,r]
+    #         for r in range(0, I2D.shape[1]):
+    #             # Get azimuth line on each radius (in theta range)
+    #             rad = I2D[theta1:theta2,r]
 
-                if start_p == end_p:
-                    percentile = int(round(start_p * len(rad) / 100.))
-                    rad = np.array(sorted(rad)[percentile: percentile+1])
-                else:
-                    s = int(round(start_p * len(rad) / 100.))
-                    e = int(round(end_p * len(rad) / 100.))
-                    if s == e:
-                        rad = sorted(rad)[s: s+1]
-                    else:
-                        rad = np.array(sorted(rad)[s: e])
+    #             if start_p == end_p:
+    #                 percentile = int(round(start_p * len(rad) / 100.))
+    #                 rad = np.array(sorted(rad)[percentile: percentile+1])
+    #             else:
+    #                 s = int(round(start_p * len(rad) / 100.))
+    #                 e = int(round(end_p * len(rad) / 100.))
+    #                 if s == e:
+    #                     rad = sorted(rad)[s: s+1]
+    #                 else:
+    #                     rad = np.array(sorted(rad)[s: e])
 
-                # Get mean value of pixel range
-                subr.append(np.mean(rad))
+    #             # Get mean value of pixel range
+    #             subr.append(np.mean(rad))
 
-            subr_hist = subr[rmin:rmax + 1]
-            hist_x = list(range(0, len(subr_hist)))
+    #         subr_hist = subr[rmin:rmax + 1]
+    #         hist_x = list(range(0, len(subr_hist)))
 
-            # Get pchip line from subtraction histogram
-            hull_x, hull_y = getHull(hist_x, subr_hist)
-            y_pchip = np.array(pchip(hull_x, hull_y, hist_x))
+    #         # Get pchip line from subtraction histogram
+    #         hull_x, hull_y = getHull(hist_x, subr_hist)
+    #         y_pchip = np.array(pchip(hull_x, hull_y, hist_x))
 
-            subr_hist = np.concatenate((np.zeros(rmin), y_pchip))
-            subr_hist = np.concatenate((subr_hist, np.zeros(len(subr) - rmax)))
+    #         subr_hist = np.concatenate((np.zeros(rmin), y_pchip))
+    #         subr_hist = np.concatenate((subr_hist, np.zeros(len(subr) - rmax)))
 
-            sub_tr.append(subr_hist)
+    #         sub_tr.append(subr_hist)
 
 
-        # Create Angular background from subtraction lines (pchipline in each bin)
-        bg_img = qfu.createAngularBG(copy_img.shape[1], copy_img.shape[0], np.array(sub_tr, dtype=np.float32), nBins)
+    #     # Create Angular background from subtraction lines (pchipline in each bin)
+    #     bg_img = qfu.createAngularBG(copy_img.shape[1], copy_img.shape[0], np.array(sub_tr, dtype=np.float32), nBins)
 
-        result = copy_img - bg_img
-        result -= result.min()
+    #     result = copy_img - bg_img
+    #     result -= result.min()
 
-        # Subtract original average fold by background
-        self.info['bgsubimg'] = result
+    #     # Subtract original average fold by background
+    #     self.info['bgsubimg'] = result
 
-    def applyCircularlySymBGSub2(self, fold, rmin, bgsub=1):
-        """
-        Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
-        """
+    # def applyCircularlySymBGSub2(self, fold, rmin, bgsub=1):
+    #     """
+    #     Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
+    #     """
 
-        img = makeFullImage(fold)
-        img = img.astype("float32")
-        width = img.shape[1]
-        height = img.shape[0]
+    #     img = makeFullImage(fold)
+    #     img = img.astype("float32")
+    #     width = img.shape[1]
+    #     height = img.shape[0]
 
-        ad = np.ravel(img)
-        rmax = width+1
+    #     ad = np.ravel(img)
+    #     rmax = width+1
 
-        if bgsub==2:
-            bin_size = float(self.info["radial_bin2"])
-            smoo = self.info["smooth2"]
-            pc1 = self.info["cirmin2"] / 100.0
-            pc2 = self.info["cirmax2"] / 100.0
-            tension =self.info["tension2"]
-        else:
-            bin_size = float(self.info["radial_bin"])
-            smoo = self.info["smooth"]
-            pc1 = self.info["cirmin"] / 100.0
-            pc2 = self.info["cirmax"] / 100.0
-            tension =self.info["tension"]
+    #     if bgsub==2:
+    #         bin_size = float(self.info["radial_bin2"])
+    #         smoo = self.info["smooth2"]
+    #         pc1 = self.info["cirmin2"] / 100.0
+    #         pc2 = self.info["cirmax2"] / 100.0
+    #         tension =self.info["tension2"]
+    #     else:
+    #         bin_size = float(self.info["radial_bin"])
+    #         smoo = self.info["smooth"]
+    #         pc1 = self.info["cirmin"] / 100.0
+    #         pc2 = self.info["cirmax"] / 100.0
+    #         tension =self.info["tension"]
 
-        # Call the new background subtraction function
-        background = replicate_bgcsym2(
-            AD=ad,
-            width=width,
-            height=height,
-            dmin=rmin,
-            dmax=rmax,
-            xc=width / 2.0 - 0.5,
-            yc=height / 2.0 - 0.5,
-            bin_size=bin_size,
-            smooth=smoo,
-            tension=tension,
-            pc1=pc1,
-            pc2=pc2
-        )
+    #     # Call the new background subtraction function
+    #     background = replicate_bgcsym2(
+    #         AD=ad,
+    #         width=width,
+    #         height=height,
+    #         dmin=rmin,
+    #         dmax=rmax,
+    #         xc=width / 2.0 - 0.5,
+    #         yc=height / 2.0 - 0.5,
+    #         bin_size=bin_size,
+    #         smooth=smoo,
+    #         tension=tension,
+    #         pc1=pc1,
+    #         pc2=pc2
+    #     )
 
-        background = copy.copy(background)
-        background[np.isnan(background)] = 0.
-        background = np.array(background, dtype=np.float32)
-        background = background.reshape((height, width))
-        background = background[:fold.shape[0], :fold.shape[1]]
+    #     background = copy.copy(background)
+    #     background[np.isnan(background)] = 0.
+    #     background = np.array(background, dtype=np.float32)
+    #     background = background.reshape((height, width))
+    #     background = background[:fold.shape[0], :fold.shape[1]]
         
-        return background
+    #     return background
 
-    def applySmoothedBGSub(self, fold, center, typ='gauss', bgsub=1):
-        """
-        Apply the Iterative Low Pass Filter Background Subtraction.
-        :param typ: type of the subtraction, default to 'gauss', other option is 'boxcar'
-        """
+    # def applySmoothedBGSub(self, fold, center, typ='gauss', bgsub=1):
+    #     """
+    #     Apply the Iterative Low Pass Filter Background Subtraction.
+    #     :param typ: type of the subtraction, default to 'gauss', other option is 'boxcar'
+    #     """
 
 
-        img = makeFullImage(fold)
+    #     img = makeFullImage(fold)
 
-        if "roi_rad" in self.info: # if roi_rad is specified, use it
-            roi_rad = int(self.info["roi_rad"])
-            center_x = int(center[0])
-            center_y = int(center[1])
-            img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
+    #     if "roi_rad" in self.info: # if roi_rad is specified, use it
+    #         roi_rad = int(self.info["roi_rad"])
+    #         center_x = int(center[0])
+    #         center_y = int(center[1])
+    #         img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
 
-        img = img.astype("float32")
-        width = img.shape[1]
-        height = img.shape[0]
+    #     img = img.astype("float32")
+    #     width = img.shape[1]
+    #     height = img.shape[0]
 
-        # Prepare options and parameter values based on 'typ'
-        if typ == "gauss":
-            filter_type = 'gaussian'
-            kernel_size = (self.info["fwhm2"], self.info["fwhm2"]) if bgsub==2 else  (self.info["fwhm"], self.info["fwhm"])
-            if kernel_size[0] % 2 == 0:
-                kernel_size = (kernel_size[0] + 1, kernel_size[1] + 1)
-            sigmaX = 0
-        else:
-            filter_type = 'boxcar'
-            kernel_size = (self.info["boxcar_x2"], self.info["boxcar_y2"]) if bgsub==2 else (self.info["boxcar_x"], self.info["boxcar_y"])
-            sigmaX = 0  # Set to zero for boxcar filter
+    #     # Prepare options and parameter values based on 'typ'
+    #     if typ == "gauss":
+    #         filter_type = 'gaussian'
+    #         kernel_size = (self.info["fwhm2"], self.info["fwhm2"]) if bgsub==2 else  (self.info["fwhm"], self.info["fwhm"])
+    #         if kernel_size[0] % 2 == 0:
+    #             kernel_size = (kernel_size[0] + 1, kernel_size[1] + 1)
+    #         sigmaX = 0
+    #     else:
+    #         filter_type = 'boxcar'
+    #         kernel_size = (self.info["boxcar_x2"], self.info["boxcar_y2"]) if bgsub==2 else (self.info["boxcar_x"], self.info["boxcar_y"])
+    #         sigmaX = 0  # Set to zero for boxcar filter
 
-        tension = None # Not used in the function
-        edge_background = None  # You can provide edge background if available
-        cycles = self.info["cycles2"] if bgsub==2 else self.info["cycles"]
-        # Call bcksmooth function
+    #     tension = None # Not used in the function
+    #     edge_background = None  # You can provide edge background if available
+    #     cycles = self.info["cycles2"] if bgsub==2 else self.info["cycles"]
+    #     # Call bcksmooth function
 
-        res = replicate_bcksmooth(
-            image=img,
-            max_iterations=cycles,
-            filter_type=filter_type,
-            kernel_size=kernel_size,
-            sigmaX=sigmaX,
-            tension=tension,
-            edge_background=edge_background,
-        )
+    #     res = replicate_bcksmooth(
+    #         image=img,
+    #         max_iterations=cycles,
+    #         filter_type=filter_type,
+    #         kernel_size=kernel_size,
+    #         sigmaX=sigmaX,
+    #         tension=tension,
+    #         edge_background=edge_background,
+    #     )
 
-        background = copy.copy(res)
-        background[np.isnan(background)] = 0.0
-        background = np.array(background, "float32")
-        background = background.reshape((height, width))
-        # replacing values that fall outside the roi_rad with the original values fromthe image
+    #     background = copy.copy(res)
+    #     background[np.isnan(background)] = 0.0
+    #     background = np.array(background, "float32")
+    #     background = background.reshape((height, width))
+    #     # replacing values that fall outside the roi_rad with the original values fromthe image
 
-        if "roi_rad" in self.info:
-            background = background[:height//2, :width//2]
-            pad_y = max((fold.shape[0] - background.shape[0]), 0)
-            pad_x = max((fold.shape[1] - background.shape[1]), 0)
-            background = np.pad(background, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
-        else:
-            background = background[:fold.shape[0], :fold.shape[1]]
-        return background
+    #     if "roi_rad" in self.info:
+    #         background = background[:height//2, :width//2]
+    #         pad_y = max((fold.shape[0] - background.shape[0]), 0)
+    #         pad_x = max((fold.shape[1] - background.shape[1]), 0)
+    #         background = np.pad(background, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
+    #     else:
+    #         background = background[:fold.shape[0], :fold.shape[1]]
+    #     return background
 
-    def applyRovingWindowBGSub(self, fold, center, bgsub=1):
-        """
-        Apply Roving Window background subtraction
-        :return:
-        """
+    # def applyRovingWindowBGSub(self, fold, center, bgsub=1):
+    #     """
+    #     Apply Roving Window background subtraction
+    #     :return:
+    #     """
 
-        img = makeFullImage(fold)
+    #     img = makeFullImage(fold)
 
-        if "roi_rad" in self.info: # if roi_rad is specified, use it
-            roi_rad = int(self.info["roi_rad"])
-            center_x = int(center[0])
-            center_y = int(center[1])
-            img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
+    #     if "roi_rad" in self.info: # if roi_rad is specified, use it
+    #         roi_rad = int(self.info["roi_rad"])
+    #         center_x = int(center[0])
+    #         center_y = int(center[1])
+    #         img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
 
-        width = img.shape[1]
-        height = img.shape[0]
-        img = np.ravel(img)
-        buf = np.array(img, "f")
+    #     width = img.shape[1]
+    #     height = img.shape[0]
+    #     img = np.ravel(img)
+    #     buf = np.array(img, "f")
 
-        if bgsub==2:
-            iwid = self.info["win_size_x2"]
-            jwid = self.info["win_size_y2"]
-            isep = self.info["win_sep_x2"]
-            jsep = self.info["win_sep_y2"]
-            smoo = self.info["smooth2"]
-            tension = self.info["tension2"]
-            pc1 = self.info["cirmin2"] / 100.0
-            pc2 = self.info["cirmax2"] / 100.0
-        else:
-            iwid = self.info["win_size_x"]
-            jwid = self.info["win_size_y"]
-            isep = self.info["win_sep_x"]
-            jsep = self.info["win_sep_y"]
-            smoo = self.info["smooth"]
-            tension = self.info["tension"]
-            pc1 = self.info["cirmin"] / 100.0
-            pc2 = self.info["cirmax"] / 100.0
+    #     if bgsub==2:
+    #         iwid = self.info["win_size_x2"]
+    #         jwid = self.info["win_size_y2"]
+    #         isep = self.info["win_sep_x2"]
+    #         jsep = self.info["win_sep_y2"]
+    #         smoo = self.info["smooth2"]
+    #         tension = self.info["tension2"]
+    #         pc1 = self.info["cirmin2"] / 100.0
+    #         pc2 = self.info["cirmax2"] / 100.0
+    #     else:
+    #         iwid = self.info["win_size_x"]
+    #         jwid = self.info["win_size_y"]
+    #         isep = self.info["win_sep_x"]
+    #         jsep = self.info["win_sep_y"]
+    #         smoo = self.info["smooth"]
+    #         tension = self.info["tension"]
+    #         pc1 = self.info["cirmin"] / 100.0
+    #         pc2 = self.info["cirmax"] / 100.0
 
-        maxdim = width * height
-        maxwin = (iwid * 2 + 1) * (jwid * 2 + 1)
+    #     maxdim = width * height
+    #     maxwin = (iwid * 2 + 1) * (jwid * 2 + 1)
 
-        # Prepare additional parameters for replicate_bgwsrt2
-        xb = np.zeros(maxdim, dtype='f')
-        yb = np.zeros(maxdim, dtype='f')
-        ys = np.zeros(maxdim, dtype='f')  # Check if needed
-        ysp = np.zeros(maxdim, dtype='f') # Check if needed
-        wrk = np.zeros(9 * maxdim, dtype='f')  # Workspace array
-        bw = np.zeros(maxwin, dtype='f')  # Background window array
-        index_bn = np.zeros(maxwin, dtype='int')  # Check if needed
-        b = np.zeros(maxdim, dtype='f')  # Background array
-        # Call the replicate_bgwsrt2 function
-        b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
-        b= b.reshape((height, width))
+    #     # Prepare additional parameters for replicate_bgwsrt2
+    #     xb = np.zeros(maxdim, dtype='f')
+    #     yb = np.zeros(maxdim, dtype='f')
+    #     ys = np.zeros(maxdim, dtype='f')  # Check if needed
+    #     ysp = np.zeros(maxdim, dtype='f') # Check if needed
+    #     wrk = np.zeros(9 * maxdim, dtype='f')  # Workspace array
+    #     bw = np.zeros(maxwin, dtype='f')  # Background window array
+    #     index_bn = np.zeros(maxwin, dtype='int')  # Check if needed
+    #     b = np.zeros(maxdim, dtype='f')  # Background array
+    #     # Call the replicate_bgwsrt2 function
+    #     b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
+    #     b= b.reshape((height, width))
 
-        if "roi_rad" in self.info:
-            b = b[:height//2, :width//2]
-            pad_y = max((fold.shape[0] - b.shape[0]), 0)
-            pad_x = max((fold.shape[1] - b.shape[1]), 0)
-            b = np.pad(b, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
-        else:
-            b = b[:fold.shape[0], :fold.shape[1]]
+    #     if "roi_rad" in self.info:
+    #         b = b[:height//2, :width//2]
+    #         pad_y = max((fold.shape[0] - b.shape[0]), 0)
+    #         pad_x = max((fold.shape[1] - b.shape[1]), 0)
+    #         b = np.pad(b, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
+    #     else:
+    #         b = b[:fold.shape[0], :fold.shape[1]]
 
-        return b
+    #     return b
 
-    def applyCircularlySymBGSub(self):
-        """
-        Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
-        """
-        copy_img = copy.copy(self.info['avg_fold'])
-        center = [copy_img.shape[1] - .5, copy_img.shape[0] - .5]
-        # npt_rad = int(distance(center, (0, 0)))
+    # def applyCircularlySymBGSub(self):
+    #     """
+    #     Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
+    #     """
+    #     copy_img = copy.copy(self.info['avg_fold'])
+    #     center = [copy_img.shape[1] - .5, copy_img.shape[0] - .5]
+    #     # npt_rad = int(distance(center, (0, 0)))
 
-        # ai = AzimuthalIntegrator(detector="agilent_titan")
-        # ai.setFit2D(100, center[0], center[1])
-        # mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
+    #     # ai = AzimuthalIntegrator(detector="agilent_titan")
+    #     # ai.setFit2D(100, center[0], center[1])
+    #     # mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
-        start_p = self.info["cirmin"]  # minimum value of circular background subtraction pixel range in percent
-        end_p = self.info["cirmax"]  # maximum value of circular background subtraction pixel range in percent
-        rmin = self.info["rmin"]  # minimum radius for background subtraction
-        rmax = self.info["rmax"]  # maximum radius for background subtraction
-        radial_bin = self.info["radial_bin"]
-        smoo = self.info['smooth']
-        # tension = self.info['tension']
+    #     start_p = self.info["cirmin"]  # minimum value of circular background subtraction pixel range in percent
+    #     end_p = self.info["cirmax"]  # maximum value of circular background subtraction pixel range in percent
+    #     rmin = self.info["rmin"]  # minimum radius for background subtraction
+    #     rmax = self.info["rmax"]  # maximum radius for background subtraction
+    #     radial_bin = self.info["radial_bin"]
+    #     smoo = self.info['smooth']
+    #     # tension = self.info['tension']
 
-        max_pts = (2.*np.pi*rmax / 4. + 10) * radial_bin
-        nBin = int((rmax-rmin)/radial_bin)
+    #     max_pts = (2.*np.pi*rmax / 4. + 10) * radial_bin
+    #     nBin = int((rmax-rmin)/radial_bin)
 
-        xs, ys = qfu.getCircularDiscreteBackground(np.array(copy_img, np.float32), rmin, start_p, end_p, radial_bin, nBin, max_pts)
+    #     xs, ys = qfu.getCircularDiscreteBackground(np.array(copy_img, np.float32), rmin, start_p, end_p, radial_bin, nBin, max_pts)
 
-        max_distance = int(round(distance(center, (0,0)))) + 10
-        sp = UnivariateSpline(xs, ys, s=smoo)
-        newx = np.arange(rmin, rmax)
-        interpolate = sp(newx)
+    #     max_distance = int(round(distance(center, (0,0)))) + 10
+    #     sp = UnivariateSpline(xs, ys, s=smoo)
+    #     newx = np.arange(rmin, rmax)
+    #     interpolate = sp(newx)
 
-        newx = np.arange(0, max_distance)
-        newy = list(np.zeros(rmin))
-        newy.extend(list(interpolate))
-        newy.extend(np.zeros(max_distance-rmax))
+    #     newx = np.arange(0, max_distance)
+    #     newy = list(np.zeros(rmin))
+    #     newy.extend(list(interpolate))
+    #     newy.extend(np.zeros(max_distance-rmax))
 
-        self.info['bg_line'] = [xs, ys, newx, newy]
-        # Create background from spline line
-        background = qfu.createCircularlySymBG(copy_img.shape[1],copy_img.shape[0], np.array(newy, dtype=np.float32))
+    #     self.info['bg_line'] = [xs, ys, newx, newy]
+    #     # Create background from spline line
+    #     background = qfu.createCircularlySymBG(copy_img.shape[1],copy_img.shape[0], np.array(newy, dtype=np.float32))
 
-        result = copy_img - background
-        # result -= result.min()
+    #     result = copy_img - background
+    #     # result -= result.min()
 
-        # Subtract original average fold by background
-        self.info['bgsubimg'] = result
+    #     # Subtract original average fold by background
+    #     self.info['bgsubimg'] = result
 
     def getRminmax(self):
         """
@@ -1045,60 +1043,60 @@ class QuadrantFolder:
         self.info["avg_fold_with_syn"] = self.info['avg_fold'] + syn_data_top_left
 
 
-    def apply2DConvexhull(self, copy_img, rmin, step=1):
-        """
-        Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgsubimg']
-        """
-        center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
-        rmax = copy_img.shape[0] + 10
+    # def apply2DConvexhull(self, copy_img, rmin, step=1):
+    #     """
+    #     Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgsubimg']
+    #     """
+    #     center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
+    #     rmax = copy_img.shape[0] + 10
 
-        hist_x = list(np.arange(rmin, rmax + 1))
-        pchiplines = []
+    #     hist_x = list(np.arange(rmin, rmax + 1))
+    #     pchiplines = []
 
-        det = "agilent_titan"
-        npt_rad = int(distance(center, (0, 0)))
-        ai = AzimuthalIntegrator(detector=det)
-        ai.setFit2D(100, center[0], center[1])
+    #     det = "agilent_titan"
+    #     npt_rad = int(distance(center, (0, 0)))
+    #     ai = AzimuthalIntegrator(detector=det)
+    #     ai.setFit2D(100, center[0], center[1])
 
-        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
-        step = 1 if step not in [0.5, 1, 2, 3, 5, 9, 10, 15, 18] else step
-        for deg in np.arange(180, 270 + step, step):
+    #     integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+    #     step = 1 if step not in [0.5, 1, 2, 3, 5, 9, 10, 15, 18] else step
+    #     for deg in np.arange(180, 270 + step, step):
 
-            if deg == 180 :
-                start_deg = 180
-                end_deg = 180 + step/2
-            elif deg >= 270:
-                start_deg=270 - step/2
-                end_deg=270
-            else:
-                start_deg=deg-step/2
-                end_deg=deg+step/2
+    #         if deg == 180 :
+    #             start_deg = 180
+    #             end_deg = 180 + step/2
+    #         elif deg >= 270:
+    #             start_deg=270 - step/2
+    #             end_deg=270
+    #         else:
+    #             start_deg=deg-step/2
+    #             end_deg=deg+step/2
 
-            # Integrate the image and base image to get the volume
-            _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg), correctSolidAngle=False)
-            hist_y = I[int(rmin):int(rmax+1)]
-            hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
+    #         # Integrate the image and base image to get the volume
+    #         _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg), correctSolidAngle=False)
+    #         hist_y = I[int(rmin):int(rmax+1)]
+    #         hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
 
-            hull_x, hull_y = getHull(hist_x, hist_y)
-            y_pchip = pchip(hull_x, hull_y, hist_x)
-            pchiplines.append(y_pchip)
+    #         hull_x, hull_y = getHull(hist_x, hist_y)
+    #         y_pchip = pchip(hull_x, hull_y, hist_x)
+    #         pchiplines.append(y_pchip)
 
-        # Smooth each histogram by radius
-        pchiplines = np.array(pchiplines, dtype="float32")
-        pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
+    #     # Smooth each histogram by radius
+    #     pchiplines = np.array(pchiplines, dtype="float32")
+    #     pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
 
-        # Smooth between neighboring histograms
-        pchiplines3 = weighted_neighborhood_average(pchiplines2, weights=[0.25, 0.5, 0.25])
+    #     # Smooth between neighboring histograms
+    #     pchiplines3 = weighted_neighborhood_average(pchiplines2, weights=[0.25, 0.5, 0.25])
 
-        # Produce Background from each pchip line
-        background = qfu.make2DConvexhullBG2(pchiplines3, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax, step)
+    #     # Produce Background from each pchip line
+    #     background = qfu.make2DConvexhullBG2(pchiplines3, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax, step)
 
-        # Smooth background image by gaussian filter
-        s = 10
-        w = 4
-        t = (((w - 1.) / 2.) - 0.5) / s
-        background = gaussian_filter(background, sigma=s, truncate=t)
-        return background
+    #     # Smooth background image by gaussian filter
+    #     s = 10
+    #     w = 4
+    #     t = (((w - 1.) / 2.) - 0.5) / s
+    #     background = gaussian_filter(background, sigma=s, truncate=t)
+    #     return background
 
     def calculateAvgFold(self):
         """
@@ -1479,31 +1477,40 @@ class QuadrantFolder:
             rmin = self.info['rmin']
             tmp_center = self.info['_center']
 
-            # bg is the downsampled background image
-            if method == 'None':
-                bg = np.zeros_like(avg_fold)
-            elif method == '2D Convexhull':
-                bg = self.apply2DConvexhull(tmp_avg_fold, tmp_rmin, self.info['degree'])
-            elif method == 'Circularly-symmetric':
-                bg = self.applyCircularlySymBGSub2(tmp_avg_fold, tmp_rmin)
-            elif method == 'White-top-hats':
-                bg = applyWhiteTophat(tmp_avg_fold, self.info["tophat"])
-            elif method == 'Roving Window':
-                bg = self.applyRovingWindowBGSub(tmp_avg_fold, tmp_center)
-            elif method == 'Smoothed-Gaussian':
-                bg = self.applySmoothedBGSub(tmp_avg_fold, tmp_center, 'gauss')
-            elif method == 'Smoothed-BoxCar':
-                bg = self.applySmoothedBGSub(tmp_avg_fold, tmp_center, 'boxcar')
-            else:
-                bg = np.zeros_like(avg_fold)
-                method = 'None'
+            # # bg is the downsampled background image
+            # if method == 'None':
+            #     bg = np.zeros_like(avg_fold)
+            # elif method == '2D Convexhull':
+            #     bg = self.apply2DConvexhull(tmp_avg_fold, tmp_rmin, self.info['degree'])
+            # elif method == 'Circularly-symmetric':
+            #     bg = self.applyCircularlySymBGSub2(tmp_avg_fold, tmp_rmin)
+            # elif method == 'White-top-hats':
+            #     bg = applyWhiteTophat(tmp_avg_fold, self.info["tophat"])
+            # elif method == 'Roving Window':
+            #     bg = self.applyRovingWindowBGSub(tmp_avg_fold, tmp_center)
+            # elif method == 'Smoothed-Gaussian':
+            #     bg = self.applySmoothedBGSub(tmp_avg_fold, tmp_center, 'gauss')
+            # elif method == 'Smoothed-BoxCar':
+            #     bg = self.applySmoothedBGSub(tmp_avg_fold, tmp_center, 'boxcar')
+            # else:
+            #     bg = np.zeros_like(avg_fold)
+            #     method = 'None'
             
-            # upsample background and subtract from original image if downsampling is used
-            if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
-                bg = self.upsampleImage(bg)
-            bg = padToShape(bg, avg_fold.shape)
+            # # upsample background and subtract from original image if downsampling is used
+            # if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
+            #     bg = self.upsampleImage(bg)
+            # bg = padToShape(bg, avg_fold.shape)
 
-            result = np.array(avg_fold - bg, dtype=np.float32)
+            # result = np.array(avg_fold - bg, dtype=np.float32)
+
+            params = {}
+            for key in method_params[method].keys():
+                params[key] = self.info[key]
+
+            result = applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
+                           tmp_center, params, downsample_factor=self.info['downsample'])
+            bg = avg_fold - result
+
             if method != 'None':
                 result = qfu.replaceRmin(result, int(rmin), 0.)
             self.info["bgsubimg"] = result
@@ -1529,29 +1536,38 @@ class QuadrantFolder:
         avg_fold_with_syn = np.array(self.info['avg_fold_with_syn'], dtype="float32")
         tmp_avg_fold_with_syn = np.array(self.info['_avg_fold_with_syn'], dtype="float32")
     
-        if method == 'None':
-            bg_syn = np.zeros_like(avg_fold_with_syn)
-        elif method == '2D Convexhull':
-            bg_syn = self.apply2DConvexhull(tmp_avg_fold_with_syn, tmp_rmin, self.info['degree'])
-        elif method == 'Circularly-symmetric':
-            bg_syn = self.applyCircularlySymBGSub2(tmp_avg_fold_with_syn, tmp_rmin)
-        elif method == 'White-top-hats':
-            bg_syn = applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat"])
-        elif method == 'Roving Window':
-            bg_syn = self.applyRovingWindowBGSub(tmp_avg_fold_with_syn, tmp_center)
-        elif method == 'Smoothed-Gaussian':
-            bg_syn = self.applySmoothedBGSub(tmp_avg_fold_with_syn, tmp_center, 'gauss')   
-        elif method == 'Smoothed-BoxCar':
-            bg_syn = self.applySmoothedBGSub(tmp_avg_fold_with_syn, tmp_center, 'boxcar')
-        else:
-            bg_syn =  np.zeros_like(avg_fold_with_syn)
-            method = 'None'
+        # if method == 'None':
+        #     bg_syn = np.zeros_like(avg_fold_with_syn)
+        # elif method == '2D Convexhull':
+        #     bg_syn = self.apply2DConvexhull(tmp_avg_fold_with_syn, tmp_rmin, self.info['degree'])
+        # elif method == 'Circularly-symmetric':
+        #     bg_syn = self.applyCircularlySymBGSub2(tmp_avg_fold_with_syn, tmp_rmin)
+        # elif method == 'White-top-hats':
+        #     bg_syn = applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat"])
+        # elif method == 'Roving Window':
+        #     bg_syn = self.applyRovingWindowBGSub(tmp_avg_fold_with_syn, tmp_center)
+        # elif method == 'Smoothed-Gaussian':
+        #     bg_syn = self.applySmoothedBGSub(tmp_avg_fold_with_syn, tmp_center, 'gauss')   
+        # elif method == 'Smoothed-BoxCar':
+        #     bg_syn = self.applySmoothedBGSub(tmp_avg_fold_with_syn, tmp_center, 'boxcar')
+        # else:
+        #     bg_syn =  np.zeros_like(avg_fold_with_syn)
+        #     method = 'None'
         
-        if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
-            bg_syn = self.upsampleImage(bg_syn)
-        bg_syn = padToShape(bg_syn, avg_fold_with_syn.shape)
+        # if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
+        #     bg_syn = self.upsampleImage(bg_syn)
+        # bg_syn = padToShape(bg_syn, avg_fold_with_syn.shape)
         
-        result = np.array(avg_fold_with_syn - bg_syn, dtype=np.float32)
+        # result = np.array(avg_fold_with_syn - bg_syn, dtype=np.float32)
+
+
+        params = {}
+        for key in method_params[method].keys():
+            params[key] = self.info[key]
+            
+        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'])
+        bg_syn = avg_fold_with_syn - result
+        
         if method != 'None':
             result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
 

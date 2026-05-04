@@ -183,6 +183,53 @@ class BackgroundSubtractionDialog(QDialog):
             label.setStyleSheet("font-size: 11px; font-weight: 700; color: #444;")
         return label
 
+    @staticmethod
+    def build_current_config_summary_widget(
+        method_label,
+        params_label,
+        loss_label,
+        title=None,
+        min_params_width=450,
+        value_style="font-size: 13px; color: #222;",
+        field_label_style="font-size: 11px; font-weight: 700; color: #444;",
+    ):
+        """Create a reusable "Current Configuration" summary widget."""
+        params_label.setWordWrap(True)
+        params_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        if min_params_width:
+            params_label.setMinimumWidth(min_params_width)
+
+        for label in [method_label, params_label, loss_label]:
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setStyleSheet(value_style)
+
+        current_summary_widget = QWidget()
+        current_summary_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        form = QFormLayout(current_summary_widget)
+        form.setContentsMargins(6, 4, 6, 4)
+        form.setHorizontalSpacing(8)
+        form.setVerticalSpacing(4)
+        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.WrapLongRows)
+
+        if title:
+            current_config_title = QLabel(title)
+            current_config_title.setStyleSheet(field_label_style)
+            form.addRow(current_config_title)
+
+        method_label_header = QLabel("Method:")
+        method_label_header.setStyleSheet(field_label_style)
+        params_label_header = QLabel("Parameters:")
+        params_label_header.setStyleSheet(field_label_style)
+        loss_label_header = QLabel("Loss:")
+        loss_label_header.setStyleSheet(field_label_style)
+
+        form.addRow(method_label_header, method_label)
+        form.addRow(params_label_header, params_label)
+        form.addRow(loss_label_header, loss_label)
+
+        return current_summary_widget
+
     # ===== Widget Creation Methods =====
     def _create_widgets(self):
         """Create all UI widgets by delegating to specialized helper methods."""
@@ -838,38 +885,19 @@ class BackgroundSubtractionDialog(QDialog):
         self.currentBGModeLabel = QLabel("None")
         self.currentBGParamsLabel = QLabel("None")
         self.currentBGLossLabel = QLabel("None")
-        self.currentBGParamsLabel.setWordWrap(True)
-
-        value_style = "font-size: 13px; color: #222;"
-        for label in [self.currentBGMethodLabel, self.currentBGParamsLabel, self.currentBGLossLabel]:
-            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            label.setStyleSheet(value_style)
-
-        current_summary_widget = QWidget()
-        current_summary_widget.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        form = QFormLayout(current_summary_widget)
-        form.setContentsMargins(6, 4, 6, 4)
-        form.setHorizontalSpacing(8)
-        form.setVerticalSpacing(4)
-
-        current_config_title = QLabel("Current Configuration")
-        current_config_title.setStyleSheet("font-size: 11px; font-weight: 700; color: #444;")
-        field_label_style = "font-size: 11px; font-weight: 700; color: #444;"
-        method_label = QLabel("Method:")
-        method_label.setStyleSheet(field_label_style)
-        params_label = QLabel("Parameters:")
-        params_label.setStyleSheet(field_label_style)
-        loss_label = QLabel("Loss:")
-        loss_label.setStyleSheet(field_label_style)
-        form.addRow(current_config_title)
-        form.addRow(method_label, self.currentBGMethodLabel)
-        form.addRow(params_label, self.currentBGParamsLabel)
-        form.addRow(loss_label, self.currentBGLossLabel)
+        current_summary_widget = self.build_current_config_summary_widget(
+            method_label=self.currentBGMethodLabel,
+            params_label=self.currentBGParamsLabel,
+            loss_label=self.currentBGLossLabel,
+            title="Current Configuration",
+            min_params_width=520,
+        )
 
         current_config_section = QWidget()
         current_config_layout = QGridLayout(current_config_section)
         current_config_layout.setContentsMargins(8, 8, 8, 8)
         current_config_layout.setSpacing(6)
+
         saved_configs_section = QWidget()
         saved_configs_layout = QGridLayout(saved_configs_section)
         saved_configs_layout.setContentsMargins(8, 8, 8, 8)
