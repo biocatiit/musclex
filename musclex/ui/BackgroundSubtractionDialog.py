@@ -189,7 +189,7 @@ class BackgroundSubtractionDialog(QDialog):
         params_label,
         loss_label,
         title=None,
-        min_params_width=450,
+        min_params_width=400,
         value_style="font-size: 13px; color: #222;",
         field_label_style="font-size: 11px; font-weight: 700; color: #444;",
     ):
