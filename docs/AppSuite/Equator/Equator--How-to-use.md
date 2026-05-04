@@ -212,6 +212,52 @@ Arguments:
 ### Multiprocessing on folders
 In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
 
+#### Limiting CPU usage
+
+When MuscleX runs on a shared machine (for example a beamline data server that also runs detector readout, control loops, or other services), spawning one worker per logical CPU may starve those co-tenant processes. Two complementary mechanisms are available to cap the load.
+
+##### 1. `MUSCLEX_WORKERS` environment variable (recommended)
+
+Set `MUSCLEX_WORKERS` to a positive integer before launching `musclex`. It controls the maximum number of concurrent worker processes used by both the GUI Equator batch processing and the `eq -h` headless batch path.
+
+```bash
+# Cap the headless folder run to 4 concurrent workers
+MUSCLEX_WORKERS=4 musclex eq -h -f /path/to/folder -s config.json
+```
+
+```bash
+# Same variable also affects the GUI batch processor
+MUSCLEX_WORKERS=4 musclex eq
+```
+
+On startup the headless batch path prints the resolved limit, e.g.:
+
+```
+[eq -h] Using up to 4 parallel worker process(es) (override with MUSCLEX_WORKERS=<n>)
+```
+
+If `MUSCLEX_WORKERS` is unset or invalid, the default is `cpu_count() - 2` (with a minimum of 1), which leaves a small headroom for the OS and other interactive applications.
+
+```eval_rst
+.. note:: ``MUSCLEX_WORKERS`` only caps the number of MuscleX worker **processes**. Numerical libraries used inside each worker (NumPy, SciPy, OpenBLAS, MKL) may still spawn their own internal threads. The Equator worker initializer already pins those thread counts to ``1`` via ``OMP_NUM_THREADS``, ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS`` and ``NUMEXPR_NUM_THREADS``, so for typical Equator workloads setting ``MUSCLEX_WORKERS`` alone is sufficient.
+```
+
+##### 2. System-level CPU pinning with `taskset` (hard cap)
+
+`MUSCLEX_WORKERS` is a soft cap on process count, not on which physical CPUs are used. If a beamline service must be guaranteed exclusive access to a specific set of cores, use a CPU affinity mask. On Linux this is done with `taskset`, which restricts MuscleX (and every process it spawns) to the listed CPUs:
+
+```bash
+# Restrict MuscleX (and all of its workers) to logical CPUs 0–3
+taskset -c 0-3 musclex eq -h -f /path/to/folder -s config.json
+```
+
+```bash
+# Combine: at most 4 workers, and only allowed to run on CPUs 0–3
+taskset -c 0-3 env MUSCLEX_WORKERS=4 musclex eq -h -f /path/to/folder -s config.json
+```
+
+This guarantees that the remaining cores stay available for the rest of the system regardless of how the application is configured internally. On systems managed by `systemd`, the equivalent declarative form is `CPUAffinity=` in the unit file. Inside containers, use `--cpuset-cpus` (Docker) or `--cpuset` (Apptainer / Singularity).
+
 ### Customization of the parameters
 Since Headless mode is limited in terms of interactions and parameters to change, you can directly set your parameters in a json format inside `eqsettings.json`. You might need to look at the code and especially 'modules/EquatorImage.py' to know exactly which parameters to set and how to set them.
 

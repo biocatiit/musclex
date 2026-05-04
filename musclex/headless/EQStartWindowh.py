@@ -36,6 +36,50 @@ except: # for coverage
     from headless.EquatorWindowh import EquatorWindowh
     from utils.file_manager import getImgFiles
 
+
+def _resolve_worker_limit():
+    """
+    Resolve the maximum number of concurrent worker processes for
+    headless Equator batch processing.
+
+    Why this exists:
+        When MuscleX is integrated into beamline control software
+        running on the same data server, we need a reliable way to
+        reserve cores for other services (detector readout, control
+        loops, file I/O, etc.). Without this, the headless batch path
+        would always spawn `cpu_count()` workers, which can starve
+        co-tenant processes.
+
+    Resolution order:
+        1. ``MUSCLEX_WORKERS`` environment variable (must be a
+           positive integer). This matches the convention already used
+           by ``EquatorWindow`` (GUI mode), so a single env var
+           controls both code paths.
+        2. ``cpu_count() - 2`` as a default, leaving 2 logical CPUs as
+           headroom for the OS/GUI/beamline services.
+        3. ``1`` as the absolute minimum to ensure forward progress on
+           single-core or misconfigured machines.
+
+    Returns:
+        int: positive integer, the maximum number of Equator worker
+        processes allowed to run concurrently.
+    """
+    from multiprocessing import cpu_count
+    env_val = os.environ.get('MUSCLEX_WORKERS')
+    if env_val is not None:
+        try:
+            parsed = int(env_val)
+            if parsed >= 1:
+                return parsed
+        except (TypeError, ValueError):
+            print(f"[eq -h] Ignoring invalid MUSCLEX_WORKERS={env_val!r}; "
+                  f"falling back to default")
+    try:
+        return max(1, (cpu_count() or 2) - 2)
+    except NotImplementedError:
+        return 1
+
+
 class EQStartWindowh:
     """
     A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
@@ -61,7 +105,16 @@ class EQStartWindowh:
         Popup an input folder dialog. Users can select a folder
         """
         input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
-        from multiprocessing import Lock, Process, cpu_count
+        from multiprocessing import Lock, Process
+
+        # Cap concurrent workers via MUSCLEX_WORKERS so beamline
+        # control software co-tenants can reserve cores. The original
+        # implementation hard-coded `cpu_count()` here, which always
+        # saturated the host. See `_resolve_worker_limit` for details.
+        worker_limit = _resolve_worker_limit()
+        print(f"[eq -h] Using up to {worker_limit} parallel worker process(es) "
+              f"(override with MUSCLEX_WORKERS=<n>)")
+
         lock = Lock()
         procs = []
         if self.dir_path != "":
@@ -88,11 +141,11 @@ class EQStartWindowh:
                             proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext, self.settingspath), kwargs={'output_dir': self.output_dir})
                         procs.append(proc)
                         proc.start()
-                        if len(procs) % cpu_count() == 0:
+                        if len(procs) >= worker_limit:
                             for proc in procs:
                                 proc.join()
                             procs = []
-            if len(procs) % cpu_count() == 0:
+            if len(procs) >= worker_limit:
                 for proc in procs:
                     proc.join()
                 procs = []
