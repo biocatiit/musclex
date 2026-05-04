@@ -541,6 +541,18 @@ class QuadrantFoldingGUI(BaseGUI):
         self.applyResultBGButton = QPushButton("Apply Default Optimization")
         self.applyResultBGButton.setStyleSheet("QPushButton { color: #ededed; background-color: #2986cc;}")
         self.openBGSettingsButton = QPushButton("Advanced Configuration")
+        self.applyBGButtonProxy = QPushButton("Apply Selected Subtraction Settings")
+        if hasattr(self, "applyBGButton"):
+            self.applyBGButtonProxy.setStyleSheet(self.applyBGButton.styleSheet())
+
+        self.bgOptionsLabel = QLabel("Options:")
+        self.bgOptionsCB = QComboBox()
+        self.bgOptionsCB.addItems([
+            "Manual Setting | One Method",
+            "Manual Setting | Transition",
+            "Automated Processing",
+        ])
+        self.bgOptionsCB.setCurrentText("Automated Processing")
 
         self.resultDisplayModeLabel = QLabel("Show:")
         self.resultDisplayModeCB = QComboBox()
@@ -594,11 +606,29 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # 1) Background Subtraction
         bg_sub_section, bg_sub_layout = _make_section()
-        bg_sub_layout.addWidget(self.resultDisplayModeLabel, 2, 0, 1, 1)
-        bg_sub_layout.addWidget(self.resultDisplayModeCB, 2, 2, 1, 2)
-        bg_sub_layout.addWidget(self.applyResultBGButton, 1, 0, 1, 4)
+        bg_sub_layout.addWidget(self.resultDisplayModeLabel, 0, 0, 1, 2)
+        bg_sub_layout.addWidget(self.resultDisplayModeCB, 0, 2, 1, 2)
+        bg_sub_layout.addWidget(self.bgOptionsLabel, 1, 0, 1, 2)
+        bg_sub_layout.addWidget(self.bgOptionsCB, 1, 2, 1, 2)
+        bg_sub_layout.addWidget(self.applyResultBGButton, 3, 0, 1, 2)
         bg_sub_layout.addWidget(self.openBGSettingsButton, 3, 2, 1, 2)
-        self.bgSummaryLayout.addWidget(bg_sub_section, 2, 0, 1, 4)
+        
+
+        # Manual settings (reusing dialog-owned widgets)
+        self.manualSettingsContainer = QWidget()
+        manual_settings_layout = QGridLayout(self.manualSettingsContainer)
+        manual_settings_layout.setContentsMargins(0, 0, 0, 0)
+        manual_settings_layout.setSpacing(6)
+        self._create_manual_settings_proxy()
+        self._populate_manual_processing_layout_proxy(manual_settings_layout)
+        # self.bgSummaryLayout.addWidget(self.manualSettingsContainer, 5, 0, 1, 4)
+        bg_sub_layout.addWidget(self.manualSettingsContainer, 5, 0, 1, 4)
+
+        self.bgSummaryLayout.addWidget(bg_sub_section, 4, 0, 1, 4)
+
+        bg_sub_layout.addWidget(self.applyBGButtonProxy, 15, 0, 1, 4)
+
+
 
         # 2) Current Configuration
         current_section, current_layout = _make_section("Current Configuration")
@@ -614,12 +644,169 @@ class QuadrantFoldingGUI(BaseGUI):
 
         current_layout.addWidget(current_summary_widget, 1, 0, 1, 4)
 
-        self.bgSummaryLayout.addWidget(current_section, 3, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(current_section, 6, 0, 1, 4)
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
         # TODO: cache bg metrics
         # self._clear_bg_metrics_table()
+        self._on_bg_options_changed(self.bgOptionsCB.currentIndex())
+
+    def _create_manual_settings_proxy(self):
+        self._manual_proxy_syncing = False
+        self._manual_proxy = {}
+
+        self._manual_proxy["bgChoiceIn"] = self._clone_combobox(self.bgChoiceIn)
+        self._manual_proxy["gaussFWHM"] = self._clone_spinbox(self.gaussFWHM)
+        self._manual_proxy["boxcarX"] = self._clone_spinbox(self.boxcarX)
+        self._manual_proxy["boxcarY"] = self._clone_spinbox(self.boxcarY)
+        self._manual_proxy["cycle"] = self._clone_spinbox(self.cycle)
+        self._manual_proxy["thetabinCB"] = self._clone_combobox(self.thetabinCB)
+        self._manual_proxy["radialBinSpnBx"] = self._clone_spinbox(self.radialBinSpnBx)
+        self._manual_proxy["winSizeX"] = self._clone_spinbox(self.winSizeX)
+        self._manual_proxy["winSizeY"] = self._clone_spinbox(self.winSizeY)
+        self._manual_proxy["winSepX"] = self._clone_spinbox(self.winSepX)
+        self._manual_proxy["winSepY"] = self._clone_spinbox(self.winSepY)
+        self._manual_proxy["minPixRange"] = self._clone_double_spinbox(self.minPixRange)
+        self._manual_proxy["maxPixRange"] = self._clone_double_spinbox(self.maxPixRange)
+        self._manual_proxy["smoothSpnBx"] = self._clone_double_spinbox(self.smoothSpnBx)
+        self._manual_proxy["tensionSpnBx"] = self._clone_double_spinbox(self.tensionSpnBx)
+        self._manual_proxy["deg1CB"] = self._clone_combobox(self.deg1CB)
+        self._manual_proxy["tophat1SpnBx"] = self._clone_spinbox(self.tophat1SpnBx)
+
+        self._bind_proxy_spinbox(self._manual_proxy["gaussFWHM"], self.gaussFWHM)
+        self._bind_proxy_spinbox(self._manual_proxy["boxcarX"], self.boxcarX)
+        self._bind_proxy_spinbox(self._manual_proxy["boxcarY"], self.boxcarY)
+        self._bind_proxy_spinbox(self._manual_proxy["cycle"], self.cycle)
+        self._bind_proxy_spinbox(self._manual_proxy["radialBinSpnBx"], self.radialBinSpnBx)
+        self._bind_proxy_spinbox(self._manual_proxy["winSizeX"], self.winSizeX)
+        self._bind_proxy_spinbox(self._manual_proxy["winSizeY"], self.winSizeY)
+        self._bind_proxy_spinbox(self._manual_proxy["winSepX"], self.winSepX)
+        self._bind_proxy_spinbox(self._manual_proxy["winSepY"], self.winSepY)
+        self._bind_proxy_spinbox(self._manual_proxy["tophat1SpnBx"], self.tophat1SpnBx)
+
+        self._bind_proxy_double_spinbox(self._manual_proxy["minPixRange"], self.minPixRange)
+        self._bind_proxy_double_spinbox(self._manual_proxy["maxPixRange"], self.maxPixRange)
+        self._bind_proxy_double_spinbox(self._manual_proxy["smoothSpnBx"], self.smoothSpnBx)
+        self._bind_proxy_double_spinbox(self._manual_proxy["tensionSpnBx"], self.tensionSpnBx)
+
+        self._bind_proxy_combobox(self._manual_proxy["bgChoiceIn"], self.bgChoiceIn)
+        self._bind_proxy_combobox(self._manual_proxy["thetabinCB"], self.thetabinCB)
+        self._bind_proxy_combobox(self._manual_proxy["deg1CB"], self.deg1CB)
+
+    def _populate_manual_processing_layout_proxy(self, layout):
+        layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
+        layout.addWidget(self._manual_proxy["bgChoiceIn"], 2, 2, 1, 2)
+        layout.addWidget(self.gaussFWHMLabel, 4, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["gaussFWHM"], 4, 3, 1, 1)
+        layout.addWidget(self.boxcarLabel, 4, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["boxcarX"], 4, 3, 1, 1)
+        layout.addWidget(self._manual_proxy["boxcarY"], 5, 3, 1, 1)
+        layout.addWidget(self.cycleLabel, 3, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["cycle"], 3, 3, 1, 1)
+        layout.addWidget(self.thetaBinLabel, 6, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["thetabinCB"], 6, 3, 1, 1)
+        layout.addWidget(self.radialBinLabel, 7, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["radialBinSpnBx"], 7, 3, 1, 1)
+        layout.addWidget(self.windowSizeLabel, 6, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["winSizeX"], 6, 3, 1, 1)
+        layout.addWidget(self._manual_proxy["winSizeY"], 7, 3, 1, 1)
+        layout.addWidget(self.windowSepLabel, 8, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["winSepX"], 8, 3, 1, 1)
+        layout.addWidget(self._manual_proxy["winSepY"], 9, 3, 1, 1)
+        layout.addWidget(self.pixRangeLabel, 10, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["minPixRange"], 10, 3, 1, 1)
+        layout.addWidget(self._manual_proxy["maxPixRange"], 11, 3, 1, 1)
+        layout.addWidget(self.smoothLabel, 14, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["smoothSpnBx"], 14, 3, 1, 1)
+        layout.addWidget(self.tensionLabel, 11, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["tensionSpnBx"], 11, 3, 1, 1)
+        layout.addWidget(self.deg1Label, 12, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["deg1CB"], 12, 3, 1, 1)
+        layout.addWidget(self.tophat1Label, 13, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["tophat1SpnBx"], 13, 3, 1, 1)
+
+    def _clone_spinbox(self, source):
+        proxy = QSpinBox()
+        proxy.setRange(source.minimum(), source.maximum())
+        proxy.setSingleStep(source.singleStep())
+        proxy.setKeyboardTracking(source.keyboardTracking())
+        proxy.setPrefix(source.prefix())
+        proxy.setSuffix(source.suffix())
+        proxy.setValue(source.value())
+        return proxy
+
+    def _clone_double_spinbox(self, source):
+        proxy = QDoubleSpinBox()
+        proxy.setRange(source.minimum(), source.maximum())
+        proxy.setDecimals(source.decimals())
+        proxy.setSingleStep(source.singleStep())
+        proxy.setKeyboardTracking(source.keyboardTracking())
+        proxy.setPrefix(source.prefix())
+        proxy.setSuffix(source.suffix())
+        proxy.setValue(source.value())
+        return proxy
+
+    def _clone_combobox(self, source):
+        proxy = QComboBox()
+        for i in range(source.count()):
+            proxy.addItem(source.itemText(i))
+        proxy.setCurrentIndex(source.currentIndex())
+        return proxy
+
+    def _bind_proxy_spinbox(self, proxy, source):
+        def _proxy_changed(value):
+            if self._manual_proxy_syncing:
+                return
+            self._manual_proxy_syncing = True
+            source.setValue(value)
+            self._manual_proxy_syncing = False
+
+        def _source_changed(value):
+            if self._manual_proxy_syncing:
+                return
+            self._manual_proxy_syncing = True
+            proxy.setValue(value)
+            self._manual_proxy_syncing = False
+
+        proxy.valueChanged.connect(_proxy_changed)
+        source.valueChanged.connect(_source_changed)
+
+    def _bind_proxy_double_spinbox(self, proxy, source):
+        def _proxy_changed(value):
+            if self._manual_proxy_syncing:
+                return
+            self._manual_proxy_syncing = True
+            source.setValue(value)
+            self._manual_proxy_syncing = False
+
+        def _source_changed(value):
+            if self._manual_proxy_syncing:
+                return
+            self._manual_proxy_syncing = True
+            proxy.setValue(value)
+            self._manual_proxy_syncing = False
+
+        proxy.valueChanged.connect(_proxy_changed)
+        source.valueChanged.connect(_source_changed)
+
+    def _bind_proxy_combobox(self, proxy, source):
+        def _proxy_changed(index):
+            if self._manual_proxy_syncing:
+                return
+            self._manual_proxy_syncing = True
+            source.setCurrentIndex(index)
+            self._manual_proxy_syncing = False
+
+        def _source_changed(index):
+            if self._manual_proxy_syncing:
+                return
+            self._manual_proxy_syncing = True
+            proxy.setCurrentIndex(index)
+            self._manual_proxy_syncing = False
+
+        proxy.currentIndexChanged.connect(_proxy_changed)
+        source.currentIndexChanged.connect(_source_changed)
 
 
     def applyDefaultOptimization(self, skip_confirm: bool = False):
@@ -993,6 +1180,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
         # self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
         self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
+        self.bgOptionsCB.currentIndexChanged.connect(self._on_bg_options_changed)
         
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
@@ -1002,12 +1190,31 @@ class QuadrantFoldingGUI(BaseGUI):
         self.rmaxSpnBx.valueChanged.connect(self.RmaxChanged)
 
         self.applyBGButton.clicked.connect(self.applyBGSub)
+        self.applyBGButtonProxy.clicked.connect(self.applyBGButton.click)
 
         # self.blankImageGrp.clicked.connect(self.blankChecked)
 
 
     def _on_result_display_mode_changed(self, index):
         self.refreshResultTab()
+
+    def _on_bg_options_changed(self, index):
+        selection = self.bgOptionsCB.currentText()
+        is_manual_one = selection == "Manual Setting | One Method"
+        is_automated = selection == "Automated Processing"
+
+        self.applyResultBGButton.setVisible(is_automated)
+        self.openBGSettingsButton.setVisible(is_automated)
+        if hasattr(self, "applyBGButtonProxy"):
+            self.applyBGButtonProxy.setVisible(is_manual_one)
+        if hasattr(self, "manualSettingsContainer"):
+            self.manualSettingsContainer.setVisible(is_manual_one)
+        if hasattr(self, "bgSubDialog") and hasattr(self.bgSubDialog, "processingModeCB"):
+            if is_manual_one:
+                self.bgSubDialog.processingModeCB.setCurrentText("Manual")
+                self.bgSubDialog.manualGroup.setVisible(True)
+            elif is_automated:
+                self.bgSubDialog.processingModeCB.setCurrentText("Automated")
 
 
     # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
@@ -1756,38 +1963,47 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         choice = self.bgChoiceIn.currentText()
 
+        def _set_hidden(widget, hidden):
+            if widget is not None:
+                widget.setHidden(hidden)
+
+        def _set_hidden_proxy(key, hidden):
+            _set_hidden(getattr(self, key, None), hidden)
+            if hasattr(self, "_manual_proxy") and key in self._manual_proxy:
+                _set_hidden(self._manual_proxy[key], hidden)
+
         # self.rrangeSettingFrame.setHidden(False)
         # self.rrangeSettingFrame.setEnabled(choice != 'None')
 
-        self.tophat1SpnBx.setHidden(not choice == 'White-top-hats')
-        self.tophat1Label.setHidden(not choice == 'White-top-hats')
-        self.windowSizeLabel.setHidden(not choice == 'Roving Window')
-        self.winSizeX.setHidden(not choice == 'Roving Window')
-        self.winSizeY.setHidden(not choice == 'Roving Window')
-        self.windowSepLabel.setHidden(not choice == 'Roving Window')
-        self.winSepX.setHidden(not choice == 'Roving Window')
-        self.winSepY.setHidden(not choice == 'Roving Window')
-        self.maxPixRange.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
-        self.minPixRange.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
-        self.pixRangeLabel.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
-        self.gaussFWHMLabel.setHidden(not choice == 'Smoothed-Gaussian')
-        self.gaussFWHM.setHidden(not choice == 'Smoothed-Gaussian')
-        self.boxcarLabel.setHidden(not choice == 'Smoothed-BoxCar')
-        self.boxcarX.setHidden(not choice == 'Smoothed-BoxCar')
-        self.boxcarY.setHidden(not choice == 'Smoothed-BoxCar')
-        self.deg1Label.setHidden(not choice == '2D Convexhull')
-        self.deg1CB.setHidden(not choice == '2D Convexhull')
-        self.cycleLabel.setHidden(not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
-        self.cycle.setHidden(not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
-        self.thetaBinLabel.setHidden(True)
-        self.thetabinCB.setHidden(True)
+        _set_hidden_proxy('tophat1SpnBx', not choice == 'White-top-hats')
+        _set_hidden(self.tophat1Label, not choice == 'White-top-hats')
+        _set_hidden(self.windowSizeLabel, not choice == 'Roving Window')
+        _set_hidden_proxy('winSizeX', not choice == 'Roving Window')
+        _set_hidden_proxy('winSizeY', not choice == 'Roving Window')
+        _set_hidden(self.windowSepLabel, not choice == 'Roving Window')
+        _set_hidden_proxy('winSepX', not choice == 'Roving Window')
+        _set_hidden_proxy('winSepY', not choice == 'Roving Window')
+        _set_hidden_proxy('maxPixRange', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_proxy('minPixRange', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden(self.pixRangeLabel, not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden(self.gaussFWHMLabel, not choice == 'Smoothed-Gaussian')
+        _set_hidden_proxy('gaussFWHM', not choice == 'Smoothed-Gaussian')
+        _set_hidden(self.boxcarLabel, not choice == 'Smoothed-BoxCar')
+        _set_hidden_proxy('boxcarX', not choice == 'Smoothed-BoxCar')
+        _set_hidden_proxy('boxcarY', not choice == 'Smoothed-BoxCar')
+        _set_hidden(self.deg1Label, not choice == '2D Convexhull')
+        _set_hidden_proxy('deg1CB', not choice == '2D Convexhull')
+        _set_hidden(self.cycleLabel, not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        _set_hidden_proxy('cycle', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        _set_hidden(self.thetaBinLabel, True)
+        _set_hidden_proxy('thetabinCB', True)
 
-        self.radialBinSpnBx.setHidden(not choice == 'Circularly-symmetric')
-        self.radialBinLabel.setHidden(not choice == 'Circularly-symmetric')
-        self.smoothLabel.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
-        self.smoothSpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
-        self.tensionLabel.setHidden(not choice in ('Roving Window'))
-        self.tensionSpnBx.setHidden(not choice in ('Roving Window'))
+        _set_hidden_proxy('radialBinSpnBx', not choice == 'Circularly-symmetric')
+        _set_hidden(self.radialBinLabel, not choice == 'Circularly-symmetric')
+        _set_hidden(self.smoothLabel, not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_proxy('smoothSpnBx', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden(self.tensionLabel, not choice in ('Roving Window'))
+        _set_hidden_proxy('tensionSpnBx', not choice in ('Roving Window'))
 
 
     def updateImportedBG(self):
