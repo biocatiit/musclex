@@ -1917,6 +1917,13 @@ class EquatorWindow(QMainWindow):
         self.taskManager.clear()
         self.currentDisplayIndex = 0
         self.pendingUIUpdates = {}
+
+        # Ensure UI update timer is running for this batch.
+        # It is stopped in _cleanupAfterBatch() at the end of every batch, so
+        # second-and-later batches in a session would otherwise have no consumer
+        # for pendingUIUpdates and the status bar would freeze.
+        if not self.uiUpdateTimer.isActive():
+            self.uiUpdateTimer.start()
         
         # Display progress bar
         self.progressBar.setMaximum(nImg)
@@ -2948,7 +2955,6 @@ class EquatorWindow(QMainWindow):
             self.workspace.show_calibration_dialog(self.workspace._current_image_data, force=False)
             self.setH5Mode()
             self.initProcessExecutor()
-            self.uiUpdateTimer.start()
         
         # Process image
         if not first_run and self.use_previous_fit_chkbx.isChecked():
