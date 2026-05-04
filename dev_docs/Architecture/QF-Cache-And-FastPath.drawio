@@ -1,0 +1,130 @@
+<mxfile host="65bd71144e">
+    <diagram name="QF Processing Flow" id="qf-flow">
+        <mxGraphModel dx="1434" dy="817" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1600" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="&lt;b&gt;Quadrant Folding — Processing Flow &amp;amp; Changes&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="700" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="caller" value="&lt;b&gt;Caller: getFlags()&lt;/b&gt;&lt;br&gt;GUI: writes roi_w/h directly&lt;br&gt;Headless: reads from qfsettings.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="50" width="240" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="translate" value="&lt;b&gt;NEW — Translate ROI preference&lt;/b&gt;&lt;br&gt;Headless entry point:&lt;br&gt;pop fixed_roi_w/h &amp;rarr; roi_w/h&lt;br&gt;&lt;i&gt;Preference names never reach QuadrantFolder&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="150" width="240" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="process" value="&lt;b&gt;QuadrantFolder.process(flags)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="260" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="updateInfo" value="&lt;b&gt;updateInfo(flags)&lt;/b&gt;&lt;br&gt;• pop _NON_CACHED_KEYS&lt;br&gt;&amp;nbsp;&amp;nbsp;(roi_w/h, avg_fold, bgimg1/2, bg_line)&lt;br&gt;• info.update(flags)&lt;br&gt;&lt;span style=&quot;color:#b85450&quot;&gt;REMOVED: fixed_roi_* &amp;rarr; roi_w/h promotion&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="340" width="240" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="prep" value="initParams &amp;middot; findCenter &amp;middot; getRotationAngle&lt;br&gt;&lt;i&gt;Required on both fast and slow paths&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="470" width="240" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="decision" value="&lt;b&gt;NEW — _tryFastLoad()&lt;/b&gt;&lt;br&gt;1) computeFingerprint()&lt;br&gt;2) == cached fingerprint?&lt;br&gt;3) _folded[_compressed].tif on disk?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="270" y="560" width="260" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="fastPath" value="&lt;b&gt;FAST PATH (NEW)&lt;/b&gt;&lt;br&gt;• Load _folded[_compressed].tif&lt;br&gt;• imgCache['resultImg'] = img&lt;br&gt;• transformImage() rebuilds runtime&lt;br&gt;&amp;nbsp;&amp;nbsp;matrices and self.center&lt;br&gt;• &lt;b&gt;return False&lt;/b&gt; (full_process=False)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="730" width="260" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="slowPath" value="&lt;b&gt;SLOW PATH&lt;/b&gt;&lt;br&gt;transformImage&lt;br&gt;calculateAvgFold&lt;br&gt;getRminmax / getTransitionRad&lt;br&gt;applyBackgroundSubtraction&lt;br&gt;mergeImages&lt;br&gt;generateResultImage&lt;br&gt;&lt;i&gt;(roi_w/h crop applied here)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="730" width="260" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="stampCache" value="&lt;b&gt;Stamp + cacheInfo (MODIFIED)&lt;/b&gt;&lt;br&gt;info['processing_fingerprint'] = computeFingerprint()&lt;br&gt;cacheInfo() writes info to qf_cache/&lt;name&gt;.info&lt;br&gt;&lt;span style=&quot;color:#b85450&quot;&gt;REMOVED: image arrays no longer pickled&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color:#b85450&quot;&gt;REMOVED: dead saveCroppedImage key&lt;/span&gt;&lt;br&gt;&lt;i&gt;Cache size: ~12 MB &amp;rarr; ~1 KB&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="930" width="260" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="saveTif" value="&lt;b&gt;Caller: saveResults() (MODIFIED)&lt;/b&gt;&lt;br&gt;Writes _folded.tif &lt;b&gt;or&lt;/b&gt; _folded_compressed.tif&lt;br&gt;&lt;span style=&quot;color:#b85450&quot;&gt;REMOVED: _folded_cropped[_compressed].tif&lt;/span&gt;&lt;br&gt;&lt;span style=&quot;color:#b85450&quot;&gt;REMOVED: cropFoldedImageChkBx&lt;/span&gt;&lt;br&gt;&lt;i&gt;saveBackground() only when full_process=True&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="1100" width="260" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="caller" target="translate" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="translate" target="process" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="process" target="updateInfo" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="updateInfo" target="prep" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="prep" target="decision" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="hit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#82b366;strokeWidth=2;fontStyle=1;" parent="1" source="decision" target="fastPath" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" value="miss / no_fast_path" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#6c8ebf;strokeWidth=2;fontStyle=1;" parent="1" source="decision" target="slowPath" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="slowPath" target="stampCache" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="fastPath" target="saveTif" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;" parent="1" source="stampCache" target="saveTif" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="legendBox" value="&lt;b&gt;Legend&lt;/b&gt;" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="50" width="300" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="legNew" value="&lt;b&gt;NEW&lt;/b&gt;: Added (fingerprint / fast-path / ROI translation)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="legendBox" vertex="1">
+                    <mxGeometry x="15" y="40" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="legMod" value="&lt;b&gt;MODIFIED&lt;/b&gt;: Changed (cache content / saveResults)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="legendBox" vertex="1">
+                    <mxGeometry x="15" y="85" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="legDel" value="&lt;b&gt;REMOVED&lt;/b&gt;: Deleted (Save Cropped Image, etc.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="legendBox" vertex="1">
+                    <mxGeometry x="15" y="130" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="legUnchanged" value="Uncoloured: existing logic unchanged" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="legendBox" vertex="1">
+                    <mxGeometry x="15" y="175" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="cacheBox" value="&lt;b&gt;qf_cache/&amp;lt;name&amp;gt;.info contents (CACHE_FORMAT_VERSION=2)&lt;/b&gt;" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="300" width="300" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="cacheIn" value="&lt;b&gt;Persisted&lt;/b&gt;&lt;br&gt;• Processing params (rmin, bgsub, ignore_folds…)&lt;br&gt;• cache_format_version&lt;br&gt;• program_version&lt;br&gt;• processing_fingerprint (NEW)&lt;br&gt;• fixed_roi_w/h (only if written by&lt;br&gt;&amp;nbsp;&amp;nbsp;headless qfsettings.json)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;" parent="cacheBox" vertex="1">
+                    <mxGeometry x="15" y="40" width="270" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="cacheOut" value="&lt;b&gt;No longer persisted&lt;/b&gt;&lt;br&gt;• Image arrays (avg_fold, bgimg1/2, bg_line)&lt;br&gt;• Per-session ROI (roi_w, roi_h)&lt;br&gt;• saveCroppedImage (removed dead key)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;" parent="cacheBox" vertex="1">
+                    <mxGeometry x="15" y="170" width="270" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="fpBox" value="&lt;b&gt;processing_fingerprint composition&lt;/b&gt;" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="610" width="300" height="370" as="geometry"/>
+                </mxCell>
+                <mxCell id="fpHash" value="SHA1( JSON({...}) )" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" parent="fpBox" vertex="1">
+                    <mxGeometry x="60" y="40" width="180" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="fpVer" value="cache_format_version&lt;br&gt;program_version" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" parent="fpBox" vertex="1">
+                    <mxGeometry x="15" y="90" width="270" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="fpImgData" value="&lt;b&gt;ImageData.get_fingerprint()&lt;/b&gt;&lt;br&gt;blank/mask config files (mtime + size)&lt;br&gt;manual_center, manual_rotation&lt;br&gt;apply_blank / apply_mask / inpaint…" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" parent="fpBox" vertex="1">
+                    <mxGeometry x="15" y="145" width="270" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="fpParams" value="&lt;b&gt;Processing params from self.info&lt;/b&gt;&lt;br&gt;ignore_folds, fold_image, rotate&lt;br&gt;rmin, transition_radius/delta&lt;br&gt;bgsub/bgsub2 + per-method params&lt;br&gt;&lt;b&gt;roi_w, roi_h&lt;/b&gt; (in fingerprint; excluded from cache)&lt;br&gt;detector, scale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;" parent="fpBox" vertex="1">
+                    <mxGeometry x="15" y="235" width="270" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="resultBox" value="&lt;b&gt;qf_results/ output files&lt;/b&gt;" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="1280" width="430" height="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="resultIn" value="&lt;b&gt;Written (fast-path eligible)&lt;/b&gt;&lt;br&gt;• &amp;lt;name&amp;gt;_folded.tif&lt;br&gt;• &amp;lt;name&amp;gt;_folded_compressed.tif&lt;br&gt;&lt;br&gt;Both are &lt;b&gt;full-size&lt;/b&gt; snapshots of resultImg&lt;br&gt;(includes ROI crop; ROI is &lt;b&gt;compute-side&lt;/b&gt;&lt;br&gt;and bakes into the pixels)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;" parent="resultBox" vertex="1">
+                    <mxGeometry x="15" y="40" width="400" height="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="resultOut" value="&lt;b&gt;REMOVED&lt;/b&gt;&lt;br&gt;• _folded_cropped.tif&lt;br&gt;• _folded_cropped_compressed.tif&lt;br&gt;&lt;br&gt;Intent: crop oversized fold back to original dimensions.&lt;br&gt;Obsolete: transformImage() now always produces&lt;br&gt;result == orig_img shape. self.initImg was always None&lt;br&gt;(crash on every save attempt)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;" parent="resultBox" vertex="1">
+                    <mxGeometry x="15" y="165" width="400" height="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="perfBox" value="&lt;b&gt;Typical performance&lt;/b&gt;" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="1010" width="300" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="perfMar" value="MAR 2048x2048 (measured)&lt;br&gt;cold (slow path): &lt;b&gt;~2.9 s&lt;/b&gt;&lt;br&gt;hot  (fast path): &lt;b&gt;~0.24 s&lt;/b&gt;&lt;br&gt;&lt;b&gt;≈ 12x speed-up&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;" parent="perfBox" vertex="1">
+                    <mxGeometry x="15" y="40" width="270" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="perfCache" value="Cache size per image&lt;br&gt;&lt;b&gt;~12 MB &amp;rarr; ~1 KB&lt;/b&gt;&lt;br&gt;&lt;i&gt;Image arrays no longer pickled&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;" parent="perfBox" vertex="1">
+                    <mxGeometry x="15" y="130" width="270" height="65" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
