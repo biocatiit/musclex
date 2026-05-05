@@ -45,6 +45,10 @@ class ColKey:
     # Sum of per-pixel std-deviation across the 4 quadrants computed before
     # actual folding. Lower is better (perfectly symmetric image -> 0).
     FOLD_STD = 'FOLD_STD'
+    # Normalised version: fold_std_sum / (N_fg × μ_fg), where the foreground
+    # mask is derived from Otsu thresholding on the average-quadrant image.
+    # Dimensionless — comparable across different exposures and image sizes.
+    FOLD_STD_NORM = 'FOLD_STD_NORM'
 
 
 class ImageAlignmentTable(QTableWidget):
@@ -199,6 +203,24 @@ class ImageAlignmentTable(QTableWidget):
             item.setBackground(QBrush(QColor(255, 100, 100)))
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.setItem(row, c, item)
+
+    def fill_fold_std_norm(self, row, norm_val):
+        """Fill the FOLD_STD_NORM column (dimensionless, no threshold highlighting).
+
+        Displays the normalised symmetry score fold_std_sum / (N_fg × μ_fg).
+        Values are small ratios; scientific notation is used when below 0.001
+        so the column stays compact and readable.
+        """
+        c = self._col.get(ColKey.FOLD_STD_NORM)
+        if c is None:
+            return
+        if norm_val is None:
+            text = ""
+        elif abs(norm_val) < 0.001 and norm_val != 0.0:
+            text = f"{norm_val:.3e}"
+        else:
+            text = f"{norm_val:.4g}"
+        self.setItem(row, c, QTableWidgetItem(text))
 
     def fill_fold_std(self, row, std_val, thresh_enabled, thresh_value):
         """Fill the FOLD_STD column; highlight if above the symmetry threshold.

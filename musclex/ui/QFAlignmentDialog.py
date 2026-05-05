@@ -102,6 +102,7 @@ class QFAlignmentDialog(QDialog):
             ColKey.SIZE: 11,
             ColKey.IMAGE_DIFF: 12,
             ColKey.FOLD_STD: 13,
+            ColKey.FOLD_STD_NORM: 14,
         }
         headers = [
             "Frame",
@@ -111,6 +112,7 @@ class QFAlignmentDialog(QDialog):
             "Auto\nRotation", "Auto Rot\nDifference",
             "Size", "Image\nDifference",
             "Fold Std\n(sum)",
+            "Fold Std\n(norm)",
         ]
 
         fm = self.workspace.navigator.file_manager

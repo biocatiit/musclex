@@ -73,6 +73,11 @@ class SettingsManager:
         # 4 quadrants computed *before* actual folding. Populated by the
         # alignment-detection pipeline when symmetry test is enabled.
         self._fold_std_sum: dict = {}
+        # Normalised fold-symmetry score (professor's proposal):
+        # fold_std_sum / (N_fg × μ_fg), where the foreground mask is determined
+        # by Otsu thresholding on the average-quadrant image. Dimensionless and
+        # comparable across different exposures.
+        self._fold_std_norm: dict = {}
 
         if settings_dir:
             self.load()
@@ -200,6 +205,22 @@ class SettingsManager:
 
     def clear_fold_std_sum(self, filename: str):
         self._fold_std_sum.pop(filename, None)
+
+    # ===== Fold-symmetry normalised score cache =====
+
+    def get_fold_std_norm(self, filename: str) -> Optional[float]:
+        """Return the cached normalised symmetry score for *filename*, or None."""
+        return self._fold_std_norm.get(filename)
+
+    def has_fold_std_norm(self, filename: str) -> bool:
+        return filename in self._fold_std_norm
+
+    def set_fold_std_norm(self, filename: str, value: float):
+        """Cache the normalised symmetry score (fold_std_sum / Σ I_fg)."""
+        self._fold_std_norm[filename] = value
+
+    def clear_fold_std_norm(self, filename: str):
+        self._fold_std_norm.pop(filename, None)
 
     # ===== Auto-geometry cache =====
 
@@ -408,6 +429,7 @@ class SettingsManager:
         self._load_ignore()
         self._load_image_diff()
         self._load_fold_std_sum()
+        self._load_fold_std_norm()
 
     def _load_center(self):
         path = self.settings_path / "center_settings.json"
@@ -600,6 +622,31 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving fold std-sum cache: {e}")
 
+    def _load_fold_std_norm(self):
+        """Load normalised symmetry cache from ``fold_std_norm_cache.json``."""
+        path = self.settings_path / "fold_std_norm_cache.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    self._fold_std_norm = json.load(f)
+            except Exception as e:
+                print(f"Error loading fold std-norm cache: {e}")
+                self._fold_std_norm = {}
+        else:
+            self._fold_std_norm = {}
+
+    def save_fold_std_norm(self):
+        """Persist normalised symmetry cache to ``fold_std_norm_cache.json``."""
+        if not self._settings_dir:
+            return
+        d = self.settings_path
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "fold_std_norm_cache.json", 'w') as f:
+                json.dump(self._fold_std_norm, f, indent=2)
+        except Exception as e:
+            print(f"Error saving fold std-norm cache: {e}")
+
     def save_all(self):
         self.save_center()
         self.save_rotation()
@@ -630,4 +677,5 @@ class SettingsManager:
             self._ignore = {}
             self._image_diff = {}
             self._fold_std_sum = {}
+            self._fold_std_norm = {}
         print(f"Settings directory updated to: {new_settings_dir}")

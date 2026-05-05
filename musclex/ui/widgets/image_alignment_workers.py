@@ -106,7 +106,7 @@ def _compute_geometry(args):
 
 
 def _compute_fold_symmetry(img, center, rotation):
-    """Compute the sum of per-pixel std-deviation across the 4 quadrants of *img*.
+    """Compute per-quadrant symmetry scores for *img*.
 
     Mirrors the transform used by ``QuadrantFolder.transformImage`` and the
     quadrant slicing in ``QuadrantFolder.calculateAvgFold``: the image is
@@ -114,17 +114,29 @@ def _compute_fold_symmetry(img, center, rotation):
     bottom-right quadrants flipped to a common orientation. Quadrants are
     padded with NaN so partial overlaps don't pollute the std calculation.
 
-    Pixels that have fewer than 2 valid quadrant samples are excluded; the
-    final score is the sum (not mean) of the remaining per-pixel std values
-    so the metric scales with image area as the user requested.
+    Returns a dict with two complementary scores:
+
+    ``fold_std_sum``
+        Sum of per-pixel std-deviation across all valid positions (>= 2
+        quadrant samples). Lower is more symmetric. Not normalised, so it
+        scales with image area and exposure.
+
+    ``fold_std_norm``
+        ``fold_std_sum`` divided by the total foreground signal
+        ``N_fg × μ_fg`` (professor's proposal). The foreground mask is
+        derived from the average-quadrant image using Otsu thresholding,
+        making it dimensionless and comparable across different exposures.
+        ``None`` when the foreground cannot be determined reliably
+        (fewer than 100 pixels above threshold, or zero signal).
 
     @param img: 2-D numpy array
     @param center: (cx, cy) effective center in original image coordinates
     @param rotation: rotation angle in degrees, applied around the image center
-    @returns float fold-symmetry score, or None if the inputs are unusable
+    @returns dict ``{'fold_std_sum': float | None, 'fold_std_norm': float | None}``
     """
+    _null = {'fold_std_sum': None, 'fold_std_norm': None}
     if img is None or center is None:
-        return None
+        return _null
     try:
         import cv2 as _cv2
         import numpy as _np
@@ -158,7 +170,7 @@ def _compute_fold_symmetry(img, center, rotation):
         fold_w = max(cx, w - cx)
         fold_h = max(cy, h - cy)
         if fold_w <= 0 or fold_h <= 0:
-            return None
+            return _null
 
         # Slice 4 quadrants exactly as calculateAvgFold does, flipping each to a
         # common orientation (top-left frame).
@@ -191,7 +203,7 @@ def _compute_fold_symmetry(img, center, rotation):
         counts = valid.sum(axis=0)
         keep = counts >= 2
         if not _np.any(keep):
-            return 0.0
+            return {'fold_std_sum': 0.0, 'fold_std_norm': None}
 
         # Silence numpy's "Degrees of freedom <= 0" / "All-NaN slice" warnings
         # for positions that have <2 valid samples; we mask those out via *keep*
@@ -201,10 +213,42 @@ def _compute_fold_symmetry(img, center, rotation):
             _warnings.simplefilter('ignore', RuntimeWarning)
             per_pixel_std = _np.nanstd(stack, axis=0, ddof=0)
         per_pixel_std = _np.where(keep, per_pixel_std, 0.0)
-        return float(_np.nansum(per_pixel_std))
+        fold_std_sum = float(_np.nansum(per_pixel_std))
+
+        # --- Normalised score (professor's proposal) ---
+        # avg_quad[i,j] is the mean of the 4 quadrant values at position (i,j).
+        # Otsu thresholding on the finite+positive values of this 2-D map
+        # separates foreground (diffraction signal) from background.
+        # The denominator N_fg × μ_fg = Σ I_fg is the total foreground signal,
+        # making the score dimensionless and exposure-independent.
+        fold_std_norm = None
+        with _np.errstate(invalid='ignore'), _warnings.catch_warnings():
+            _warnings.simplefilter('ignore', RuntimeWarning)
+            avg_quad = _np.nanmean(stack, axis=0)  # shape (fold_h, fold_w)
+
+        finite_pos = avg_quad[_np.isfinite(avg_quad) & (avg_quad > 0)]
+        if finite_pos.size >= 100:
+            # cv2.threshold requires uint8/float32; scale to [0, 255] for Otsu
+            aq_min, aq_max = float(finite_pos.min()), float(finite_pos.max())
+            if aq_max > aq_min:
+                # cv2 Otsu requires uint8; scale [0, 255] then cast.
+                scaled_f = (avg_quad - aq_min) / (aq_max - aq_min) * 255.0
+                scaled_u8 = _np.nan_to_num(scaled_f, nan=0.0).clip(0, 255).astype(_np.uint8)
+                thresh_scaled, _ = _cv2.threshold(
+                    scaled_u8, 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU)
+                # Convert threshold back to original intensity units
+                threshold = aq_min + thresh_scaled / 255.0 * (aq_max - aq_min)
+                fg_mask = (avg_quad > threshold) & _np.isfinite(avg_quad) & (avg_quad > 0)
+                n_fg = int(fg_mask.sum())
+                if n_fg >= 100:
+                    total_fg_signal = float(avg_quad[fg_mask].sum())
+                    if total_fg_signal > 0:
+                        fold_std_norm = fold_std_sum / total_fg_signal
+
+        return {'fold_std_sum': fold_std_sum, 'fold_std_norm': fold_std_norm}
     except Exception:
         traceback.print_exc()
-        return None
+        return _null
 
 
 def _compute_geometry_with_symmetry(args):
@@ -218,7 +262,8 @@ def _compute_geometry_with_symmetry(args):
 
     @param args: ``(dir_path, img_name, loader_spec, manual_center,
                    manual_rotation, orientation_model, do_symmetry)``
-    @returns dict ``{'img_name', 'center', 'rotation', 'fold_std_sum', 'error'}``
+    @returns dict ``{'img_name', 'center', 'rotation', 'fold_std_sum',
+                     'fold_std_norm', 'error'}``
     """
     (dir_path, img_name, loader_spec,
      manual_center, manual_rotation,
@@ -237,17 +282,21 @@ def _compute_geometry_with_symmetry(args):
         auto_rotation = image_data.rotation
 
         fold_std_sum = None
+        fold_std_norm = None
         if do_symmetry:
             eff_center = manual_center if manual_center is not None else auto_center
             eff_rotation = (manual_rotation
                             if manual_rotation is not None else auto_rotation)
-            fold_std_sum = _compute_fold_symmetry(img, eff_center, eff_rotation)
+            sym = _compute_fold_symmetry(img, eff_center, eff_rotation)
+            fold_std_sum = sym['fold_std_sum']
+            fold_std_norm = sym['fold_std_norm']
 
         return {
             'img_name': img_name,
             'center': auto_center,
             'rotation': auto_rotation,
             'fold_std_sum': fold_std_sum,
+            'fold_std_norm': fold_std_norm,
             'error': None,
         }
     except Exception as e:
@@ -257,5 +306,6 @@ def _compute_geometry_with_symmetry(args):
             'center': None,
             'rotation': None,
             'fold_std_sum': None,
+            'fold_std_norm': None,
             'error': str(e),
         }

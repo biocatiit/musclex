@@ -457,6 +457,10 @@ class ImageAlignmentWidget(QWidget):
                 row, sym_val,
                 self._symmetry_thresh_enabled, self._symmetry_threshold,
             )
+        if self._enable_symmetry_test and ColKey.FOLD_STD_NORM in self.table._col:
+            norm_val = sm.get_fold_std_norm(name) if hasattr(
+                sm, 'get_fold_std_norm') else None
+            self.table.fill_fold_std_norm(row, norm_val)
 
         self.table.apply_misaligned_highlight(
             row, name, self.misaligned_names)
@@ -937,12 +941,15 @@ class ImageAlignmentWidget(QWidget):
                     result['center'],
                     result['rotation'],
                 )
-                # Persist the fold-symmetry score when present (only emitted by
+                # Persist the fold-symmetry scores when present (only emitted by
                 # the symmetry-aware worker). ``None`` simply means the symmetry
                 # test was not requested for this image.
                 fold_std = result.get('fold_std_sum')
                 if fold_std is not None and hasattr(sm, 'set_fold_std_sum'):
                     sm.set_fold_std_sum(task.filename, fold_std)
+                fold_norm = result.get('fold_std_norm')
+                if fold_norm is not None and hasattr(sm, 'set_fold_std_norm'):
+                    sm.set_fold_std_norm(task.filename, fold_norm)
 
             # When the user asked to stop, leave UI updates and the completion
             # check to the stopProcess state machine; data was already cached
@@ -985,6 +992,8 @@ class ImageAlignmentWidget(QWidget):
         ran_symmetry = getattr(self, '_batch_do_symmetry', False)
         if ran_symmetry and hasattr(sm, 'save_fold_std_sum'):
             sm.save_fold_std_sum()
+        if ran_symmetry and hasattr(sm, 'save_fold_std_norm'):
+            sm.save_fold_std_norm()
         # When the batch ran with the symmetry test enabled, derive a sensible
         # default highlight threshold (80th percentile of all scores) and push
         # it into the spinbox so flagged rows light up without manual tuning.
