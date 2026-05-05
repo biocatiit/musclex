@@ -34,7 +34,7 @@ from time import perf_counter as _perf_counter
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from lmfit import Model, Parameters
-from lmfit.models import GaussianModel, VoigtModel
+from scipy.special import wofz
 from sklearn.metrics import r2_score
 import fabio
 from musclex import __version__
@@ -56,6 +56,10 @@ try:
     from ..tests.fitting_ab.capture import maybe_record_fit as _maybe_record_fit
 except Exception:  # pragma: no cover - any import failure -> disable capture
     _maybe_record_fit = None
+
+
+_SQRT_2PI = np.sqrt(2.0 * np.pi)
+_SQRT2 = np.sqrt(2.0)
 
 
 @dataclass
@@ -1158,12 +1162,10 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
         if 'gamma' + str(i) in kwargs:
             gamma = kwargs['gamma' + str(i)]
 
-            mod = VoigtModel()
-            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma, gamma=gamma)
+            result += _voigt_eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma, gamma=gamma)
             # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma, gamma=-gamma)
         else:
-            mod = GaussianModel()
-            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma)
+            result += _gaussian_eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma)
             # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
 
         i += 1
@@ -1199,13 +1201,11 @@ def layerlineModelGMM(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1
         
         if 'gamma' + str(i) in kwargs:
             gamma = kwargs['gamma' + str(i)]
-            mod = VoigtModel()
-            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, 
-                             sigma=common_sigma, gamma=gamma)
+            result += _voigt_eval(x=x, amplitude=amplitude, center=centerX + p,
+                                sigma=common_sigma, gamma=gamma)
         else:
-            mod = GaussianModel()
-            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, 
-                             sigma=common_sigma)  # All peaks use common_sigma
+            result += _gaussian_eval(x=x, amplitude=amplitude, center=centerX + p,
+                                   sigma=common_sigma)  # All peaks use common_sigma
         i += 1
     
     return result
@@ -1242,8 +1242,7 @@ def layerlineBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, **kwargs):
     :param kwargs: nothing
     :return:
     """
-    mod = GaussianModel()
-    return  mod.eval(x=x, amplitude=bg_amplitude, center=centerX, sigma=bg_sigma) + bg_line
+    return _gaussian_eval(x=x, amplitude=bg_amplitude, center=centerX, sigma=bg_sigma) + bg_line
 
 def meridianBackground(x, centerX, center_sigma1, center_amplitude1, **kwargs):
     """
@@ -1255,8 +1254,7 @@ def meridianBackground(x, centerX, center_sigma1, center_amplitude1, **kwargs):
     :param kwargs: nothing
     :return:
     """
-    mod = GaussianModel()
-    return mod.eval(x=x, amplitude=center_amplitude1, center=centerX, sigma=center_sigma1)
+    return _gaussian_eval(x=x, amplitude=center_amplitude1, center=centerX, sigma=center_sigma1)
 
 def meridianGauss(x, centerX, center_sigma2, center_amplitude2, **kwargs):
     """
@@ -1268,5 +1266,25 @@ def meridianGauss(x, centerX, center_sigma2, center_amplitude2, **kwargs):
     :param kwargs:
     :return:
     """
-    mod = GaussianModel()
-    return mod.eval(x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2)
+    return _gaussian_eval(x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2)
+
+
+def _gaussian_eval(x, amplitude, center, sigma):
+    """Fast equivalent of ``lmfit.models.GaussianModel().eval``.
+
+    lmfit's Gaussian ``amplitude`` is the integrated area under the
+    curve, so the normalized form is:
+
+        amplitude / (sigma * sqrt(2*pi)) * exp(-0.5 * ((x-center)/sigma)**2)
+
+    Keeping this local avoids constructing a new ``GaussianModel`` object
+    for every component on every optimizer residual evaluation.
+    """
+    z = (x - center) / sigma
+    return (amplitude / (sigma * _SQRT_2PI)) * np.exp(-0.5 * z * z)
+
+
+def _voigt_eval(x, amplitude, center, sigma, gamma):
+    """Fast equivalent of ``lmfit.models.VoigtModel().eval`` for explicit gamma."""
+    z = ((x - center) + 1j * gamma) / (sigma * _SQRT2)
+    return amplitude * np.real(wofz(z)) / (sigma * _SQRT_2PI)
