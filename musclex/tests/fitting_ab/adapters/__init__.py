@@ -17,6 +17,8 @@ from .lmfit_adapters import (
     LmfitPoissonWeightedAdapter,
     LmfitTRFAdapter,
     LmfitTRFCythonAdapter,
+    LmfitTRFHullDoubleSliceAdapter,
+    LmfitTRFHullSliceAdapter,
     LmfitTRFJacAdapter,
     LmfitTRFLmfitObjectsAdapter,
     LmfitTRFNumbaAdapter,
@@ -38,6 +40,9 @@ ADAPTER_REGISTRY = {
         LmfitTRFNumpyAdapter,
         LmfitTRFNumbaAdapter,
         LmfitTRFCythonAdapter,
+        # Array-slicing optimisation
+        LmfitTRFHullSliceAdapter,
+        LmfitTRFHullDoubleSliceAdapter,
     )
 }
 
@@ -70,6 +75,8 @@ __all__ = [
     "LmfitTRFNumpyAdapter",
     "LmfitTRFNumbaAdapter",
     "LmfitTRFCythonAdapter",
+    "LmfitTRFHullSliceAdapter",
+    "LmfitTRFHullDoubleSliceAdapter",
     "get_adapter",
     "load_case",
     "save_case",

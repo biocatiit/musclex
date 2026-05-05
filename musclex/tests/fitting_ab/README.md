@@ -56,7 +56,7 @@ fed into the optimizer.
 
 ### 1a. Automatic on dev builds
 
-If you're on the `dev` git branch (`__version__` ends with `.dev0`),
+If you're on the `dev` git branch (`__version_`_ ends with `.dev0`),
 capture is **on by default**. At `import musclex` time you'll see:
 
 ```
@@ -66,14 +66,15 @@ capture is **on by default**. At `import musclex` time you'll see:
 
 Defaults that get filled in (each can be overridden):
 
-| env var | default on dev |
-|---|---|
-| `MUSCLEX_CAPTURE_FITS` | `1` |
-| `MUSCLEX_CAPTURE_DIR`  | `~/.musclex/fit_captures/<YYYY-MM-DD>/` |
-| `MUSCLEX_CAPTURE_TAG`  | `dev` |
 
-The auto-enable is **skipped** under test runners (pytest, `python -m
-unittest`) so CI won't silently litter your home directory.
+| env var                | default on dev                          |
+| ---------------------- | --------------------------------------- |
+| `MUSCLEX_CAPTURE_FITS` | `1`                                     |
+| `MUSCLEX_CAPTURE_DIR`  | `~/.musclex/fit_captures/<YYYY-MM-DD>/` |
+| `MUSCLEX_CAPTURE_TAG`  | `dev`                                   |
+
+
+The auto-enable is **skipped** under test runners (pytest, `python -m unittest`) so CI won't silently litter your home directory.
 
 ### 1b. Explicit via environment variables
 
@@ -95,12 +96,14 @@ export MUSCLEX_CAPTURE_FITS=0
 
 Anything that ends up calling `ProjectionProcessor.fitModel()`:
 
-| run mode | command | notes |
-|---|---|---|
-| **GUI initial fit** | `musclex pt` → load image → click "Fit" | one pkl per box |
-| **GUI GMM editor refit** | "Edit GMM Parameters" dialog → "Refit" | only the active box re-fits |
-| **headless** | `musclex pth -i input.tif -s ptsettings.json` | full batch |
-| **unittest** | `python -m unittest musclex.tests.musclex_tester.MuscleXGlobalTester.testHeadlessPT*` | a few PT cases |
+
+| run mode                 | command                                                                               | notes                       |
+| ------------------------ | ------------------------------------------------------------------------------------- | --------------------------- |
+| **GUI initial fit**      | `musclex pt` → load image → click "Fit"                                               | one pkl per box             |
+| **GUI GMM editor refit** | "Edit GMM Parameters" dialog → "Refit"                                                | only the active box re-fits |
+| **headless**             | `musclex pth -i input.tif -s ptsettings.json`                                         | full batch                  |
+| **unittest**             | `python -m unittest musclex.tests.musclex_tester.MuscleXGlobalTester.testHeadlessPT`* | a few PT cases              |
+
 
 The GMM editor is the highest-value source: users tweak fixed params,
 bounds, peak counts, and toggle Equal Variance — exactly the corner cases
@@ -136,24 +139,28 @@ python -m musclex.tests.fitting_ab.runner \
 
 ### Output files
 
-| flag | shape | what's in it | when to use |
-|---|---|---|---|
-| `--report` | long, one row per fit | timing + chi² + r² + p_max_diff per (adapter, case, trial) | always |
-| `--summary` | wide, one row per adapter | mean / std / median / IQR of timing, chi² ratio, r² across all fits | always — this is the headline table |
-| `--per-case` | wide, one row per (adapter, case) | mean / std / median / IQR per case | when error / time vary case-by-case |
+
+| flag            | shape                                        | what's in it                                                                                                | when to use                                                                                                |
+| --------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--report`      | long, one row per fit                        | timing + chi² + r² + p_max_diff per (adapter, case, trial)                                                  | always                                                                                                     |
+| `--summary`     | wide, one row per adapter                    | mean / std / median / IQR of timing, chi² ratio, r² across all fits                                         | always — this is the headline table                                                                        |
+| `--per-case`    | wide, one row per (adapter, case)            | mean / std / median / IQR per case                                                                          | when error / time vary case-by-case                                                                        |
 | `--consistency` | long, one row per (adapter, case, parameter) | mean / std / min / max of each fitted parameter across trials, plus mean / std of `(candidate - reference)` | only meaningful with `--perturb-init > 0` and `--n-repeats > 1`; this is the per-parameter stability table |
+
 
 ### Adapters
 
 Built-in adapter names (more can be added — see § 5):
 
-| name | what changes vs production |
-|---|---|
-| `lmfit-baseline-leastsq` | exact production behaviour (LM + tan/arctan bound mapping) |
-| `lmfit-trf` | `method='least_squares'` — TRF with native bounds |
-| `lmfit-trf-jac` | TRF + `fit_kws={'x_scale': 'jac'}` — Jacobian-based parameter scaling. Use this when free params span many orders of magnitude (e.g. EquatorImage, where areas are ~10⁶ and sigmas are ~10¹) — without it, scipy's relative-step `xtol` can trip after 5 nfev. |
-| `lmfit-poisson` | leastsq + Poisson `weights = 1/sqrt(max(y, 1))` |
-| `lmfit-trf-poisson` | TRF + Poisson weights |
+
+| name                     | what changes vs production                                                                                                                                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lmfit-baseline-leastsq` | exact production behaviour (LM + tan/arctan bound mapping)                                                                                                                                                                                                     |
+| `lmfit-trf`              | `method='least_squares'` — TRF with native bounds                                                                                                                                                                                                              |
+| `lmfit-trf-jac`          | TRF + `fit_kws={'x_scale': 'jac'}` — Jacobian-based parameter scaling. Use this when free params span many orders of magnitude (e.g. EquatorImage, where areas are ~10⁶ and sigmas are ~10¹) — without it, scipy's relative-step `xtol` can trip after 5 nfev. |
+| `lmfit-poisson`          | leastsq + Poisson `weights = 1/sqrt(max(y, 1))`                                                                                                                                                                                                                |
+| `lmfit-trf-poisson`      | TRF + Poisson weights                                                                                                                                                                                                                                          |
+
 
 ### `--n-repeats`
 
@@ -165,9 +172,9 @@ robustness.
 
 Bound-aware perturbation. For each free parameter:
 
-* **bounded** params (both min/max finite): additive,
-  `init + uniform(-p, +p) * (max-min)/2`
-* **unbounded / one-sided**: multiplicative `init * (1 ± p)`
+- **bounded** params (both min/max finite): additive,
+`init + uniform(-p, +p) * (max-min)/2`
+- **unbounded / one-sided**: multiplicative `init * (1 ± p)`
 
 A unit `p=1.0` means "anywhere across the search range" for bounded
 params, "±100% relative" for unbounded ones.
@@ -213,19 +220,21 @@ python -m musclex.tests.fitting_ab.runner \
 
 One row per (adapter, case, trial). Key columns:
 
-| column | meaning |
-|---|---|
-| `case_id`, `box_name`, `n_peaks`, `bgsub`, `tags` | case identification |
-| `adapter`, `trial`, `perturb_init` | run config |
-| `success`, `converged`, `aborted` | success=converged∧¬aborted; `aborted=True` when fit hit max nfev |
-| `elapsed_s`, `n_eval` | wall time and function evaluations |
-| `chi2`, `redchi`, `r2` | unweighted Σresidual², χ²/dof, coefficient of determination |
-| `ref_chi2`, `ref_r2`, `ref_elapsed_s` | baseline reference (frozen at capture time) |
-| `chi2_ratio` | `chi2 / ref_chi2`. **=1.0** ⇒ same optimum, **>2** ⇒ likely worse local minimum |
-| `speed_ratio` | `elapsed_s / ref_elapsed_s` |
-| `p_max_abs_diff` | max(\|p_i - p_i_ref\|) over all peak positions, in pixels |
-| `amp_max_rel_diff` | max relative amplitude diff |
-| `error` | exception message if the fit raised |
+
+| column                                            | meaning                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `case_id`, `box_name`, `n_peaks`, `bgsub`, `tags` | case identification                                                             |
+| `adapter`, `trial`, `perturb_init`                | run config                                                                      |
+| `success`, `converged`, `aborted`                 | success=converged∧¬aborted; `aborted=True` when fit hit max nfev                |
+| `elapsed_s`, `n_eval`                             | wall time and function evaluations                                              |
+| `chi2`, `redchi`, `r2`                            | unweighted Σresidual², χ²/dof, coefficient of determination                     |
+| `ref_chi2`, `ref_r2`, `ref_elapsed_s`             | baseline reference (frozen at capture time)                                     |
+| `chi2_ratio`                                      | `chi2 / ref_chi2`. **=1.0** ⇒ same optimum, **>2** ⇒ likely worse local minimum |
+| `speed_ratio`                                     | `elapsed_s / ref_elapsed_s`                                                     |
+| `p_max_abs_diff`                                  | max(|p_i - p_i_ref|) over all peak positions, in pixels                         |
+| `amp_max_rel_diff`                                | max relative amplitude diff                                                     |
+| `error`                                           | exception message if the fit raised                                             |
+
 
 ### Summary table (`--summary`)
 
@@ -233,24 +242,26 @@ One row per adapter, aggregated. The summary answers four
 *independent* questions; group the columns mentally by which question
 they belong to:
 
-| question | columns |
-|---|---|
-| **Q1. Did the fit run?** | `n_fits`, `success_rate`, `aborted_rate` |
+
+| question                              | columns                                                                                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Q1. Did the fit run?**              | `n_fits`, `success_rate`, `aborted_rate`                                                                                                             |
 | **Q2. Did it find the right answer?** | `chi2_ratio_median`, `chi2_ratio_mean`, `chi2_ratio_std`, `r2_median`, `r2_mean`, `r2_std`, `p_max_diff_median`, `p_max_diff_p95`, `amp_diff_median` |
-| **Q3. Was it fast?** | `elapsed_median`, `elapsed_mean`, `elapsed_std`, `elapsed_iqr`, `speed_ratio_median` |
-| **Q4. Was it stable across trials?** | the `*_std` columns above (only meaningful with `--perturb-init`) |
+| **Q3. Was it fast?**                  | `elapsed_median`, `elapsed_mean`, `elapsed_std`, `elapsed_iqr`, `speed_ratio_median`                                                                 |
+| **Q4. Was it stable across trials?**  | the `*_std` columns above (only meaningful with `--perturb-init`)                                                                                    |
+
 
 Notes on the dispersion columns:
 
-* `elapsed_iqr` (interquartile range, P75 − P25) is the **right
-  dispersion estimator for wall time** — wall time is right-skewed
-  (occasional GC / scheduler spikes), so `elapsed_std` overstates how
-  jittery the adapter actually is. Both are reported; trust `iqr`.
-* `chi2_ratio_*` is reported *instead of* raw `chi2_*` because chi² is
-  scale-dependent on the data brightness. A global mean / std on raw
-  `chi2` would be dominated by whichever case has the brightest data,
-  not by adapter behaviour. Use `--per-case` if you need per-case raw
-  chi² mean / std.
+- `elapsed_iqr` (interquartile range, P75 − P25) is the **right
+dispersion estimator for wall time** — wall time is right-skewed
+(occasional GC / scheduler spikes), so `elapsed_std` overstates how
+jittery the adapter actually is. Both are reported; trust `iqr`.
+- `chi2_ratio_`* is reported *instead of* raw `chi2_`* because chi² is
+scale-dependent on the data brightness. A global mean / std on raw
+`chi2` would be dominated by whichever case has the brightest data,
+not by adapter behaviour. Use `--per-case` if you need per-case raw
+chi² mean / std.
 
 > Always look at `p_max_diff_p95` *and* the median. The median can hide
 > tail behaviour where one in twenty fits goes wildly wrong.
@@ -266,14 +277,16 @@ is dragging the mean. One row per (adapter, case).
 One row per `(adapter, case_id, param_name)` — i.e. one row per fitted
 free parameter per case. Columns:
 
-| column | meaning |
-|---|---|
-| `n_trials` | how many perturbation trials were aggregated |
-| `ref_value` | the captured baseline value (frozen) |
-| `cand_mean`, `cand_std`, `cand_min`, `cand_max` | the **fitted** value's distribution across trials |
-| `diff_mean`, `diff_std` | mean / std of `(candidate - reference)` |
-| `abs_diff_mean`, `abs_diff_max` | absolute deviation, mean and worst |
-| `rel_diff_mean`, `rel_diff_std` | relative deviation `(candidate - reference) / reference` |
+
+| column                                          | meaning                                                  |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| `n_trials`                                      | how many perturbation trials were aggregated             |
+| `ref_value`                                     | the captured baseline value (frozen)                     |
+| `cand_mean`, `cand_std`, `cand_min`, `cand_max` | the **fitted** value's distribution across trials        |
+| `diff_mean`, `diff_std`                         | mean / std of `(candidate - reference)`                  |
+| `abs_diff_mean`, `abs_diff_max`                 | absolute deviation, mean and worst                       |
+| `rel_diff_mean`, `rel_diff_std`                 | relative deviation `(candidate - reference) / reference` |
+
 
 This is the table that lets you say "`p_0` of the M6 case has
 cand_std = 0.0008 px under 15 % perturbation" — i.e. **per-parameter
@@ -290,14 +303,16 @@ case. Use `--perturb-init > 0` to get meaningful dispersion.
 
 ### Interpreting at a glance
 
-| signal | interpretation |
-|---|---|
-| `chi2_ratio_median ≈ 1.0`, `chi2_ratio_std ≈ 0`, `p_max_diff_median < 1e-3` | adapter finds the same optimum, every time |
-| `chi2_ratio_median ≈ 1.0` but `chi2_ratio_std > 1` | adapter usually finds the right answer but occasionally diverges |
-| `chi2_ratio_median > 2` | adapter often converges to a worse local min |
-| `aborted_rate > 0` | adapter hits its iteration cap on some cases |
-| consistency table: `cand_std / |ref| < 1e-3` for all params | parameters fully stable |
-| consistency table: high CV concentrated on **one case** | single hard case (degenerate landscape, strong background, label-symmetric block) — investigate just that case |
+
+| signal                                                                      | interpretation                                                                                                 |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `chi2_ratio_median ≈ 1.0`, `chi2_ratio_std ≈ 0`, `p_max_diff_median < 1e-3` | adapter finds the same optimum, every time                                                                     |
+| `chi2_ratio_median ≈ 1.0` but `chi2_ratio_std > 1`                          | adapter usually finds the right answer but occasionally diverges                                               |
+| `chi2_ratio_median > 2`                                                     | adapter often converges to a worse local min                                                                   |
+| `aborted_rate > 0`                                                          | adapter hits its iteration cap on some cases                                                                   |
+| consistency table: `cand_std /                                              | ref                                                                                                            |
+| consistency table: high CV concentrated on **one case**                     | single hard case (degenerate landscape, strong background, label-symmetric block) — investigate just that case |
+
 
 ---
 
@@ -315,10 +330,10 @@ python -m musclex.tests.fitting_ab.diagnose_m6_trf_failure \
 
 Output per failure includes:
 
-* the perturbed init values (and which were clipped to bounds),
-* the final fitted params,
-* residual mean / std / max — useful for spotting numerical degeneracy
-  (e.g. all positions pinned to the boundary, sigma collapsed to 1, etc).
+- the perturbed init values (and which were clipped to bounds),
+- the final fitted params,
+- residual mean / std / max — useful for spotting numerical degeneracy
+(e.g. all positions pinned to the boundary, sigma collapsed to 1, etc).
 
 This is how the original "TRF aborted on m6 trial 5" mystery got solved
 (answer: the perturbation strategy was wrong, not TRF).
@@ -409,16 +424,16 @@ python -m unittest musclex.tests.fitting_ab.tests.test_smoke -v
 
 Nineteen tests cover:
 
-* pickle round-trip
-* every registered adapter on a synthetic 2-peak case
-* baseline replay = reference (framework self-test)
-* smart perturbation: bounded params stay in range, unbounded use multiplicative
-* `_is_aborted` / `_manual_chi2` helpers
-* `canonicalize_values` — meridian Gaussian swap, peak-position sort
-* `per_param_diff` returns ~0 across a label swap (proves canonicalisation works)
-* `summarize_consistency` produces non-zero `cand_std` under perturbation
-* `summarize_consistency` produces ~0 `cand_std` under deterministic replay
-  (documents the caveat)
+- pickle round-trip
+- every registered adapter on a synthetic 2-peak case
+- baseline replay = reference (framework self-test)
+- smart perturbation: bounded params stay in range, unbounded use multiplicative
+- `_is_aborted` / `_manual_chi2` helpers
+- `canonicalize_values` — meridian Gaussian swap, peak-position sort
+- `per_param_diff` returns ~0 across a label swap (proves canonicalisation works)
+- `summarize_consistency` produces non-zero `cand_std` under perturbation
+- `summarize_consistency` produces ~0 `cand_std` under deterministic replay
+(documents the caveat)
 
 ---
 
@@ -451,21 +466,21 @@ zero-cost when capture is off.
 ## 9. Common gotchas
 
 1. **Multiplicative perturbation kills bounded params.** Always use the
-   provided `--perturb-init`; it's bound-aware. A naive `init * (1±0.15)`
+  provided `--perturb-init`; it's bound-aware. A naive `init * (1±0.15)`
    on a position with bounds `[543, 547]` overshoots to 626 and starts
    the optimizer from the active boundary, which manufactures fake
    "failures" you'll spend a day chasing.
 2. **lmfit's `chisqr` is wrong on aborted fits** (it can read 1e-250).
-   Use the `chi2` field from `FitResult` (recomputed manually from
+  Use the `chi2` field from `FitResult` (recomputed manually from
    residuals); reference recompute in the recorder is also fixed.
 3. **Environment variables are read at import time on the GUI side.**
-   Changing `MUSCLEX_CAPTURE_TAG` after `musclex pt` is already running
+  Changing `MUSCLEX_CAPTURE_TAG` after `musclex pt` is already running
    has no effect — restart the GUI for a new tag.
 4. **The runner uses one shared RNG per adapter.** Trial `k` of case `i`
-   is *not* independent of trial `k` of case `j`; if you need true
+  is *not* independent of trial `k` of case `j`; if you need true
    independence, run multiple separate `--n-repeats=1` invocations.
-5. **`elapsed_s` includes lmfit / scipy import overhead on the first
-   call.** Always set `--n-repeats >= 3` and look at the median, not the
+5. *`*elapsed_s` includes lmfit / scipy import overhead on the first
+  call.** Always set `--n-repeats >= 3` and look at the median, not the
    mean.
 
 ---
@@ -474,40 +489,40 @@ zero-cost when capture is off.
 
 The dated benchmark report — including data-grounded tables, citation
 of every source CSV, and the recommendation — lives in
-[`REPORT.md`](REPORT.md). It now covers two modules with **opposite
+`[REPORT.md](REPORT.md)`. It now covers two modules with **opposite
 verdicts**:
 
 ### Projection Traces — switch to TRF
 
 5 captured cases, perturbation sweep at `p ∈ {0.05, 0.15, 0.30, 0.50}`:
 
-* **`lmfit-trf` reaches the same optimum as the production baseline**
-  (`chi2_ratio_median = 1.0000`) on every case, every perturbation
-  level. Both adapters always converge.
-* **TRF is faster on the harder cases** (Test 1 medians: `m3` 11.7 vs
-  81.7 ms, `m6` 100 vs 157 ms, `TEST` 88 vs 290 ms; ~5–35 % faster
-  overall).
-* **TRF's peak-position p95 is bounded** at 0.03 – 0.17 px regardless
-  of perturbation. Baseline's p95 grows to 2.4 px at `p = 0.50`,
-  concentrated on the one strong-background case (`TEST`).
-* **Both Poisson-weighted adapters are wrong** — convex-hull bg
-  subtraction removed the Poisson noise; `1/√y` biases the optimum
-  1 – 4 px away.
-* **Production change shipped** in `ProjectionProcessor.fitModel()`.
+- `**lmfit-trf` reaches the same optimum as the production baseline**
+(`chi2_ratio_median = 1.0000`) on every case, every perturbation
+level. Both adapters always converge.
+- **TRF is faster on the harder cases** (Test 1 medians: `m3` 11.7 vs
+81.7 ms, `m6` 100 vs 157 ms, `TEST` 88 vs 290 ms; ~5–35 % faster
+overall).
+- **TRF's peak-position p95 is bounded** at 0.03 – 0.17 px regardless
+of perturbation. Baseline's p95 grows to 2.4 px at `p = 0.50`,
+concentrated on the one strong-background case (`TEST`).
+- **Both Poisson-weighted adapters are wrong** — convex-hull bg
+subtraction removed the Poisson noise; `1/√y` biases the optimum
+1 – 4 px away.
+- **Production change shipped** in `ProjectionProcessor.fitModel()`.
 
 ### Equator — stay on `leastsq`
 
 6 captured cases (3 image sources, 2 captures each), perturbation
 sweep at `p = 0.15`:
 
-* **Plain `lmfit-trf` is broken** — premature `xtol` termination at
-  5 nfev (because area params are 10⁶ × bigger than sigma params), 17 %
-  aborted, and one catastrophic 24 000-nfev abort.
-* **`lmfit-trf-jac` (TRF + `x_scale='jac'`) is correct** — same
-  minimum as `leastsq`, 0 aborts. But **2 – 3 × slower** than `leastsq`
-  on every case.
-* **`leastsq` wins**: 100 % success, 30–40 ms median, no robustness
-  gap vs `trf-jac`. Production stays on `leastsq`.
+- **Plain `lmfit-trf` is broken** — premature `xtol` termination at
+5 nfev (because area params are 10⁶ × bigger than sigma params), 17 %
+aborted, and one catastrophic 24 000-nfev abort.
+- `**lmfit-trf-jac` (TRF + `x_scale='jac'`) is correct** — same
+minimum as `leastsq`, 0 aborts. But **2 – 3 × slower** than `leastsq`
+on every case.
+- `**leastsq` wins**: 100 % success, 30–40 ms median, no robustness
+gap vs `trf-jac`. Production stays on `leastsq`.
 
 See `REPORT.md` for the full numbers, per-case breakdown, and
 reproduction commands.

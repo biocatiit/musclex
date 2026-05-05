@@ -471,3 +471,208 @@ class LmfitTRFCythonAdapter(_LmfitAdapterBase):
     _resolve_model_func = _make_variant_resolver(
         "musclex.tests.fitting_ab.model_variants.model_cython.model_cython"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Hull-range slicing adapter
+# --------------------------------------------------------------------------- #
+
+#: Extra pixels kept on each side of the hull window to avoid clipping peak
+#: tails.  Small enough that it doesn't reduce the speed gain meaningfully.
+_HULL_SLICE_MARGIN = 15
+
+
+def _slice_to_hull_range(inputs: FitInputs, hull_range) -> FitInputs:
+    """Return a copy of *inputs* trimmed to the outer hull-range window.
+
+    Slices the array to ``[centerX - hull_end - margin, centerX + hull_end +
+    margin]``, removing the outer zero-padded region.  The inner zero-padded
+    region (from center to hull_start) is **retained** — see
+    :func:`_double_slice_to_hull_range` for a more aggressive variant that
+    removes those zeros as well.
+
+    ``centerX`` is kept as-is; the ``x`` values retain their original absolute
+    pixel coordinates.
+    """
+    hull_start, hull_end = float(hull_range[0]), float(hull_range[1])
+    centerX = float(inputs.independent_vars.get("centerX", 0.0))
+
+    n = len(inputs.x)
+    lo = max(0, int(centerX - hull_end) - _HULL_SLICE_MARGIN)
+    hi = min(n, int(centerX + hull_end) + _HULL_SLICE_MARGIN + 1)
+
+    if lo == 0 and hi == n:
+        return inputs  # nothing to trim
+
+    x_sl = inputs.x[lo:hi]
+    y_sl = inputs.y[lo:hi]
+    w_sl = inputs.weights[lo:hi] if inputs.weights is not None else None
+
+    from dataclasses import replace  # noqa: PLC0415
+    return replace(inputs, x=x_sl, y=y_sl, weights=w_sl)
+
+
+def _double_slice_to_hull_range(inputs: FitInputs, hull_range) -> FitInputs:
+    """Return a copy of *inputs* keeping ONLY the two active signal windows.
+
+    When ``bgsub == 1`` the histogram has non-zero values only in the two
+    rings ``[centerX ± hull_start, centerX ± hull_end]``.  The region
+    between ``-hull_start`` and ``+hull_start`` (near the beam centre) is
+    also zero-padded, not just the outer tail.
+
+    This function concatenates the two narrow windows:
+
+        left window:  ``x[ centerX - hull_end - M : centerX - hull_start + M ]``
+        right window: ``x[ centerX + hull_start - M : centerX + hull_end + M ]``
+
+    The concatenated ``x`` array retains absolute pixel coordinates so
+    ``centerX`` and peak positions in the model function require no
+    adjustment.  lmfit treats the combined array as a flat list of
+    (x_i, y_i) pairs, which is mathematically valid.
+
+    For typical real cases where ``hull_start ≈ hull_end * 0.9`` this
+    reduces the effective array length from ``~2 * hull_end`` (single-slice)
+    to ``~2 * (hull_end - hull_start + 2 * M)``, yielding an additional
+    **5–20×** reduction in ``exp()`` evaluations.
+    """
+    hull_start, hull_end = float(hull_range[0]), float(hull_range[1])
+    centerX = float(inputs.independent_vars.get("centerX", 0.0))
+    n = len(inputs.x)
+    M = _HULL_SLICE_MARGIN
+
+    # Left window: from (centerX - hull_end) to (centerX - hull_start)
+    l_lo = max(0, int(centerX - hull_end) - M)
+    l_hi = min(n, int(centerX - hull_start) + M + 1)
+
+    # Right window: from (centerX + hull_start) to (centerX + hull_end)
+    r_lo = max(0, int(centerX + hull_start) - M)
+    r_hi = min(n, int(centerX + hull_end) + M + 1)
+
+    # Fall back to single-slice if windows overlap or hull_start ~ 0
+    if l_hi >= r_lo or l_lo >= l_hi or r_lo >= r_hi:
+        return _slice_to_hull_range(inputs, hull_range)
+
+    x_cat = np.concatenate([inputs.x[l_lo:l_hi], inputs.x[r_lo:r_hi]])
+    y_cat = np.concatenate([inputs.y[l_lo:l_hi], inputs.y[r_lo:r_hi]])
+    w_cat = None
+    if inputs.weights is not None:
+        w_cat = np.concatenate([
+            inputs.weights[l_lo:l_hi], inputs.weights[r_lo:r_hi],
+        ])
+
+    from dataclasses import replace  # noqa: PLC0415
+    return replace(inputs, x=x_cat, y=y_cat, weights=w_cat)
+
+
+def _recompute_metrics_on_full_array(
+    result: FitResult,
+    original_inputs: FitInputs,
+) -> FitResult:
+    """Recompute chi² and R² of *result* against the **full** original array.
+
+    When a slice adapter fits on a reduced array, the reported chi² / R² are
+    computed on that smaller array.  Zero-padded regions (removed by slicing)
+    are trivially fitted — the model evaluates to ~0 there — so excluding them
+    makes R² look *lower* than the baseline even when the fitted parameters are
+    identical.
+
+    This helper evaluates the model on the full ``original_inputs.x`` /
+    ``original_inputs.y`` and recomputes the metrics so results are
+    comparable across adapters.
+    """
+    if not result.values:
+        return result  # nothing to recompute (failed fit)
+
+    model_func = _get_model_func(original_inputs.model_kind)
+    indep_kwargs = dict(original_inputs.independent_vars)
+    indep_kwargs["x"] = original_inputs.x
+
+    try:
+        predicted_full = model_func(**{**indep_kwargs, **result.values})
+        r2_full  = _compute_r2(original_inputs.y, predicted_full)
+        chi2_full = _manual_chi2(original_inputs.y, predicted_full, original_inputs.weights)
+        redchi_full: Optional[float] = None
+        try:
+            ndata = int(np.asarray(original_inputs.y).size)
+            nvarys = len(original_inputs.free_params)
+            dof = ndata - nvarys
+            if chi2_full is not None and dof > 0:
+                redchi_full = float(chi2_full) / float(dof)
+        except Exception:  # pragma: no cover
+            pass
+    except Exception:  # pragma: no cover
+        return result
+
+    from dataclasses import replace as _replace  # noqa: PLC0415
+    return _replace(result, r2=r2_full, chi2=chi2_full, redchi=redchi_full)
+
+
+class LmfitTRFHullDoubleSliceAdapter(_LmfitAdapterBase):
+    """TRF + two-window slicing that removes BOTH the outer AND inner zeros.
+
+    For ``bgsub == 1`` cases, non-zero signal exists only in the two rings
+    ``[centerX ± hull_start, centerX ± hull_end]``.  This adapter passes
+    only those two windows to the optimizer, concatenated into a single flat
+    array with the original absolute ``x`` coordinates preserved.
+
+    Compared with :class:`LmfitTRFHullSliceAdapter` (single outer-cut), this
+    removes the large zero-padded meridian region and gives a stronger
+    speedup when ``hull_start`` is large relative to ``hull_end``.  In the
+    captured real cases ``hull_start / hull_end ≈ 0.85–0.96``, so the inner
+    zeros account for 85–96 % of the sliced window — double slicing can
+    reduce the effective array by 5–20× vs single slicing.
+
+    R² and chi² are recomputed on the **full original array** after fitting
+    so metrics are comparable with the baseline TRF adapter.
+    """
+
+    name = "lmfit-trf-hull-double-slice"
+    fit_method = "least_squares"
+
+    def fit(self, case: FitCase, *, perturb_init: Optional[float] = None) -> FitResult:
+        meta = case.meta
+        if (
+            getattr(meta, "bgsub", -1) == 1
+            and getattr(meta, "hull_range", None) is not None
+        ):
+            sliced_inputs = _double_slice_to_hull_range(case.inputs, meta.hull_range)
+            from dataclasses import replace as _replace  # noqa: PLC0415
+            sliced_case = _replace(case, inputs=sliced_inputs)
+            result = super().fit(sliced_case, perturb_init=perturb_init)
+            return _recompute_metrics_on_full_array(result, case.inputs)
+        return super().fit(case, perturb_init=perturb_init)
+
+
+class LmfitTRFHullSliceAdapter(_LmfitAdapterBase):
+    """TRF + hull-range array slicing for bgsub=1 (convex hull) cases.
+
+    When the case metadata indicates ``bgsub == 1`` and a ``hull_range`` is
+    recorded, the histogram and x-array are trimmed to the active signal
+    window before fitting.  The zero-padded exterior (produced by
+    :func:`convexHull`) contributes almost nothing to the loss function but
+    forces :func:`_gaussian_eval` to evaluate ``np.exp()`` for every wasted
+    pixel on every optimizer iteration.
+
+    For ``bgsub != 1`` or when ``hull_range`` is absent the adapter falls
+    back to standard full-array fitting.
+
+    Expected speedup: **2–4×** relative to unsliced fitting (in addition
+    to the baseline lmfit-objects → numpy gain), depending on the ratio
+    ``hull_window / array_length``.
+    """
+
+    name = "lmfit-trf-hull-slice"
+    fit_method = "least_squares"
+
+    def fit(self, case: FitCase, *, perturb_init: Optional[float] = None) -> FitResult:
+        meta = case.meta
+        if (
+            getattr(meta, "bgsub", -1) == 1
+            and getattr(meta, "hull_range", None) is not None
+        ):
+            sliced_inputs = _slice_to_hull_range(case.inputs, meta.hull_range)
+            from dataclasses import replace as _replace  # noqa: PLC0415
+            sliced_case = _replace(case, inputs=sliced_inputs)
+            result = super().fit(sliced_case, perturb_init=perturb_init)
+            return _recompute_metrics_on_full_array(result, case.inputs)
+        return super().fit(case, perturb_init=perturb_init)

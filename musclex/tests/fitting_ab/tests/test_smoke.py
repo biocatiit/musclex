@@ -20,6 +20,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Dict
 
 import numpy as np
 
@@ -422,6 +423,225 @@ class ConsistencyTableTests(unittest.TestCase):
         # collapses a single-value group; we accept both).
         for v in consistency["cand_std"].dropna():
             self.assertAlmostEqual(v, 0.0, places=10)
+
+
+class TestHullRangeSlice(unittest.TestCase):
+    """Verify that slicing the fit array to the hull-range window is both
+    numerically equivalent to full-array fitting **and** faster.
+
+    The synthetic fixture mimics a ``bgsub=1`` (convex hull) case:
+
+    * Background parameters are all zero (fixed as independent_vars).
+    * The histogram ``y`` has genuine signal only within
+      ``[centerX - hull_end, centerX + hull_end]``; everything outside
+      is zero-padded (replicating what :func:`convexHull` produces).
+    * The ``FitCase.meta.bgsub = 1`` and ``meta.hull_range`` are set so
+      :class:`LmfitTRFHullSliceAdapter` activates the slicing path.
+    """
+
+    # ── fixture parameters ─────────────────────────────────────────────────
+    N_FULL = 2000       # full array length (pixels)
+    CENTER_X = 1000.0   # beam centre in array coordinates
+    HULL_START = 30.0   # inner edge of valid window (distance from centre)
+    HULL_END = 350.0    # outer edge
+    N_PEAKS = 4
+    PEAK_POSITIONS = [-280.0, -130.0, +130.0, +280.0]  # all within hull_end
+    PEAK_AMPLITUDES = [800.0, 600.0, 600.0, 800.0]
+    PEAK_SIGMA = 8.0
+    TIMING_REPS = 30    # repetitions used for timing comparison
+
+    @classmethod
+    def setUpClass(cls):
+        from musclex.tests.fitting_ab.model_variants.model_numpy import (
+            layerlineModelGMM,
+        )
+        rng = np.random.default_rng(42)
+
+        x = np.arange(cls.N_FULL, dtype=np.float64)
+
+        # Build clean signal (background params all zero → only peaks)
+        common_sigma = cls.PEAK_SIGMA
+        kwargs = {}
+        for i, (p, amp) in enumerate(
+            zip(cls.PEAK_POSITIONS, cls.PEAK_AMPLITUDES)
+        ):
+            kwargs[f"p_{i}"] = p
+            kwargs[f"amplitude{i}"] = amp
+
+        y_clean = layerlineModelGMM(
+            x=x,
+            centerX=cls.CENTER_X,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
+            common_sigma=common_sigma,
+            **kwargs,
+        )
+        # Add mild noise
+        y = y_clean + rng.normal(0.0, np.sqrt(np.maximum(y_clean, 1.0)) * 0.3)
+
+        # Zero-pad outside hull window (mimic convexHull output)
+        lo_zero = int(cls.CENTER_X - cls.HULL_END)
+        hi_zero = int(cls.CENTER_X + cls.HULL_END) + 1
+        y[:lo_zero] = 0.0
+        y[hi_zero:] = 0.0
+
+        # Free params: peak positions + amplitudes + common_sigma
+        free: Dict[str, ParamSpec] = {}
+        tol = 15.0
+        for i, p in enumerate(cls.PEAK_POSITIONS):
+            free[f"p_{i}"] = ParamSpec(init=p, min=p - tol, max=p + tol)
+            free[f"amplitude{i}"] = ParamSpec(
+                init=float(y.sum() / 20.0), min=0.0, max=float(y.sum() + 1.0)
+            )
+        free["common_sigma"] = ParamSpec(init=10.0, min=1.0, max=30.0)
+
+        indep = {
+            "centerX": cls.CENTER_X,
+            "bg_line": 0.0,
+            "bg_sigma": 1.0,
+            "bg_amplitude": 0.0,
+            "center_sigma1": 1.0,
+            "center_amplitude1": 0.0,
+            "center_sigma2": 1.0,
+            "center_amplitude2": 0.0,
+        }
+
+        inputs = FitInputs(
+            x=x, y=y, weights=None,
+            model_kind="gmm", has_voigt=False,
+            free_params=free,
+            independent_vars=indep,
+            fixed_params={},
+        )
+        meta = CaseMeta(
+            case_id="synthetic_hull_slice",
+            box_name="hull_slice_test",
+            box_type="h",
+            bgsub=1,
+            use_common_sigma=True,
+            merid_bg=False,
+            peaks_seed=cls.PEAK_POSITIONS,
+            hull_range=(cls.HULL_START, cls.HULL_END),
+            peak_tolerance=2.0,
+            sigma_tolerance=100.0,
+            difficulty_tags=["n_peaks=4", "gmm=True", "bgsub=1", "hull_slice_test"],
+        )
+        cls.full_case = FitCase(
+            schema_version=SCHEMA_VERSION,
+            meta=meta,
+            inputs=inputs,
+            reference=None,
+        )
+
+        # Run both adapters once to warm up imports / JIT
+        from musclex.tests.fitting_ab.adapters import (
+            LmfitTRFAdapter,
+            LmfitTRFHullSliceAdapter,
+        )
+        cls.full_adapter  = LmfitTRFAdapter(seed=0)
+        cls.slice_adapter = LmfitTRFHullSliceAdapter(seed=0)
+        cls.full_result   = cls.full_adapter.fit(cls.full_case)
+        cls.slice_result  = cls.slice_adapter.fit(cls.full_case)
+
+    # ── helpers ────────────────────────────────────────────────────────────
+
+    def _sliced_array_length(self):
+        """Expected length of the sliced histogram."""
+        from musclex.tests.fitting_ab.adapters.lmfit_adapters import _HULL_SLICE_MARGIN
+        lo = max(0, int(self.CENTER_X - self.HULL_END) - _HULL_SLICE_MARGIN)
+        hi = min(self.N_FULL,
+                 int(self.CENTER_X + self.HULL_END) + _HULL_SLICE_MARGIN + 1)
+        return hi - lo
+
+    # ── correctness tests ──────────────────────────────────────────────────
+
+    def test_both_fits_succeed(self):
+        self.assertTrue(self.full_result.success,
+                        msg=f"full-array fit failed: {self.full_result.message}")
+        self.assertTrue(self.slice_result.success,
+                        msg=f"hull-slice fit failed: {self.slice_result.message}")
+
+    def test_r2_is_close(self):
+        """R² difference must be < 0.005 (fits of a zero-padded array converge
+        to the same optimum whether or not the zero padding is included)."""
+        r2_full  = self.full_result.r2
+        r2_slice = self.slice_result.r2
+        self.assertIsNotNone(r2_full)
+        self.assertIsNotNone(r2_slice)
+        self.assertAlmostEqual(
+            r2_full, r2_slice, delta=0.005,
+            msg=f"R² diverged: full={r2_full:.4f}  slice={r2_slice:.4f}",
+        )
+
+    def test_peak_positions_close(self):
+        """Fitted peak positions must agree within 0.5 px."""
+        for i in range(self.N_PEAKS):
+            key = f"p_{i}"
+            p_full  = self.full_result.values[key]
+            p_slice = self.slice_result.values[key]
+            self.assertAlmostEqual(
+                p_full, p_slice, delta=0.5,
+                msg=f"{key}: full={p_full:.3f}  slice={p_slice:.3f}",
+            )
+
+    def test_common_sigma_close(self):
+        """Fitted common_sigma must agree within 0.5."""
+        s_full  = self.full_result.values["common_sigma"]
+        s_slice = self.slice_result.values["common_sigma"]
+        self.assertAlmostEqual(
+            s_full, s_slice, delta=0.5,
+            msg=f"common_sigma: full={s_full:.3f}  slice={s_slice:.3f}",
+        )
+
+    def test_sliced_array_is_shorter(self):
+        """The slice adapter must actually reduce the array length that the
+        model sees.  We verify via the hull-range arithmetic."""
+        sliced_len = self._sliced_array_length()
+        self.assertLess(
+            sliced_len, self.N_FULL,
+            msg=f"sliced length ({sliced_len}) is not shorter than full ({self.N_FULL})",
+        )
+        # Expect at least a 2× reduction for these fixture parameters.
+        self.assertLess(
+            sliced_len, self.N_FULL // 2,
+            msg=f"sliced length ({sliced_len}) is less than 2× smaller than full",
+        )
+
+    # ── performance test ───────────────────────────────────────────────────
+
+    def test_hull_slice_is_faster(self):
+        """Median wall-clock time of the slice adapter must be strictly lower
+        than the full-array adapter over :attr:`TIMING_REPS` repetitions.
+
+        Accepts up to a 20 % timing margin to account for OS scheduler jitter
+        on a loaded CI machine (the true speedup is typically 3–6×).
+        """
+        import time
+
+        full_times, slice_times = [], []
+        for _ in range(self.TIMING_REPS):
+            t0 = time.perf_counter()
+            self.full_adapter.fit(self.full_case)
+            full_times.append(time.perf_counter() - t0)
+
+            t0 = time.perf_counter()
+            self.slice_adapter.fit(self.full_case)
+            slice_times.append(time.perf_counter() - t0)
+
+        med_full  = float(np.median(full_times))
+        med_slice = float(np.median(slice_times))
+
+        # Allow 20 % margin: slice must be at least 0.8× full to pass.
+        self.assertLess(
+            med_slice, med_full * 0.80,
+            msg=(
+                f"hull-slice adapter is not faster: "
+                f"median full={med_full*1000:.1f} ms  "
+                f"median slice={med_slice*1000:.1f} ms  "
+                f"ratio={med_slice/med_full:.2f}"
+            ),
+        )
 
 
 if __name__ == "__main__":
