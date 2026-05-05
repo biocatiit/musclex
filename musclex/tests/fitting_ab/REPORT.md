@@ -27,6 +27,67 @@
 
 ---
 
+## How to read the metrics
+
+Every table in this report answers one of **four questions** about an
+adapter. Skim a row by asking which question each column belongs to:
+
+| question | columns to look at | red flag |
+|---|---|---|
+| **Q1. Did the fit run to completion?** | `success_rate`, `aborted_rate`, `n_eval` | `success < 1.0`, `aborted > 0`, or `n_eval` either tiny (~5, early termination) or near the 28 k cap (failed to converge) |
+| **Q2. Did it find the right answer?** (vs. the captured baseline) | `chi2_ratio_*`, `r2_*`, `p_max_diff_*`, `amp_diff_*` | `chi2_ratio` > 1.01, `r2` < 0.95, `p_max_diff_p95 > 1 px`, `amp_diff > 5 %` |
+| **Q3. Was it fast?** | `elapsed_*`, `speed_ratio_median` | `speed_ratio_median > 1` (slower than the baseline at capture time), large `elapsed_iqr` (jittery) |
+| **Q4. Was it stable across repeated trials with perturbed init?** | dispersion columns: `*_std`, `*_iqr`, `*_p95`; per-parameter `cand_std` in the consistency tables | high `chi2_ratio_std`, `r2_std`, or `cand_std`/`|ref|` > 1 |
+
+### Glossary
+
+* **`chi²` (chi-squared)**: the optimizer's loss function — the
+  unweighted sum of squared residuals `Σ (y - model)²`. Smaller is
+  better; absolute values depend on the data scale (intensity), so
+  cross-case comparison must use `chi2_ratio`, not raw `chi2`.
+* **`chi2_ratio`** = `chi² / chi²_baseline_at_capture_time`. **1.0**
+  means the candidate found the same minimum as the baseline; **< 1**
+  means it found a deeper one (only meaningful when the candidate is
+  using the same objective — see § A.4 for why the Poisson rows are
+  misleading); **> 1** means it failed to converge to the baseline
+  optimum.
+* **`r²` (R-squared)** = `1 − SSE / SST`. Fraction of the data variance
+  the model explains. 1.0 = perfect; 0.0 = no better than predicting
+  the mean. Lets you compare fit quality across cases of different
+  brightness without ratios.
+* **`p_max_abs_diff`** = the max-over-peaks of `|p_i_candidate −
+  p_i_reference|`, in pixels. We use **max** (not mean) because a
+  single peak landing 3 px off is a downstream physics bug even if the
+  other peaks are perfect; averaging would hide it. Both reference and
+  candidate are *canonicalized* (sorted by `p`, `(sigma1,sigma2)` swap
+  resolved, etc.) before diffing so a label swap does not falsely
+  register as drift. **Equator does not have free `p_i`** — peak
+  positions are derived from `S10·θ(hk)` — so `p_max_*` is `NaN` in
+  Part B.
+* **`p_max_diff_p95`** = the 95th-percentile of `p_max_abs_diff` across
+  trials of the perturbation sweep. Captures the **tail risk** that a
+  user's run will silently produce a bad number, not just the typical
+  case.
+* **`elapsed_std` vs `elapsed_iqr`**: wall-clock time is right-skewed
+  (occasional GC / scheduler spikes), so `elapsed_iqr` (P75 − P25) is
+  the more robust dispersion estimator. We report both; `iqr` is what
+  to trust for ranking.
+* **`*_mean ± *_std` columns**: aggregated across trials. In the
+  *deterministic* replay these collapse to the single-fit value
+  (`std ≈ 0`, `mean = value`); they only carry signal once you turn on
+  `--perturb-init`.
+
+### Where each question is answered
+
+* **Q1 + Q2 + Q3** are condensed into the per-adapter summary tables
+  in §A.2 / §B.2 (deterministic) and the perturbation summaries in
+  §A.3 / §B.3.
+* **Q4** is what the *consistency* sections (§A.6 / §B.4-bis) and the
+  `*_consistency.csv` files exist for: per-`(adapter, case, parameter)`
+  mean / std of the fitted value across trials.
+
+---
+
 # Part A — Projection Traces (`ProjectionProcessor.fitModel`)
 
 ## A.1. Setup
@@ -271,6 +332,97 @@ component inside the fit), not on the convex-hull-subtracted trace.
 
 ---
 
+## A.6. Consistency under perturbation (per-parameter)
+
+Sources: [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.csv)
+(headline, perturb=0.15) plus the matching `_consistency.csv` for
+each of `0.05`, `0.30`, `0.50`. Each file has one row per
+`(adapter, case_id, param_name)` with `cand_mean`, `cand_std`,
+`abs_diff_max`, etc. across all 10 perturbed trials.
+
+This is the long-form answer to "is each individual model parameter
+stable when the optimizer is restarted from a perturbed init?" — the
+question that `p_max_diff_p95` summarises in one number per fit.
+
+### Headline: dispersion summary at perturb=0.15
+
+Selected from [`ab_sweep_p0.15.csv`](../../../ab_sweep_p0.15.csv) — the
+full per-adapter aggregate now includes mean / std / IQR for every
+metric.
+
+| adapter | el_med (ms) | el_iqr (ms) | chi2_ratio_mean ± std | r2_mean ± std |
+|---|---:|---:|---:|---:|
+| `lmfit-baseline-leastsq` | **32.3** | 174 | 3.01 ± 7.61 | 0.885 ± 0.271 |
+| `lmfit-trf`              | 35.3 | **46** | **1.006 ± 0.018** | **0.955 ± 0.069** |
+
+* TRF is **400 × tighter on `chi2_ratio_std`** and **4 × tighter on
+  `r2_std`** — the deterministic-replay column hid this because both
+  adapters trivially reach `chi2_ratio = 1.0` from the captured init.
+* TRF's `elapsed_iqr` (46 ms) is a third of baseline's (174 ms);
+  TRF is also more *predictable* in wall-time.
+
+### Where each adapter actually wobbles (top-CV parameters)
+
+For each adapter, the parameters with the highest coefficient of
+variation (`cand_std / |ref_value|`) across 10 trials × 5 cases. Both
+adapters concentrate **all** of their instability in one case: `TEST`
+(no background subtraction, strong meridian peak). The free peak
+positions `p_0..p_n` are nowhere in the top-30 — i.e. the **physically
+interesting outputs are stable**.
+
+| adapter | case | param | ref | cand_mean | cand_std | CV | abs_diff_max |
+|---|---|---|---:|---:|---:|---:|---:|
+| `lmfit-baseline-leastsq` | TEST | `center_sigma1` | 29.66 | 333.7 | 264.3 | **8.91** | 813.4 |
+| `lmfit-baseline-leastsq` | TEST | `center_amplitude2` | 751.5 | 3 111 | 3 160 | 4.21 | 8 840 |
+| `lmfit-baseline-leastsq` | TEST | `center_sigma2` | 13.82 | 43.20 | 51.09 | 3.70 | 135.1 |
+| `lmfit-baseline-leastsq` | TEST | `center_amplitude1` | 1 931 | 6 139 | 6 724 | 3.48 | 14 176 |
+| `lmfit-baseline-leastsq` | TEST | `bg_sigma`         | 340.4 | 531.7 | 451.5 | 1.33 | 875.9 |
+| `lmfit-trf`              | TEST | `center_sigma1`    | 29.66 | 196.6 | **176.0** | **5.93** | 334.0 |
+| `lmfit-trf`              | TEST | `center_amplitude2`| 751.5 | 1 651 | 947.7 | 1.26 | 1 798 |
+| `lmfit-trf`              | TEST | `center_amplitude1`| 1 931 | 3 647 | 2 326 | 1.20 | 5 622 |
+| `lmfit-trf`              | TEST | `center_sigma2`    | 13.82 | 18.31 | 4.73  | 0.34 | 8.98 |
+
+**Reading the table:**
+
+* The unstable block in both adapters is **the same four meridian
+  parameters** — `center_sigma1/2` and `center_amplitude1/2` — on the
+  same case. This is the labeling-degeneracy block discussed in the
+  A.5 implementation note: the model has two same-center Gaussians and
+  the optimizer can land on either order. Canonicalisation handles
+  this for the *reference* but cannot rescue runs where the optimizer
+  *also* visits a globally different basin.
+* TRF is roughly **2× tighter** than baseline on every TEST-case
+  meridian param (`cand_std` ratios 175.9 / 264.3 ≈ 0.67 on
+  `center_sigma1`, 947.7 / 3160 ≈ 0.30 on `center_amplitude2`, etc.).
+  This is the underlying source of the `p_max_diff_p95` improvement —
+  it is not because peak positions stabilise (they were already
+  stable) but because the meridian block stabilises.
+* **Outside the TEST case nothing wobbles meaningfully.** The 4 other
+  cases (`M3`, `M6`, `m3`, `m6`) all have `cand_std` < 1e-4 on every
+  free parameter for both adapters. They don't appear in the top-CV
+  list because they're sub-noise.
+
+### Validation against `p_max_diff_p95`
+
+The consistency table and the existing `p_max_diff_p95` answer the
+same physical question from different angles, and they agree:
+
+| case | adapter | top-CV param | p_max_diff_p95 (px) |
+|---|---|---|---:|
+| TEST | baseline | `center_sigma1` 264.3 wobble | **2.40** ✗ |
+| TEST | TRF      | `center_sigma1` 176.0 wobble | **0.0008** ✓ |
+
+The peak-position p95 collapses to ~0 for TRF on `TEST` even though
+the meridian *block* still wobbles, because the meridian wobble does
+not propagate to the free peak positions `p_i` (those are anchored by
+the data itself). This is consistent with the A.5 recommendation:
+**the TRF switch is a real win for downstream consumers of `p_i` /
+amplitudes**, not because TRF is infinitely stable, but because the
+remaining instability stays inside the meridian block where the
+post-fit canonicalisation can resolve it.
+
+---
+
 ---
 
 # Part B — Equator (`EquatorImage.fitModel` / `processFit`)
@@ -376,7 +528,60 @@ Source: [`eq_robustness.csv`](../../../eq_robustness.csv) (and
 Both adapters always converge to the same minimum under perturbation.
 There is no robustness gap. leastsq is consistently 2 – 3 × faster.
 
-## B.4. Why the equator answer is different from PT
+## B.4. Consistency under perturbation (per-parameter)
+
+Sources: [`eq_robustness_consistency.csv`](../../../eq_robustness_consistency.csv)
+(per-parameter, all 6 cases × 2 adapters × 10 trials)
+and [`eq_robustness.csv`](../../../eq_robustness.csv)
+(per-adapter aggregate with the new dispersion columns).
+
+### Headline: dispersion summary at perturb=0.15
+
+| adapter | el_med (ms) | el_iqr (ms) | chi2_ratio_mean ± std | r2_mean ± std |
+|---|---:|---:|---:|---:|
+| `lmfit-baseline-leastsq` | **30.1** | **7.7** | **1.000 ± 2.0e-9** | 0.971 ± 0.018 |
+| `lmfit-trf-jac`          | 37.2 | 15.2 | 1.000 ± 8.3e-9 | 0.971 ± 0.018 |
+
+Both adapters converge to **the same minimum on every trial**
+(`chi2_ratio_std` ≈ 1e-9). leastsq is faster and slightly more
+predictable in wall-time (IQR 7.7 vs 15.2 ms).
+
+### Where each adapter actually wobbles (top-CV parameters)
+
+| adapter | case | param | ref | cand_mean | cand_std | CV |
+|---|---|---|---:|---:|---:|---:|
+| `lmfit-baseline-leastsq` | P1_F1_tet (1) | `S0`         | 8.8e-4 | 4.5e-5  | 9.5e-4  | **1.09** |
+| `lmfit-baseline-leastsq` | P1_F1_tet (2) | `S0`         | -8.4e-4 | -2.4e-4 | 8.2e-4 | 0.99 |
+| `lmfit-baseline-leastsq` | F10_…0002     | `S0`         | 9.1e-4 | 1.4e-4  | 8.8e-4  | 0.97 |
+| `lmfit-trf-jac`          | P1_F1_tet (2) | `S0`         | -8.4e-4 | 1.5e-5  | 6.7e-4  | 0.81 |
+| `lmfit-trf-jac`          | F10_…0002     | `S0`         | 9.1e-4 | -6.0e-5 | 3.8e-4  | 0.42 |
+| `lmfit-trf-jac`          | P1_F1_tet (1) | `right_gamma`| 9.61   | 10.26   | 2.47    | 0.26 |
+
+**Reading the table:**
+
+* The dominant unstable parameter on equator is **`S0`** (the global
+  shift of the centre). High CV is misleading here: `S0` is
+  **bounded near 0**, so its CV blows up by construction
+  (`cand_std / |ref| ~ cand_std / 1e-3`). The actual `abs_diff_max` is
+  ~2e-3 — far below any pixel-level resolution. **`S0` looks
+  unstable in CV terms but is physically negligible.**
+* TRF-jac is **2 – 3 × tighter on `S0`** than baseline, but baseline
+  is fast enough and accurate enough that this doesn't change the
+  recommendation.
+* TRF-jac shows mild instability on `right_gamma` (Voigt parameter,
+  ~25 % CV) on two cases. Not present in baseline. Worth keeping an
+  eye on if anyone enables Voigt mode in production.
+* **Every other free parameter** (`centerX`, `S10`, all areas, all
+  sigmads) has `cand_std / |ref|` < 1e-4 for both adapters — i.e.
+  fully stable down to noise. The downstream physical outputs (lattice
+  spacing from `S10`, intensities from areas) are rock solid.
+
+This consistency view confirms the headline verdict from §B.3: **no
+robustness gap exists between leastsq and trf-jac** — both find the
+same minimum and have stable parameters. There is no scenario in the
+captured corpus where switching to TRF would buy stability.
+
+## B.5. Why the equator answer is different from PT
 
 The structural reasons TRF wins on PT but loses on equator:
 
@@ -403,7 +608,7 @@ The structural reasons TRF wins on PT but loses on equator:
 So TRF doesn't have a hidden robustness win on equator that would
 offset the speed regression.
 
-## B.5. Recommendation (Equator)
+## B.6. Recommendation (Equator)
 
 1. **Don't switch `EquatorImage.fitModel` / `processFit` to TRF.**
    The captured corpus shows leastsq is uniformly faster and equally
@@ -436,12 +641,13 @@ All paths relative to the repository root.
 
 | artefact | path | what's in it |
 |---|---|---|
-| Per-trial long-format report (Test 1) | [`ab_report.csv`](../../../ab_report.csv) | 100 rows, 28 columns — every fit attempted |
-| Aggregate summary (Test 1) | [`ab_summary.csv`](../../../ab_summary.csv) | 4 rows (one per adapter) |
-| Robustness sweep (perturb=0.15, headline) | [`ab_robustness.csv`](../../../ab_robustness.csv) + `ab_robustness_long.csv` | 50-fit aggregate + per-trial detail |
-| Robustness sweep (perturb=0.05) | [`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv) + `_long.csv` | 50-fit aggregate + per-trial |
-| Robustness sweep (perturb=0.30) | [`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv) + `_long.csv` | 50-fit aggregate + per-trial |
-| Robustness sweep (perturb=0.50) | [`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv) + `_long.csv` | 50-fit aggregate + per-trial |
+| Per-trial long-format report (Test 1) | [`ab_report.csv`](../../../ab_report.csv) | 100 rows — every fit attempted (deterministic replay) |
+| Aggregate summary (Test 1) | [`ab_summary.csv`](../../../ab_summary.csv) | 4 rows (one per adapter); now includes `*_mean`, `*_std`, `*_iqr`, `chi2_ratio_mean/std`, `r2_mean/std` |
+| Per-(adapter, case) summary (Test 1) | [`ab_per_case.csv`](../../../ab_per_case.csv) | one row per (adapter, case) with mean ± std of error / time across trials |
+| Robustness sweep (perturb=0.15, headline) | [`ab_robustness.csv`](../../../ab_robustness.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | 50-fit aggregate + per-trial detail + per-case dispersion + per-parameter consistency |
+| Robustness sweep (perturb=0.05) | [`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
+| Robustness sweep (perturb=0.30) | [`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
+| Robustness sweep (perturb=0.50) | [`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
 | Captured PT fit cases | `/tmp/musclex_fit_cases/full_run_*.pkl` | 5 pickled `FitCase` objects |
 | Diagnostic harness | [`musclex/tests/fitting_ab/diagnose_m6_trf_failure.py`](diagnose_m6_trf_failure.py) | resolved the m6 / TRF mystery (perturbation strategy bug, not TRF) |
 
@@ -450,9 +656,12 @@ All paths relative to the repository root.
 | artefact | path | what's in it |
 |---|---|---|
 | Per-trial long-format report | [`eq_ab_report.csv`](../../../eq_ab_report.csv) | 90 rows, 6 cases × 3 adapters × 5 trials |
-| Aggregate summary | [`eq_ab_summary.csv`](../../../eq_ab_summary.csv) | 3 rows (one per adapter) |
+| Aggregate summary | [`eq_ab_summary.csv`](../../../eq_ab_summary.csv) | 3 rows (one per adapter); same new dispersion columns as PT |
+| Per-(adapter, case) summary | [`eq_ab_per_case.csv`](../../../eq_ab_per_case.csv) | one row per (adapter, case) |
 | Robustness summary (perturb=0.15) | [`eq_robustness.csv`](../../../eq_robustness.csv) | 2 rows (baseline vs trf-jac) |
 | Robustness per-trial | [`eq_robustness_long.csv`](../../../eq_robustness_long.csv) | 120 rows |
+| Robustness per-case | [`eq_robustness_per_case.csv`](../../../eq_robustness_per_case.csv) | per-(adapter, case) mean ± std under perturbation |
+| Robustness consistency | [`eq_robustness_consistency.csv`](../../../eq_robustness_consistency.csv) | per-(adapter, case, parameter) mean / std — one row per fitted parameter |
 | Captured Equator fit cases | `/tmp/musclex_eq_cases/eq_eq_*.pkl` | 6 pickled `FitCase` objects (model_kind='cardiac') |
 
 ### Common
@@ -478,19 +687,24 @@ python -m musclex.tests.fitting_ab.runner \
     --cases /tmp/musclex_fit_cases \
     --adapters lmfit-baseline-leastsq lmfit-trf lmfit-poisson lmfit-trf-poisson \
     --n-repeats 5 \
-    --report ab_report.csv --summary ab_summary.csv
+    --report ab_report.csv --summary ab_summary.csv \
+    --per-case ab_per_case.csv
 
-# 3. Test 2 — perturbation sweep
+# 3. Test 2 — perturbation sweep + per-parameter consistency
 for p in 0.05 0.15 0.30 0.50; do
   python -m musclex.tests.fitting_ab.runner \
     --cases /tmp/musclex_fit_cases \
     --adapters lmfit-baseline-leastsq lmfit-trf \
     --n-repeats 10 --perturb-init $p \
-    --report  ab_sweep_p${p}_long.csv \
-    --summary ab_sweep_p${p}.csv
+    --report      ab_sweep_p${p}_long.csv \
+    --summary     ab_sweep_p${p}.csv \
+    --per-case    ab_sweep_p${p}_per_case.csv \
+    --consistency ab_sweep_p${p}_consistency.csv
 done
 # (the perturb=0.15 outputs are also saved as ab_robustness.csv /
-#  ab_robustness_long.csv for backwards compatibility with earlier docs.)
+#  ab_robustness_long.csv / ab_robustness_per_case.csv /
+#  ab_robustness_consistency.csv for backwards compatibility with
+#  earlier docs.)
 ```
 
 #### Part B — Equator
@@ -509,14 +723,20 @@ python -m musclex.tests.fitting_ab.runner \
     --cases /tmp/musclex_eq_cases \
     --adapters lmfit-baseline-leastsq lmfit-trf lmfit-trf-jac \
     --n-repeats 5 \
-    --report eq_ab_report.csv --summary eq_ab_summary.csv
+    --report eq_ab_report.csv \
+    --summary eq_ab_summary.csv \
+    --per-case eq_ab_per_case.csv
 
-# 3. robustness sweep (skip plain lmfit-trf — it aborts)
+# 3. robustness sweep + per-parameter consistency
+#    (skip plain lmfit-trf — it aborts)
 python -m musclex.tests.fitting_ab.runner \
     --cases /tmp/musclex_eq_cases \
     --adapters lmfit-baseline-leastsq lmfit-trf-jac \
     --n-repeats 10 --perturb-init 0.15 \
-    --report eq_robustness_long.csv --summary eq_robustness.csv
+    --report      eq_robustness_long.csv \
+    --summary     eq_robustness.csv \
+    --per-case    eq_robustness_per_case.csv \
+    --consistency eq_robustness_consistency.csv
 ```
 
 ### Caveats / scope

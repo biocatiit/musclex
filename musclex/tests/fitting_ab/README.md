@@ -129,8 +129,19 @@ python -m musclex.tests.fitting_ab.runner \
     [--perturb-init <fraction>] \
     [--limit <max_cases>] \
     --report <long.csv> \
-    --summary <pivot.csv>
+    --summary <pivot.csv> \
+    [--per-case <per_case.csv>] \
+    [--consistency <per_param.csv>]
 ```
+
+### Output files
+
+| flag | shape | what's in it | when to use |
+|---|---|---|---|
+| `--report` | long, one row per fit | timing + chi² + r² + p_max_diff per (adapter, case, trial) | always |
+| `--summary` | wide, one row per adapter | mean / std / median / IQR of timing, chi² ratio, r² across all fits | always — this is the headline table |
+| `--per-case` | wide, one row per (adapter, case) | mean / std / median / IQR per case | when error / time vary case-by-case |
+| `--consistency` | long, one row per (adapter, case, parameter) | mean / std / min / max of each fitted parameter across trials, plus mean / std of `(candidate - reference)` | only meaningful with `--perturb-init > 0` and `--n-repeats > 1`; this is the per-parameter stability table |
 
 ### Adapters
 
@@ -218,31 +229,75 @@ One row per (adapter, case, trial). Key columns:
 
 ### Summary table (`--summary`)
 
-One row per adapter, aggregated:
+One row per adapter, aggregated. The summary answers four
+*independent* questions; group the columns mentally by which question
+they belong to:
 
-| column | meaning |
+| question | columns |
 |---|---|
-| `n_fits` | total fits run |
-| `success_rate` | fraction that converged without aborting |
-| `aborted_rate` | fraction that hit nfev/iter cap |
-| `elapsed_median`, `elapsed_mean` | timing |
-| `speed_ratio_median` | median of per-fit `speed_ratio` |
-| `chi2_ratio_median` | central tendency of fit quality vs reference |
-| `p_max_diff_median` | typical peak position deviation |
-| `p_max_diff_p95` | **worst-5%** peak deviation — the real robustness number |
-| `amp_diff_median` | typical amplitude deviation |
+| **Q1. Did the fit run?** | `n_fits`, `success_rate`, `aborted_rate` |
+| **Q2. Did it find the right answer?** | `chi2_ratio_median`, `chi2_ratio_mean`, `chi2_ratio_std`, `r2_median`, `r2_mean`, `r2_std`, `p_max_diff_median`, `p_max_diff_p95`, `amp_diff_median` |
+| **Q3. Was it fast?** | `elapsed_median`, `elapsed_mean`, `elapsed_std`, `elapsed_iqr`, `speed_ratio_median` |
+| **Q4. Was it stable across trials?** | the `*_std` columns above (only meaningful with `--perturb-init`) |
+
+Notes on the dispersion columns:
+
+* `elapsed_iqr` (interquartile range, P75 − P25) is the **right
+  dispersion estimator for wall time** — wall time is right-skewed
+  (occasional GC / scheduler spikes), so `elapsed_std` overstates how
+  jittery the adapter actually is. Both are reported; trust `iqr`.
+* `chi2_ratio_*` is reported *instead of* raw `chi2_*` because chi² is
+  scale-dependent on the data brightness. A global mean / std on raw
+  `chi2` would be dominated by whichever case has the brightest data,
+  not by adapter behaviour. Use `--per-case` if you need per-case raw
+  chi² mean / std.
 
 > Always look at `p_max_diff_p95` *and* the median. The median can hide
 > tail behaviour where one in twenty fits goes wildly wrong.
+
+### Per-case table (`--per-case`)
+
+Same metrics as the summary, but grouped by `(adapter, case_id)`. Use
+when the headline numbers look fine but you suspect one specific case
+is dragging the mean. One row per (adapter, case).
+
+### Consistency table (`--consistency`)
+
+One row per `(adapter, case_id, param_name)` — i.e. one row per fitted
+free parameter per case. Columns:
+
+| column | meaning |
+|---|---|
+| `n_trials` | how many perturbation trials were aggregated |
+| `ref_value` | the captured baseline value (frozen) |
+| `cand_mean`, `cand_std`, `cand_min`, `cand_max` | the **fitted** value's distribution across trials |
+| `diff_mean`, `diff_std` | mean / std of `(candidate - reference)` |
+| `abs_diff_mean`, `abs_diff_max` | absolute deviation, mean and worst |
+| `rel_diff_mean`, `rel_diff_std` | relative deviation `(candidate - reference) / reference` |
+
+This is the table that lets you say "`p_0` of the M6 case has
+cand_std = 0.0008 px under 15 % perturbation" — i.e. **per-parameter
+stability**, not just an aggregated max. Both reference and candidate
+are *canonicalised* before diffing (PT meridian Gaussian swap, peak-
+position ordering) so a label permutation doesn't show up as fake
+parameter drift.
+
+**Caveat — deterministic replay**: when `--perturb-init` is unset, all
+trials feed byte-identical inputs to the optimizer, so the consistency
+table's `cand_std`, `diff_std`, etc. will be ~0 (or NaN where pandas
+collapses a single-value group). The runner prints a warning in that
+case. Use `--perturb-init > 0` to get meaningful dispersion.
 
 ### Interpreting at a glance
 
 | signal | interpretation |
 |---|---|
-| `chi2_ratio_median ≈ 1.0`, `p_max_diff_median < 1e-3` | adapter finds the same optimum |
-| `chi2_ratio_median ≈ 1.0`, `p_max_diff_p95 ≈ 0` | adapter is very stable |
+| `chi2_ratio_median ≈ 1.0`, `chi2_ratio_std ≈ 0`, `p_max_diff_median < 1e-3` | adapter finds the same optimum, every time |
+| `chi2_ratio_median ≈ 1.0` but `chi2_ratio_std > 1` | adapter usually finds the right answer but occasionally diverges |
 | `chi2_ratio_median > 2` | adapter often converges to a worse local min |
 | `aborted_rate > 0` | adapter hits its iteration cap on some cases |
+| consistency table: `cand_std / |ref| < 1e-3` for all params | parameters fully stable |
+| consistency table: high CV concentrated on **one case** | single hard case (degenerate landscape, strong background, label-symmetric block) — investigate just that case |
 
 ---
 
@@ -352,13 +407,18 @@ remains valid even if lmfit is removed.
 python -m unittest musclex.tests.fitting_ab.tests.test_smoke -v
 ```
 
-Eleven tests cover:
+Nineteen tests cover:
 
 * pickle round-trip
 * every registered adapter on a synthetic 2-peak case
 * baseline replay = reference (framework self-test)
 * smart perturbation: bounded params stay in range, unbounded use multiplicative
 * `_is_aborted` / `_manual_chi2` helpers
+* `canonicalize_values` — meridian Gaussian swap, peak-position sort
+* `per_param_diff` returns ~0 across a label swap (proves canonicalisation works)
+* `summarize_consistency` produces non-zero `cand_std` under perturbation
+* `summarize_consistency` produces ~0 `cand_std` under deterministic replay
+  (documents the caveat)
 
 ---
 

@@ -43,7 +43,12 @@ from musclex.tests.fitting_ab.adapters.lmfit_adapters import (
     _manual_chi2,
     _maybe_perturb_init,
 )
-from musclex.tests.fitting_ab.metrics import summarize
+from musclex.tests.fitting_ab.metrics import (
+    canonicalize_values,
+    per_param_diff,
+    per_param_rows,
+    summarize,
+)
 
 
 def _make_synthetic_case(seed: int = 0) -> FitCase:
@@ -236,6 +241,187 @@ class SmokeTests(unittest.TestCase):
         self.assertLess(summary["p_max_abs_diff"], 1e-6)
         # chi2 ratio should be very close to 1.0 (deterministic LM)
         self.assertAlmostEqual(summary["chi2_ratio"], 1.0, places=4)
+
+
+class CanonicalizationTests(unittest.TestCase):
+    """The consistency table relies on label-swap canonicalization to avoid
+    reporting spurious instability. These tests pin down its behavior."""
+
+    def test_meridian_pair_swap(self):
+        vals = {
+            "center_sigma1": 5.0,    # smaller -> should swap
+            "center_amplitude1": 100.0,
+            "center_sigma2": 30.0,
+            "center_amplitude2": 200.0,
+        }
+        canon = canonicalize_values(vals)
+        self.assertEqual(canon["center_sigma1"], 30.0)
+        self.assertEqual(canon["center_sigma2"], 5.0)
+        self.assertEqual(canon["center_amplitude1"], 200.0)
+        self.assertEqual(canon["center_amplitude2"], 100.0)
+
+    def test_meridian_pair_already_ordered(self):
+        vals = {
+            "center_sigma1": 30.0,
+            "center_amplitude1": 200.0,
+            "center_sigma2": 5.0,
+            "center_amplitude2": 100.0,
+        }
+        canon = canonicalize_values(vals)
+        self.assertEqual(canon, vals)
+
+    def test_peak_position_sort(self):
+        # Peaks given out of order: p_0=10, p_1=-5, p_2=3.
+        # Expect them re-labeled by ascending position.
+        vals = {
+            "p_0": 10.0, "amplitude0": 100.0, "sigma0": 1.0,
+            "p_1": -5.0, "amplitude1": 200.0, "sigma1": 2.0,
+            "p_2":  3.0, "amplitude2": 300.0, "sigma2": 3.0,
+        }
+        canon = canonicalize_values(vals)
+        self.assertEqual(canon["p_0"], -5.0)
+        self.assertEqual(canon["p_1"],  3.0)
+        self.assertEqual(canon["p_2"], 10.0)
+        # The companion blocks must move with their peak.
+        self.assertEqual(canon["amplitude0"], 200.0)
+        self.assertEqual(canon["amplitude1"], 300.0)
+        self.assertEqual(canon["amplitude2"], 100.0)
+        self.assertEqual(canon["sigma0"], 2.0)
+        self.assertEqual(canon["sigma1"], 3.0)
+        self.assertEqual(canon["sigma2"], 1.0)
+
+    def test_canonicalize_does_not_touch_unrelated_keys(self):
+        vals = {"S10": 432.1, "left_area_0": 1e6, "p_0": 5.0}
+        canon = canonicalize_values(vals)
+        self.assertEqual(canon, vals)
+
+    def test_per_param_diff_zero_on_swap(self):
+        # Two value sets that are equivalent up to a sigma1<->2 swap.
+        ref = {
+            "center_sigma1": 30.0, "center_amplitude1": 200.0,
+            "center_sigma2": 5.0, "center_amplitude2": 100.0,
+        }
+        cand = {
+            "center_sigma1": 5.0, "center_amplitude1": 100.0,
+            "center_sigma2": 30.0, "center_amplitude2": 200.0,
+        }
+
+        class _DummyCase:
+            class _Inputs:
+                free_params = {
+                    "center_sigma1": None, "center_amplitude1": None,
+                    "center_sigma2": None, "center_amplitude2": None,
+                }
+            class _Ref:
+                values = ref
+            inputs = _Inputs()
+            reference = _Ref()
+
+        class _Result:
+            values = cand
+
+        diffs = per_param_diff(_Result(), _DummyCase(), canonicalize=True)
+        for name, d in diffs.items():
+            self.assertAlmostEqual(d, 0.0, places=10, msg=name)
+
+        # Without canonicalization the swap shows up as a large diff.
+        diffs_raw = per_param_diff(_Result(), _DummyCase(), canonicalize=False)
+        self.assertGreater(abs(diffs_raw["center_sigma1"]), 10.0)
+
+
+class ConsistencyTableTests(unittest.TestCase):
+    """End-to-end check that the per-parameter consistency long table
+    materializes the right shape and that aggregation collapses to mean / std
+    correctly."""
+
+    def setUp(self):
+        self.case = _make_synthetic_case(seed=11)
+        baseline = LmfitBaselineAdapter()
+        ref_run = baseline.fit(self.case)
+        self.case.reference = ReferenceResult(
+            adapter=baseline.name,
+            success=ref_run.success,
+            values=ref_run.values,
+            stderr=ref_run.stderr,
+            chi2=ref_run.chi2,
+            redchi=ref_run.redchi,
+            r2=ref_run.r2,
+            n_eval=ref_run.n_eval,
+            elapsed_s=ref_run.elapsed_s,
+            message=ref_run.message,
+        )
+
+    def test_per_param_rows_one_row_per_free_param(self):
+        replay = LmfitBaselineAdapter().fit(self.case)
+        rows = list(per_param_rows(replay, self.case))
+        self.assertEqual(
+            len(rows), len(self.case.inputs.free_params),
+            msg=f"expected one row per free param, got {len(rows)}",
+        )
+        keys = {"param_name", "ref_value", "cand_value", "diff", "abs_diff", "rel_diff"}
+        self.assertTrue(keys.issubset(rows[0].keys()))
+
+    def test_consistency_summary_under_perturbation(self):
+        """End-to-end: run_ab with perturbation -> summarize_consistency
+        produces non-zero stds on free parameters."""
+        from musclex.tests.fitting_ab.runner import (
+            run_ab,
+            summarize_consistency,
+            summarize_dataframe,
+        )
+        df, param_df = run_ab(
+            adapters=[LmfitBaselineAdapter()],
+            cases=[self.case],
+            n_repeats=4,
+            perturb_init=0.10,
+            progress=False,
+            collect_param_rows=True,
+        )
+        # Long-format checks.
+        self.assertEqual(len(df), 4)  # 4 trials
+        self.assertEqual(len(param_df), 4 * len(self.case.inputs.free_params))
+
+        # Summary tables include the new dispersion columns.
+        summary = summarize_dataframe(df)
+        for col in ("elapsed_std", "elapsed_iqr", "chi2_ratio_mean",
+                    "chi2_ratio_std", "r2_mean", "r2_std"):
+            self.assertIn(col, summary.columns, msg=f"missing column {col}")
+
+        consistency = summarize_consistency(param_df)
+        for col in ("cand_mean", "cand_std", "diff_mean", "diff_std",
+                    "abs_diff_mean", "abs_diff_max", "ref_value", "n_trials"):
+            self.assertIn(col, consistency.columns, msg=f"missing column {col}")
+
+        # With 4 trials and 10% perturbation, we expect at least *some* of
+        # the free parameters to wobble (the optimizer will not always land
+        # exactly on the same value when it starts from a different init).
+        max_std = consistency["cand_std"].max()
+        self.assertGreater(
+            max_std, 0.0,
+            msg="all params have zero std under perturbation; sweep was a no-op",
+        )
+
+    def test_consistency_table_zero_std_in_deterministic_replay(self):
+        """Without perturbation the optimizer is fed identical inputs every
+        trial, so cand_std must be ~0. This documents the caveat baked into
+        the runner help text."""
+        from musclex.tests.fitting_ab.runner import (
+            run_ab,
+            summarize_consistency,
+        )
+        df, param_df = run_ab(
+            adapters=[LmfitBaselineAdapter()],
+            cases=[self.case],
+            n_repeats=3,
+            perturb_init=None,
+            progress=False,
+            collect_param_rows=True,
+        )
+        consistency = summarize_consistency(param_df)
+        # Every cand_std should be effectively zero (or NaN if pandas
+        # collapses a single-value group; we accept both).
+        for v in consistency["cand_std"].dropna():
+            self.assertAlmostEqual(v, 0.0, places=10)
 
 
 if __name__ == "__main__":
