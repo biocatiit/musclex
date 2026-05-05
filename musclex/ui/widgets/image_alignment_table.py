@@ -204,12 +204,16 @@ class ImageAlignmentTable(QTableWidget):
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.setItem(row, c, item)
 
-    def fill_fold_std_norm(self, row, norm_val):
-        """Fill the FOLD_STD_NORM column (dimensionless, no threshold highlighting).
+    def fill_fold_std_norm(self, row, norm_val,
+                           thresh_enabled=False, thresh_value=0.0):
+        """Fill the FOLD_STD_NORM column; optionally highlight if above threshold.
 
         Displays the normalised symmetry score fold_std_sum / (N_fg × μ_fg).
         Values are small ratios; scientific notation is used when below 0.001
         so the column stays compact and readable.
+
+        @param thresh_enabled: when True, highlight the cell red if norm_val
+            exceeds thresh_value (same convention as the other threshold cols).
         """
         c = self._col.get(ColKey.FOLD_STD_NORM)
         if c is None:
@@ -220,7 +224,14 @@ class ImageAlignmentTable(QTableWidget):
             text = f"{norm_val:.3e}"
         else:
             text = f"{norm_val:.4g}"
-        self.setItem(row, c, QTableWidgetItem(text))
+        item = QTableWidgetItem(text)
+        if (norm_val is not None
+                and thresh_enabled
+                and thresh_value > 0
+                and norm_val > thresh_value):
+            item.setBackground(QBrush(QColor(255, 100, 100)))
+            item.setForeground(QBrush(QColor(255, 255, 255)))
+        self.setItem(row, c, item)
 
     def fill_fold_std(self, row, std_val, thresh_enabled, thresh_value):
         """Fill the FOLD_STD column; highlight if above the symmetry threshold.
@@ -264,12 +275,15 @@ class ImageAlignmentTable(QTableWidget):
     def apply_threshold_highlighting(self, dist_enabled, dist_thresh,
                                      rot_enabled, rot_thresh,
                                      diff_enabled, diff_thresh,
-                                     symmetry_enabled=False, symmetry_thresh=0.0):
+                                     symmetry_enabled=False, symmetry_thresh=0.0,
+                                     norm_enabled=False, norm_thresh=0.0):
         """Re-apply (or clear) red highlighting based on threshold values.
 
         @param symmetry_enabled: when True the FOLD_STD column is highlighted
             against ``symmetry_thresh``. The argument is optional so existing
             callers (AISE) keep working without symmetry support.
+        @param norm_enabled: when True the FOLD_STD_NORM column is highlighted
+            against ``norm_thresh``.
         """
         _red_bg = QBrush(QColor(255, 100, 100))
         _red_fg = QBrush(QColor(255, 255, 255))
@@ -277,6 +291,7 @@ class ImageAlignmentTable(QTableWidget):
         c_rot = self._col[ColKey.AUTO_ROT_DIFF]
         c_diff = self._col[ColKey.IMAGE_DIFF]
         c_sym = self._col.get(ColKey.FOLD_STD)
+        c_norm = self._col.get(ColKey.FOLD_STD_NORM)
 
         for row in range(self.rowCount()):
             dist_item = self.item(row, c_dist)
@@ -330,6 +345,21 @@ class ImageAlignmentTable(QTableWidget):
                         else:
                             sym_item.setData(Qt.BackgroundRole, None)
                             sym_item.setData(Qt.ForegroundRole, None)
+                    except ValueError:
+                        pass
+
+            if c_norm is not None:
+                norm_item = self.item(row, c_norm)
+                if norm_item and norm_item.text():
+                    try:
+                        val = float(norm_item.text())
+                        if (norm_enabled and norm_thresh > 0
+                                and val > norm_thresh):
+                            norm_item.setBackground(_red_bg)
+                            norm_item.setForeground(_red_fg)
+                        else:
+                            norm_item.setData(Qt.BackgroundRole, None)
+                            norm_item.setData(Qt.ForegroundRole, None)
                     except ValueError:
                         pass
 

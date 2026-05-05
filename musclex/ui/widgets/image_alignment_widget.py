@@ -112,6 +112,11 @@ class ImageAlignmentWidget(QWidget):
         self._symmetry_thresh_enabled = True
         self._symmetry_threshold = 0.0
         self._fold_std_percentile_threshold: float = None
+        # Normalised symmetry score (FOLD_STD_NORM) threshold — same defaults
+        # as the raw score: pre-checked, auto-populated to 80th percentile.
+        self._norm_thresh_enabled = True
+        self._norm_threshold = 0.0
+        self._fold_std_norm_percentile_threshold: float = None
 
         # Batch detection state
         self.taskManager = ProcessingTaskManager()
@@ -274,6 +279,32 @@ class ImageAlignmentWidget(QWidget):
             sym_row.addStretch()
             layout.addLayout(sym_row)
 
+            # Normalised symmetry threshold row (FOLD_STD_NORM).
+            norm_row = QHBoxLayout()
+            norm_row.setSpacing(6)
+            self._norm_thresh_chk = QCheckBox(
+                "Symmetry norm threshold (default: 80th pct):")
+            self._norm_thresh_chk.setChecked(True)
+            self._norm_thresh_chk.setEnabled(False)
+            self._norm_thresh_chk.setToolTip(
+                "Highlight images whose normalised fold-symmetry score "
+                "(fold_std_sum / Σ I_fg) exceeds this threshold.\n"
+                "The default is automatically set to the 80th percentile of "
+                "all normalised scores after detection completes.\n"
+                "Uncheck to disable this highlighting.")
+            norm_row.addWidget(self._norm_thresh_chk)
+
+            self._norm_thresh_spin = QDoubleSpinBox()
+            self._norm_thresh_spin.setRange(0.0, 1e6)
+            self._norm_thresh_spin.setDecimals(4)
+            self._norm_thresh_spin.setSingleStep(0.01)
+            self._norm_thresh_spin.setValue(self._norm_threshold)
+            self._norm_thresh_spin.setEnabled(False)
+            self._norm_thresh_spin.setFixedWidth(140)
+            norm_row.addWidget(self._norm_thresh_spin)
+            norm_row.addStretch()
+            layout.addLayout(norm_row)
+
         # Place the detection button at the bottom of the controls if requested.
         if self._detection_button_position == "bottom_after_thresholds":
             detection_row = QHBoxLayout()
@@ -301,6 +332,10 @@ class ImageAlignmentWidget(QWidget):
                 self._on_symmetry_thresh_toggled)
             self._symmetry_thresh_spin.valueChanged.connect(
                 self._on_symmetry_thresh_changed)
+            self._norm_thresh_chk.toggled.connect(
+                self._on_norm_thresh_toggled)
+            self._norm_thresh_spin.valueChanged.connect(
+                self._on_norm_thresh_changed)
 
         self.misaligned_detection_group.set_content_layout(layout)
         root.addWidget(self.misaligned_detection_group)
@@ -460,7 +495,10 @@ class ImageAlignmentWidget(QWidget):
         if self._enable_symmetry_test and ColKey.FOLD_STD_NORM in self.table._col:
             norm_val = sm.get_fold_std_norm(name) if hasattr(
                 sm, 'get_fold_std_norm') else None
-            self.table.fill_fold_std_norm(row, norm_val)
+            self.table.fill_fold_std_norm(
+                row, norm_val,
+                self._norm_thresh_enabled, self._norm_threshold,
+            )
 
         self.table.apply_misaligned_highlight(
             row, name, self.misaligned_names)
@@ -561,6 +599,36 @@ class ImageAlignmentWidget(QWidget):
         else:
             self._fold_std_percentile_threshold = None
 
+    def _compute_fold_std_norm_percentile_threshold(self):
+        """Auto-populate the normalised symmetry spinbox with the 80th-percentile
+        of all cached fold-std-norm scores.
+
+        Mirrors :meth:`_compute_fold_std_percentile_threshold` for the
+        FOLD_STD_NORM column. The normalised score is dimensionless (typically
+        in the range 0–1) so the spinbox decimals are set accordingly.
+        """
+        if not getattr(self, '_enable_symmetry_test', False):
+            return
+        sm = self.workspace.settings_manager
+        if not hasattr(sm, 'get_fold_std_norm'):
+            return
+        values = [
+            sm.get_fold_std_norm(self._row_mapper.name_for_row(r))
+            for r in range(self._row_mapper.row_count())
+            if self._row_mapper.name_for_row(r) is not None
+        ]
+        values = [v for v in values if v is not None]
+        if len(values) >= 2:
+            self._fold_std_norm_percentile_threshold = float(
+                np.percentile(values, 80))
+            self._norm_thresh_spin.blockSignals(True)
+            self._norm_thresh_spin.setValue(
+                self._fold_std_norm_percentile_threshold)
+            self._norm_thresh_spin.blockSignals(False)
+            self._norm_threshold = self._fold_std_norm_percentile_threshold
+        else:
+            self._fold_std_norm_percentile_threshold = None
+
     # ------------------------------------------------------------------
     # Threshold highlighting
     # ------------------------------------------------------------------
@@ -599,18 +667,24 @@ class ImageAlignmentWidget(QWidget):
 
     def _on_symmetry_enable_toggled(self, checked):
         """Master toggle: when off, the symmetry test is skipped during detection
-        and the highlight threshold controls are disabled. When on, mirror the
-        current ``Highlight above`` checkbox state into the spinbox so the
-        default-checked highlight becomes immediately usable."""
+        and all highlight threshold controls (both raw and norm) are disabled.
+        When on, mirror each checkbox's current checked state into its spinbox
+        so the default-checked highlights become immediately usable."""
         self._symmetry_enabled = bool(checked)
         self._symmetry_thresh_chk.setEnabled(self._symmetry_enabled)
+        self._norm_thresh_chk.setEnabled(self._symmetry_enabled)
         if self._symmetry_enabled:
             self._symmetry_thresh_enabled = self._symmetry_thresh_chk.isChecked()
             self._symmetry_thresh_spin.setEnabled(self._symmetry_thresh_enabled)
+            self._norm_thresh_enabled = self._norm_thresh_chk.isChecked()
+            self._norm_thresh_spin.setEnabled(self._norm_thresh_enabled)
         else:
             self._symmetry_thresh_chk.setChecked(False)
             self._symmetry_thresh_spin.setEnabled(False)
             self._symmetry_thresh_enabled = False
+            self._norm_thresh_chk.setChecked(False)
+            self._norm_thresh_spin.setEnabled(False)
+            self._norm_thresh_enabled = False
         self._apply_threshold_highlighting()
 
     def _on_symmetry_thresh_toggled(self, checked):
@@ -623,6 +697,16 @@ class ImageAlignmentWidget(QWidget):
         if self._symmetry_thresh_enabled:
             self._apply_threshold_highlighting()
 
+    def _on_norm_thresh_toggled(self, checked):
+        self._norm_thresh_enabled = bool(checked)
+        self._norm_thresh_spin.setEnabled(self._norm_thresh_enabled)
+        self._apply_threshold_highlighting()
+
+    def _on_norm_thresh_changed(self, value):
+        self._norm_threshold = float(value)
+        if self._norm_thresh_enabled:
+            self._apply_threshold_highlighting()
+
     def _apply_threshold_highlighting(self):
         """Delegate threshold highlighting to the table widget."""
         self.table.apply_threshold_highlighting(
@@ -631,6 +715,8 @@ class ImageAlignmentWidget(QWidget):
             self._diff_thresh_enabled, self._diff_thresh_value,
             symmetry_enabled=self._symmetry_thresh_enabled,
             symmetry_thresh=self._symmetry_threshold,
+            norm_enabled=self._norm_thresh_enabled,
+            norm_thresh=self._norm_threshold,
         )
 
     # ------------------------------------------------------------------
@@ -999,6 +1085,7 @@ class ImageAlignmentWidget(QWidget):
         # it into the spinbox so flagged rows light up without manual tuning.
         if ran_symmetry:
             self._compute_fold_std_percentile_threshold()
+            self._compute_fold_std_norm_percentile_threshold()
             self._apply_threshold_highlighting()
         # Reset the per-batch flag so subsequent toggles take effect cleanly.
         self._batch_do_symmetry = False
