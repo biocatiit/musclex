@@ -37,6 +37,9 @@ python -m musclex.tests.fitting_ab.runner \
     --summary ab_summary.csv
 ```
 
+Output CSVs are written to `musclex/tests/fitting_ab/` by default (i.e., the
+same directory as this README).  Pass `--out-dir /other/path` to redirect them.
+
 Look at `ab_summary.csv` for the per-adapter table (median elapsed,
 chi² ratio, peak position p95, etc).
 

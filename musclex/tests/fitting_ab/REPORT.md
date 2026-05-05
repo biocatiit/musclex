@@ -137,8 +137,8 @@ adapter — bypassing `lmfit.MinimizerResult.chisqr`, which mis-reports
 
 ## A.2. Headline numbers — Test 1: deterministic replay
 
-Source: [`ab_summary.csv`](../../../ab_summary.csv) (aggregate),
-[`ab_report.csv`](../../../ab_report.csv) (per-trial).
+Source: [`ab_summary.csv`](ab_summary.csv) (aggregate),
+[`ab_report.csv`](ab_report.csv) (per-trial).
 
 | adapter | success | aborted | el_med (ms) | speed_ratio_median¹ | chi2_ratio_median² | p_max_diff_p95 (px)³ | amp_diff_median |
 |---|:---:|:---:|---:|---:|---:|---:|---:|
@@ -199,10 +199,10 @@ shown in the leftmost columns.
 ## A.3. Robustness — Test 2: perturbation sweep
 
 Sources:
-[`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv) (and `_long.csv`),
-[`ab_robustness.csv`](../../../ab_robustness.csv) (perturb=0.15, and `ab_robustness_long.csv`),
-[`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv),
-[`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv).
+[`ab_sweep_p0.05.csv`](ab_sweep_p0.05.csv) (and `_long.csv`),
+[`ab_robustness.csv`](ab_robustness.csv) (perturb=0.15, and `ab_robustness_long.csv`),
+[`ab_sweep_p0.30.csv`](ab_sweep_p0.30.csv),
+[`ab_sweep_p0.50.csv`](ab_sweep_p0.50.csv).
 
 Each row aggregates 5 cases × 10 perturbed trials = 50 fits.
 
@@ -334,7 +334,7 @@ component inside the fit), not on the convex-hull-subtracted trace.
 
 ## A.6. Consistency under perturbation (per-parameter)
 
-Sources: [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.csv)
+Sources: [`ab_sweep_p0.15_consistency.csv`](ab_sweep_p0.15_consistency.csv)
 (headline, perturb=0.15) plus the matching `_consistency.csv` for
 each of `0.05`, `0.30`, `0.50`. Each file has one row per
 `(adapter, case_id, param_name)` with `cand_mean`, `cand_std`,
@@ -346,7 +346,7 @@ question that `p_max_diff_p95` summarises in one number per fit.
 
 ### Headline: dispersion summary at perturb=0.15
 
-Selected from [`ab_sweep_p0.15.csv`](../../../ab_sweep_p0.15.csv) — the
+Selected from [`ab_sweep_p0.15.csv`](ab_sweep_p0.15.csv) — the
 full per-adapter aggregate now includes mean / std / IQR for every
 metric.
 
@@ -462,8 +462,8 @@ already abort-cap on the deterministic case.
 
 ## B.2. Headline numbers — deterministic replay
 
-Source: [`eq_ab_summary.csv`](../../../eq_ab_summary.csv),
-[`eq_ab_report.csv`](../../../eq_ab_report.csv).
+Source: [`eq_ab_summary.csv`](eq_ab_summary.csv),
+[`eq_ab_report.csv`](eq_ab_report.csv).
 
 | adapter | success | aborted | el_med (ms) | speed_ratio_median | chi2_ratio_median |
 |---|:---:|:---:|---:|---:|---:|
@@ -517,7 +517,7 @@ Source: [`eq_ab_summary.csv`](../../../eq_ab_summary.csv),
 
 ## B.3. Robustness — perturbation sweep at `perturb=0.15`
 
-Source: [`eq_robustness.csv`](../../../eq_robustness.csv) (and
+Source: [`eq_robustness.csv`](eq_robustness.csv) (and
 `_long.csv`).
 
 | adapter | success | aborted | el_med (ms) | chi2_ratio_median | chi2_ratio_max |
@@ -530,9 +530,9 @@ There is no robustness gap. leastsq is consistently 2 – 3 × faster.
 
 ## B.4. Consistency under perturbation (per-parameter)
 
-Sources: [`eq_robustness_consistency.csv`](../../../eq_robustness_consistency.csv)
+Sources: [`eq_robustness_consistency.csv`](eq_robustness_consistency.csv)
 (per-parameter, all 6 cases × 2 adapters × 10 trials)
-and [`eq_robustness.csv`](../../../eq_robustness.csv)
+and [`eq_robustness.csv`](eq_robustness.csv)
 (per-adapter aggregate with the new dispersion columns).
 
 ### Headline: dispersion summary at perturb=0.15
@@ -641,13 +641,13 @@ All paths relative to the repository root.
 
 | artefact | path | what's in it |
 |---|---|---|
-| Per-trial long-format report (Test 1) | [`ab_report.csv`](../../../ab_report.csv) | 100 rows — every fit attempted (deterministic replay) |
-| Aggregate summary (Test 1) | [`ab_summary.csv`](../../../ab_summary.csv) | 4 rows (one per adapter); now includes `*_mean`, `*_std`, `*_iqr`, `chi2_ratio_mean/std`, `r2_mean/std` |
-| Per-(adapter, case) summary (Test 1) | [`ab_per_case.csv`](../../../ab_per_case.csv) | one row per (adapter, case) with mean ± std of error / time across trials |
-| Robustness sweep (perturb=0.15, headline) | [`ab_robustness.csv`](../../../ab_robustness.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | 50-fit aggregate + per-trial detail + per-case dispersion + per-parameter consistency |
-| Robustness sweep (perturb=0.05) | [`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
-| Robustness sweep (perturb=0.30) | [`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
-| Robustness sweep (perturb=0.50) | [`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
+| Per-trial long-format report (Test 1) | [`ab_report.csv`](ab_report.csv) | 100 rows — every fit attempted (deterministic replay) |
+| Aggregate summary (Test 1) | [`ab_summary.csv`](ab_summary.csv) | 4 rows (one per adapter); now includes `*_mean`, `*_std`, `*_iqr`, `chi2_ratio_mean/std`, `r2_mean/std` |
+| Per-(adapter, case) summary (Test 1) | [`ab_per_case.csv`](ab_per_case.csv) | one row per (adapter, case) with mean ± std of error / time across trials |
+| Robustness sweep (perturb=0.15, headline) | [`ab_robustness.csv`](ab_robustness.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | 50-fit aggregate + per-trial detail + per-case dispersion + per-parameter consistency |
+| Robustness sweep (perturb=0.05) | [`ab_sweep_p0.05.csv`](ab_sweep_p0.05.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
+| Robustness sweep (perturb=0.30) | [`ab_sweep_p0.30.csv`](ab_sweep_p0.30.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
+| Robustness sweep (perturb=0.50) | [`ab_sweep_p0.50.csv`](ab_sweep_p0.50.csv) (+ `_long.csv`, `_per_case.csv`, `_consistency.csv`) | same shape as headline |
 | Captured PT fit cases | `/tmp/musclex_fit_cases/full_run_*.pkl` | 5 pickled `FitCase` objects |
 | Diagnostic harness | [`musclex/tests/fitting_ab/diagnose_m6_trf_failure.py`](diagnose_m6_trf_failure.py) | resolved the m6 / TRF mystery (perturbation strategy bug, not TRF) |
 
@@ -655,13 +655,13 @@ All paths relative to the repository root.
 
 | artefact | path | what's in it |
 |---|---|---|
-| Per-trial long-format report | [`eq_ab_report.csv`](../../../eq_ab_report.csv) | 90 rows, 6 cases × 3 adapters × 5 trials |
-| Aggregate summary | [`eq_ab_summary.csv`](../../../eq_ab_summary.csv) | 3 rows (one per adapter); same new dispersion columns as PT |
-| Per-(adapter, case) summary | [`eq_ab_per_case.csv`](../../../eq_ab_per_case.csv) | one row per (adapter, case) |
-| Robustness summary (perturb=0.15) | [`eq_robustness.csv`](../../../eq_robustness.csv) | 2 rows (baseline vs trf-jac) |
-| Robustness per-trial | [`eq_robustness_long.csv`](../../../eq_robustness_long.csv) | 120 rows |
-| Robustness per-case | [`eq_robustness_per_case.csv`](../../../eq_robustness_per_case.csv) | per-(adapter, case) mean ± std under perturbation |
-| Robustness consistency | [`eq_robustness_consistency.csv`](../../../eq_robustness_consistency.csv) | per-(adapter, case, parameter) mean / std — one row per fitted parameter |
+| Per-trial long-format report | [`eq_ab_report.csv`](eq_ab_report.csv) | 90 rows, 6 cases × 3 adapters × 5 trials |
+| Aggregate summary | [`eq_ab_summary.csv`](eq_ab_summary.csv) | 3 rows (one per adapter); same new dispersion columns as PT |
+| Per-(adapter, case) summary | [`eq_ab_per_case.csv`](eq_ab_per_case.csv) | one row per (adapter, case) |
+| Robustness summary (perturb=0.15) | [`eq_robustness.csv`](eq_robustness.csv) | 2 rows (baseline vs trf-jac) |
+| Robustness per-trial | [`eq_robustness_long.csv`](eq_robustness_long.csv) | 120 rows |
+| Robustness per-case | [`eq_robustness_per_case.csv`](eq_robustness_per_case.csv) | per-(adapter, case) mean ± std under perturbation |
+| Robustness consistency | [`eq_robustness_consistency.csv`](eq_robustness_consistency.csv) | per-(adapter, case, parameter) mean / std — one row per fitted parameter |
 | Captured Equator fit cases | `/tmp/musclex_eq_cases/eq_eq_*.pkl` | 6 pickled `FitCase` objects (model_kind='cardiac') |
 
 ### Common

@@ -21,8 +21,11 @@ Usage (CLI)
 >>> python -m musclex.tests.fitting_ab.runner \
 ...     --cases /tmp/musclex_fit_cases \
 ...     --adapters lmfit-baseline-leastsq lmfit-trf \
-...     --report /tmp/ab_report.csv \
+...     --report ab_report.csv \
 ...     --n-repeats 3
+...
+... # Outputs go to musclex/tests/fitting_ab/ab_report.csv by default.
+... # Pass --out-dir /some/other/dir to change the output location.
 """
 
 from __future__ import annotations
@@ -328,6 +331,19 @@ def summarize_per_case(df) -> "pd.DataFrame":  # type: ignore[name-defined]
 # --------------------------------------------------------------------------- #
 
 
+_FITTING_AB_DIR = Path(__file__).parent
+
+
+def _resolve_out(path: Optional[str], out_dir: Path) -> Optional[Path]:
+    """Resolve *path* relative to *out_dir* when it is a bare filename."""
+    if path is None:
+        return None
+    p = Path(path)
+    if not p.is_absolute():
+        p = out_dir / p
+    return p
+
+
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument(
@@ -337,6 +353,13 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     p.add_argument(
         "--adapters", nargs="+", default=list(ADAPTER_REGISTRY),
         help=f"Adapter names to compare. Available: {sorted(ADAPTER_REGISTRY)}",
+    )
+    p.add_argument(
+        "--out-dir", default=str(_FITTING_AB_DIR),
+        help=(
+            "Base directory for output CSVs when relative paths are given. "
+            f"Default: {_FITTING_AB_DIR}"
+        ),
     )
     p.add_argument(
         "--report", default=None,
@@ -386,6 +409,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     args = _parse_args(argv)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    report_path = _resolve_out(args.report, out_dir)
+    summary_path = _resolve_out(args.summary, out_dir)
+    per_case_path = _resolve_out(args.per_case, out_dir)
+    consistency_path = _resolve_out(args.consistency, out_dir)
 
     cases = load_cases_from_dir(args.cases)
     if args.limit:
@@ -408,7 +438,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         f"{len(cases) * len(adapters) * args.n_repeats} fits\n"
     )
 
-    want_param_rows = bool(args.consistency)
+    want_param_rows = bool(consistency_path)
     if want_param_rows:
         df, param_df = run_ab(
             adapters=adapters,
@@ -426,30 +456,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         param_df = None
 
-    if args.report:
-        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(args.report, index=False)
-        sys.stderr.write(f"[runner] wrote report -> {args.report}\n")
+    if report_path:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(report_path, index=False)
+        sys.stderr.write(f"[runner] wrote report -> {report_path}\n")
     else:
         df.to_csv(sys.stdout, index=False)
 
     summary = summarize_dataframe(df)
-    if args.summary:
-        Path(args.summary).parent.mkdir(parents=True, exist_ok=True)
-        summary.to_csv(args.summary)
-        sys.stderr.write(f"[runner] wrote summary -> {args.summary}\n")
+    if summary_path:
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary.to_csv(summary_path)
+        sys.stderr.write(f"[runner] wrote summary -> {summary_path}\n")
 
-    if args.per_case:
+    if per_case_path:
         per_case = summarize_per_case(df)
-        Path(args.per_case).parent.mkdir(parents=True, exist_ok=True)
-        per_case.to_csv(args.per_case, index=False)
-        sys.stderr.write(f"[runner] wrote per-case summary -> {args.per_case}\n")
+        per_case_path.parent.mkdir(parents=True, exist_ok=True)
+        per_case.to_csv(per_case_path, index=False)
+        sys.stderr.write(f"[runner] wrote per-case summary -> {per_case_path}\n")
 
-    if args.consistency:
+    if consistency_path:
         consistency = summarize_consistency(param_df)
-        Path(args.consistency).parent.mkdir(parents=True, exist_ok=True)
-        consistency.to_csv(args.consistency, index=False)
-        sys.stderr.write(f"[runner] wrote consistency table -> {args.consistency}\n")
+        consistency_path.parent.mkdir(parents=True, exist_ok=True)
+        consistency.to_csv(consistency_path, index=False)
+        sys.stderr.write(f"[runner] wrote consistency table -> {consistency_path}\n")
         if (args.perturb_init or 0) == 0:
             sys.stderr.write(
                 "[runner] note: --perturb-init was not set, so consistency "

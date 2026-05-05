@@ -56,12 +56,12 @@ directly comparable across cases.
 
 
 **Sources**:
-`[ab_sweep_p0.15.csv](../../../ab_sweep_p0.15.csv)` (PT, per-adapter aggregate)
-· `[ab_sweep_p0.15_long.csv](../../../ab_sweep_p0.15_long.csv)` (PT, per-trial)
-· `[eq_robustness.csv](../../../eq_robustness.csv)` (Equator, per-adapter aggregate)
-· `[eq_robustness_long.csv](../../../eq_robustness_long.csv)` (Equator, per-trial)
-· `[ab_sweep_p0.15_per_case.csv](../../../ab_sweep_p0.15_per_case.csv)` and
-`[eq_robustness_per_case.csv](../../../eq_robustness_per_case.csv)`
+`[ab_sweep_p0.15.csv](ab_sweep_p0.15.csv)` (PT, per-adapter aggregate)
+· `[ab_sweep_p0.15_long.csv](ab_sweep_p0.15_long.csv)` (PT, per-trial)
+· `[eq_robustness.csv](eq_robustness.csv)` (Equator, per-adapter aggregate)
+· `[eq_robustness_long.csv](eq_robustness_long.csv)` (Equator, per-trial)
+· `[ab_sweep_p0.15_per_case.csv](ab_sweep_p0.15_per_case.csv)` and
+`[eq_robustness_per_case.csv](eq_robustness_per_case.csv)`
 break the same numbers down by case if a per-case mean ± std is needed.
 
 > **Why ratio not raw chi²?** Raw `chi²` varies by orders of magnitude
@@ -174,11 +174,11 @@ permutation at the optimum does not show up as fake parameter drift.
 
 | module                           | rows | path                                                                        |
 | -------------------------------- | ---- | --------------------------------------------------------------------------- |
-| Projection Traces (perturb=0.15) | 110  | `[ab_sweep_p0.15_consistency.csv](../../../ab_sweep_p0.15_consistency.csv)` |
-| Projection Traces (perturb=0.05) | 110  | `[ab_sweep_p0.05_consistency.csv](../../../ab_sweep_p0.05_consistency.csv)` |
-| Projection Traces (perturb=0.30) | 110  | `[ab_sweep_p0.30_consistency.csv](../../../ab_sweep_p0.30_consistency.csv)` |
-| Projection Traces (perturb=0.50) | 110  | `[ab_sweep_p0.50_consistency.csv](../../../ab_sweep_p0.50_consistency.csv)` |
-| Equator (perturb=0.15)           | 132  | `[eq_robustness_consistency.csv](../../../eq_robustness_consistency.csv)`   |
+| Projection Traces (perturb=0.15) | 110  | `[ab_sweep_p0.15_consistency.csv](ab_sweep_p0.15_consistency.csv)` |
+| Projection Traces (perturb=0.05) | 110  | `[ab_sweep_p0.05_consistency.csv](ab_sweep_p0.05_consistency.csv)` |
+| Projection Traces (perturb=0.30) | 110  | `[ab_sweep_p0.30_consistency.csv](ab_sweep_p0.30_consistency.csv)` |
+| Projection Traces (perturb=0.50) | 110  | `[ab_sweep_p0.50_consistency.csv](ab_sweep_p0.50_consistency.csv)` |
+| Equator (perturb=0.15)           | 132  | `[eq_robustness_consistency.csv](eq_robustness_consistency.csv)`   |
 
 
 110 rows = 5 cases × (variable free params per case, summing to 55) × 2 adapters.
@@ -187,8 +187,8 @@ permutation at the optimum does not show up as fake parameter drift.
 ### Headline excerpt — most-unstable parameters
 
 For each adapter, the 5 parameters with the highest CV (`cand_std / |ref|`). Source:
-`[ab_sweep_p0.15_consistency.csv](../../../ab_sweep_p0.15_consistency.csv)`
-and `[eq_robustness_consistency.csv](../../../eq_robustness_consistency.csv)`.
+`[ab_sweep_p0.15_consistency.csv](ab_sweep_p0.15_consistency.csv)`
+and `[eq_robustness_consistency.csv](eq_robustness_consistency.csv)`.
 
 #### Projection Traces — `lmfit-baseline-leastsq`
 
@@ -286,13 +286,13 @@ metrics framework that the broader analysis uses.
 
 | task                             | file                                                                        | shape                                                                                                  |
 | -------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| ① + ② (PT)                       | `[ab_sweep_p0.15.csv](../../../ab_sweep_p0.15.csv)`                         | 2 rows (one per adapter), with `chi2_ratio_mean/std`, `r2_mean/std`, `elapsed_mean/std`, `elapsed_iqr` |
-| ① + ② (Equator)                  | `[eq_robustness.csv](../../../eq_robustness.csv)`                           | 2 rows, same columns                                                                                   |
-| ① + ② per-trial detail (PT)      | `[ab_sweep_p0.15_long.csv](../../../ab_sweep_p0.15_long.csv)`               | 100 rows                                                                                               |
-| ① + ② per-trial detail (Equator) | `[eq_robustness_long.csv](../../../eq_robustness_long.csv)`                 | 120 rows                                                                                               |
-| ① + ② per-case detail (PT)       | `[ab_sweep_p0.15_per_case.csv](../../../ab_sweep_p0.15_per_case.csv)`       | 10 rows (5 cases × 2 adapters)                                                                         |
-| ① + ② per-case detail (Equator)  | `[eq_robustness_per_case.csv](../../../eq_robustness_per_case.csv)`         | 12 rows (6 cases × 2 adapters)                                                                         |
-| ③ consistency (PT)               | `[ab_sweep_p0.15_consistency.csv](../../../ab_sweep_p0.15_consistency.csv)` | 110 rows (one per (adapter, case, free param))                                                         |
-| ③ consistency (Equator)          | `[eq_robustness_consistency.csv](../../../eq_robustness_consistency.csv)`   | 132 rows                                                                                               |
+| ① + ② (PT)                       | `[ab_sweep_p0.15.csv](ab_sweep_p0.15.csv)`                         | 2 rows (one per adapter), with `chi2_ratio_mean/std`, `r2_mean/std`, `elapsed_mean/std`, `elapsed_iqr` |
+| ① + ② (Equator)                  | `[eq_robustness.csv](eq_robustness.csv)`                           | 2 rows, same columns                                                                                   |
+| ① + ② per-trial detail (PT)      | `[ab_sweep_p0.15_long.csv](ab_sweep_p0.15_long.csv)`               | 100 rows                                                                                               |
+| ① + ② per-trial detail (Equator) | `[eq_robustness_long.csv](eq_robustness_long.csv)`                 | 120 rows                                                                                               |
+| ① + ② per-case detail (PT)       | `[ab_sweep_p0.15_per_case.csv](ab_sweep_p0.15_per_case.csv)`       | 10 rows (5 cases × 2 adapters)                                                                         |
+| ① + ② per-case detail (Equator)  | `[eq_robustness_per_case.csv](eq_robustness_per_case.csv)`         | 12 rows (6 cases × 2 adapters)                                                                         |
+| ③ consistency (PT)               | `[ab_sweep_p0.15_consistency.csv](ab_sweep_p0.15_consistency.csv)` | 110 rows (one per (adapter, case, free param))                                                         |
+| ③ consistency (Equator)          | `[eq_robustness_consistency.csv](eq_robustness_consistency.csv)`   | 132 rows                                                                                               |
 
 

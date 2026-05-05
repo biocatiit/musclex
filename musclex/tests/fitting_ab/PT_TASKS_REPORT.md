@@ -77,7 +77,7 @@ chi²_ratio = chi²_candidate / chi²_reference
 
 ### Main Result: Perturbation = 15%
 
-Source: [`ab_sweep_p0.15.csv`](../../../ab_sweep_p0.15.csv).
+Source: [`ab_sweep_p0.15.csv`](ab_sweep_p0.15.csv).
 
 | adapter | n_fits | success | chi²_ratio mean ± std | R² mean ± std | GUI Fitting Error mean ± std |
 |---|---:|---:|---:|---:|---:|
@@ -93,10 +93,10 @@ Interpretation:
 ### All Perturbation Levels
 
 Sources:
-[`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv),
-[`ab_sweep_p0.15.csv`](../../../ab_sweep_p0.15.csv),
-[`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv),
-[`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv).
+[`ab_sweep_p0.05.csv`](ab_sweep_p0.05.csv),
+[`ab_sweep_p0.15.csv`](ab_sweep_p0.15.csv),
+[`ab_sweep_p0.30.csv`](ab_sweep_p0.30.csv),
+[`ab_sweep_p0.50.csv`](ab_sweep_p0.50.csv).
 
 | perturb | adapter | n_fits | chi²_ratio mean ± std | R² mean ± std | GUI Fitting Error mean ± std |
 |---:|---|---:|---:|---:|---:|
@@ -116,7 +116,7 @@ Key point:
 
 ### Per-Case Detail At Perturbation = 15%
 
-Source: [`ab_sweep_p0.15_per_case.csv`](../../../ab_sweep_p0.15_per_case.csv).
+Source: [`ab_sweep_p0.15_per_case.csv`](ab_sweep_p0.15_per_case.csv).
 
 | adapter | case | chi²_ratio mean ± std | R² mean ± std | GUI Fitting Error mean ± std |
 |---|---|---:|---:|---:|
@@ -141,7 +141,7 @@ Times are wall-clock seconds per fit. `mean ± std` is reported because it was r
 
 ### Main Result: Perturbation = 15%
 
-Source: [`ab_sweep_p0.15.csv`](../../../ab_sweep_p0.15.csv).
+Source: [`ab_sweep_p0.15.csv`](ab_sweep_p0.15.csv).
 
 | adapter | n_fits | time mean ± std (s) | median (s) | IQR (s) |
 |---|---:|---:|---:|---:|
@@ -168,7 +168,7 @@ Interpretation:
 
 ### Per-Case Time Detail At Perturbation = 15%
 
-Source: [`ab_sweep_p0.15_per_case.csv`](../../../ab_sweep_p0.15_per_case.csv).
+Source: [`ab_sweep_p0.15_per_case.csv`](ab_sweep_p0.15_per_case.csv).
 
 | adapter | case | time mean ± std (s) |
 |---|---|---:|
@@ -217,16 +217,16 @@ Canonicalization is applied before aggregation:
 
 | perturb | path | rows |
 |---:|---|---:|
-| 0.05 | [`ab_sweep_p0.05_consistency.csv`](../../../ab_sweep_p0.05_consistency.csv) | 110 |
-| 0.15 | [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.csv) | 110 |
-| 0.30 | [`ab_sweep_p0.30_consistency.csv`](../../../ab_sweep_p0.30_consistency.csv) | 110 |
-| 0.50 | [`ab_sweep_p0.50_consistency.csv`](../../../ab_sweep_p0.50_consistency.csv) | 110 |
+| 0.05 | [`ab_sweep_p0.05_consistency.csv`](ab_sweep_p0.05_consistency.csv) | 110 |
+| 0.15 | [`ab_sweep_p0.15_consistency.csv`](ab_sweep_p0.15_consistency.csv) | 110 |
+| 0.30 | [`ab_sweep_p0.30_consistency.csv`](ab_sweep_p0.30_consistency.csv) | 110 |
+| 0.50 | [`ab_sweep_p0.50_consistency.csv`](ab_sweep_p0.50_consistency.csv) | 110 |
 
 110 rows = 2 adapters × 5 cases × all free parameters in each case.
 
 ### Headline: Most Unstable Parameters At Perturbation = 15%
 
-Source: [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.csv).
+Source: [`ab_sweep_p0.15_consistency.csv`](ab_sweep_p0.15_consistency.csv).
 
 #### `lmfit-baseline-leastsq`
 
@@ -252,7 +252,7 @@ Source: [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.c
 
 Peak position parameters (`p_i`) are the main physical outputs. Their standard deviations are much smaller under TRF on the hard `TEST` case.
 
-Source: [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.csv).
+Source: [`ab_sweep_p0.15_consistency.csv`](ab_sweep_p0.15_consistency.csv).
 
 | adapter | case | param | ref | cand_mean | cand_std | abs_diff_max |
 |---|---|---|---:|---:|---:|---:|
@@ -277,8 +277,8 @@ This run repeats the same captured init values 5 times per `(adapter, case)`.
 It mostly measures timing and confirms whether each adapter reproduces the reference solution.
 
 Source:
-[`ab_summary.csv`](../../../ab_summary.csv),
-[`ab_report.csv`](../../../ab_report.csv).
+[`ab_summary.csv`](ab_summary.csv),
+[`ab_report.csv`](ab_report.csv).
 
 | adapter | n_fits | success | aborted | time mean ± std (s) | median (s) | chi²_ratio median | p_max_diff_p95 (px) | amp_diff_median |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -387,8 +387,8 @@ done
 
 | category | files |
 |---|---|
-| deterministic replay | [`ab_report.csv`](../../../ab_report.csv), [`ab_summary.csv`](../../../ab_summary.csv), [`ab_per_case.csv`](../../../ab_per_case.csv) |
-| perturbation p=0.05 | [`ab_sweep_p0.05.csv`](../../../ab_sweep_p0.05.csv), [`ab_sweep_p0.05_long.csv`](../../../ab_sweep_p0.05_long.csv), [`ab_sweep_p0.05_per_case.csv`](../../../ab_sweep_p0.05_per_case.csv), [`ab_sweep_p0.05_consistency.csv`](../../../ab_sweep_p0.05_consistency.csv) |
-| perturbation p=0.15 | [`ab_sweep_p0.15.csv`](../../../ab_sweep_p0.15.csv), [`ab_sweep_p0.15_long.csv`](../../../ab_sweep_p0.15_long.csv), [`ab_sweep_p0.15_per_case.csv`](../../../ab_sweep_p0.15_per_case.csv), [`ab_sweep_p0.15_consistency.csv`](../../../ab_sweep_p0.15_consistency.csv) |
-| perturbation p=0.30 | [`ab_sweep_p0.30.csv`](../../../ab_sweep_p0.30.csv), [`ab_sweep_p0.30_long.csv`](../../../ab_sweep_p0.30_long.csv), [`ab_sweep_p0.30_per_case.csv`](../../../ab_sweep_p0.30_per_case.csv), [`ab_sweep_p0.30_consistency.csv`](../../../ab_sweep_p0.30_consistency.csv) |
-| perturbation p=0.50 | [`ab_sweep_p0.50.csv`](../../../ab_sweep_p0.50.csv), [`ab_sweep_p0.50_long.csv`](../../../ab_sweep_p0.50_long.csv), [`ab_sweep_p0.50_per_case.csv`](../../../ab_sweep_p0.50_per_case.csv), [`ab_sweep_p0.50_consistency.csv`](../../../ab_sweep_p0.50_consistency.csv) |
+| deterministic replay | [`ab_report.csv`](ab_report.csv), [`ab_summary.csv`](ab_summary.csv), [`ab_per_case.csv`](ab_per_case.csv) |
+| perturbation p=0.05 | [`ab_sweep_p0.05.csv`](ab_sweep_p0.05.csv), [`ab_sweep_p0.05_long.csv`](ab_sweep_p0.05_long.csv), [`ab_sweep_p0.05_per_case.csv`](ab_sweep_p0.05_per_case.csv), [`ab_sweep_p0.05_consistency.csv`](ab_sweep_p0.05_consistency.csv) |
+| perturbation p=0.15 | [`ab_sweep_p0.15.csv`](ab_sweep_p0.15.csv), [`ab_sweep_p0.15_long.csv`](ab_sweep_p0.15_long.csv), [`ab_sweep_p0.15_per_case.csv`](ab_sweep_p0.15_per_case.csv), [`ab_sweep_p0.15_consistency.csv`](ab_sweep_p0.15_consistency.csv) |
+| perturbation p=0.30 | [`ab_sweep_p0.30.csv`](ab_sweep_p0.30.csv), [`ab_sweep_p0.30_long.csv`](ab_sweep_p0.30_long.csv), [`ab_sweep_p0.30_per_case.csv`](ab_sweep_p0.30_per_case.csv), [`ab_sweep_p0.30_consistency.csv`](ab_sweep_p0.30_consistency.csv) |
+| perturbation p=0.50 | [`ab_sweep_p0.50.csv`](ab_sweep_p0.50.csv), [`ab_sweep_p0.50_long.csv`](ab_sweep_p0.50_long.csv), [`ab_sweep_p0.50_per_case.csv`](ab_sweep_p0.50_per_case.csv), [`ab_sweep_p0.50_consistency.csv`](ab_sweep_p0.50_consistency.csv) |
