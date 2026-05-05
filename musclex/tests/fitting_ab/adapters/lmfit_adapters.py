@@ -221,6 +221,16 @@ class _LmfitAdapterBase(FitterAdapter):
     def __init__(self, *, seed: int = 0):
         self._rng = np.random.default_rng(seed)
 
+    def _resolve_model_func(self, model_kind: str):
+        """Return the model callable to wrap in ``lmfit.Model``.
+
+        Override in subclasses to substitute a different implementation of
+        the inner Gaussian / Voigt evaluation (e.g. numba, cython).  The
+        default calls the module-level :func:`_get_model_func` which imports
+        the production function from ``ProjectionProcessor``.
+        """
+        return _get_model_func(model_kind)
+
     def fit(self, case: FitCase, *, perturb_init: Optional[float] = None) -> FitResult:
         inputs = case.inputs
 
@@ -228,7 +238,7 @@ class _LmfitAdapterBase(FitterAdapter):
         indep_kwargs = _independent_kwargs(inputs)
         indep_names = _independent_var_names(inputs)
 
-        model_func = _get_model_func(inputs.model_kind)
+        model_func = self._resolve_model_func(inputs.model_kind)
         model = Model(
             model_func,
             nan_policy="propagate",
@@ -371,3 +381,93 @@ class LmfitTRFPoissonAdapter(_LmfitAdapterBase):
     name = "lmfit-trf-poisson"
     fit_method = "least_squares"
     use_poisson_weights = True
+
+
+# --------------------------------------------------------------------------- #
+# Model-variant adapters  (speedup comparison: lmfit-objects vs numpy vs
+# numba vs cython — all using TRF so the optimizer is a constant)
+# --------------------------------------------------------------------------- #
+
+
+def _make_variant_resolver(import_path: str):
+    """Factory: return a ``_resolve_model_func`` that imports from *import_path*."""
+
+    def _resolve(self, model_kind: str):  # noqa: ANN001
+        import importlib  # noqa: PLC0415
+        mod = importlib.import_module(import_path)
+        if model_kind == "gmm":
+            return mod.layerlineModelGMM
+        if model_kind == "standard":
+            return mod.layerlineModel
+        # Non-PT model kinds (e.g. "cardiac") fall back to the production import.
+        return _get_model_func(model_kind)
+
+    return _resolve
+
+
+class LmfitTRFLmfitObjectsAdapter(_LmfitAdapterBase):
+    """TRF + baseline *before* speedup: new lmfit model object on every eval.
+
+    This is the "old production code" reference point.  Use it to measure
+    the overhead of ``GaussianModel().eval()`` / ``VoigtModel().eval()``
+    object construction per optimizer call.
+    """
+
+    name = "lmfit-trf-lmfit-objects"
+    fit_method = "least_squares"
+
+    _resolve_model_func = _make_variant_resolver(
+        "musclex.tests.fitting_ab.model_variants.model_lmfit_objects"
+    )
+
+
+class LmfitTRFNumpyAdapter(_LmfitAdapterBase):
+    """TRF + direct NumPy Gaussian / wofz Voigt (no lmfit model objects).
+
+    The proposed speedup: identical maths, no Python object construction
+    overhead per residual evaluation.
+    """
+
+    name = "lmfit-trf-numpy"
+    fit_method = "least_squares"
+
+    _resolve_model_func = _make_variant_resolver(
+        "musclex.tests.fitting_ab.model_variants.model_numpy"
+    )
+
+
+class LmfitTRFNumbaAdapter(_LmfitAdapterBase):
+    """TRF + Numba-JIT Gaussian (Voigt falls back to NumPy/wofz).
+
+    ``numba`` must be installed.  JIT warm-up happens at import time of
+    ``model_variants.model_numba`` so the first fit does not bear JIT cost.
+    If ``numba`` is absent the module silently falls back to NumPy and logs
+    a warning.
+    """
+
+    name = "lmfit-trf-numba"
+    fit_method = "least_squares"
+
+    _resolve_model_func = _make_variant_resolver(
+        "musclex.tests.fitting_ab.model_variants.model_numba"
+    )
+
+
+class LmfitTRFCythonAdapter(_LmfitAdapterBase):
+    """TRF + Cython-compiled Gaussian (Voigt falls back to NumPy/wofz).
+
+    The Cython extension must be compiled before use::
+
+        cd musclex/tests/fitting_ab/model_variants/model_cython
+        python setup.py build_ext --inplace
+
+    If the extension is absent a descriptive ``ImportError`` is raised when
+    the first ``fit()`` call is made.
+    """
+
+    name = "lmfit-trf-cython"
+    fit_method = "least_squares"
+
+    _resolve_model_func = _make_variant_resolver(
+        "musclex.tests.fitting_ab.model_variants.model_cython.model_cython"
+    )

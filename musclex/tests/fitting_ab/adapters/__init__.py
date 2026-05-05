@@ -16,7 +16,11 @@ from .lmfit_adapters import (
     LmfitBaselineAdapter,
     LmfitPoissonWeightedAdapter,
     LmfitTRFAdapter,
+    LmfitTRFCythonAdapter,
     LmfitTRFJacAdapter,
+    LmfitTRFLmfitObjectsAdapter,
+    LmfitTRFNumbaAdapter,
+    LmfitTRFNumpyAdapter,
     LmfitTRFPoissonAdapter,
 )
 
@@ -29,6 +33,11 @@ ADAPTER_REGISTRY = {
         LmfitTRFJacAdapter,
         LmfitPoissonWeightedAdapter,
         LmfitTRFPoissonAdapter,
+        # Model-variant speedup comparison adapters (all use TRF optimizer)
+        LmfitTRFLmfitObjectsAdapter,
+        LmfitTRFNumpyAdapter,
+        LmfitTRFNumbaAdapter,
+        LmfitTRFCythonAdapter,
     )
 }
 
@@ -57,6 +66,10 @@ __all__ = [
     "LmfitTRFJacAdapter",
     "LmfitPoissonWeightedAdapter",
     "LmfitTRFPoissonAdapter",
+    "LmfitTRFLmfitObjectsAdapter",
+    "LmfitTRFNumpyAdapter",
+    "LmfitTRFNumbaAdapter",
+    "LmfitTRFCythonAdapter",
     "get_adapter",
     "load_case",
     "save_case",
