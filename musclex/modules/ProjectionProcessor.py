@@ -60,6 +60,7 @@ except Exception:  # pragma: no cover - any import failure -> disable capture
 
 _SQRT_2PI = np.sqrt(2.0 * np.pi)
 _SQRT2 = np.sqrt(2.0)
+_HULL_FIT_MARGIN = 15
 
 
 @dataclass
@@ -791,6 +792,17 @@ class ProjectionProcessor:
             else:
                 # Use standard model with independent sigmas
                 model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
+
+            fit_hist = hist
+            fit_int_vars = dict(int_vars)
+            if box.bgsub == 1 and box.hull_range is not None:
+                fit_x, fit_hist = _slice_fit_arrays_to_hull_range(
+                    x=x,
+                    hist=hist,
+                    centerX=init_center,
+                    hull_range=box.hull_range,
+                )
+                fit_int_vars['x'] = fit_x
             
             _fit_t0 = _perf_counter()
             # Trust-Region-Reflective (scipy.optimize.least_squares) handles
@@ -799,11 +811,11 @@ class ProjectionProcessor:
             # perturbed init at equal or better speed. See
             # musclex/tests/fitting_ab/REPORT.md (2026-04-29) for the A/B data.
             result = model.fit(
-                hist,
+                fit_hist,
                 verbose=False,
                 params=params,
                 method='least_squares',
-                **int_vars,
+                **fit_int_vars,
             )
             _fit_elapsed = _perf_counter() - _fit_t0
             if _maybe_record_fit is not None:
@@ -811,10 +823,10 @@ class ProjectionProcessor:
                     box_name=name,
                     box=box,
                     processor=self,
-                    x=x,
-                    y=hist,
+                    x=fit_int_vars['x'],
+                    y=fit_hist,
                     params=params,
-                    int_vars=int_vars,
+                    int_vars=fit_int_vars,
                     use_gmm=use_gmm,
                     result=result,
                     elapsed_s=_fit_elapsed,
@@ -1267,6 +1279,39 @@ def meridianGauss(x, centerX, center_sigma2, center_amplitude2, **kwargs):
     :return:
     """
     return _gaussian_eval(x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2)
+
+
+def _slice_fit_arrays_to_hull_range(x, hist, centerX, hull_range):
+    """Keep only the active convex-hull signal windows for bgsub=1 fitting.
+
+    convexHull() returns a full-width histogram with zeros outside the two
+    regions [centerX - hull_end, centerX - hull_start] and
+    [centerX + hull_start, centerX + hull_end]. Fitting those zero-padded
+    pixels is numerically redundant, but it still forces the model to evaluate
+    every Gaussian over the full box width. Keep the original absolute x
+    coordinates so centerX and peak positions need no adjustment.
+    """
+    hull_start, hull_end = float(hull_range[0]), float(hull_range[1])
+    centerX = float(centerX)
+    n = len(x)
+    margin = _HULL_FIT_MARGIN
+
+    left_lo = max(0, int(centerX - hull_end) - margin)
+    left_hi = min(n, int(centerX - hull_start) + margin + 1)
+    right_lo = max(0, int(centerX + hull_start) - margin)
+    right_hi = min(n, int(centerX + hull_end) + margin + 1)
+
+    # If the windows overlap (e.g. tiny hull_start), a single contiguous slice
+    # is simpler and avoids duplicate points in the fit.
+    if left_hi >= right_lo or left_lo >= left_hi or right_lo >= right_hi:
+        lo = max(0, int(centerX - hull_end) - margin)
+        hi = min(n, int(centerX + hull_end) + margin + 1)
+        return x[lo:hi], hist[lo:hi]
+
+    return (
+        np.concatenate((x[left_lo:left_hi], x[right_lo:right_hi])),
+        np.concatenate((hist[left_lo:left_hi], hist[right_lo:right_hi])),
+    )
 
 
 def _gaussian_eval(x, amplitude, center, sigma):
