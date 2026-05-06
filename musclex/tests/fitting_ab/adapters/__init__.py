@@ -22,8 +22,11 @@ from .lmfit_adapters import (
     LmfitTRFJacAdapter,
     LmfitTRFLmfitObjectsAdapter,
     LmfitTRFNumbaAdapter,
+    LmfitTRFNumbaVectorizedAdapter,
     LmfitTRFNumpyAdapter,
+    LmfitTRFNumpyVectorizedAdapter,
     LmfitTRFPoissonAdapter,
+    ScipyAnalyticJacAdapter,
 )
 
 #: Registry of built-in adapters keyed by ``adapter.name``.
@@ -40,6 +43,11 @@ ADAPTER_REGISTRY = {
         LmfitTRFNumpyAdapter,
         LmfitTRFNumbaAdapter,
         LmfitTRFCythonAdapter,
+        # Vectorised batch (L3/L4)
+        LmfitTRFNumpyVectorizedAdapter,
+        LmfitTRFNumbaVectorizedAdapter,
+        # Analytical Jacobian (direct scipy)
+        ScipyAnalyticJacAdapter,
         # Array-slicing optimisation
         LmfitTRFHullSliceAdapter,
         LmfitTRFHullDoubleSliceAdapter,
@@ -74,9 +82,12 @@ __all__ = [
     "LmfitTRFLmfitObjectsAdapter",
     "LmfitTRFNumpyAdapter",
     "LmfitTRFNumbaAdapter",
+    "LmfitTRFNumbaVectorizedAdapter",
     "LmfitTRFCythonAdapter",
+    "LmfitTRFNumpyVectorizedAdapter",
     "LmfitTRFHullSliceAdapter",
     "LmfitTRFHullDoubleSliceAdapter",
+    "ScipyAnalyticJacAdapter",
     "get_adapter",
     "load_case",
     "save_case",

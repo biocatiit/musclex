@@ -676,3 +676,199 @@ class LmfitTRFHullSliceAdapter(_LmfitAdapterBase):
             result = super().fit(sliced_case, perturb_init=perturb_init)
             return _recompute_metrics_on_full_array(result, case.inputs)
         return super().fit(case, perturb_init=perturb_init)
+
+
+# --------------------------------------------------------------------------- #
+# Vectorised batch adapters (L3 / L4)
+# --------------------------------------------------------------------------- #
+
+class LmfitTRFNumpyVectorizedAdapter(_LmfitAdapterBase):
+    """TRF + NumPy batch vectorisation (L3, control group).
+
+    All K Gaussian peaks are accumulated in a single ``np.exp()`` call on a
+    ``(K, N)`` matrix, replacing the per-peak loop from :class:`LmfitTRFNumpyAdapter`.
+    No JIT — pure NumPy.  Acts as the control group to isolate the Numba
+    overhead from the vectorisation gain.
+    """
+
+    name = "lmfit-trf-numpy-vectorized"
+    fit_method = "least_squares"
+
+    _resolve_model_func = _make_variant_resolver(
+        "musclex.tests.fitting_ab.model_variants.model_numpy_vectorized"
+    )
+
+
+class LmfitTRFNumbaVectorizedAdapter(_LmfitAdapterBase):
+    """TRF + Numba-JIT batch kernel (L4 — fastest single-fit variant).
+
+    The residual function passes all K peak centers/amplitudes to a single
+    ``@numba.njit(cache=True, fastmath=True)`` kernel that fuses the loop over
+    peaks and the loop over array points into one pass, eliminating temporary
+    ``(K, N)`` matrix allocations and crossing the Python/numba boundary once
+    per residual evaluation instead of K times (as in :class:`LmfitTRFNumbaAdapter`).
+
+    Warmup is performed at module import time of ``model_numba_vectorized``
+    (``cache=True`` means disk-caching after the first run).
+
+    ``numba`` is a hard dependency in the project's ``.deb`` packaging so no
+    fallback logic is included.
+    """
+
+    name = "lmfit-trf-numba-vectorized"
+    fit_method = "least_squares"
+
+    _resolve_model_func = _make_variant_resolver(
+        "musclex.tests.fitting_ab.model_variants.model_numba_vectorized"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Analytical-Jacobian adapter (direct scipy, no lmfit wrapper overhead)
+# --------------------------------------------------------------------------- #
+
+class ScipyAnalyticJacAdapter(FitterAdapter):
+    """Direct ``scipy.optimize.least_squares`` with an analytical Jacobian.
+
+    This adapter bypasses lmfit entirely and calls scipy directly with an
+    analytical Jacobian for all Gaussian peak parameters.  Compared with
+    :class:`LmfitTRFNumpyAdapter` it removes two bottlenecks:
+
+    1. **lmfit residual wrapper overhead** — ``__residual`` does
+       ``from_internal`` bound remapping, ``update_constraints()``, and
+       nan-policy checks on *every single function evaluation* (including each
+       of the ``n_free`` finite-difference Jacobian columns).
+    2. **Finite-difference Jacobian** — replaced by closed-form derivatives of
+       the Gaussian model, which require O(n_peaks) array operations instead
+       of O(n_free) complete model evaluations.
+
+    Non-peak free parameters (background gaussians when bgsub==0) still use
+    central finite differences so the adapter handles all model kinds.
+
+    The adapter is primarily validated against :class:`LmfitTRFNumpyAdapter`
+    on the captured real cases; see
+    ``tests/fitting_ab/scripts/validate_analytic_jac.py``.
+    """
+
+    name = "scipy-analytic-jac"
+
+    def __init__(self, *, seed: int = 0, max_nfev: Optional[int] = None):
+        self._rng       = np.random.default_rng(seed)
+        self._max_nfev  = max_nfev  # None → scipy default (100 × n_free)
+
+    def fit(self, case: FitCase, *, perturb_init: Optional[float] = None) -> FitResult:
+        from scipy.optimize import least_squares as _ls
+        from musclex.tests.fitting_ab.model_variants.model_analytic_jac import (
+            make_residual_and_jac,
+        )
+
+        inputs = case.inputs
+        free_names = list(inputs.free_params.keys())
+        fixed      = dict(inputs.fixed_params)
+
+        # Build x0, bounds
+        x0 = np.array([
+            float(_maybe_perturb_init(spec, perturb_init, self._rng))
+            for spec in inputs.free_params.values()
+        ], dtype=np.float64)
+        lo = np.array([s.to_lmfit_min() for s in inputs.free_params.values()])
+        hi = np.array([s.to_lmfit_max() for s in inputs.free_params.values()])
+
+        # Clamp x0 into bounds
+        x0 = np.clip(x0, lo, hi)
+
+        residual_fn, jac_fn, _ = make_residual_and_jac(inputs, free_names, x0)
+
+        t0 = time.perf_counter()
+        try:
+            result = _ls(
+                residual_fn,
+                x0,
+                jac=jac_fn,
+                bounds=(lo, hi),
+                method='trf',
+                max_nfev=self._max_nfev,
+            )
+        except Exception as exc:
+            elapsed = time.perf_counter() - t0
+            return FitResult(
+                success=False, values={}, stderr={},
+                n_eval=None, n_iter=None, elapsed_s=elapsed,
+                converged=False, chi2=None, redchi=None, r2=None,
+                message=f"{type(exc).__name__}: {exc}",
+            )
+        elapsed = time.perf_counter() - t0
+
+        # Map result vector back to named dict
+        values: Dict[str, float] = dict(zip(free_names, result.x.tolist()))
+        # Add fixed params so values is complete
+        values.update(fixed)
+        # Add independent vars that happen to be params (e.g. bg when bgsub==1)
+        for k, v in inputs.independent_vars.items():
+            if k != 'x':
+                values.setdefault(k, float(v))
+
+        # Covariance → stderr (from Jacobian at solution, same as scipy convention)
+        stderr: Dict[str, Optional[float]] = {n: None for n in free_names}
+        try:
+            # result.jac is the (m, n) Jacobian at the solution
+            J = result.jac
+            JtJ = J.T @ J
+            cov = np.linalg.pinv(JtJ)
+            # Scale by residual variance
+            m, n = J.shape
+            if m > n:
+                s2 = np.sum(result.fun ** 2) / (m - n)
+                cov = cov * s2
+            for i, name in enumerate(free_names):
+                v = float(cov[i, i])
+                stderr[name] = float(np.sqrt(v)) if v > 0 else None
+        except Exception:
+            pass
+
+        # Post-fit metrics
+        from musclex.tests.fitting_ab.model_variants.model_numpy import (
+            layerlineModelGMM, layerlineModel,
+        )
+        model_fn = layerlineModelGMM if inputs.model_kind == 'gmm' else layerlineModel
+        indep_kw = dict(inputs.independent_vars)
+        indep_kw['x'] = inputs.x
+
+        predicted = None
+        chi2: Optional[float] = None
+        r2:   Optional[float] = None
+        redchi: Optional[float] = None
+        try:
+            predicted = model_fn(**{**indep_kw, **values})
+            r2   = _compute_r2(inputs.y, predicted)
+            chi2 = _manual_chi2(inputs.y, predicted, inputs.weights)
+            ndata   = len(inputs.y)
+            nvarys  = len(free_names)
+            dof     = ndata - nvarys
+            if chi2 is not None and dof > 0:
+                redchi = chi2 / dof
+        except Exception:
+            pass
+
+        # scipy.OptimizeResult.status codes:
+        #   -1  improper inputs
+        #    0  max nfev reached
+        #    1–4 convergence criteria
+        converged = bool(result.success) and result.status > 0
+        aborted   = result.status == 0
+
+        return FitResult(
+            success=converged,
+            values=values,
+            stderr=stderr,
+            n_eval=int(result.nfev),
+            n_iter=None,
+            elapsed_s=elapsed,
+            converged=converged,
+            chi2=chi2,
+            redchi=redchi,
+            r2=r2,
+            message=result.message,
+            aborted=aborted,
+            raw=result,
+        )

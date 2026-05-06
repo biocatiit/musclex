@@ -1,0 +1,3 @@
+# Real captured fit cases — not version-controlled (large binary files).
+# Regenerate by running MuscleX with MUSCLEX_CAPTURE_FITS=1.
+*.pkl

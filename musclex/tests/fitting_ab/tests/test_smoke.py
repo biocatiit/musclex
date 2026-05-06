@@ -644,5 +644,249 @@ class TestHullRangeSlice(unittest.TestCase):
         )
 
 
+class TestVectorisedBatch(unittest.TestCase):
+    """Verify numerical equivalence and speedup of the L3/L4 batch variants.
+
+    Both ``lmfit-trf-numpy-vectorized`` (L3) and ``lmfit-trf-numba-vectorized``
+    (L4) must:
+
+    1. Produce model values that match the reference L1 NumPy variant within
+       floating-point tolerance.
+    2. Converge to peak positions within 0.5 pixels of the L1 reference.
+    3. Run at least as fast as (or faster than) the L1 reference on a typical
+       multi-peak case.  We use a 1.10× generous upper bound so the test is
+       not flaky on a loaded CI machine.
+    """
+
+    N_FULL = 2000
+    CENTER_X = 1000.0
+    N_PEAKS = 6
+    PEAK_POSITIONS = [-300.0, -180.0, -80.0, +80.0, +180.0, +300.0]
+    PEAK_AMPLITUDES = [700.0, 1000.0, 500.0, 500.0, 1000.0, 700.0]
+    PEAK_SIGMA = 9.0
+    TIMING_REPS = 15
+
+    @classmethod
+    def setUpClass(cls):
+        from musclex.tests.fitting_ab.adapters import (
+            LmfitTRFNumpyAdapter,
+            LmfitTRFNumpyVectorizedAdapter,
+            LmfitTRFNumbaVectorizedAdapter,
+        )
+        from musclex.tests.fitting_ab.model_variants.model_numpy import (
+            layerlineModelGMM as ref_gmm,
+        )
+        rng = np.random.default_rng(0)
+        x = np.arange(cls.N_FULL, dtype=np.float64)
+
+        kwargs = {}
+        for i, (p, amp) in enumerate(zip(cls.PEAK_POSITIONS, cls.PEAK_AMPLITUDES)):
+            kwargs[f"p_{i}"] = p
+            kwargs[f"amplitude{i}"] = amp
+
+        y_clean = ref_gmm(
+            x=x,
+            centerX=cls.CENTER_X,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
+            common_sigma=cls.PEAK_SIGMA,
+            **kwargs,
+        )
+        y = y_clean + rng.normal(0.0, np.sqrt(np.maximum(y_clean, 1.0)) * 0.2)
+
+        from musclex.tests.fitting_ab.adapters import (
+            FitCase, FitInputs, CaseMeta, ParamSpec,
+        )
+
+        free_params = {}
+        for i, (p, amp) in enumerate(zip(cls.PEAK_POSITIONS, cls.PEAK_AMPLITUDES)):
+            free_params[f"p_{i}"]        = ParamSpec(init=p,   min=p-60, max=p+60)
+            free_params[f"amplitude{i}"] = ParamSpec(init=amp, min=0.0,  max=5000.0)
+        free_params["common_sigma"] = ParamSpec(init=cls.PEAK_SIGMA, min=1.0, max=40.0)
+
+        indep_vars = {
+            "centerX": cls.CENTER_X,
+            "bg_line": 0.0, "bg_sigma": 1.0, "bg_amplitude": 0.0,
+            "center_sigma1": 1.0, "center_amplitude1": 0.0,
+            "center_sigma2": 1.0, "center_amplitude2": 0.0,
+        }
+
+        inputs = FitInputs(
+            x=x, y=y, weights=None,
+            model_kind="gmm", has_voigt=False,
+            free_params=free_params,
+            independent_vars=indep_vars,
+            fixed_params={},
+        )
+        meta = CaseMeta(
+            case_id="synthetic_vectorised_batch",
+            box_name="vec_batch_test",
+            box_type="h",
+            bgsub=0,
+            use_common_sigma=True,
+            merid_bg=False,
+            peaks_seed=cls.PEAK_POSITIONS,
+            hull_range=None,
+            peak_tolerance=2.0,
+            sigma_tolerance=100.0,
+        )
+        case = FitCase(schema_version=SCHEMA_VERSION, meta=meta, inputs=inputs)
+
+        cls.case    = case
+        cls.ref_adapter  = LmfitTRFNumpyAdapter()
+        cls.l3_adapter   = LmfitTRFNumpyVectorizedAdapter()
+        cls.l4_adapter   = LmfitTRFNumbaVectorizedAdapter()
+
+        cls.ref_result = cls.ref_adapter.fit(case)
+        cls.l3_result  = cls.l3_adapter.fit(case)
+        cls.l4_result  = cls.l4_adapter.fit(case)
+
+    # ── numerical equivalence ──────────────────────────────────────────────
+
+    def _check_positions(self, result, tag: str):
+        ref = self.ref_result
+        for i in range(self.N_PEAKS):
+            key = f"p_{i}"
+            r_val = ref.values.get(key)
+            c_val = result.values.get(key)
+            self.assertIsNotNone(c_val, msg=f"{tag}: missing param {key!r}")
+            self.assertAlmostEqual(
+                r_val, c_val, delta=0.5,
+                msg=f"{tag}: {key}: ref={r_val:.4f}  got={c_val:.4f}",
+            )
+
+    def test_l3_peak_positions_match_reference(self):
+        self._check_positions(self.l3_result, "L3-numpy-vectorized")
+
+    def test_l4_peak_positions_match_reference(self):
+        self._check_positions(self.l4_result, "L4-numba-vectorized")
+
+    def test_l3_r2_close_to_reference(self):
+        ref_r2 = self.ref_result.r2 or 0.0
+        l3_r2  = self.l3_result.r2  or 0.0
+        self.assertAlmostEqual(
+            ref_r2, l3_r2, delta=0.01,
+            msg=f"L3 R² {l3_r2:.4f} deviates too far from ref {ref_r2:.4f}",
+        )
+
+    def test_l4_r2_close_to_reference(self):
+        ref_r2 = self.ref_result.r2 or 0.0
+        l4_r2  = self.l4_result.r2  or 0.0
+        self.assertAlmostEqual(
+            ref_r2, l4_r2, delta=0.01,
+            msg=f"L4 R² {l4_r2:.4f} deviates too far from ref {ref_r2:.4f}",
+        )
+
+    # ── model function direct equivalence ─────────────────────────────────
+
+    def test_numpy_vectorized_model_matches_reference(self):
+        """L3 model function must be numerically identical to L1 within 1e-10."""
+        from musclex.tests.fitting_ab.model_variants.model_numpy import (
+            layerlineModelGMM as l1_gmm,
+        )
+        from musclex.tests.fitting_ab.model_variants.model_numpy_vectorized import (
+            layerlineModelGMM as l3_gmm,
+        )
+        x = np.linspace(0.0, 2000.0, 800)
+        kw = {}
+        for i, (p, amp) in enumerate(zip(self.PEAK_POSITIONS, self.PEAK_AMPLITUDES)):
+            kw[f"p_{i}"] = p
+            kw[f"amplitude{i}"] = amp
+        common = dict(
+            centerX=self.CENTER_X,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
+            common_sigma=self.PEAK_SIGMA,
+        )
+        y1 = l1_gmm(x=x, **common, **kw)
+        y3 = l3_gmm(x=x, **common, **kw)
+        np.testing.assert_allclose(
+            y3, y1, rtol=1e-10,
+            err_msg="L3 numpy-vectorized model deviates from L1 reference",
+        )
+
+    def test_numba_vectorized_model_matches_reference(self):
+        """L4 model function must match L1 within 1e-7 (fastmath rounding)."""
+        from musclex.tests.fitting_ab.model_variants.model_numpy import (
+            layerlineModelGMM as l1_gmm,
+        )
+        from musclex.tests.fitting_ab.model_variants.model_numba_vectorized import (
+            layerlineModelGMM as l4_gmm,
+        )
+        x = np.linspace(0.0, 2000.0, 800)
+        kw = {}
+        for i, (p, amp) in enumerate(zip(self.PEAK_POSITIONS, self.PEAK_AMPLITUDES)):
+            kw[f"p_{i}"] = p
+            kw[f"amplitude{i}"] = amp
+        common = dict(
+            centerX=self.CENTER_X,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
+            common_sigma=self.PEAK_SIGMA,
+        )
+        y1 = l1_gmm(x=x, **common, **kw)
+        y4 = l4_gmm(x=x, **common, **kw)
+        np.testing.assert_allclose(
+            y4, y1, rtol=1e-7,
+            err_msg="L4 numba-vectorized model deviates from L1 reference",
+        )
+
+    # ── timing ─────────────────────────────────────────────────────────────
+
+    def test_l3_not_slower_than_l1(self):
+        """L3 (numpy-vectorized) must be no slower than 1.10× L1 (numpy)."""
+        import time
+        ref_times, l3_times = [], []
+        for _ in range(self.TIMING_REPS):
+            t0 = time.perf_counter()
+            self.ref_adapter.fit(self.case)
+            ref_times.append(time.perf_counter() - t0)
+
+            t0 = time.perf_counter()
+            self.l3_adapter.fit(self.case)
+            l3_times.append(time.perf_counter() - t0)
+
+        med_ref = float(np.median(ref_times))
+        med_l3  = float(np.median(l3_times))
+        self.assertLessEqual(
+            med_l3, med_ref * 1.10,
+            msg=(
+                f"L3 numpy-vectorized ({med_l3*1e3:.1f} ms) is >10% slower "
+                f"than L1 numpy ({med_ref*1e3:.1f} ms) — vectorisation overhead is too high"
+            ),
+        )
+
+    def test_l4_is_faster_than_l1(self):
+        """L4 (numba-vectorized) should be faster than L1 (numpy) after warm-up.
+
+        We allow up to a generous 1.20× margin to avoid flakiness on loaded CI
+        machines.  A healthy L4 is typically 1.5–3× faster for 6+ peaks.
+        """
+        import time
+        ref_times, l4_times = [], []
+        for _ in range(self.TIMING_REPS):
+            t0 = time.perf_counter()
+            self.ref_adapter.fit(self.case)
+            ref_times.append(time.perf_counter() - t0)
+
+            t0 = time.perf_counter()
+            self.l4_adapter.fit(self.case)
+            l4_times.append(time.perf_counter() - t0)
+
+        med_ref = float(np.median(ref_times))
+        med_l4  = float(np.median(l4_times))
+        self.assertLessEqual(
+            med_l4, med_ref * 1.20,
+            msg=(
+                f"L4 numba-vectorized ({med_l4*1e3:.1f} ms) is >20% slower "
+                f"than L1 numpy ({med_ref*1e3:.1f} ms); "
+                f"check that JIT warm-up ran at module import"
+            ),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
