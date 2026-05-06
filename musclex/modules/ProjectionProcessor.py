@@ -34,6 +34,7 @@ from time import perf_counter as _perf_counter
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from lmfit import Model, Parameters
+from scipy.optimize import least_squares as _scipy_least_squares
 from scipy.special import wofz
 from sklearn.metrics import r2_score
 import fabio
@@ -805,18 +806,31 @@ class ProjectionProcessor:
                 fit_int_vars['x'] = fit_x
             
             _fit_t0 = _perf_counter()
-            # Trust-Region-Reflective (scipy.optimize.least_squares) handles
-            # the parameter bounds natively instead of LM's tan/arctan
-            # remapping, giving tighter peak-position consistency under
-            # perturbed init at equal or better speed. See
-            # musclex/tests/fitting_ab/REPORT.md (2026-04-29) for the A/B data.
-            result = model.fit(
-                fit_hist,
-                verbose=False,
-                params=params,
-                method='least_squares',
-                **fit_int_vars,
-            )
+            # ── Analytical-Jacobian fast-path (GMM, ≥ 10 peaks) ──────────
+            # For GMM mode with many peaks the dominant cost is the optimizer's
+            # finite-difference Jacobian (n_free extra model evaluations per
+            # step).  Supplying the exact analytic Jacobian eliminates that
+            # overhead and gives a 5–10× end-to-end speedup on those cases.
+            # Validation (PT_ANALYTIC_JAC_REPORT.md) shows this path is
+            # reliable for GMM + n_peaks ≥ 10; for smaller or non-GMM cases
+            # we fall back to the standard lmfit/TRF solver.
+            result = None
+            _n_free_peaks = sum(1 for k in params if k.startswith('p_') and params[k].vary)
+            if use_gmm and _n_free_peaks >= 10:
+                result = _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars)
+
+            if result is None:
+                # Fallback: Trust-Region-Reflective via lmfit wrapper.
+                # Handles parameter bounds natively instead of LM's tan/arctan
+                # remapping, giving tighter peak-position consistency under
+                # perturbed init. See fitting_ab/REPORT.md (2026-04-29).
+                result = model.fit(
+                    fit_hist,
+                    verbose=False,
+                    params=params,
+                    method='least_squares',
+                    **fit_int_vars,
+                )
             _fit_elapsed = _perf_counter() - _fit_t0
             if _maybe_record_fit is not None:
                 _maybe_record_fit(
@@ -1327,6 +1341,188 @@ def _slice_fit_arrays_to_hull_range(x, hist, centerX, hull_range):
         np.concatenate((x[left_lo:left_hi], x[right_lo:right_hi])),
         np.concatenate((hist[left_lo:left_hi], hist[right_lo:right_hi])),
     )
+
+
+# ── Analytical-Jacobian helpers for GMM fast-path ────────────────────────────
+#
+# Partial derivatives of G_i(x) = A_i/(σ√2π)·exp(-½ z_i²), z_i=(x-c_i)/σ:
+#
+#   ∂G_i/∂A_i     = G_i / A_i
+#   ∂G_i/∂p_i     = G_i · z_i / σ      (c_i = centerX + p_i)
+#   ∂G_i/∂σ_com   = Σ_i G_i · (z_i²-1) / σ   (GMM shared σ)
+#
+# Background terms live in int_vars (fixed); they only enter the Jacobian via
+# finite-differences for the rare bgsub≠1 case where they are free params.
+
+def _aj_build_peak_index(free_names: list) -> dict:
+    """Map free-parameter names to their column indices for the AJ calculation."""
+    sigma_idx = free_names.index('common_sigma') if 'common_sigma' in free_names else None
+    peaks = []
+    i = 0
+    while f'p_{i}' in free_names:
+        peaks.append({
+            'p_idx':   free_names.index(f'p_{i}'),
+            'amp_idx': free_names.index(f'amplitude{i}'),
+        })
+        i += 1
+    analytic_cols = {pk['p_idx'] for pk in peaks} | {pk['amp_idx'] for pk in peaks}
+    if sigma_idx is not None:
+        analytic_cols.add(sigma_idx)
+    return {'sigma_idx': sigma_idx, 'peaks': peaks, 'analytic_cols': analytic_cols}
+
+
+def _aj_compute_jacobian_gmm(
+    p: np.ndarray,
+    x: np.ndarray,
+    centerX: float,
+    free_names: list,
+    peak_index: dict,
+) -> np.ndarray:
+    """Return (n_data, n_free) analytical Jacobian for the GMM model."""
+    n_data, n_free = len(x), len(free_names)
+    J = np.zeros((n_data, n_free), dtype=np.float64)
+
+    sigma_idx = peak_index['sigma_idx']
+    if sigma_idx is None:
+        return J  # no common_sigma in free params — nothing to do analytically
+
+    sigma   = p[sigma_idx]
+    inv_sig = 1.0 / sigma
+    prefac  = inv_sig / _SQRT_2PI
+    d_sigma = np.zeros(n_data)
+
+    for pk in peak_index['peaks']:
+        center = centerX + p[pk['p_idx']]
+        amp    = p[pk['amp_idx']]
+        z      = (x - center) * inv_sig
+        G      = amp * prefac * np.exp(-0.5 * z * z)
+
+        # Guard against amp ≈ 0 to avoid NaN in G/amp column
+        if abs(amp) > 1e-15:
+            J[:, pk['amp_idx']] = G / amp
+        else:
+            J[:, pk['amp_idx']] = prefac * np.exp(-0.5 * z * z)
+
+        J[:, pk['p_idx']] = G * z * inv_sig
+        d_sigma           += G * (z * z - 1.0) * inv_sig
+
+    J[:, sigma_idx] = d_sigma
+    return J
+
+
+class _ScipyFitResult:
+    """Minimal stand-in for an lmfit MinimizerResult.  Only `.values` is needed
+    by the downstream result_dict = result.values block in fitModel."""
+    __slots__ = ('values', '_optimality')
+    def __init__(self, values: dict):
+        self.values = values
+        self._optimality = None
+
+
+def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
+    """Run a GMM fit via scipy.optimize.least_squares with an analytical Jacobian.
+
+    Skips lmfit's overhead (finite-difference Jacobian, parameter remapping,
+    convergence bookkeeping) for a direct, tightly-bounded TRF solve.
+
+    Parameters
+    ----------
+    params       : lmfit.Parameters — fully configured before the call.
+    fit_x        : (N,) array — x grid (possibly hull-sliced).
+    fit_hist     : (N,) array — y data (possibly hull-sliced).
+    fit_int_vars : dict — independent variables including 'x' and 'centerX'.
+
+    Returns
+    -------
+    _ScipyFitResult | None
+        Wrapper whose `.values` equals {param_name: fitted_value}, or *None*
+        if the solve failed or R² < 0.5 (caller should fall back to lmfit).
+    """
+    # ---- separate free from fixed params --------------------------------
+    free_names = [k for k, v in params.items() if v.vary]
+    fixed_vals = {k: v.value for k, v in params.items() if not v.vary}
+
+    if not free_names:
+        return None  # nothing to optimise
+
+    x0 = np.array([params[k].value for k in free_names], dtype=np.float64)
+    lb = np.array([
+        params[k].min if params[k].min is not None and np.isfinite(params[k].min) else -np.inf
+        for k in free_names
+    ], dtype=np.float64)
+    ub = np.array([
+        params[k].max if params[k].max is not None and np.isfinite(params[k].max) else np.inf
+        for k in free_names
+    ], dtype=np.float64)
+
+    # ---- build peak index once (outside the hot loop) -------------------
+    peak_index   = _aj_build_peak_index(free_names)
+    analytic_cols = peak_index['analytic_cols']
+    fd_cols       = [j for j in range(len(free_names)) if j not in analytic_cols]
+
+    centerX = float(fit_int_vars.get('centerX', 0.0))
+    # Fixed independent variables that go into the model call
+    indep = {k: v for k, v in fit_int_vars.items() if k != 'x'}
+
+    # ---- residual -------------------------------------------------------
+    def _residual(p: np.ndarray) -> np.ndarray:
+        kw = dict(zip(free_names, p))
+        kw.update(indep)
+        kw.update(fixed_vals)
+        return layerlineModelGMM(x=fit_x, **kw) - fit_hist
+
+    # ---- Jacobian (analytic + optional FD fallback) ---------------------
+    _fd_step = 1e-7
+
+    def _jacobian(p: np.ndarray) -> np.ndarray:
+        J = _aj_compute_jacobian_gmm(p, fit_x, centerX, free_names, peak_index)
+        if fd_cols:
+            for j in fd_cols:
+                step = max(abs(p[j]) * _fd_step, _fd_step)
+                ph = p.copy(); ph[j] += step
+                pl = p.copy(); pl[j] -= step
+                J[:, j] = (_residual(ph) - _residual(pl)) / (2.0 * step)
+        return J
+
+    # ---- solve ----------------------------------------------------------
+    try:
+        sol = _scipy_least_squares(
+            _residual,
+            x0,
+            jac=_jacobian,
+            bounds=(lb, ub),
+            method='trf',
+        )
+    except Exception:
+        return None
+
+    if not sol.success and sol.cost > 1e10:
+        return None
+
+    # ---- quality guards -------------------------------------------------
+    # 1. Optimality (inf-norm of gradient at the solution): large value means
+    #    the solver landed far from a proper local minimum.  Empirical
+    #    threshold of 50 is based on 20 real-case validations: good solutions
+    #    have optimality ≤ 21; the one diverged case scored 74.
+    if sol.optimality > 50.0:
+        return None
+
+    # 2. R² on the fit window: discard catastrophically bad solutions.
+    ss_res = float(np.sum(sol.fun ** 2))
+    ss_tot = float(np.sum((fit_hist - fit_hist.mean()) ** 2))
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    if r2 < 0.5:
+        return None
+
+    # ---- build result dict ----------------------------------------------
+    result_vals = dict(zip(free_names, sol.x))
+    result_vals.update(fixed_vals)
+    res = _ScipyFitResult(result_vals)
+    res._optimality = sol.optimality   # expose for diagnostics / guard tuning
+    return res
+
+
+# ── end Analytical-Jacobian helpers ──────────────────────────────────────────
 
 
 def _gaussian_batch_gmm(x, centers, amps, sigma):
