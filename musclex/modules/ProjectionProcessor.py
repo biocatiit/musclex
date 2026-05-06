@@ -817,7 +817,7 @@ class ProjectionProcessor:
             result = None
             _n_free_peaks = sum(1 for k in params if k.startswith('p_') and params[k].vary)
             if use_gmm and _n_free_peaks >= 10:
-                result = _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars)
+                result = _fit_gmm_analytic_jac(params, fit_int_vars['x'], fit_hist, fit_int_vars)
 
             if result is None:
                 # Fallback: Trust-Region-Reflective via lmfit wrapper.
@@ -1411,12 +1411,21 @@ def _aj_compute_jacobian_gmm(
 
 
 class _ScipyFitResult:
-    """Minimal stand-in for an lmfit MinimizerResult.  Only `.values` is needed
-    by the downstream result_dict = result.values block in fitModel."""
-    __slots__ = ('values', '_optimality')
-    def __init__(self, values: dict):
-        self.values = values
+    """Minimal stand-in for an lmfit MinimizerResult.
+
+    Exposes the attributes that fitModel's print block accesses directly
+    (``nvarys``, ``chisqr``, ``redchi``) as well as ``.values`` which is the
+    only attribute consumed by the downstream result-dict logic.
+    """
+    __slots__ = ('values', '_optimality', 'nvarys', 'chisqr', 'redchi')
+
+    def __init__(self, values: dict, nvarys: int = 0,
+                 chisqr: float = 0.0, redchi: float = 0.0):
+        self.values     = values
         self._optimality = None
+        self.nvarys     = nvarys
+        self.chisqr     = chisqr
+        self.redchi     = redchi
 
 
 def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
@@ -1517,7 +1526,14 @@ def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
     # ---- build result dict ----------------------------------------------
     result_vals = dict(zip(free_names, sol.x))
     result_vals.update(fixed_vals)
-    res = _ScipyFitResult(result_vals)
+
+    n_free  = len(free_names)
+    n_data  = len(fit_hist)
+    chisqr  = float(2.0 * sol.cost)          # matches lmfit's convention (SSR)
+    dof     = max(1, n_data - n_free)
+    redchi  = chisqr / dof
+
+    res = _ScipyFitResult(result_vals, nvarys=n_free, chisqr=chisqr, redchi=redchi)
     res._optimality = sol.optimality   # expose for diagnostics / guard tuning
     return res
 
