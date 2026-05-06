@@ -493,13 +493,13 @@ class BackgroundSubtractionDialog(QDialog):
         self.evaluationBaselineLabel = self._create_label("Evaluation Baseline:", "small")
         self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e9, 
                                                                    value=qf_defaults.DEFAULT_EVAL_BASELINE,
-            decimals=4, step=0.01,
+            decimals=2, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
 
         self.ampLabel = self._create_label("Amplitude multiplier (I10):", "small")
         self.ampSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
                                                     value=qf_defaults.DEFAULT_AMP, 
-                                                    decimals=2, step=0.001)
+                                                    decimals=4, step=0.001)
 
         self.sigmaXDivLabel = self._create_label("Sigma X divisor (I01):", "small")
         self.sigmaXDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
@@ -659,6 +659,9 @@ class BackgroundSubtractionDialog(QDialog):
 
         self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
 
+        self.createNewConfigurationsChkBx.toggled.connect(self._update_manual_assignment_enabled)
+        self._update_manual_assignment_enabled(self.chooseConfigurationsAutoChkBx.isChecked())
+
         self.processFolderWithSelections = QPushButton("Process Current Folder")
         self.processFolderWithSelections.setStyleSheet(self.STYLES["process_button"])
 
@@ -687,6 +690,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.evalGroup = CollapsibleGroupBox("Results", start_expanded=False)
         self.evalMaskGroup = CollapsibleGroupBox("Evaluation Masks", start_expanded=False)
         self.metricsGroup = CollapsibleGroupBox("Metric Settings", start_expanded=False)
+        self.additionalSettingsGroup = CollapsibleGroupBox("Additional Settings", start_expanded=False)
 
     def _create_layout(self):
         """Create the main dialog layout by delegating to helper methods."""
@@ -868,18 +872,22 @@ class BackgroundSubtractionDialog(QDialog):
     def _setup_metrics_layout(self):
         """Setup evaluation metrics settings layout."""
         metric_layout = QGridLayout()
-        metric_layout.addWidget(self.evaluationBaselineLabel, 0, 0, 1, 1)
-        metric_layout.addWidget(self.evaluationBaselineSpnBx, 0, 1, 1, 1)
-        metric_layout.addWidget(self.ampLabel, 1, 0, 1, 1)
-        metric_layout.addWidget(self.ampSpnBx, 1, 1, 1, 1)
-        metric_layout.addWidget(self.sigmaXDivLabel, 1, 2, 1, 1)
-        metric_layout.addWidget(self.sigmaXDivSpnBx, 1, 3, 1, 1)
-        metric_layout.addWidget(self.sigmaYDivLabel, 2, 0, 1, 1)
-        metric_layout.addWidget(self.sigmaYDivSpnBx, 2, 1, 1, 1)
-        metric_layout.addWidget(self.freqLabel, 2, 2, 1, 1)
-        metric_layout.addWidget(self.freqCB, 2, 3, 1, 1)
-        metric_layout.addWidget(self.lossParamsTable, 3, 0, 1, 4)
-        metric_layout.addWidget(self.metricWeightsHintLabel, 4, 0, 1, 4)
+        metric_layout.addWidget(self.lossParamsTable, 0, 0, 1, 4)
+        metric_layout.addWidget(self.metricWeightsHintLabel, 1, 0, 1, 4)
+
+        additional_layout = QGridLayout()
+        additional_layout.addWidget(self.evaluationBaselineLabel, 0, 0, 1, 1)
+        additional_layout.addWidget(self.evaluationBaselineSpnBx, 0, 1, 1, 1)
+        additional_layout.addWidget(self.ampLabel, 1, 0, 1, 1)
+        additional_layout.addWidget(self.ampSpnBx, 1, 1, 1, 1)
+        additional_layout.addWidget(self.sigmaXDivLabel, 1, 2, 1, 1)
+        additional_layout.addWidget(self.sigmaXDivSpnBx, 1, 3, 1, 1)
+        additional_layout.addWidget(self.sigmaYDivLabel, 2, 0, 1, 1)
+        additional_layout.addWidget(self.sigmaYDivSpnBx, 2, 1, 1, 1)
+        additional_layout.addWidget(self.freqLabel, 2, 2, 1, 1)
+        additional_layout.addWidget(self.freqCB, 2, 3, 1, 1)
+        self.additionalSettingsGroup.setLayout(additional_layout)
+        metric_layout.addWidget(self.additionalSettingsGroup, 2, 0, 1, 4)
         self.metricsGroup.setLayout(metric_layout)
 
     def _setup_rmin_rmax_layout(self):
@@ -926,7 +934,7 @@ class BackgroundSubtractionDialog(QDialog):
         """Setup folder processing settings layout."""
         folder_layout = QGridLayout()
         folder_layout.addWidget(self.chooseConfigurationsAutoChkBx)
-        folder_layout.addWidget(self.createNewConfigurationsChkBx)
+        # folder_layout.addWidget(self.createNewConfigurationsChkBx)
         folder_layout.addWidget(self.assignConfgurationsManually)
         self.folderGroup.setLayout(folder_layout)
 
@@ -972,6 +980,13 @@ class BackgroundSubtractionDialog(QDialog):
             self.lossParamsTable.setColumnHidden(0, False)
         else:
             self.lossParamsTable.setColumnHidden(0, True)
+
+    def _update_manual_assignment_enabled(self, checked=None):
+        if not hasattr(self, "chooseConfigurationsAutoChkBx"):
+            return
+        if checked is None and hasattr(self, "chooseConfigurationsAutoChkBx"):
+            checked = self.chooseConfigurationsAutoChkBx.isChecked()
+        self.chooseConfigurationsAutoChkBx.setEnabled(not bool(checked))
 
     def _set_selected_methods(self, methods):
         method_set = set(methods)
@@ -1224,6 +1239,10 @@ class BackgroundSubtractionDialog(QDialog):
         params_text = self._format_bg_params_text(params)
         loss_value = result_bg.get('loss', None)
         loss_text = "—" if loss_value is None else _to_metric_text(loss_value)
+
+        if parent is not None and parent.quadFold is not None:
+            parent.quadFold.info.setdefault('result_bg', {})
+            parent.quadFold.info['result_bg']['selected_configuration_name'] = name
 
         self._upsert_background_configuration(
             name=name,

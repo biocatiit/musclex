@@ -557,6 +557,11 @@ class QuadrantFoldingGUI(BaseGUI):
         ])
         self.bgOptionsCB.setCurrentText("Manual Setting | One Method")
 
+        self.downsampleProxyLabel = QLabel("Downsample:")
+        self._downsample_proxy_syncing = False
+        self.downsampleProxyCB = self._clone_combobox(self.downsampleCB)
+        self._bind_proxy_combobox_downsample(self.downsampleProxyCB, self.downsampleCB)
+
         self.resultDisplayModeLabel = QLabel("Show:")
         self.resultDisplayModeCB = QComboBox()
         self.resultDisplayModeCB.addItems([
@@ -613,6 +618,8 @@ class QuadrantFoldingGUI(BaseGUI):
         bg_sub_layout.addWidget(self.resultDisplayModeCB, 0, 2, 1, 2)
         bg_sub_layout.addWidget(self.bgOptionsLabel, 1, 0, 1, 2)
         bg_sub_layout.addWidget(self.bgOptionsCB, 1, 2, 1, 2)
+        bg_sub_layout.addWidget(self.downsampleProxyLabel, 2, 0, 1, 2)
+        bg_sub_layout.addWidget(self.downsampleProxyCB, 2, 2, 1, 2)
         bg_sub_layout.addWidget(self.applyResultBGButton, 3, 0, 1, 2)
         bg_sub_layout.addWidget(self.openBGSettingsButton, 3, 2, 1, 2)
         
@@ -957,6 +964,24 @@ class QuadrantFoldingGUI(BaseGUI):
             self._manual_proxy_syncing = True
             proxy.setCurrentIndex(index)
             self._manual_proxy_syncing = False
+
+        proxy.currentIndexChanged.connect(_proxy_changed)
+        source.currentIndexChanged.connect(_source_changed)
+
+    def _bind_proxy_combobox_downsample(self, proxy, source):
+        def _proxy_changed(index):
+            if self._downsample_proxy_syncing:
+                return
+            self._downsample_proxy_syncing = True
+            source.setCurrentIndex(index)
+            self._downsample_proxy_syncing = False
+
+        def _source_changed(index):
+            if self._downsample_proxy_syncing:
+                return
+            self._downsample_proxy_syncing = True
+            proxy.setCurrentIndex(index)
+            self._downsample_proxy_syncing = False
 
         proxy.currentIndexChanged.connect(_proxy_changed)
         source.currentIndexChanged.connect(_source_changed)
@@ -1357,6 +1382,11 @@ class QuadrantFoldingGUI(BaseGUI):
         self.m1SpnBx.valueChanged.connect(self.m1Changed)
         self.layerLineWidthSpnBx.valueChanged.connect(self.layerLineMaskWidthChanged)
 
+        self.ampSpnBx.valueChanged.connect(self._refresh_synthetic_preview_if_visible)
+        self.sigmaXDivSpnBx.valueChanged.connect(self._refresh_synthetic_preview_if_visible)
+        self.sigmaYDivSpnBx.valueChanged.connect(self._refresh_synthetic_preview_if_visible)
+        self.freqCB.currentIndexChanged.connect(self._refresh_synthetic_preview_if_visible)
+
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self._on_browse_file)
@@ -1428,6 +1458,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def _on_result_display_mode_changed(self,):
         self.refreshResultTab()
+        self._refresh_synthetic_preview_if_visible()
 
     def _on_bg_options_changed(self, index):
         selection = self.bgOptionsCB.currentText()
@@ -1922,6 +1953,48 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # Force recompute on next draw
         self.deleteInfo(['mask', 'synthetic_mask'])
+
+        self.updated['result'] = False
+        self.updateResultTab()
+
+    def _is_synthetic_preview_visible(self):
+        if not hasattr(self, "resultDisplayModeCB"):
+            return False
+        return self.resultDisplayModeCB.currentText() in ("Synthetic Signal", "Synthetic Mask")
+
+    def _sync_synthetic_settings_for_preview(self):
+        if self.quadFold is None:
+            return
+        info = self.quadFold.info
+        info['amp'] = float(self.ampSpnBx.value())
+        info['sigma_x_div'] = float(self.sigmaXDivSpnBx.value())
+        info['sigma_y_div'] = float(self.sigmaYDivSpnBx.value())
+        info['freq'] = str(self.freqCB.currentText())
+
+    def _refresh_synthetic_preview_if_visible(self):
+        if self.uiUpdating or not self.ableToProcess() or not self._is_synthetic_preview_visible():
+            return
+        if self.quadFold is None or 'avg_fold' not in self.quadFold.info:
+            return
+
+        self._sync_synthetic_settings_for_preview()
+
+        self.deleteInfo([
+            'synthetic_data',
+            'synthetic_mask',
+            'avg_fold_with_syn',
+            '_avg_fold_with_syn',
+            'bgsubimg_syn',
+            'bgimg_syn',
+            'bgsubimg_out_syn',
+            'bgimg_out_syn',
+        ])
+        self.deleteImgCache(['BgFold_syn', 'BgSubFold_syn'])
+
+        try:
+            self.quadFold.createArtificialData()
+        except Exception:
+            return
 
         self.updated['result'] = False
         self.updateResultTab()
@@ -2991,6 +3064,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.updateParams()
         self.refreshAllTabs()
+        if getattr(self, '_addDefaultOptimizationConfig', False) and self.quadFold is not None:
+            self.quadFold.info.setdefault('result_bg', {})
+            self.quadFold.info['result_bg']['selected_configuration_name'] = "Default Optimization"
         if self.csvManager is not None:
             self.csvManager.writeNewData(self.quadFold)
 
@@ -3050,14 +3126,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # self.resultDisplayModeCB.setEnabled(True)
 
-        # Add default optimization configuration if optimization just completed
-        if getattr(self, '_addDefaultOptimizationConfig', False):
-            print("Adding default optimization configuration to background subtraction dialog")
-            self.bgSubDialog.addBackgroundConfiguration(name="Default Optimization")
-            self._addDefaultOptimizationConfig = False
-
         if self._OptimizationRunning:
             self._set_optimization_button_running(False)
+            if getattr(self, '_addDefaultOptimizationConfig', False):
+                print("Adding default optimization configuration to background subtraction dialog")
+                self.bgSubDialog.addBackgroundConfiguration(name="Default Optimization")
+                self._addDefaultOptimizationConfig = False
         if self._stopOptimizationRequested:
             self._stopOptimizationRequested = False
             self.stop_process = False
