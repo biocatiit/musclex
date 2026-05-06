@@ -694,10 +694,13 @@ class QuadrantFolder:
 
 
     def createArtificialData(self):
-        amp = float(self.info.get('amp', 0.01))
-        sigma_x_div = max(float(self.info.get('sigma_x_div', 5.0)), 1e-6)
-        sigma_y_div = max(float(self.info.get('sigma_y_div', 10.0)), 1e-6)
+        # amp = float(self.info.get('amp', 0.01))
+        # sigma_x_div = max(float(self.info.get('sigma_x_div', 5.0)), 1e-6)
+        # sigma_y_div = max(float(self.info.get('sigma_y_div', 10.0)), 1e-6)
         freq = str(self.info.get('freq', 'medium')).lower()
+        AMP = 0.01
+        SIGMA_X_DIV = 5.0
+        SIGMA_Y_DIV = 10.0
 
         fullImg = makeFullImage(self.info['avg_fold'])
 
@@ -733,11 +736,21 @@ class QuadrantFolder:
         
         equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
 
-        amplitude = equator_half[i0] * amp * i0
-        amplitude = 4000 if amplitude < 4000 else amplitude
+        amplitude = float(self.info.get('synthetic_amplitude', 0.0))
+        if amplitude <= 0.0:
+            amplitude = equator_half[i0] * AMP * i0
+            amplitude = 4000 if amplitude < 4000 else amplitude
+            self.info['synthetic_amplitude'] = amplitude
 
-        sigma_x = i0 / sigma_x_div / (2 * np.sqrt(2 * np.log(2)))
-        sigma_y = m1 / sigma_y_div / (2 * np.sqrt(2 * np.log(2)))
+        # `synthetic_sigma_x` / `synthetic_sigma_y` are actual Gaussian sigmas (std dev, pixels)
+        sigma_x = float(self.info.get('synthetic_sigma_x', 0.0))
+        sigma_y = float(self.info.get('synthetic_sigma_y', 0.0))
+        if sigma_x <= 0.0:
+            sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
+            self.info['synthetic_sigma_x'] = sigma_x
+        if sigma_y <= 0.0:
+            sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
+            self.info['synthetic_sigma_y'] = sigma_y
 
         print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
 
@@ -1315,11 +1328,11 @@ class QuadrantFolder:
         bg_scaled = self._applyTransformations(bg)
         self.imgCache['resultBg'] = bg_scaled
 
-        baseline = self.info.get('evaluation_baseline', None)
-        if baseline is None or float(baseline) <= 0.0:
-            baseline = get_radial_average_rmax(result_scaled + bg_scaled, self.info['rmax'], band_width=30) * 0.2
-            baseline = max(float(baseline), 0.0001)
-            self.info['evaluation_baseline'] = baseline
+        # baseline = self.info.get('evaluation_baseline', None)
+        # if baseline is None or float(baseline) <= 0.0:
+        #     baseline = get_radial_average_rmax(result_scaled + bg_scaled, self.info['rmax'], band_width=30) * 0.2
+        #     baseline = max(float(baseline), 0.0001)
+        #     self.info['evaluation_baseline'] = baseline
 
         if self.info["bgsub"] == 'None':
             self.info['resultFolded'] = result_scaled

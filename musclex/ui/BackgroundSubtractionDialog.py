@@ -496,20 +496,20 @@ class BackgroundSubtractionDialog(QDialog):
             decimals=2, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
 
-        self.ampLabel = self._create_label("Amplitude multiplier (I10):", "small")
-        self.ampSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                    value=qf_defaults.DEFAULT_AMP, 
-                                                    decimals=4, step=0.001)
+        self.amplitudeLabel = self._create_label("Synthetic Amplitude:", "small")
+        self.amplitudeSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
+                                value=qf_defaults.DEFAULT_AMP, 
+                                decimals=4, step=0.001)
 
-        self.sigmaXDivLabel = self._create_label("Sigma X divisor (I01):", "small")
-        self.sigmaXDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
-                                                          value=qf_defaults.DEFAULT_SIGMA_X, 
-                                                          decimals=2, step=0.5)
+        self.sigmaXLabel = self._create_label("Sigma X:", "small")
+        self.sigmaXSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
+                                  value=qf_defaults.DEFAULT_SIGMA_X, 
+                                  decimals=2, step=0.5)
 
-        self.sigmaYDivLabel = self._create_label("Sigma Y divisor (M1):", "small")
-        self.sigmaYDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
-                                                          value=qf_defaults.DEFAULT_SIGMA_Y, 
-                                                          decimals=2, step=0.5)
+        self.sigmaYLabel = self._create_label("Sigma Y:", "small")
+        self.sigmaYSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
+                                  value=qf_defaults.DEFAULT_SIGMA_Y, 
+                                  decimals=2, step=0.5)
 
         self.freqLabel = self._create_label("Sampling Frequency:", "small")
         self.freqCB = QComboBox()
@@ -795,67 +795,136 @@ class BackgroundSubtractionDialog(QDialog):
 
     def _populate_manual_processing_layout(self, layout):
         """Populate manual processing controls."""
-        layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
-        layout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
-        layout.addWidget(self.gaussFWHMLabel, 4, 2, 1, 1)
-        layout.addWidget(self.gaussFWHM, 4, 3, 1, 1)
-        layout.addWidget(self.boxcarLabel, 4, 2, 1, 1)
-        layout.addWidget(self.boxcarX, 4, 3, 1, 1)
-        layout.addWidget(self.boxcarY, 5, 3, 1, 1)
-        layout.addWidget(self.cycleLabel, 3, 2, 1, 1)
-        layout.addWidget(self.cycle, 3, 3, 1, 1)
-        layout.addWidget(self.thetaBinLabel, 6, 2, 1, 1)
-        layout.addWidget(self.thetabinCB, 6, 3, 1, 1)
-        layout.addWidget(self.radialBinLabel, 7, 2, 1, 1)
-        layout.addWidget(self.radialBinSpnBx, 7, 3, 1, 1)
-        layout.addWidget(self.windowSizeLabel, 6, 2, 1, 1)
-        layout.addWidget(self.winSizeX, 6, 3, 1, 1)
-        layout.addWidget(self.winSizeY, 7, 3, 1, 1)
-        layout.addWidget(self.windowSepLabel, 8, 2, 1, 1)
-        layout.addWidget(self.winSepX, 8, 3, 1, 1)
-        layout.addWidget(self.winSepY, 9, 3, 1, 1)
-        layout.addWidget(self.pixRangeLabel, 10, 2, 1, 1)
-        layout.addWidget(self.minPixRange, 10, 3, 1, 1)
-        layout.addWidget(self.maxPixRange, 11, 3, 1, 1)
-        layout.addWidget(self.smoothLabel, 14, 2, 1, 1)
-        layout.addWidget(self.smoothSpnBx, 14, 3, 1, 1)
-        layout.addWidget(self.tensionLabel, 11, 2, 1, 1)
-        layout.addWidget(self.tensionSpnBx, 11, 3, 1, 1)
-        layout.addWidget(self.degreeLabel, 12, 2, 1, 1)
-        layout.addWidget(self.degreeCB, 12, 3, 1, 1)
-        layout.addWidget(self.tophatLabel, 13, 2, 1, 1)
-        layout.addWidget(self.tophatSpnBx, 13, 3, 1, 1)
+        # NOTE: Avoid reusing the same (row, col) positions; doing so causes earlier
+        # labels/widgets to be overwritten and "disappear" in the grid.
+        row = 0
+
+        layout.addWidget(QLabel("Subtraction Method:"), row, 0, 1, 1)
+        layout.addWidget(self.bgChoiceIn, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.degreeLabel, row, 0, 1, 1)
+        layout.addWidget(self.degreeCB, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.tophatLabel, row, 0, 1, 1)
+        layout.addWidget(self.tophatSpnBx, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.cycleLabel, row, 0, 1, 1)
+        layout.addWidget(self.cycle, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.gaussFWHMLabel, row, 0, 1, 1)
+        layout.addWidget(self.gaussFWHM, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.boxcarLabel, row, 0, 1, 1)
+        layout.addWidget(self.boxcarX, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.boxcarY, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.windowSizeLabel, row, 0, 1, 1)
+        layout.addWidget(self.winSizeX, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.winSizeY, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.windowSepLabel, row, 0, 1, 1)
+        layout.addWidget(self.winSepX, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.winSepY, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.thetaBinLabel, row, 0, 1, 1)
+        layout.addWidget(self.thetabinCB, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.radialBinLabel, row, 0, 1, 1)
+        layout.addWidget(self.radialBinSpnBx, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.pixRangeLabel, row, 0, 1, 1)
+        layout.addWidget(self.minPixRange, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.maxPixRange, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.tensionLabel, row, 0, 1, 1)
+        layout.addWidget(self.tensionSpnBx, row, 1, 1, 1)
+        row += 1
+
+
+        layout.addWidget(self.smoothLabel, row, 0, 1, 1)
+        layout.addWidget(self.smoothSpnBx, row, 1, 1, 1)
 
     def _populate_manual_processing_layout_out(self, layout):
         """Populate manual processing controls for outside image."""
-        layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
-        layout.addWidget(self.bgChoiceOut, 2, 2, 1, 2)
-        layout.addWidget(self.gaussFWHMOutLabel, 4, 2, 1, 1)
-        layout.addWidget(self.gaussFWHMOut, 4, 3, 1, 1)
-        layout.addWidget(self.boxcarOutLabel, 4, 2, 1, 1)
-        layout.addWidget(self.boxcarOutX, 4, 3, 1, 1)
-        layout.addWidget(self.boxcarOutY, 5, 3, 1, 1)
-        layout.addWidget(self.cycleOutLabel, 3, 2, 1, 1)
-        layout.addWidget(self.cycleOut, 3, 3, 1, 1)
-        layout.addWidget(self.thetaBinOutLabel, 6, 2, 1, 1)
-        layout.addWidget(self.thetaBinOutCB, 6, 3, 1, 1)
-        layout.addWidget(self.radialBinOutLabel, 7, 2, 1, 1)
-        layout.addWidget(self.radialBinOutSpnBx, 7, 3, 1, 1)
-        layout.addWidget(self.windowSizeOutLabel, 6, 2, 1, 1)
-        layout.addWidget(self.winSizeOutX, 6, 3, 1, 1)
-        layout.addWidget(self.winSizeOutY, 7, 3, 1, 1)
-        layout.addWidget(self.windowSepOutLabel, 8, 2, 1, 1)
-        layout.addWidget(self.winSepOutX, 8, 3, 1, 1)
-        layout.addWidget(self.winSepOutY, 9, 3, 1, 1)
-        layout.addWidget(self.pixRangeOutLabel, 10, 2, 1, 1)
-        layout.addWidget(self.minPixOutRange, 10, 3, 1, 1)
-        layout.addWidget(self.maxPixOutRange, 11, 3, 1, 1)
-        layout.addWidget(self.smoothOutLabel, 14, 2, 1, 1)
-        layout.addWidget(self.smoothOutSpnBx, 14, 3, 1, 1)
-        layout.addWidget(self.tensionOutLabel, 11, 2, 1, 1)
-        layout.addWidget(self.tensionOutSpnBx, 11, 3, 1, 1)
-        layout.addWidget(self.tophatOutLabel, 13, 2, 1, 1)
-        layout.addWidget(self.tophatOutSpnBx, 13, 3, 1, 1)
+        row = 0
+
+        layout.addWidget(QLabel("Subtraction Method:"), row, 0, 1, 1)
+        layout.addWidget(self.bgChoiceOut, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.cycleOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.cycleOut, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.gaussFWHMOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.gaussFWHMOut, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.boxcarOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.boxcarOutX, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.boxcarOutY, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.windowSizeOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.winSizeOutX, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.winSizeOutY, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.windowSepOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.winSepOutX, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.winSepOutY, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.thetaBinOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.thetaBinOutCB, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.radialBinOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.radialBinOutSpnBx, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.pixRangeOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.minPixRangeOut, row, 1, 1, 1)
+        row += 1
+        layout.addWidget(QWidget(), row, 0, 1, 1)
+        layout.addWidget(self.maxPixRangeOut, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.tensionOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.tensionOutSpnBx, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.tophatOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.tophatOutSpnBx, row, 1, 1, 1)
+        row += 1
+
+        layout.addWidget(self.smoothOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.smoothOutSpnBx, row, 1, 1, 1)
 
 
     def _populate_automated_processing_layout(self, layout):
@@ -878,14 +947,15 @@ class BackgroundSubtractionDialog(QDialog):
         additional_layout = QGridLayout()
         additional_layout.addWidget(self.evaluationBaselineLabel, 0, 0, 1, 1)
         additional_layout.addWidget(self.evaluationBaselineSpnBx, 0, 1, 1, 1)
-        additional_layout.addWidget(self.ampLabel, 1, 0, 1, 1)
-        additional_layout.addWidget(self.ampSpnBx, 1, 1, 1, 1)
-        additional_layout.addWidget(self.sigmaXDivLabel, 1, 2, 1, 1)
-        additional_layout.addWidget(self.sigmaXDivSpnBx, 1, 3, 1, 1)
-        additional_layout.addWidget(self.sigmaYDivLabel, 2, 0, 1, 1)
-        additional_layout.addWidget(self.sigmaYDivSpnBx, 2, 1, 1, 1)
-        additional_layout.addWidget(self.freqLabel, 2, 2, 1, 1)
-        additional_layout.addWidget(self.freqCB, 2, 3, 1, 1)
+        additional_layout.addWidget(self.amplitudeLabel, 1, 0, 1, 1)
+        additional_layout.addWidget(self.amplitudeSpnBx, 1, 1, 1, 1)
+        additional_layout.addWidget(self.freqLabel, 1, 2, 1, 1)
+        additional_layout.addWidget(self.freqCB, 1, 3, 1, 1)
+        additional_layout.addWidget(self.sigmaXLabel, 2, 0, 1, 1)
+        additional_layout.addWidget(self.sigmaXSpnBx, 2, 1, 1, 1)
+        additional_layout.addWidget(self.sigmaYLabel, 2, 2, 1, 1)
+        additional_layout.addWidget(self.sigmaYSpnBx, 2, 3, 1, 1)
+
         self.additionalSettingsGroup.setLayout(additional_layout)
         metric_layout.addWidget(self.additionalSettingsGroup, 2, 0, 1, 4)
         self.metricsGroup.setLayout(metric_layout)
