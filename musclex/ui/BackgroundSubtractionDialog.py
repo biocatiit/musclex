@@ -9,81 +9,12 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .ManualBackgroundAssignmentDialog import ManualBackgroundAssignmentDialog
 from ..utils.optimization_cache import get_user_background_configurations, set_user_background_configurations
 from ..utils.file_manager import *
+from ..utils import qf_defaults
 from pathlib import Path
 
 
 class BackgroundSubtractionDialog(QDialog):
     """Popup window that contains all background subtraction controls."""
-
-    ### ===== Class Constants =====
-    # Spinbox Ranges
-    RMIN_RMAX_RANGE = (-1, 5000)
-    EQUATOR_HEIGHT_RANGE = (1, 1000)
-    EQUATOR_CENTER_RANGE = (1, 1000)
-    LAYER_LINE_RANGE = (1, 1000)
-    BG_PARAM_RANGE = (1, 1000)
-    TOPHAT_RANGE = (1, 200)
-    RADIAL_BIN_RANGE = (1, 200)
-    ITERATIONS_RANGE = (1, 1000)
-    PIXEL_RANGE_LIMIT = (0, 100) # percent
-    
-    # Default Values
-    DEFAULT_RMIN_RMAX = -1
-    DEFAULT_EQUATOR_HEIGHT = 70
-    DEFAULT_EQUATOR_CENTER = 70
-    DEFAULT_LAYER_SPACING = 100
-    DEFAULT_LAYER_WIDTH = 5
-    DEFAULT_GAUSSIAN_FWHM = 15
-    DEFAULT_BOXCAR_SIZE = 15
-    DEFAULT_CYCLES = 250
-    DEFAULT_WINDOW_SIZE = 15
-    DEFAULT_WINDOW_SEP = 10
-    DEFAULT_PIXEL_MIN = 0
-    DEFAULT_PIXEL_MAX = 25
-    DEFAULT_THETA_BIN_INDEX = 4
-    DEFAULT_DEGREE_INDEX = 1
-    DEFAULT_RADIAL_BIN = 10
-    DEFAULT_SMOOTHING = 0.1
-    DEFAULT_TENSION = 1.0
-    DEFAULT_TOPHAT_SIZE = 50
-    DEFAULT_MAX_ITERATIONS = 10
-    DEFAULT_EARLY_STOP = 0.01
-    DEFAULT_MEAN_MSE = 100.0
-    DEFAULT_MEAN_NEG_SYN = 20.0
-    DEFAULT_MEAN_BASELINE = 35.0
-    DEFAULT_MEAN_NEG_CON = 7.0
-    DEFAULT_MEAN_SMOOTH = 30.0
-    DEFAULT_EVAL_BASELINE = 0.0
-    DEFAULT_AMP = 0.01
-    DEFAULT_SIGMA_X = 5.0
-    DEFAULT_SIGMA_Y = 10.0
-    DEFAULT_WEIGHT_MSE = 0.1
-    DEFAULT_WEIGHT_NEG_SYN = 0.3
-    DEFAULT_WEIGHT_BASELINE = 0.1
-    DEFAULT_WEIGHT_NEG_CON = 0.1
-    DEFAULT_WEIGHT_SMOOTH = 0.4
-    
-    # Downsample and Frequency Options
-    DOWNSAMPLE_OPTIONS = ["1", "2", "4"]
-    DEFAULT_DOWNSAMPLE_INDEX = 1
-    THETA_BIN_OPTIONS = ["3", "5", "10", "15", "30", "45", "90"]
-    DEGREE_OPTIONS = ["0.5", "1", "2", "3", "5", "9", "10", "15"]
-    FREQ_OPTIONS = ["sparse", "medium", "dense"]
-    DEFAULT_FREQ = "medium"
-    
-    # BG Subtraction Methods
-    BG_METHODS = [
-        'None',
-        '2D Convexhull',
-        'Circularly-symmetric',
-        'White-top-hats',
-        'Smoothed-Gaussian',
-        'Smoothed-BoxCar',
-        'Roving Window'
-    ]
-    OPTIMIZATION_METHODS = BG_METHODS[1:]  # Exclude 'None' from optimization options
-    DEFAULT_OPTIMIZATION_METHODS = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
-    DEFAULT_OPTIMIZATION_STEPS = "500, 250, 100, 50, 25, 10, 5, 3, 1"
     
     # Styles
     STYLES = {
@@ -239,6 +170,7 @@ class BackgroundSubtractionDialog(QDialog):
         self._create_image_processing_widgets()
         self._create_evaluation_mask_widgets()
         self._create_background_parameter_widgets()
+        self._create_background_out_parameter_widgets()
         self._create_optimization_widgets()
         self._create_evaluation_metric_widgets()
         self._create_table_and_button_widgets()
@@ -273,23 +205,27 @@ class BackgroundSubtractionDialog(QDialog):
         self.processingModeCB.setCurrentIndex(0)
         self.processingModeCB.currentIndexChanged.connect(self._update_processing_mode_visibility)
 
-        self.allBGChoices = self.BG_METHODS
+        self.allBGChoices = qf_defaults.BG_METHODS
         self.bgChoiceIn = QComboBox()
         self.bgChoiceIn.setCurrentIndex(0)
         for c in self.allBGChoices:
             self.bgChoiceIn.addItem(c)
+        self.bgChoiceOut = QComboBox()
+        self.bgChoiceOut.setCurrentIndex(0)
+        for c in self.allBGChoices:
+            self.bgChoiceOut.addItem(c)
 
     def _create_rmin_rmax_widgets(self):
         """Create R-min/R-max settings widgets."""
         self.setRminRmaxButton = QPushButton("Manual R-min/max")
         self.setRminRmaxButton.setCheckable(True)
 
-        self.rminSpnBx = self._create_spinbox(min_val=self.RMIN_RMAX_RANGE[0], max_val=self.RMIN_RMAX_RANGE[1], 
-                                              value=self.DEFAULT_RMIN_RMAX, step=2)
+        self.rminSpnBx = self._create_spinbox(min_val=qf_defaults.RMIN_RMAX_RANGE[0], max_val=qf_defaults.RMIN_RMAX_RANGE[1], 
+                                              value=qf_defaults.DEFAULT_RMIN_RMAX, step=2)
         self.rminLabel = QLabel("R-min")
 
-        self.rmaxSpnBx = self._create_spinbox(min_val=self.RMIN_RMAX_RANGE[0], max_val=self.RMIN_RMAX_RANGE[1], 
-                                              value=self.DEFAULT_RMIN_RMAX, step=2)
+        self.rmaxSpnBx = self._create_spinbox(min_val=qf_defaults.RMIN_RMAX_RANGE[0], max_val=qf_defaults.RMIN_RMAX_RANGE[1], 
+                                              value=qf_defaults.DEFAULT_RMIN_RMAX, step=2)
         self.rmaxLabel = QLabel("R-max")
 
         self.showRminRmaxChkBx = QCheckBox("Show R-min/max")
@@ -299,8 +235,8 @@ class BackgroundSubtractionDialog(QDialog):
         """Create image processing settings widgets."""
         self.downsampleLabel = QLabel("Downsample")
         self.downsampleCB = QComboBox()
-        self.downsampleCB.addItems(self.DOWNSAMPLE_OPTIONS)
-        self.downsampleCB.setCurrentIndex(self.DEFAULT_DOWNSAMPLE_INDEX)
+        self.downsampleCB.addItems(qf_defaults.DOWNSAMPLE_OPTIONS)
+        self.downsampleCB.setCurrentIndex(qf_defaults.DEFAULT_DOWNSAMPLE_INDEX)
 
         self.smoothImageChkbx = QCheckBox("Smooth Image")
         self.smoothImageChkbx.setChecked(False)
@@ -309,103 +245,190 @@ class BackgroundSubtractionDialog(QDialog):
         """Create evaluation mask settings widgets."""
 
         self.equatorMaskHeightLabel = QLabel("Equator Height : ")
-        self.equatorMaskHeightSpnBx = self._create_spinbox(min_val=self.EQUATOR_HEIGHT_RANGE[0], 
-                                                        max_val=self.EQUATOR_HEIGHT_RANGE[1], 
-                                                        value=self.DEFAULT_EQUATOR_HEIGHT)
+        self.equatorMaskHeightSpnBx = self._create_spinbox(min_val=qf_defaults.EQUATOR_HEIGHT_RANGE[0], 
+                                                        max_val=qf_defaults.EQUATOR_HEIGHT_RANGE[1], 
+                                                        value=qf_defaults.DEFAULT_EQUATOR_HEIGHT)
 
         self.equatorCenterBeamLabel = QLabel("Equator Center Radius : ")
-        self.equatorCenterBeamSpnBx = self._create_spinbox(min_val=self.EQUATOR_CENTER_RANGE[0], 
-                                                           max_val=self.EQUATOR_CENTER_RANGE[1], 
-                                                           value=self.DEFAULT_EQUATOR_CENTER)
+        self.equatorCenterBeamSpnBx = self._create_spinbox(min_val=qf_defaults.EQUATOR_CENTER_RANGE[0], 
+                                                           max_val=qf_defaults.EQUATOR_CENTER_RANGE[1], 
+                                                           value=qf_defaults.DEFAULT_EQUATOR_CENTER)
 
         self.m1Label = QLabel("Layer line spacing : ")
-        self.m1SpnBx = self._create_spinbox(min_val=self.LAYER_LINE_RANGE[0], 
-                                            max_val=self.LAYER_LINE_RANGE[1], 
-                                            value=self.DEFAULT_LAYER_SPACING)
+        self.m1SpnBx = self._create_spinbox(min_val=qf_defaults.LAYER_LINE_RANGE[0], 
+                                            max_val=qf_defaults.LAYER_LINE_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_LAYER_SPACING)
 
         self.layerLineWidthLabel = QLabel("Layer line width : ")
-        self.layerLineWidthSpnBx = self._create_spinbox(min_val=self.LAYER_LINE_RANGE[0], 
-                                                        max_val=self.LAYER_LINE_RANGE[1], 
-                                                        value=self.DEFAULT_LAYER_WIDTH)
+        self.layerLineWidthSpnBx = self._create_spinbox(min_val=qf_defaults.LAYER_LINE_RANGE[0], 
+                                                        max_val=qf_defaults.LAYER_LINE_RANGE[1], 
+                                                        value=qf_defaults.DEFAULT_LAYER_WIDTH)
 
     def _create_background_parameter_widgets(self):
         """Create background subtraction parameter widgets."""
         # Gaussian parameters
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
-        self.gaussFWHM = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                              value=self.DEFAULT_GAUSSIAN_FWHM)
+        self.gaussFWHM = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                              value=qf_defaults.DEFAULT_GAUSSIAN_FWHM)
 
         # Boxcar parameters
         self.boxcarLabel = QLabel("Box Car Size : ")
-        self.boxcarX = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                            value=self.DEFAULT_BOXCAR_SIZE, prefix='X:')
-        self.boxcarY = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                            value=self.DEFAULT_BOXCAR_SIZE, prefix='Y:')
+        self.boxcarX = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_BOXCAR_SIZE, prefix='X:')
+        self.boxcarY = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_BOXCAR_SIZE, prefix='Y:')
 
         # Cycle parameters
         self.cycleLabel = QLabel("Number of Cycles : ")
-        self.cycle = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                          value=self.DEFAULT_CYCLES)
+        self.cycle = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                          value=qf_defaults.DEFAULT_CYCLES)
 
         # Window size parameters
         self.windowSizeLabel = QLabel("Window Size : ")
-        self.winSizeX = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                             value=self.DEFAULT_WINDOW_SIZE, prefix='X:')
-        self.winSizeY = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                             value=self.DEFAULT_WINDOW_SIZE, prefix='Y:')
+        self.winSizeX = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                             value=qf_defaults.DEFAULT_WINDOW_SIZE, prefix='X:')
+        self.winSizeY = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                             value=qf_defaults.DEFAULT_WINDOW_SIZE, prefix='Y:')
 
         # Window separation parameters
         self.windowSepLabel = QLabel("Window Separation : ")
-        self.winSepX = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                            value=self.DEFAULT_WINDOW_SEP, prefix='X:')
-        self.winSepY = self._create_spinbox(min_val=self.BG_PARAM_RANGE[0], max_val=self.BG_PARAM_RANGE[1], 
-                                            value=self.DEFAULT_WINDOW_SEP, prefix='Y:')
+        self.winSepX = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_WINDOW_SEP, prefix='X:')
+        self.winSepY = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_WINDOW_SEP, prefix='Y:')
 
         # Pixel range parameters
-        self.minPixRange = self._create_double_spinbox(min_val=self.PIXEL_RANGE_LIMIT[0], 
-                                                       max_val=self.PIXEL_RANGE_LIMIT[1], 
-                                                       value=self.DEFAULT_PIXEL_MIN, 
+        self.minPixRange = self._create_double_spinbox(min_val=qf_defaults.PIXEL_RANGE_LIMIT[0], 
+                                                       max_val=qf_defaults.PIXEL_RANGE_LIMIT[1], 
+                                                       value=qf_defaults.DEFAULT_PIXEL_MIN, 
                                                        decimals=2, step=2, suffix="%")
-        self.maxPixRange = self._create_double_spinbox(min_val=self.PIXEL_RANGE_LIMIT[0], 
-                                                       max_val=self.PIXEL_RANGE_LIMIT[1], 
-                                                       value=self.DEFAULT_PIXEL_MAX, 
+        self.maxPixRange = self._create_double_spinbox(min_val=qf_defaults.PIXEL_RANGE_LIMIT[0], 
+                                                       max_val=qf_defaults.PIXEL_RANGE_LIMIT[1], 
+                                                       value=qf_defaults.DEFAULT_PIXEL_MAX, 
                                                        decimals=2, step=2, suffix="%")
         self.pixRangeLabel = QLabel("Pixel Range : ")
 
         # Theta bin
         self.thetaBinLabel = QLabel("Bin Theta (deg) : ")
         self.thetabinCB = QComboBox()
-        self.thetabinCB.addItems(self.THETA_BIN_OPTIONS)
-        self.thetabinCB.setCurrentIndex(self.DEFAULT_THETA_BIN_INDEX)
+        self.thetabinCB.addItems(qf_defaults.THETA_BIN_OPTIONS)
+        self.thetabinCB.setCurrentIndex(qf_defaults.DEFAULT_THETA_BIN_INDEX)
 
         # Radial bin
         self.radialBinLabel = QLabel("Radial Bin : ")
-        self.radialBinSpnBx = self._create_spinbox(min_val=self.RADIAL_BIN_RANGE[0], 
-                                                   max_val=self.RADIAL_BIN_RANGE[1], 
-                                                   value=self.DEFAULT_RADIAL_BIN, suffix=" Pixel(s)")
+        self.radialBinSpnBx = self._create_spinbox(min_val=qf_defaults.RADIAL_BIN_RANGE[0], 
+                                                   max_val=qf_defaults.RADIAL_BIN_RANGE[1], 
+                                                   value=qf_defaults.DEFAULT_RADIAL_BIN, suffix=" Pixel(s)")
 
         # Smoothing and tension
         self.smoothLabel = QLabel("Smoothing factor : ")
         self.smoothSpnBx = self._create_double_spinbox(min_val=0, max_val=10000, 
-                                                       value=self.DEFAULT_SMOOTHING, 
+                                                       value=qf_defaults.DEFAULT_SMOOTHING, 
                                                        decimals=2, step=0.1)
 
         self.tensionLabel = QLabel("Tension factor : ")
         self.tensionSpnBx = self._create_double_spinbox(min_val=0, max_val=100, 
-                                                        value=self.DEFAULT_TENSION, 
+                                                        value=qf_defaults.DEFAULT_TENSION, 
                                                         decimals=2, step=0.1)
 
         # Top-hat
-        self.tophat1Label = QLabel("Top-hat Disk Size: ")
-        self.tophat1SpnBx = self._create_spinbox(min_val=self.TOPHAT_RANGE[0], 
-                                                 max_val=self.TOPHAT_RANGE[1], 
-                                                 value=self.DEFAULT_TOPHAT_SIZE)
+        self.tophatLabel = QLabel("Top-hat Disk Size: ")
+        self.tophatSpnBx = self._create_spinbox(min_val=qf_defaults.TOPHAT_RANGE[0], 
+                                                 max_val=qf_defaults.TOPHAT_RANGE[1], 
+                                                 value=qf_defaults.DEFAULT_TOPHAT_SIZE)
 
         # Degree
-        self.deg1Label = QLabel("Step Degree : ")
-        self.deg1CB = QComboBox()
-        self.deg1CB.addItems(self.DEGREE_OPTIONS)
-        self.deg1CB.setCurrentIndex(self.DEFAULT_DEGREE_INDEX)
+        self.degreeLabel = QLabel("Step Degree : ")
+        self.degreeCB = QComboBox()
+        self.degreeCB.addItems(qf_defaults.DEGREE_OPTIONS)
+        self.degreeCB.setCurrentIndex(qf_defaults.DEFAULT_DEGREE_INDEX)
+
+    def _create_background_out_parameter_widgets(self):
+        """Create background subtraction parameter widgets for outer background."""
+        # Gaussian parameters
+        self.gaussFWHMOutLabel = QLabel("Gaussian FWHM : ")
+        self.gaussFWHMOut = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                              value=qf_defaults.DEFAULT_GAUSSIAN_FWHM)
+
+        # Boxcar parameters
+        self.boxcarOutLabel = QLabel("Box Car Size : ")
+        self.boxcarOutX = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_BOXCAR_SIZE, prefix='X:')
+        self.boxcarOutY = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_BOXCAR_SIZE, prefix='Y:')
+
+        # Cycle parameters
+        self.cycleOutLabel = QLabel("Number of Cycles : ")
+        self.cycleOut = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                          value=qf_defaults.DEFAULT_CYCLES)
+
+        # Window size parameters
+        self.windowSizeOutLabel = QLabel("Window Size : ")
+        self.winSizeOutX = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                             value=qf_defaults.DEFAULT_WINDOW_SIZE, prefix='X:')
+        self.winSizeOutY = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                             value=qf_defaults.DEFAULT_WINDOW_SIZE, prefix='Y:')
+
+        # Window separation parameters
+        self.windowSepOutLabel = QLabel("Window Separation : ")
+        self.winSepOutX = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_WINDOW_SEP, prefix='X:')
+        self.winSepOutY = self._create_spinbox(min_val=qf_defaults.BG_PARAM_RANGE[0], max_val=qf_defaults.BG_PARAM_RANGE[1], 
+                                            value=qf_defaults.DEFAULT_WINDOW_SEP, prefix='Y:')
+
+        # Pixel range parameters
+        self.minPixRangeOut = self._create_double_spinbox(min_val=qf_defaults.PIXEL_RANGE_LIMIT[0], 
+                                                       max_val=qf_defaults.PIXEL_RANGE_LIMIT[1], 
+                                                       value=qf_defaults.DEFAULT_PIXEL_MIN, 
+                                                       decimals=2, step=2, suffix="%")
+        self.maxPixRangeOut = self._create_double_spinbox(min_val=qf_defaults.PIXEL_RANGE_LIMIT[0], 
+                                                       max_val=qf_defaults.PIXEL_RANGE_LIMIT[1], 
+                                                       value=qf_defaults.DEFAULT_PIXEL_MAX, 
+                                                       decimals=2, step=2, suffix="%")
+        self.pixRangeLabelOut = QLabel("Pixel Range : ")
+
+        # Theta bin
+        self.thetaBinOutLabel = QLabel("Bin Theta (deg) : ")
+        self.thetaBinOutCB = QComboBox()
+        self.thetaBinOutCB.addItems(qf_defaults.THETA_BIN_OPTIONS)
+        self.thetaBinOutCB.setCurrentIndex(qf_defaults.DEFAULT_THETA_BIN_INDEX)
+
+        # Radial bin
+        self.radialBinOutLabel = QLabel("Radial Bin : ")
+        self.radialBinOutSpnBx = self._create_spinbox(min_val=qf_defaults.RADIAL_BIN_RANGE[0], 
+                                                   max_val=qf_defaults.RADIAL_BIN_RANGE[1], 
+                                                   value=qf_defaults.DEFAULT_RADIAL_BIN, suffix=" Pixel(s)")
+
+        # Smoothing and tension
+        self.smoothOutLabel = QLabel("Smoothing factor : ")
+        self.smoothOutSpnBx = self._create_double_spinbox(min_val=0, max_val=10000, 
+                                                       value=qf_defaults.DEFAULT_SMOOTHING, 
+                                                       decimals=2, step=0.1)
+
+        self.tensionOutLabel = QLabel("Tension factor : ")
+        self.tensionOutSpnBx = self._create_double_spinbox(min_val=0, max_val=100, 
+                                                        value=qf_defaults.DEFAULT_TENSION, 
+                                                        decimals=2, step=0.1)
+
+        # Top-hat
+        self.tophatOutLabel = QLabel("Top-hat Disk Size: ")
+        self.tophatOutSpnBx = self._create_spinbox(min_val=qf_defaults.TOPHAT_RANGE[0], 
+                                                   max_val=qf_defaults.TOPHAT_RANGE[1], 
+                                                   value=qf_defaults.DEFAULT_TOPHAT_SIZE)
+
+        self.tranRLabel = QLabel("Transition Radius : ")
+        self.tranRSpnBx = self._create_spinbox(min_val=-1, 
+                                                   max_val=4000, 
+                                                   value=400)
+        
+        self.tranDeltaLabel = QLabel("Transition Delta : ")
+        self.tranDeltaSpnBx = self._create_spinbox(min_val=-1, 
+                                                   max_val=2000, 
+                                                   value=60)
+        
+        self.showTranRadDeltaChkBx = QCheckBox("Show Transition Radius and Delta")
+        self.showTranRadDeltaChkBx.setToolTip("Draw the transition radius and delta circles on the folded image")
+
 
     def _create_optimization_widgets(self):
         """Create optimization/automated processing widgets."""
@@ -415,26 +438,26 @@ class BackgroundSubtractionDialog(QDialog):
         self.optimizationMethodsList = QListWidget()
         self.optimizationMethodsList.setSelectionMode(QAbstractItemView.MultiSelection)
         self.optimizationMethodsList.setMaximumHeight(150)
-        self.optimizationMethods = self.OPTIMIZATION_METHODS
+        self.optimizationMethods = qf_defaults.OPTIMIZATION_METHODS
         for method in self.optimizationMethods:
             self.optimizationMethodsList.addItem(method)
 
         # Default methods aligned with current optimization workflow
-        self._set_selected_methods(self.DEFAULT_OPTIMIZATION_METHODS)
+        self._set_selected_methods(qf_defaults.DEFAULT_OPTIMIZATION_METHODS)
 
         self.stepsLabel = QLabel("Step Sizes:")
-        self.stepsLineEdit = QLineEdit(self.DEFAULT_OPTIMIZATION_STEPS)
+        self.stepsLineEdit = QLineEdit(qf_defaults.DEFAULT_OPTIMIZATION_STEPS)
         self.stepsLineEdit.setToolTip("Comma-separated values used for optimization step schedule.")
 
         self.maxIterationsLabel = QLabel("Max Iterations:")
-        self.maxIterationsSpnBx = self._create_spinbox(min_val=self.ITERATIONS_RANGE[0], 
-                                                       max_val=self.ITERATIONS_RANGE[1], 
-                                                       value=self.DEFAULT_MAX_ITERATIONS,
+        self.maxIterationsSpnBx = self._create_spinbox(min_val=qf_defaults.ITERATIONS_RANGE[0], 
+                                                       max_val=qf_defaults.ITERATIONS_RANGE[1], 
+                                                       value=qf_defaults.DEFAULT_MAX_ITERATIONS,
             tooltip="Maximum number of candidate (+/- step) evaluations per background subtraction parameter.")
 
         self.earlyStopLabel = QLabel("Early Stop Loss Threshold:")
         self.earlyStopSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1.0, 
-                                                          value=self.DEFAULT_EARLY_STOP,
+                                                          value=qf_defaults.DEFAULT_EARLY_STOP,
             decimals=4, step=0.01,
             tooltip="Threshold for early stopping during optimization per background subtraction parameter.")
         
@@ -445,75 +468,75 @@ class BackgroundSubtractionDialog(QDialog):
         # ===== Normalization Means (Used in table) =====
         self.meanMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
         self.meanMSESpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e9, 
-                                                        value=self.DEFAULT_MEAN_MSE, decimals=2)
+                                                        value=qf_defaults.DEFAULT_MEAN_MSE, decimals=2)
 
         self.meanNegSynLabel = self._create_label("Fraction of Synthetic Oversubtraction, %", "small")
         self.meanNegSynSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
-                                                           value=self.DEFAULT_MEAN_NEG_SYN, 
+                                                           value=qf_defaults.DEFAULT_MEAN_NEG_SYN, 
                                                            decimals=2, suffix=" %")
 
         self.meanNonBaselineLabel = self._create_label("Fraction of Non Near-Zero Baseline Pixels, %", "small")
         self.meanNonBaselineSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
-                                                                value=self.DEFAULT_MEAN_BASELINE, 
+                                                                value=qf_defaults.DEFAULT_MEAN_BASELINE, 
                                                                 decimals=2, suffix=" %")
 
         self.meanNegConLabel = self._create_label("Fraction of Negative Connected Pixels, %", "small")
         self.meanNegConSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
-                                                           value=self.DEFAULT_MEAN_NEG_CON, 
+                                                           value=qf_defaults.DEFAULT_MEAN_NEG_CON, 
                                                            decimals=2, suffix=" %")
 
         self.meanSmoothLabel = self._create_label("Smoothness Metric", "small")
         self.meanSmoothSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e6, 
-                                                           value=self.DEFAULT_MEAN_SMOOTH, decimals=2)
+                                                           value=qf_defaults.DEFAULT_MEAN_SMOOTH, decimals=2)
 
         # ===== Evaluation Metrics Settings =====
         self.evaluationBaselineLabel = self._create_label("Evaluation Baseline:", "small")
         self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e9, 
-                                                                   value=self.DEFAULT_EVAL_BASELINE,
+                                                                   value=qf_defaults.DEFAULT_EVAL_BASELINE,
             decimals=4, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
 
         self.ampLabel = self._create_label("Amplitude multiplier (I10):", "small")
         self.ampSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                    value=self.DEFAULT_AMP, 
+                                                    value=qf_defaults.DEFAULT_AMP, 
                                                     decimals=2, step=0.001)
 
         self.sigmaXDivLabel = self._create_label("Sigma X divisor (I01):", "small")
         self.sigmaXDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
-                                                          value=self.DEFAULT_SIGMA_X, 
+                                                          value=qf_defaults.DEFAULT_SIGMA_X, 
                                                           decimals=2, step=0.5)
 
         self.sigmaYDivLabel = self._create_label("Sigma Y divisor (M1):", "small")
         self.sigmaYDivSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
-                                                          value=self.DEFAULT_SIGMA_Y, 
+                                                          value=qf_defaults.DEFAULT_SIGMA_Y, 
                                                           decimals=2, step=0.5)
 
         self.freqLabel = self._create_label("Sampling Frequency:", "small")
         self.freqCB = QComboBox()
-        self.freqCB.addItems(self.FREQ_OPTIONS)
-        self.freqCB.setCurrentText(self.DEFAULT_FREQ)
+        self.freqCB.addItems(qf_defaults.FREQ_OPTIONS)
+        self.freqCB.setCurrentText(qf_defaults.DEFAULT_FREQ)
 
         # ===== Metric Weights (Used in table) =====
         self.metricWeightsLabel = QLabel("Metric Weights:")
         self.weightMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
         self.weightMSESpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                          value=self.DEFAULT_WEIGHT_MSE, decimals=2)
+                                                          value=qf_defaults.DEFAULT_WEIGHT_MSE, decimals=2)
 
         self.weightNegSynLabel = self._create_label("Fraction of Synthetic Oversubtraction, %", "small")
         self.weightNegSynSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                             value=self.DEFAULT_WEIGHT_NEG_SYN, decimals=2)
+                                                             value=qf_defaults.DEFAULT_WEIGHT_NEG_SYN, decimals=2)
 
         self.weightNonBaselineLabel = self._create_label("Fraction of Non Near-Zero Baseline Pixels, %", "small")
         self.weightNonBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                                  value=self.DEFAULT_WEIGHT_BASELINE, decimals=2)
+                                                                  value=qf_defaults.DEFAULT_WEIGHT_BASELINE, decimals=2)
 
         self.weightNegConLabel = self._create_label("Fraction of Negative Connected Pixels, %", "small")
         self.weightNegConSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                             value=self.DEFAULT_WEIGHT_NEG_CON, decimals=2)
+                                                             value=qf_defaults.DEFAULT_WEIGHT_NEG_CON, decimals=2)
 
         self.weightSmoothLabel = self._create_label("Smoothness Metric, intst. cnts.", "small")
         self.weightSmoothSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                                             value=self.DEFAULT_WEIGHT_SMOOTH, decimals=2)
+                                                             value=qf_defaults.DEFAULT_WEIGHT_SMOOTH, decimals=2)
 
         self.metricWeightsHintLabel = QLabel(
             "<i><span style='color:#2e7d32;'>"
@@ -794,10 +817,42 @@ class BackgroundSubtractionDialog(QDialog):
         layout.addWidget(self.smoothSpnBx, 14, 3, 1, 1)
         layout.addWidget(self.tensionLabel, 11, 2, 1, 1)
         layout.addWidget(self.tensionSpnBx, 11, 3, 1, 1)
-        layout.addWidget(self.deg1Label, 12, 2, 1, 1)
-        layout.addWidget(self.deg1CB, 12, 3, 1, 1)
-        layout.addWidget(self.tophat1Label, 13, 2, 1, 1)
-        layout.addWidget(self.tophat1SpnBx, 13, 3, 1, 1)
+        layout.addWidget(self.degreeLabel, 12, 2, 1, 1)
+        layout.addWidget(self.degreeCB, 12, 3, 1, 1)
+        layout.addWidget(self.tophatLabel, 13, 2, 1, 1)
+        layout.addWidget(self.tophatSpnBx, 13, 3, 1, 1)
+
+    def _populate_manual_processing_layout_out(self, layout):
+        """Populate manual processing controls for outside image."""
+        layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
+        layout.addWidget(self.bgChoiceOut, 2, 2, 1, 2)
+        layout.addWidget(self.gaussFWHMOutLabel, 4, 2, 1, 1)
+        layout.addWidget(self.gaussFWHMOut, 4, 3, 1, 1)
+        layout.addWidget(self.boxcarOutLabel, 4, 2, 1, 1)
+        layout.addWidget(self.boxcarOutX, 4, 3, 1, 1)
+        layout.addWidget(self.boxcarOutY, 5, 3, 1, 1)
+        layout.addWidget(self.cycleOutLabel, 3, 2, 1, 1)
+        layout.addWidget(self.cycleOut, 3, 3, 1, 1)
+        layout.addWidget(self.thetaBinOutLabel, 6, 2, 1, 1)
+        layout.addWidget(self.thetaBinOutCB, 6, 3, 1, 1)
+        layout.addWidget(self.radialBinOutLabel, 7, 2, 1, 1)
+        layout.addWidget(self.radialBinOutSpnBx, 7, 3, 1, 1)
+        layout.addWidget(self.windowSizeOutLabel, 6, 2, 1, 1)
+        layout.addWidget(self.winSizeOutX, 6, 3, 1, 1)
+        layout.addWidget(self.winSizeOutY, 7, 3, 1, 1)
+        layout.addWidget(self.windowSepOutLabel, 8, 2, 1, 1)
+        layout.addWidget(self.winSepOutX, 8, 3, 1, 1)
+        layout.addWidget(self.winSepOutY, 9, 3, 1, 1)
+        layout.addWidget(self.pixRangeOutLabel, 10, 2, 1, 1)
+        layout.addWidget(self.minPixOutRange, 10, 3, 1, 1)
+        layout.addWidget(self.maxPixOutRange, 11, 3, 1, 1)
+        layout.addWidget(self.smoothOutLabel, 14, 2, 1, 1)
+        layout.addWidget(self.smoothOutSpnBx, 14, 3, 1, 1)
+        layout.addWidget(self.tensionOutLabel, 11, 2, 1, 1)
+        layout.addWidget(self.tensionOutSpnBx, 11, 3, 1, 1)
+        layout.addWidget(self.tophatOutLabel, 13, 2, 1, 1)
+        layout.addWidget(self.tophatOutSpnBx, 13, 3, 1, 1)
+
 
     def _populate_automated_processing_layout(self, layout):
         """Populate automated processing controls."""
@@ -1245,7 +1300,6 @@ class BackgroundSubtractionDialog(QDialog):
 
     def _load_background_configurations_from_cache(self):
         cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
-        self._clear_background_configurations_table()
         if not cache_file or cache_key is None:
             return
 
@@ -1254,6 +1308,13 @@ class BackgroundSubtractionDialog(QDialog):
         except Exception as e:
             print(f"Failed to load background configurations from cache: {e}")
             return
+        
+        # Only clear the table if we successfully retrieved configurations
+        if not configs:
+            print(f"No background configurations found in cache for key: {cache_key}")
+            return
+        
+        self._clear_background_configurations_table()
 
         for config in configs:
             name = str(config.get('name', '') or '').strip()

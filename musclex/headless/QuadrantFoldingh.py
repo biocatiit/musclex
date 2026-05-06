@@ -39,12 +39,14 @@ try:
     from ..utils.file_manager import *
     from ..utils.background_search import makeFullImage
     from ..utils.image_processor import *
+    from ..utils.qf_defaults import build_default_flags
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..csv_manager.QF_CSVManager import QF_CSVManager
 except: # for coverage
     from utils.file_manager import *
     from utils.background_search import makeFullImage
     from utils.image_processor import *
+    from utils.qf_defaults import build_default_flags
     from modules.QuadrantFolder import QuadrantFolder
     from csv_manager.QF_CSVManager import QF_CSVManager
 
@@ -310,39 +312,15 @@ class QuadrantFoldingh:
         Get all flags for QuadrantFolder process() from widgets
         :return: flags (dict)
         """
-        flags = {}
+        flags = build_default_flags()
 
         flags['orientation_model'] = self.orientationModel
         flags['ignore_folds'] = self.ignoreFolds
-        # default values, same as QuadrantFoldingGUI.py default
-        flags['bgsub'] = 'None'
-        flags["cirmin"] = 0.0
-        flags["cirmax"] = 25.0
-        flags['win_size_x'] = 10
-        flags['win_size_y'] = 10
-        flags['win_sep_x'] = 10
-        flags['win_sep_y'] = 10
-        flags["bin_theta"] = 30
-        flags['radial_bin'] = 10
-        flags['smooth'] = 1.0
-        flags['tension'] = 1.0
-        flags["tophat"] = 50
         flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img)
-        flags['fwhm'] = 15
-        flags['boxcar_x'] = 15
-        flags['boxcar_y'] = 15
-        flags['cycles'] = 200
-        flags['degree'] = 1
         flags['blank_mask'] = False
         flags['rotate'] = False
         flags['fold_image'] = True
-        flags['downsample'] = 2
-        flags['smooth_image'] = False
-        flags['optimize'] = True
-        flags['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric'] #, 'Smoothed-BoxCar']
-        flags['steps']  = [50, 30, 10, 7, 5, 3, 1]
-        flags['early_stop'] = 0.01
-        flags['max_iterations'] = 15
+        flags['bg_options'] = 0 # default to "Manual Setting | One Method"
 
         if self.calSettings is not None:
             flags.update(self.calSettings)

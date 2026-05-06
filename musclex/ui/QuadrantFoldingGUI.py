@@ -46,6 +46,7 @@ import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..utils import ImageData
+from ..utils import qf_defaults
 
 from ..modules.QuadrantFolder import QuadrantFolder
 from ..csv_manager.QF_CSVManager import QF_CSVManager
@@ -78,6 +79,7 @@ from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
 from .widgets import ProcessingWorkspace
 from .base_gui import BaseGUI
 from ..utils.background_search import makeFullImage
+from ..utils.qf_defaults import parse_optimization_steps
 import time
 import random
 
@@ -155,6 +157,7 @@ class FolderImageWorker(BaseProcessWorker):
         self.bgsub = bgsub
         self.bgDict = bgDict or {}
         self.lock = bg_lock
+        self.batchProcessing = getattr(params.parent, "batchProcessing", False)
     
     def _do_work(self):
         """Complete processing pipeline."""
@@ -552,7 +555,7 @@ class QuadrantFoldingGUI(BaseGUI):
             "Manual Setting | Transition",
             "Automated Processing",
         ])
-        self.bgOptionsCB.setCurrentText("Automated Processing")
+        self.bgOptionsCB.setCurrentText("Manual Setting | One Method")
 
         self.resultDisplayModeLabel = QLabel("Show:")
         self.resultDisplayModeCB = QComboBox()
@@ -624,6 +627,25 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.bgSummaryLayout.addWidget(self.manualSettingsContainer, 5, 0, 1, 4)
         bg_sub_layout.addWidget(self.manualSettingsContainer, 5, 0, 1, 4)
 
+        # Manual settings (OUT/background transition)
+        self.manualSettingsOutContainer = QWidget()
+        manual_settings_out_layout = QGridLayout(self.manualSettingsOutContainer)
+        manual_settings_out_layout.setContentsMargins(0, 0, 0, 0)
+        manual_settings_out_layout.setSpacing(6)
+        self._create_manual_settings_out_proxy()
+        self._populate_manual_processing_layout_proxy_out(manual_settings_out_layout)
+        bg_sub_layout.addWidget(self.manualSettingsOutContainer, 6, 0, 1, 4)
+        self.bgChoiceOutChanged()
+
+        # Transition settings (radius/delta)
+        self.transitionSettingsContainer = QWidget()
+        transition_settings_layout = QGridLayout(self.transitionSettingsContainer)
+        transition_settings_layout.setContentsMargins(0, 0, 0, 0)
+        transition_settings_layout.setSpacing(6)
+        self._create_transition_settings_proxy()
+        self._populate_transition_processing_layout_proxy(transition_settings_layout)
+        bg_sub_layout.addWidget(self.transitionSettingsContainer, 7, 0, 1, 4)
+
         self.bgSummaryLayout.addWidget(bg_sub_section, 4, 0, 1, 4)
 
         bg_sub_layout.addWidget(self.applyBGButtonProxy, 15, 0, 1, 4)
@@ -671,8 +693,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self._manual_proxy["maxPixRange"] = self._clone_double_spinbox(self.maxPixRange)
         self._manual_proxy["smoothSpnBx"] = self._clone_double_spinbox(self.smoothSpnBx)
         self._manual_proxy["tensionSpnBx"] = self._clone_double_spinbox(self.tensionSpnBx)
-        self._manual_proxy["deg1CB"] = self._clone_combobox(self.deg1CB)
-        self._manual_proxy["tophat1SpnBx"] = self._clone_spinbox(self.tophat1SpnBx)
+        self._manual_proxy["degreeCB"] = self._clone_combobox(self.degreeCB)
+        self._manual_proxy["tophatSpnBx"] = self._clone_spinbox(self.tophatSpnBx)
 
         self._bind_proxy_spinbox(self._manual_proxy["gaussFWHM"], self.gaussFWHM)
         self._bind_proxy_spinbox(self._manual_proxy["boxcarX"], self.boxcarX)
@@ -683,7 +705,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self._bind_proxy_spinbox(self._manual_proxy["winSizeY"], self.winSizeY)
         self._bind_proxy_spinbox(self._manual_proxy["winSepX"], self.winSepX)
         self._bind_proxy_spinbox(self._manual_proxy["winSepY"], self.winSepY)
-        self._bind_proxy_spinbox(self._manual_proxy["tophat1SpnBx"], self.tophat1SpnBx)
+        self._bind_proxy_spinbox(self._manual_proxy["tophatSpnBx"], self.tophatSpnBx)
 
         self._bind_proxy_double_spinbox(self._manual_proxy["minPixRange"], self.minPixRange)
         self._bind_proxy_double_spinbox(self._manual_proxy["maxPixRange"], self.maxPixRange)
@@ -692,7 +714,59 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self._bind_proxy_combobox(self._manual_proxy["bgChoiceIn"], self.bgChoiceIn)
         self._bind_proxy_combobox(self._manual_proxy["thetabinCB"], self.thetabinCB)
-        self._bind_proxy_combobox(self._manual_proxy["deg1CB"], self.deg1CB)
+        self._bind_proxy_combobox(self._manual_proxy["degreeCB"], self.degreeCB)
+
+    def _create_manual_settings_out_proxy(self):
+        self._manual_proxy_out_syncing = False
+        self._manual_proxy_out = {}
+
+        self._manual_proxy_out["bgChoiceOut"] = self._clone_combobox(self.bgChoiceOut)
+        self._manual_proxy_out["gaussFWHMOut"] = self._clone_spinbox(self.gaussFWHMOut)
+        self._manual_proxy_out["boxcarOutX"] = self._clone_spinbox(self.boxcarOutX)
+        self._manual_proxy_out["boxcarOutY"] = self._clone_spinbox(self.boxcarOutY)
+        self._manual_proxy_out["cycleOut"] = self._clone_spinbox(self.cycleOut)
+        self._manual_proxy_out["thetaBinOutCB"] = self._clone_combobox(self.thetaBinOutCB)
+        self._manual_proxy_out["radialBinOutSpnBx"] = self._clone_spinbox(self.radialBinOutSpnBx)
+        self._manual_proxy_out["winSizeOutX"] = self._clone_spinbox(self.winSizeOutX)
+        self._manual_proxy_out["winSizeOutY"] = self._clone_spinbox(self.winSizeOutY)
+        self._manual_proxy_out["winSepOutX"] = self._clone_spinbox(self.winSepOutX)
+        self._manual_proxy_out["winSepOutY"] = self._clone_spinbox(self.winSepOutY)
+        self._manual_proxy_out["minPixRangeOut"] = self._clone_double_spinbox(self.minPixRangeOut)
+        self._manual_proxy_out["maxPixRangeOut"] = self._clone_double_spinbox(self.maxPixRangeOut)
+        self._manual_proxy_out["smoothOutSpnBx"] = self._clone_double_spinbox(self.smoothOutSpnBx)
+        self._manual_proxy_out["tensionOutSpnBx"] = self._clone_double_spinbox(self.tensionOutSpnBx)
+        self._manual_proxy_out["tophatOutSpnBx"] = self._clone_spinbox(self.tophatOutSpnBx)
+
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["gaussFWHMOut"], self.gaussFWHMOut)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["boxcarOutX"], self.boxcarOutX)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["boxcarOutY"], self.boxcarOutY)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["cycleOut"], self.cycleOut)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["radialBinOutSpnBx"], self.radialBinOutSpnBx)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSizeOutX"], self.winSizeOutX)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSizeOutY"], self.winSizeOutY)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSepOutX"], self.winSepOutX)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSepOutY"], self.winSepOutY)
+        self._bind_proxy_spinbox_out(self._manual_proxy_out["tophatOutSpnBx"], self.tophatOutSpnBx)
+
+        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["minPixRangeOut"], self.minPixRangeOut)
+        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["maxPixRangeOut"], self.maxPixRangeOut)
+        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["smoothOutSpnBx"], self.smoothOutSpnBx)
+        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["tensionOutSpnBx"], self.tensionOutSpnBx)
+
+        self._bind_proxy_combobox_out(self._manual_proxy_out["bgChoiceOut"], self.bgChoiceOut)
+        self._bind_proxy_combobox_out(self._manual_proxy_out["thetaBinOutCB"], self.thetaBinOutCB)
+
+    def _create_transition_settings_proxy(self):
+        self._transition_proxy_syncing = False
+        self._transition_proxy = {}
+
+        self._transition_proxy["tranRSpnBx"] = self._clone_spinbox(self.tranRSpnBx)
+        self._transition_proxy["tranDeltaSpnBx"] = self._clone_spinbox(self.tranDeltaSpnBx)
+        self._transition_proxy["showTranRadDeltaChkBx"] = self._clone_checkbox(self.showTranRadDeltaChkBx)
+
+        self._bind_proxy_spinbox_transition(self._transition_proxy["tranRSpnBx"], self.tranRSpnBx)
+        self._bind_proxy_spinbox_transition(self._transition_proxy["tranDeltaSpnBx"], self.tranDeltaSpnBx)
+        self._bind_proxy_checkbox(self._transition_proxy["showTranRadDeltaChkBx"], self.showTranRadDeltaChkBx)
 
     def _populate_manual_processing_layout_proxy(self, layout):
         layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
@@ -721,10 +795,47 @@ class QuadrantFoldingGUI(BaseGUI):
         layout.addWidget(self._manual_proxy["smoothSpnBx"], 14, 3, 1, 1)
         layout.addWidget(self.tensionLabel, 11, 2, 1, 1)
         layout.addWidget(self._manual_proxy["tensionSpnBx"], 11, 3, 1, 1)
-        layout.addWidget(self.deg1Label, 12, 2, 1, 1)
-        layout.addWidget(self._manual_proxy["deg1CB"], 12, 3, 1, 1)
-        layout.addWidget(self.tophat1Label, 13, 2, 1, 1)
-        layout.addWidget(self._manual_proxy["tophat1SpnBx"], 13, 3, 1, 1)
+        layout.addWidget(self.degreeLabel, 12, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["degreeCB"], 12, 3, 1, 1)
+        layout.addWidget(self.tophatLabel, 13, 2, 1, 1)
+        layout.addWidget(self._manual_proxy["tophatSpnBx"], 13, 3, 1, 1)
+
+    def _populate_manual_processing_layout_proxy_out(self, layout):
+        layout.addWidget(QLabel("Subtraction Method:"), 2, 0, 1, 2)
+        layout.addWidget(self._manual_proxy_out["bgChoiceOut"], 2, 2, 1, 2)
+        layout.addWidget(self.gaussFWHMOutLabel, 4, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["gaussFWHMOut"], 4, 3, 1, 1)
+        layout.addWidget(self.boxcarOutLabel, 4, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["boxcarOutX"], 4, 3, 1, 1)
+        layout.addWidget(self._manual_proxy_out["boxcarOutY"], 5, 3, 1, 1)
+        layout.addWidget(self.cycleOutLabel, 3, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["cycleOut"], 3, 3, 1, 1)
+        layout.addWidget(self.thetaBinOutLabel, 6, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["thetaBinOutCB"], 6, 3, 1, 1)
+        layout.addWidget(self.radialBinOutLabel, 7, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["radialBinOutSpnBx"], 7, 3, 1, 1)
+        layout.addWidget(self.windowSizeOutLabel, 6, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["winSizeOutX"], 6, 3, 1, 1)
+        layout.addWidget(self._manual_proxy_out["winSizeOutY"], 7, 3, 1, 1)
+        layout.addWidget(self.windowSepOutLabel, 8, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["winSepOutX"], 8, 3, 1, 1)
+        layout.addWidget(self._manual_proxy_out["winSepOutY"], 9, 3, 1, 1)
+        layout.addWidget(self.pixRangeLabelOut, 10, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["minPixRangeOut"], 10, 3, 1, 1)
+        layout.addWidget(self._manual_proxy_out["maxPixRangeOut"], 11, 3, 1, 1)
+        layout.addWidget(self.smoothOutLabel, 14, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["smoothOutSpnBx"], 14, 3, 1, 1)
+        layout.addWidget(self.tensionOutLabel, 11, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["tensionOutSpnBx"], 11, 3, 1, 1)
+        layout.addWidget(self.tophatOutLabel, 13, 2, 1, 1)
+        layout.addWidget(self._manual_proxy_out["tophatOutSpnBx"], 13, 3, 1, 1)
+
+    def _populate_transition_processing_layout_proxy(self, layout):
+        layout.addWidget(QLabel("Transition Radius:"), 0, 0, 1, 2)
+        layout.addWidget(self._transition_proxy["tranRSpnBx"], 0, 2, 1, 2)
+        layout.addWidget(QLabel("Transition Delta:"), 1, 0, 1, 2)
+        layout.addWidget(self._transition_proxy["tranDeltaSpnBx"], 1, 2, 1, 2)
+        layout.addWidget(self._transition_proxy["showTranRadDeltaChkBx"], 2, 0, 1, 4)
 
     def _clone_spinbox(self, source):
         proxy = QSpinBox()
@@ -754,6 +865,12 @@ class QuadrantFoldingGUI(BaseGUI):
         proxy.setCurrentIndex(source.currentIndex())
         return proxy
 
+    def _clone_checkbox(self, source):
+        proxy = QCheckBox(source.text())
+        proxy.setChecked(source.isChecked())
+        proxy.setToolTip(source.toolTip())
+        return proxy
+
     def _bind_proxy_spinbox(self, proxy, source):
         def _proxy_changed(value):
             if self._manual_proxy_syncing:
@@ -768,6 +885,24 @@ class QuadrantFoldingGUI(BaseGUI):
             self._manual_proxy_syncing = True
             proxy.setValue(value)
             self._manual_proxy_syncing = False
+
+        proxy.valueChanged.connect(_proxy_changed)
+        source.valueChanged.connect(_source_changed)
+
+    def _bind_proxy_spinbox_out(self, proxy, source):
+        def _proxy_changed(value):
+            if self._manual_proxy_out_syncing:
+                return
+            self._manual_proxy_out_syncing = True
+            source.setValue(value)
+            self._manual_proxy_out_syncing = False
+
+        def _source_changed(value):
+            if self._manual_proxy_out_syncing:
+                return
+            self._manual_proxy_out_syncing = True
+            proxy.setValue(value)
+            self._manual_proxy_out_syncing = False
 
         proxy.valueChanged.connect(_proxy_changed)
         source.valueChanged.connect(_source_changed)
@@ -790,6 +925,24 @@ class QuadrantFoldingGUI(BaseGUI):
         proxy.valueChanged.connect(_proxy_changed)
         source.valueChanged.connect(_source_changed)
 
+    def _bind_proxy_double_spinbox_out(self, proxy, source):
+        def _proxy_changed(value):
+            if self._manual_proxy_out_syncing:
+                return
+            self._manual_proxy_out_syncing = True
+            source.setValue(value)
+            self._manual_proxy_out_syncing = False
+
+        def _source_changed(value):
+            if self._manual_proxy_out_syncing:
+                return
+            self._manual_proxy_out_syncing = True
+            proxy.setValue(value)
+            self._manual_proxy_out_syncing = False
+
+        proxy.valueChanged.connect(_proxy_changed)
+        source.valueChanged.connect(_source_changed)
+
     def _bind_proxy_combobox(self, proxy, source):
         def _proxy_changed(index):
             if self._manual_proxy_syncing:
@@ -807,6 +960,60 @@ class QuadrantFoldingGUI(BaseGUI):
 
         proxy.currentIndexChanged.connect(_proxy_changed)
         source.currentIndexChanged.connect(_source_changed)
+
+    def _bind_proxy_combobox_out(self, proxy, source):
+        def _proxy_changed(index):
+            if self._manual_proxy_out_syncing:
+                return
+            self._manual_proxy_out_syncing = True
+            source.setCurrentIndex(index)
+            self._manual_proxy_out_syncing = False
+
+        def _source_changed(index):
+            if self._manual_proxy_out_syncing:
+                return
+            self._manual_proxy_out_syncing = True
+            proxy.setCurrentIndex(index)
+            self._manual_proxy_out_syncing = False
+
+        proxy.currentIndexChanged.connect(_proxy_changed)
+        source.currentIndexChanged.connect(_source_changed)
+
+    def _bind_proxy_spinbox_transition(self, proxy, source):
+        def _proxy_changed(value):
+            if self._transition_proxy_syncing:
+                return
+            self._transition_proxy_syncing = True
+            source.setValue(value)
+            self._transition_proxy_syncing = False
+
+        def _source_changed(value):
+            if self._transition_proxy_syncing:
+                return
+            self._transition_proxy_syncing = True
+            proxy.setValue(value)
+            self._transition_proxy_syncing = False
+
+        proxy.valueChanged.connect(_proxy_changed)
+        source.valueChanged.connect(_source_changed)
+
+    def _bind_proxy_checkbox(self, proxy, source):
+        def _proxy_changed(checked):
+            if self._transition_proxy_syncing:
+                return
+            self._transition_proxy_syncing = True
+            source.setChecked(checked)
+            self._transition_proxy_syncing = False
+
+        def _source_changed(checked):
+            if self._transition_proxy_syncing:
+                return
+            self._transition_proxy_syncing = True
+            proxy.setChecked(checked)
+            self._transition_proxy_syncing = False
+
+        proxy.toggled.connect(_proxy_changed)
+        source.toggled.connect(_source_changed)
 
 
     def applyDefaultOptimization(self, skip_confirm: bool = False):
@@ -836,7 +1043,7 @@ class QuadrantFoldingGUI(BaseGUI):
         if not self.ableToProcess():
             return
 
-        default_methods = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
+        default_methods = qf_defaults.DEFAULT_OPTIMIZATION_METHODS
         checked = self.optimizeFlag is True
         if not checked:
             self.optimizeFlag = True
@@ -853,12 +1060,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.resultDisplayModeCB.setCurrentText("Subtracted")
         self.resultDisplayModeCB.setEnabled(False)
+
+        self._addDefaultOptimizationConfig = True
         self.processImage()
 
         if not checked:
             self.optimizeFlag = False
-
-        self.bgSubDialog.addBackgroundConfiguration(name="Default Optimization")
         
 
     def _init_background_subtraction_dialog(self):
@@ -874,6 +1081,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'allBGChoices',
             'bgChoiceIn', 'setRminRmaxButton',
             'processingModeCB',
+            'bgChoiceOut',
             'rminSpnBx', 'rmaxSpnBx', 'rminLabel', 'rmaxLabel',
             'downsampleLabel', 'downsampleCB', 'smoothImageChkbx',
              'showRminRmaxChkBx', 'fixedRadiusRangeChkBx', 
@@ -889,8 +1097,22 @@ class QuadrantFoldingGUI(BaseGUI):
             'radialBinSpnBx', 'radialBinLabel',
             'smoothSpnBx', 'smoothLabel',
             'tensionSpnBx', 'tensionLabel',
-            'tophat1SpnBx', 'tophat1Label',
-            'deg1Label', 'deg1CB',
+            'tophatSpnBx', 'tophatLabel',
+            'degreeLabel', 'degreeCB',
+            'gaussFWHMOutLabel', 'gaussFWHMOut',
+            'boxcarOutLabel', 'boxcarOutX', 'boxcarOutY',
+            'cycleOutLabel', 'cycleOut',
+            'windowSizeOutLabel', 'winSizeOutX', 'winSizeOutY',
+            'windowSepOutLabel', 'winSepOutX', 'winSepOutY',
+            'minPixRangeOut', 'maxPixRangeOut', 'pixRangeLabelOut',
+            'thetaBinOutLabel', 'thetaBinOutCB',
+            'radialBinOutSpnBx', 'radialBinOutLabel',
+            'smoothOutSpnBx', 'smoothOutLabel',
+            'tensionOutSpnBx', 'tensionOutLabel',
+            'tophatOutSpnBx', 'tophatOutLabel',
+            'tranRLabel', 'tranRSpnBx',
+            'tranDeltaLabel', 'tranDeltaSpnBx',
+            'showTranRadDeltaChkBx',
             'applyBGButton',
             'optimizeFlag',
             'optimizationMethodsList',
@@ -1085,6 +1307,9 @@ class QuadrantFoldingGUI(BaseGUI):
     
     def _initialize_cicle_patches(self):
         """Initialize patch objects for circles"""
+        self.circle_patch = None
+        self.circle_patch_delta_in = None
+        self.circle_patch_delta_out = None
         self.circle_patch_rmin = None
         self.circle_patch_rmax = None
     
@@ -1122,6 +1347,10 @@ class QuadrantFoldingGUI(BaseGUI):
         self.showRminRmaxChkBx.stateChanged.connect(self.toggleCircleRminRmax)
         self.rminSpnBx.valueChanged.connect(self.toggleCircleRminRmax)
         self.rmaxSpnBx.valueChanged.connect(self.toggleCircleRminRmax)
+
+        self.showTranRadDeltaChkBx.stateChanged.connect(self.toggleCircleTransition)
+        self.tranRSpnBx.valueChanged.connect(self.toggleCircleTransition)
+        self.tranDeltaSpnBx.valueChanged.connect(self.toggleCircleTransition)
 
         self.equatorMaskHeightSpnBx.valueChanged.connect(self.equatorMaskHeightChanged)
         self.equatorCenterBeamSpnBx.valueChanged.connect(self.equatorMaskCenterBeamChanged)
@@ -1181,6 +1410,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
         self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
         self.bgOptionsCB.currentIndexChanged.connect(self._on_bg_options_changed)
+        if hasattr(self, "bgChoiceOut"):
+            self.bgChoiceOut.currentIndexChanged.connect(self.bgChoiceOutChanged)
         
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
@@ -1195,28 +1426,39 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.blankImageGrp.clicked.connect(self.blankChecked)
 
 
-    def _on_result_display_mode_changed(self, index):
+    def _on_result_display_mode_changed(self,):
         self.refreshResultTab()
 
     def _on_bg_options_changed(self, index):
         selection = self.bgOptionsCB.currentText()
         is_manual_one = selection == "Manual Setting | One Method"
+        is_manual_transition = selection == "Manual Setting | Transition"
         is_automated = selection == "Automated Processing"
 
         self.applyResultBGButton.setVisible(is_automated)
         self.openBGSettingsButton.setVisible(is_automated)
         if hasattr(self, "applyBGButtonProxy"):
-            self.applyBGButtonProxy.setVisible(is_manual_one)
+            self.applyBGButtonProxy.setVisible(is_manual_one or is_manual_transition)
         if hasattr(self, "manualSettingsContainer"):
-            self.manualSettingsContainer.setVisible(is_manual_one)
+            self.manualSettingsContainer.setVisible(is_manual_one or is_manual_transition)
+        if hasattr(self, "manualSettingsOutContainer"):
+            self.manualSettingsOutContainer.setVisible(is_manual_transition)
+        if hasattr(self, "transitionSettingsContainer"):
+            self.transitionSettingsContainer.setVisible(is_manual_transition)
+            if not is_manual_transition:
+                # Clear transition settings when not in transition mode
+                self.showTranRadDeltaChkBx.setChecked(False)
         if hasattr(self, "bgSubDialog") and hasattr(self.bgSubDialog, "processingModeCB"):
-            if is_manual_one:
+            if is_manual_one or is_manual_transition:
                 self.bgSubDialog.processingModeCB.setCurrentText("Manual")
                 self.bgSubDialog.manualGroup.setVisible(True)
             elif is_automated:
                 self.bgSubDialog.processingModeCB.setCurrentText("Automated")
-
-
+        if self.quadFold is None:
+            return
+        else:
+            self.quadFold.info["bg_options"] = index
+        
     # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
 
 
@@ -1255,6 +1497,65 @@ class QuadrantFoldingGUI(BaseGUI):
             if 'fixed_roi_rad' in self.quadFold.info:
                 del self.quadFold.info['fixed_roi_rad']
             self.processImage()
+            
+    def toggleCircleTransition(self):
+        if self.showTranRadDeltaChkBx.isChecked():
+            # Remove existing circle if any
+            if self.circle_patch is not None:
+                try:
+                    self.circle_patch.remove()
+                except:
+                    self.circle_patch = None
+            if self.circle_patch_delta_in is not None:
+                try:
+                    self.circle_patch_delta_in.remove()
+                except:
+                    self.circle_patch_delta_in = None
+            if self.circle_patch_delta_out is not None:
+                try:
+                    self.circle_patch_delta_out.remove()
+                except:
+                    self.circle_patch_delta_out = None
+
+            # Create new circle (adjust x, y, radius as needed)
+            radius = self.tranRSpnBx.value()
+            delta = self.tranDeltaSpnBx.value()
+            center = self.quadFold.center
+
+            self.circle_patch = plt.Circle(center, radius,
+                                        fill=False,
+                                        color='red',
+                                        linestyle='-',
+                                        linewidth=1)
+            self.circle_patch_delta_in = plt.Circle(center, radius+delta,
+                                        fill=False,
+                                        color='orange',
+                                        linestyle='-.',
+                                        linewidth=1)
+            self.circle_patch_delta_out = plt.Circle(center, radius-delta,
+                                        fill=False,
+                                        color='orange',
+                                        linestyle='-.',
+                                        linewidth=1)
+
+            # Add the circle to the axes
+            self.resultAxes.add_patch(self.circle_patch)
+            self.resultAxes.add_patch(self.circle_patch_delta_in)
+            self.resultAxes.add_patch(self.circle_patch_delta_out)
+        else:
+            # Remove the circle if checkbox is unchecked
+            if self.circle_patch is not None:
+                self.circle_patch.remove()
+                self.circle_patch = None
+            if self.circle_patch_delta_in is not None:
+                self.circle_patch_delta_in.remove()
+                self.circle_patch_delta_in = None
+            if self.circle_patch_delta_out is not None:
+                self.circle_patch_delta_out.remove()
+                self.circle_patch_delta_out = None
+
+        # Redraw the canvas to show changes
+        self.resultCanvas.draw()
 
     def toggleCircleRminRmax(self):
         if self.showRminRmaxChkBx.isChecked():
@@ -1975,8 +2276,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.rrangeSettingFrame.setHidden(False)
         # self.rrangeSettingFrame.setEnabled(choice != 'None')
 
-        _set_hidden_proxy('tophat1SpnBx', not choice == 'White-top-hats')
-        _set_hidden(self.tophat1Label, not choice == 'White-top-hats')
+        _set_hidden_proxy('tophatSpnBx', not choice == 'White-top-hats')
+        _set_hidden(self.tophatLabel, not choice == 'White-top-hats')
         _set_hidden(self.windowSizeLabel, not choice == 'Roving Window')
         _set_hidden_proxy('winSizeX', not choice == 'Roving Window')
         _set_hidden_proxy('winSizeY', not choice == 'Roving Window')
@@ -1991,8 +2292,8 @@ class QuadrantFoldingGUI(BaseGUI):
         _set_hidden(self.boxcarLabel, not choice == 'Smoothed-BoxCar')
         _set_hidden_proxy('boxcarX', not choice == 'Smoothed-BoxCar')
         _set_hidden_proxy('boxcarY', not choice == 'Smoothed-BoxCar')
-        _set_hidden(self.deg1Label, not choice == '2D Convexhull')
-        _set_hidden_proxy('deg1CB', not choice == '2D Convexhull')
+        _set_hidden(self.degreeLabel, not choice == '2D Convexhull')
+        _set_hidden_proxy('degreeCB', not choice == '2D Convexhull')
         _set_hidden(self.cycleLabel, not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
         _set_hidden_proxy('cycle', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
         _set_hidden(self.thetaBinLabel, True)
@@ -2004,6 +2305,49 @@ class QuadrantFoldingGUI(BaseGUI):
         _set_hidden_proxy('smoothSpnBx', not choice in ('Roving Window', 'Circularly-symmetric'))
         _set_hidden(self.tensionLabel, not choice in ('Roving Window'))
         _set_hidden_proxy('tensionSpnBx', not choice in ('Roving Window'))
+
+    def bgChoiceOutChanged(self):
+        """
+        Trigger when OUT background subtraction method is changed.
+        """
+        choice = self.bgChoiceOut.currentText()
+
+        def _set_hidden(widget, hidden):
+            if widget is not None:
+                widget.setHidden(hidden)
+
+        def _set_hidden_out_proxy(key, hidden):
+            widget = self._manual_proxy_out.get(key)
+            if widget is not None:
+                widget.setHidden(hidden)
+
+        _set_hidden_out_proxy('tophatOutSpnBx', not choice == 'White-top-hats')
+        _set_hidden(self.tophatOutLabel, not choice == 'White-top-hats')
+        _set_hidden(self.windowSizeOutLabel, not choice == 'Roving Window')
+        _set_hidden_out_proxy('winSizeOutX', not choice == 'Roving Window')
+        _set_hidden_out_proxy('winSizeOutY', not choice == 'Roving Window')
+        _set_hidden(self.windowSepOutLabel, not choice == 'Roving Window')
+        _set_hidden_out_proxy('winSepOutX', not choice == 'Roving Window')
+        _set_hidden_out_proxy('winSepOutY', not choice == 'Roving Window')
+        _set_hidden_out_proxy('maxPixRangeOut', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_proxy('minPixRangeOut', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden(self.pixRangeLabelOut, not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden(self.gaussFWHMOutLabel, not choice == 'Smoothed-Gaussian')
+        _set_hidden_out_proxy('gaussFWHMOut', not choice == 'Smoothed-Gaussian')
+        _set_hidden(self.boxcarOutLabel, not choice == 'Smoothed-BoxCar')
+        _set_hidden_out_proxy('boxcarOutX', not choice == 'Smoothed-BoxCar')
+        _set_hidden_out_proxy('boxcarOutY', not choice == 'Smoothed-BoxCar')
+        _set_hidden(self.cycleOutLabel, not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        _set_hidden_out_proxy('cycleOut', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        _set_hidden(self.thetaBinOutLabel, True)
+        _set_hidden_out_proxy('thetaBinOutCB', True)
+
+        _set_hidden_out_proxy('radialBinOutSpnBx', not choice == 'Circularly-symmetric')
+        _set_hidden(self.radialBinOutLabel, not choice == 'Circularly-symmetric')
+        _set_hidden(self.smoothOutLabel, not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_proxy('smoothOutSpnBx', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden(self.tensionOutLabel, not choice in ('Roving Window'))
+        _set_hidden_out_proxy('tensionOutSpnBx', not choice in ('Roving Window'))
 
 
     def updateImportedBG(self):
@@ -2165,7 +2509,7 @@ class QuadrantFoldingGUI(BaseGUI):
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
-                self.tophat1SpnBx.setValue(int(info.get('tophat', self.tophat1SpnBx.value())))
+                self.tophatSpnBx.setValue(int(info.get('tophat', self.tophatSpnBx.value())))
                 self.maxPixRange.setValue(float(info.get("cirmax", self.maxPixRange.value())))
                 self.minPixRange.setValue(float(info.get("cirmin", self.minPixRange.value())))
 
@@ -2191,7 +2535,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.boxcarX.setValue(int(info.get('boxcar_x', self.boxcarX.value())))
                 self.boxcarY.setValue(int(info.get('boxcar_y', self.boxcarY.value())))
                 self.cycle.setValue(int(info.get('cycles', self.cycle.value())))
-                self.deg1CB.setCurrentIndex(1)
+                self.degreeCB.setCurrentIndex(1)
 
             if 'optimize' in info:
                 self.optimizeFlag = bool(info['optimize'])
@@ -2587,7 +2931,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.resultFigure.tight_layout()
             self.resultCanvas.draw()
 
-            # self.toggleCircleTransition()
+            self.toggleCircleTransition()
             self.toggleCircleRminRmax()
 
             self.updated['result'] = True
@@ -2706,6 +3050,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # self.resultDisplayModeCB.setEnabled(True)
 
+        # Add default optimization configuration if optimization just completed
+        if getattr(self, '_addDefaultOptimizationConfig', False):
+            print("Adding default optimization configuration to background subtraction dialog")
+            self.bgSubDialog.addBackgroundConfiguration(name="Default Optimization")
+            self._addDefaultOptimizationConfig = False
+
         if self._OptimizationRunning:
             self._set_optimization_button_running(False)
         if self._stopOptimizationRequested:
@@ -2775,8 +3125,13 @@ class QuadrantFoldingGUI(BaseGUI):
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
                 print("All threads are complete")
                 self.batchProcessing = False  # Disable batch processing mode
+                self._force_recalc_bg_for_batch = False
                 if hasattr(self, "bgSubDialog"):
-                    self.bgSubDialog.backgroundConfigurations = []
+                    # Reload saved configurations so manual assignment dialog remains usable
+                    try:
+                        self.bgSubDialog._load_background_configurations_from_cache()
+                    except Exception:
+                        pass
                 self.progressBar.setVisible(False)
                 self.navControls.filenameLineEdit.setEnabled(True)
                 
@@ -3041,17 +3396,42 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['radial_bin'] = self.radialBinSpnBx.value()
         flags['smooth'] = self.smoothSpnBx.value()
         flags['tension'] = self.tensionSpnBx.value()
-        flags["tophat"] = self.tophat1SpnBx.value()
+        flags["tophat"] = self.tophatSpnBx.value()
         flags['fwhm'] = self.gaussFWHM.value()
         flags['boxcar_x'] = self.boxcarX.value()
         flags['boxcar_y'] = self.boxcarY.value()
         flags['cycles'] = self.cycle.value()
-        flags['degree'] = float(self.deg1CB.currentText())
+        flags['degree'] = float(self.degreeCB.currentText())
+
+        # ===== Background removal flags Out =====
+        flags['bgsub_out'] = self.bgChoiceOut.currentText()
+        flags["cirmin_out"] = self.minPixRangeOut.value()
+        flags["cirmax_out"] = self.maxPixRangeOut.value()
+        flags['win_size_x_out'] = self.winSizeOutX.value()
+        flags['win_size_y_out'] = self.winSizeOutY.value()
+        flags['win_sep_x_out'] = self.winSepOutX.value()
+        flags['win_sep_y_out'] = self.winSepOutY.value()
+        flags["bin_theta_out"] = int(self.thetaBinOutCB.currentText())
+        flags['radial_bin_out'] = self.radialBinOutSpnBx.value()
+        flags['smooth_out'] = self.smoothOutSpnBx.value()
+        flags['tension_out'] = self.tensionOutSpnBx.value()
+        flags["tophat_out"] = self.tophatOutSpnBx.value()
+        flags['fwhm_out'] = self.gaussFWHMOut.value()
+        flags['boxcar_x_out'] = self.boxcarOutX.value()
+        flags['boxcar_y_out'] = self.boxcarOutY.value()
+        flags['cycles_out'] = self.cycleOut.value()
+
+        # ===== Transition settings =====
+        if hasattr(self, "tranRSpnBx"):
+            flags['transition_radius'] = self.tranRSpnBx.value()
+        if hasattr(self, "tranDeltaSpnBx"):
+            flags['transition_delta'] = self.tranDeltaSpnBx.value()
 
         # ===== Background optimization flags (automated processing) =====
         flags['optimize'] = self.optimizeFlag is True
+        flags['bg_options'] = self.bgOptionsCB.currentIndex()    
         flags['methods'] = self._get_selected_optimization_methods()
-        flags['steps'] = self._parse_optimization_steps()
+        flags['steps'] = parse_optimization_steps()
         flags['max_iterations'] = self.maxIterationsSpnBx.value()
         flags['early_stop'] = self.earlyStopSpnBx.value()
         flags['mean_metric_values'] = {
@@ -3088,6 +3468,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
         bg_configs = self.bgSubDialog.backgroundConfigurations if hasattr(self, "bgSubDialog") else []
         flags['background_configurations'] = bg_configs if isinstance(bg_configs, list) else []
+
+        flags['batch_processing'] = self.batchProcessing
+        flags['force_recalc_bg'] = bool(getattr(self, "_force_recalc_bg_for_batch", False))
 
         if self.batchProcessing:
             resolved_manual_assignments = {}
@@ -3133,34 +3516,11 @@ class QuadrantFoldingGUI(BaseGUI):
                 selected.append(item.text())
 
         if len(selected) == 0 and hasattr(self, "bgSubDialog"):
-            default_methods = getattr(self.bgSubDialog, "DEFAULT_OPTIMIZATION_METHODS", [])
-            return list(default_methods) if default_methods else []
+            return list(qf_defaults.DEFAULT_OPTIMIZATION_METHODS)
 
         return selected
 
 
-    def _parse_optimization_steps(self):
-        """Parse optimization step sizes from UI text."""
-        default_steps = [50, 30, 10, 7, 5, 3, 1]
-        raw = self.stepsLineEdit.text().replace(';', ',').strip()
-        if not raw:
-            return default_steps
-
-        steps = []
-        for part in raw.split(','):
-            val = part.strip()
-            if not val:
-                continue
-            try:
-                num = float(val)
-                if num > 0:
-                    if abs(num - int(num)) < 1e-9:
-                        steps.append(int(num))
-                    else:
-                        steps.append(num)
-            except ValueError:
-                continue
-        return steps if len(steps) > 0 else default_steps
 
     # NOTE: onNewFileSelected removed - replaced by _on_folder_loaded and _on_image_changed
     # The new flow:
@@ -3251,6 +3611,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # It will still signal finished; we just won't schedule more
         self.currentTask = None
         self._batch_background_configurations = []
+        self._force_recalc_bg_for_batch = False
         
     def h5batchProcBtnToggled(self):
         """
@@ -3280,6 +3641,10 @@ class QuadrantFoldingGUI(BaseGUI):
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
 
         flags = self.getFlags()
+        manual_bg_selected = self.bgOptionsCB.currentText() in (
+            "Manual Setting | One Method",
+            "Manual Setting | Transition",
+        )
 
         # ======= Manual assignments and auto selection both depend on saved configurations. ======
         has_manual_assignments = (
@@ -3287,35 +3652,50 @@ class QuadrantFoldingGUI(BaseGUI):
             and isinstance(self.bgSubDialog.manualBackgroundAssignments, dict)
             and len(self.bgSubDialog.manualBackgroundAssignments) > 0
         )
+
         resolved_manual_assignments = {}
-
-        if self.chooseConfigurationsAutoChkBx.isChecked() or has_manual_assignments:
-            self._background_configurations = self.bgSubDialog._read_background_configurations()
-            if len(self._background_configurations) == 0:
-                QMessageBox.warning(
-                    self,
-                    "No Saved Background Configurations",
-                    "Batch processing requires saved background configurations, but none were found in the cache for this folder/context. Batch processing was stopped."
-                )
-                self.navControls.processFolderButton.setChecked(False)
-                self.navControls.processH5Button.setChecked(False)
-                return
-
+        self._background_configurations = self.bgSubDialog._read_background_configurations()
+        if len(self._background_configurations) != 0:
             resolved_manual_assignments = self.bgSubDialog._resolve_manual_background_assignments_for_batch(
                 self._background_configurations
             )
             if has_manual_assignments and len(resolved_manual_assignments) == 0:
-                QMessageBox.warning(
-                    self,
-                    "Invalid Manual Assignments",
-                    "Manual assignments were set, but none match the current saved configurations. Batch processing was stopped."
-                )
-                self.navControls.processFolderButton.setChecked(False)
-                self.navControls.processH5Button.setChecked(False)
-                return
-        else:
-            self._background_configurations = []
-            resolved_manual_assignments = {}
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Manual Assignments",
+                        "Manual assignments were set, but none match the current saved configurations. Batch processing was stopped."
+                    )
+                    self.navControls.processFolderButton.setChecked(False)
+                    self.navControls.processH5Button.setChecked(False)
+                    return
+
+        # if self.chooseConfigurationsAutoChkBx.isChecked() or has_manual_assignments:
+        #     self._background_configurations = self.bgSubDialog._read_background_configurations()
+        #     if len(self._background_configurations) == 0:
+        #         QMessageBox.warning(
+        #             self,
+        #             "No Saved Background Configurations",
+        #             "Batch processing requires saved background configurations, but none were found in the cache for this folder/context. Batch processing was stopped."
+        #         )
+        #         self.navControls.processFolderButton.setChecked(False)
+        #         self.navControls.processH5Button.setChecked(False)
+        #         return
+
+        #     resolved_manual_assignments = self.bgSubDialog._resolve_manual_background_assignments_for_batch(
+        #         self._background_configurations
+        #     )
+        #     if has_manual_assignments and len(resolved_manual_assignments) == 0:
+        #         QMessageBox.warning(
+        #             self,
+        #             "Invalid Manual Assignments",
+        #             "Manual assignments were set, but none match the current saved configurations. Batch processing was stopped."
+        #         )
+        #         self.navControls.processFolderButton.setChecked(False)
+        #         self.navControls.processH5Button.setChecked(False)
+        #         return
+        # else:
+        #     self._background_configurations = []
+        #     resolved_manual_assignments = {}
 
         text += "\nCurrent Settings"
 
@@ -3345,6 +3725,57 @@ class QuadrantFoldingGUI(BaseGUI):
             except:
                 text += "\n  - Empty Cell Image : Enabled"
 
+        def _append_bg_method_details(method_key: str, suffix: str = "In"):
+            method = flags.get(method_key, "None")
+            label = f"\n  - Background Subtraction Method ({suffix}) : {method}"
+            text_parts = [label]
+
+            suffix = "" if suffix == "In" else "_out"
+
+            if method != 'None':
+                if suffix != "_out":
+                    if 'fixed_rmin' in flags:
+                        text_parts.append("\n  - R-min : " + str(flags["fixed_rmin" + suffix]))
+                    if 'fixed_rmax' in flags:
+                        text_parts.append("\n  - R-max : " + str(flags["fixed_rmax" + suffix]))
+
+                if method in ['Circularly-symmetric', 'Roving Window']:
+                    text_parts.append(
+                        "\n  - Pixel Range (Percentage) : "
+                        + str(flags.get("cirmin" + suffix, ""))
+                        + "% - "
+                        + str(flags.get("cirmax" + suffix, ""))
+                        + "%"
+                    )
+
+                if method == 'Circularly-symmetric':
+                    text_parts.append("\n  - Radial Bin : " + str(flags.get("radial_bin" + suffix, "")))
+                    text_parts.append("\n  - Smooth : " + str(flags.get("smooth" + suffix, "")))
+                elif method == '2D Convexhull':
+                    text_parts.append("\n  - Step (deg) : " + str(flags.get("degree" + suffix, "")))
+                elif method == 'White-top-hats':
+                    text_parts.append("\n  - Tophat (inside R-max) : " + str(flags.get("tophat" + suffix, "")))
+                elif method == 'Smoothed-Gaussian':
+                    text_parts.append("\n  - FWHM : " + str(flags.get("fwhm" + suffix, "")))
+                    text_parts.append("\n  - Number of cycle : " + str(flags.get("cycles" + suffix, "")))
+                elif method == 'Smoothed-BoxCar':
+                    text_parts.append("\n  - Box car width : " + str(flags.get("boxcar_x" + suffix, "")))
+                    text_parts.append("\n  - Box car height : " + str(flags.get("boxcar_y" + suffix, "")))
+                    text_parts.append("\n  - Number of cycle : " + str(flags.get("cycles" + suffix, "")))
+
+            return "".join(text_parts)
+
+        bg_options_text = self.bgOptionsCB.currentText() if hasattr(self, "bgOptionsCB") else "Automated Processing"
+        if bg_options_text == "Manual Setting | One Method":
+            text += _append_bg_method_details("bgsub", "In")
+        elif bg_options_text == "Manual Setting | Transition":
+            text += _append_bg_method_details("bgsub", "In")
+            text += _append_bg_method_details("bgsub_out", "Out")
+            if hasattr(self, "tranRSpnBx"):
+                text += "\n  - Merge Transition Radius : " + str(self.tranRSpnBx.value())
+            if hasattr(self, "tranDeltaSpnBx"):
+                text += "\n  - Merge Transition Delta : " + str(self.tranDeltaSpnBx.value())
+
     
         if self.chooseConfigurationsAutoChkBx.isChecked():
             text += "\n  - Auto Configuration Selection : Enabled"
@@ -3367,6 +3798,7 @@ class QuadrantFoldingGUI(BaseGUI):
             
             self.stop_process = False
             self.batchProcessing = True  # Enable batch processing mode
+            self._force_recalc_bg_for_batch = manual_bg_selected
             self.totalFiles = len(img_ids)
             self.tasksDone = 0
             for idx, i in enumerate(img_ids):
