@@ -1166,21 +1166,28 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
     #### Background and Meridian
     result = layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2,**kwargs)
     #### Other peaks
+    # Collect Gaussian peak parameters first, then evaluate all at once (L3 batch).
+    g_centers = []
+    g_amps    = []
+    g_sigmas  = []
     i = 0
     while 'p_'+str(i) in kwargs:
-        p = kwargs['p_'+str(i)]
-        sigma = kwargs['sigma'+str(i)]
+        p         = kwargs['p_'+str(i)]
+        sigma     = kwargs['sigma'+str(i)]
         amplitude = kwargs['amplitude' + str(i)]
         if 'gamma' + str(i) in kwargs:
             gamma = kwargs['gamma' + str(i)]
-
-            result += _voigt_eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma, gamma=gamma)
-            # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma, gamma=-gamma)
+            result += _voigt_eval(x=x, amplitude=amplitude,
+                                  center=centerX + p, sigma=sigma, gamma=gamma)
         else:
-            result += _gaussian_eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma)
-            # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
-
+            g_centers.append(centerX + p)
+            g_amps.append(amplitude)
+            g_sigmas.append(sigma)
         i += 1
+
+    if g_centers:
+        result += _gaussian_batch_std(x, np.asarray(g_centers), np.asarray(g_amps),
+                                      np.asarray(g_sigmas))
     return result
 
 def layerlineModelGMM(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
@@ -1206,20 +1213,28 @@ def layerlineModelGMM(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1
                                      center_sigma2, center_amplitude2, **kwargs)
     
     #### Other peaks - all using common_sigma
+    # Collect Gaussian peak parameters first, then evaluate all at once (L3 batch).
+    # Voigt peaks remain in a loop (rare in practice; wofz not easily vectorised).
+    g_centers = []
+    g_amps    = []
     i = 0
     while 'p_'+str(i) in kwargs:
-        p = kwargs['p_'+str(i)]
+        p         = kwargs['p_'+str(i)]
         amplitude = kwargs['amplitude' + str(i)]
-        
         if 'gamma' + str(i) in kwargs:
             gamma = kwargs['gamma' + str(i)]
-            result += _voigt_eval(x=x, amplitude=amplitude, center=centerX + p,
-                                sigma=common_sigma, gamma=gamma)
+            result += _voigt_eval(x=x, amplitude=amplitude,
+                                  center=centerX + p,
+                                  sigma=common_sigma, gamma=gamma)
         else:
-            result += _gaussian_eval(x=x, amplitude=amplitude, center=centerX + p,
-                                   sigma=common_sigma)  # All peaks use common_sigma
+            g_centers.append(centerX + p)
+            g_amps.append(amplitude)
         i += 1
-    
+
+    if g_centers:
+        result += _gaussian_batch_gmm(x, np.asarray(g_centers), np.asarray(g_amps),
+                                      common_sigma)
+
     return result
 
 def layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
@@ -1312,6 +1327,42 @@ def _slice_fit_arrays_to_hull_range(x, hist, centerX, hull_range):
         np.concatenate((x[left_lo:left_hi], x[right_lo:right_hi])),
         np.concatenate((hist[left_lo:left_hi], hist[right_lo:right_hi])),
     )
+
+
+def _gaussian_batch_gmm(x, centers, amps, sigma):
+    """Sum of K Gaussian peaks that all share the same *sigma* (GMM mode).
+
+    Replaces K separate ``_gaussian_eval`` calls with a single ``np.exp``
+    on a ``(K, N)`` matrix, cutting Python dispatch and NumPy buffer
+    allocation overhead from K round-trips to one.
+
+    Parameters
+    ----------
+    x       : (N,) array — evaluation grid
+    centers : (K,) array — peak centres (absolute pixel coordinates)
+    amps    : (K,) array — integrated amplitudes
+    sigma   : float      — shared sigma for all peaks
+    """
+    inv_sig    = 1.0 / sigma
+    prefactor  = (amps * inv_sig / _SQRT_2PI)[:, np.newaxis]   # (K, 1)
+    z          = (x[np.newaxis, :] - centers[:, np.newaxis]) * inv_sig  # (K, N)
+    return (prefactor * np.exp(-0.5 * z * z)).sum(axis=0)
+
+
+def _gaussian_batch_std(x, centers, amps, sigmas):
+    """Sum of K Gaussian peaks with independent sigmas (standard mode).
+
+    Parameters
+    ----------
+    x       : (N,) array — evaluation grid
+    centers : (K,) array — peak centres
+    amps    : (K,) array — integrated amplitudes
+    sigmas  : (K,) array — per-peak sigmas
+    """
+    inv_sigs   = 1.0 / sigmas                                    # (K,)
+    prefactors = (amps * inv_sigs / _SQRT_2PI)[:, np.newaxis]    # (K, 1)
+    z          = (x[np.newaxis, :] - centers[:, np.newaxis]) * inv_sigs[:, np.newaxis]  # (K, N)
+    return (prefactors * np.exp(-0.5 * z * z)).sum(axis=0)
 
 
 def _gaussian_eval(x, amplitude, center, sigma):
