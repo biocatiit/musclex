@@ -972,6 +972,12 @@ class QuadrantFolder:
         fold = np.copy(self.info["avg_fold"])
 
         img = self.makeFullImage(fold)
+        center = self.center
+        if "roi_w" in self.info and "roi_h" in self.info:
+            half_w = int(self.info["roi_w"]) // 2
+            half_h = int(self.info["roi_h"]) // 2
+            cx, cy = int(center[0]), int(center[1])
+            img = img[cy - half_h:cy + half_h, cx - half_w:cx + half_w]
 
         img = img.astype("float32")
         width = img.shape[1]
@@ -1008,7 +1014,12 @@ class QuadrantFolder:
         background[np.isnan(background)] = 0.0
         background = np.array(background, "float32")
         background = background.reshape((height, width))
-        background = background[:fold.shape[0], :fold.shape[1]]
+        if "roi_w" in self.info and "roi_h" in self.info:
+            pad_y = max(fold.shape[0] - background.shape[0], 0)
+            pad_x = max(fold.shape[1] - background.shape[1], 0)
+            background = np.pad(background, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
+        else:
+            background = background[:fold.shape[0], :fold.shape[1]]
         result = np.array(fold - background, dtype=np.float32)
 
         # replacing negative values with 0
@@ -1085,6 +1096,12 @@ class QuadrantFolder:
         fold = copy.copy(self.info["avg_fold"])
 
         img = self.makeFullImage(fold)
+        center = self.center
+        if "roi_w" in self.info and "roi_h" in self.info:
+            half_w = int(self.info["roi_w"]) // 2
+            half_h = int(self.info["roi_h"]) // 2
+            cx, cy = int(center[0]), int(center[1])
+            img = img[cy - half_h:cy + half_h, cx - half_w:cx + half_w]
 
         width = img.shape[1]
         height = img.shape[0]
@@ -1126,7 +1143,12 @@ class QuadrantFolder:
         b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
         b= b.reshape((height, width))
 
-        b = b[:fold.shape[0], :fold.shape[1]]
+        if "roi_w" in self.info and "roi_h" in self.info:
+            pad_y = max(fold.shape[0] - b.shape[0], 0)
+            pad_x = max(fold.shape[1] - b.shape[1], 0)
+            b = np.pad(b, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
+        else:
+            b = b[:fold.shape[0], :fold.shape[1]]
 
         result = np.array(fold - b, dtype=np.float32)
         result = qfu.replaceRmin(result, int(self.info["rmin"]), 0.0)
