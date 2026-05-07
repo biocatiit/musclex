@@ -2040,6 +2040,10 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tension2Label.setHidden(not choice in ('Roving Window'))
         self.tension2SpnBx.setHidden(not choice in ('Roving Window'))
 
+        hide_transition = (self.bgChoiceIn.currentText() == 'None') or (choice == 'None')
+        for w in self.outBGWidgets:
+            w.setHidden(hide_transition)
+
         self.highlightApply()
 
 
@@ -2083,9 +2087,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tensionSpnBx.setHidden(not choice in ('Roving Window'))
 
 
-        hide_outBG = (choice == 'None')
+        hide_transition = (choice == 'None') or (self.bgChoiceOut.currentText() == 'None')
         for w in self.outBGWidgets:
-            w.setHidden(hide_outBG)
+            w.setHidden(hide_transition)
 
         self.applyBGButton.setHidden(choice == 'None')
 

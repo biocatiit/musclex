@@ -1458,14 +1458,18 @@ class QuadrantFolder:
 
         if "BgSubFold" not in self.imgCache:
             img1 = np.array(self.info["bgimg1"], dtype="float32")
-            img2 = np.array(self.info["bgimg2"], dtype="float32")
 
-            center = [img1.shape[1]-1, img1.shape[0]-1]
-            rad = self.info["transition_radius"]
-            delta = self.info["transition_delta"]
+            if self.info.get("bgsub2", "None") == "None":
+                # Only one method selected: use bgimg1 for the entire image, no blending
+                self.imgCache['BgSubFold'] = img1
+            else:
+                img2 = np.array(self.info["bgimg2"], dtype="float32")
+                center = [img1.shape[1]-1, img1.shape[0]-1]
+                rad = self.info["transition_radius"]
+                delta = self.info["transition_delta"]
 
-            # Merge 2 images at merge radius using transition radius and delta
-            self.imgCache['BgSubFold'] = qfu.combine_bgsub_linear_float32(img1, img2, center[0], center[1], rad, delta)
+                # Merge 2 images at merge radius using transition radius and delta
+                self.imgCache['BgSubFold'] = qfu.combine_bgsub_linear_float32(img1, img2, center[0], center[1], rad, delta)
 
             self.deleteFromDict(self.imgCache, "resultImg")
 
