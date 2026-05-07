@@ -237,9 +237,11 @@ class BackgroundSubtractionDialog(QDialog):
         self.downsampleCB = QComboBox()
         self.downsampleCB.addItems(qf_defaults.DOWNSAMPLE_OPTIONS)
         self.downsampleCB.setCurrentIndex(qf_defaults.DEFAULT_DOWNSAMPLE_INDEX)
+        self.downsampleCB.currentIndexChanged.connect(self._persist_image_processing_settings_to_image_cache)
 
         self.smoothImageChkbx = QCheckBox("Smooth Image")
         self.smoothImageChkbx.setChecked(False)
+        self.smoothImageChkbx.toggled.connect(self._persist_image_processing_settings_to_image_cache)
 
     def _create_evaluation_mask_widgets(self):
         """Create evaluation mask settings widgets."""
@@ -499,7 +501,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.amplitudeLabel = self._create_label("Synthetic Amplitude:", "small")
         self.amplitudeSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
                                 value=qf_defaults.DEFAULT_AMP, 
-                                decimals=4, step=0.001)
+                                decimals=0, step=0.001)
 
         self.sigmaXLabel = self._create_label("Sigma X:", "small")
         self.sigmaXSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
@@ -578,6 +580,7 @@ class BackgroundSubtractionDialog(QDialog):
 
         self._populate_loss_params_table()
         self.lossParamsTable.itemChanged.connect(self._on_loss_params_table_changed)
+        self._connect_metric_persistence_signals()
 
         self.lossParamsTable.setColumnHidden(0, True)
 
@@ -659,7 +662,7 @@ class BackgroundSubtractionDialog(QDialog):
 
         self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
 
-        self.createNewConfigurationsChkBx.toggled.connect(self._update_manual_assignment_enabled)
+        self.chooseConfigurationsAutoChkBx.toggled.connect(self._update_manual_assignment_enabled)
         self._update_manual_assignment_enabled(self.chooseConfigurationsAutoChkBx.isChecked())
 
         self.processFolderWithSelections = QPushButton("Process Current Folder")
@@ -1056,7 +1059,7 @@ class BackgroundSubtractionDialog(QDialog):
             return
         if checked is None and hasattr(self, "chooseConfigurationsAutoChkBx"):
             checked = self.chooseConfigurationsAutoChkBx.isChecked()
-        self.chooseConfigurationsAutoChkBx.setEnabled(not bool(checked))
+        self.assignConfgurationsManually.setEnabled(not bool(checked))
 
     def _set_selected_methods(self, methods):
         method_set = set(methods)
@@ -1084,6 +1087,24 @@ class BackgroundSubtractionDialog(QDialog):
             self.lossParamsTable.setItem(row, 0, QTableWidgetItem(f"{mean_sb.value():.4g}"))
             self.lossParamsTable.setItem(row, 1, QTableWidgetItem(f"{weight_sb.value():.4g}"))
         self.lossParamsTable.blockSignals(False)
+
+    def _connect_metric_persistence_signals(self):
+        """Persist evaluation/metric settings whenever related values change."""
+        metric_spinboxes = [
+            self.meanMSESpnBx,
+            self.meanNegSynSpnBx,
+            self.meanNonBaselineSpnBx,
+            self.meanNegConSpnBx,
+            self.meanSmoothSpnBx,
+            self.weightMSESpnBx,
+            self.weightNegSynSpnBx,
+            self.weightNonBaselineSpnBx,
+            self.weightNegConSpnBx,
+            self.weightSmoothSpnBx,
+            self.evaluationBaselineSpnBx,
+        ]
+        for spinbox in metric_spinboxes:
+            spinbox.valueChanged.connect(self._persist_metric_settings_to_image_cache)
 
     def _on_loss_params_table_changed(self, item):
         """Sync table edits back to the internal SpinBoxes."""
@@ -1134,7 +1155,7 @@ class BackgroundSubtractionDialog(QDialog):
         loss = result_bg.get('loss', None)
 
         if hasattr(self, 'bgMetricsTableTitle'):
-            loss_text = _to_metric_text(loss)
+            loss_text = _to_metric_text(loss, decimal_places=4) if loss is not None else "—"
             self.bgMetricsTableTitle.setText(f"Loss = {loss_text}")
 
         metric_rows = [
@@ -1186,7 +1207,7 @@ class BackgroundSubtractionDialog(QDialog):
             norm_value = norm_metrics.get(raw_key, None)
             
             self._set_table_item(row, 1, _to_metric_text(raw_value, as_percent=raw_key in fraction_metric_keys))
-            self._set_table_item(row, 2, _to_metric_text(norm_value))
+            self._set_table_item(row, 2, _to_metric_text(norm_value, decimal_places=4))
 
             # Calculate and set contribution as percentage of total loss
             contribution_text = "—"
@@ -1358,6 +1379,7 @@ class BackgroundSubtractionDialog(QDialog):
             'early_stop': flags.get('early_stop', 0.01),
             'max_iterations': flags.get('max_iterations', 15),
             'mean_metric_values': flags.get('mean_metric_values', None),
+            'evaluation_baseline': flags.get('evaluation_baseline', None),
             'metric_weights': flags.get('metric_weights', None),
             'detector': flags.get('detector', None),
             'orientation_model': flags.get('orientation_model', None),
@@ -1371,6 +1393,75 @@ class BackgroundSubtractionDialog(QDialog):
             'downsample': int(flags.get('downsample', 1) or 1),
             'smooth_image': bool(flags.get('smooth_image', False)),
         }
+
+    def _persist_metric_settings_to_image_cache(self):
+        """
+        Persist edited metric means/weights/baseline into current image info + cache.
+        """
+        parent = self._get_parent_gui()
+        if parent is None or not hasattr(parent, "getFlags"):
+            return
+        if not hasattr(parent, "quadFold") or parent.quadFold is None:
+            return
+
+        try:
+            if parent.uiUpdating:
+                return
+
+            metric_weights = {
+                'MSE': float(self.weightMSESpnBx.value()),
+                'Share_Neg_Synthetic': float(self.weightNegSynSpnBx.value()),
+                'Share_Non_Baseline': float(self.weightNonBaselineSpnBx.value()),
+                'Share_Neg_Connected': float(self.weightNegConSpnBx.value()),
+                'Smoothness': float(self.weightSmoothSpnBx.value()),
+            }
+            mean_metric_values = {
+                'MSE_SYN_MEAN': float(self.meanMSESpnBx.value()),
+                'SHARE_NEG_SYN_MEAN': float(self.meanNegSynSpnBx.value()),
+                'SHARE_NON_BASELINE_MEAN': float(self.meanNonBaselineSpnBx.value()),
+                'SHARE_NEG_CON_MEAN': float(self.meanNegConSpnBx.value()),
+                'SMOOTH_MEAN': float(self.meanSmoothSpnBx.value()),
+            }
+            evaluation_baseline = float(self.evaluationBaselineSpnBx.value())
+            synthetic_amplitude = float(self.amplitudeSpnBx.value())
+            synthetic_sigma_x = float(self.sigmaXSpnBx.value())
+            synthetic_sigma_y = float(self.sigmaYSpnBx.value())
+            freq = str(self.freqCB.currentText())
+
+            info = parent.quadFold.info
+            info['metric_weights'] = metric_weights
+            info['mean_metric_values'] = mean_metric_values
+            info['evaluation_baseline'] = evaluation_baseline
+            info['synthetic_amplitude'] = synthetic_amplitude
+            info['synthetic_sigma_x'] = synthetic_sigma_x
+            info['synthetic_sigma_y'] = synthetic_sigma_y
+            info['freq'] = freq
+
+            # TODO: decide when to save to cache
+            # if hasattr(parent.quadFold, "cacheInfo"):
+            #     parent.quadFold.cacheInfo()
+        except Exception as e:
+            print(f"Failed to persist metric settings to image cache: {e}")
+
+    def _persist_image_processing_settings_to_image_cache(self):
+        """
+        Persist downsample/smooth-image settings into current image info + cache.
+        """
+        parent = self._get_parent_gui()
+        if parent is None or not hasattr(parent, "quadFold") or parent.quadFold is None:
+            return
+        try:
+            if parent.uiUpdating:
+                return
+            info = parent.quadFold.info
+            info['downsample'] = int(self.downsampleCB.currentText())
+            info['smooth_image'] = bool(self.smoothImageChkbx.isChecked())
+
+            # TODO: decide when to save to cache
+            # if hasattr(parent.quadFold, "cacheInfo"):
+            #     parent.quadFold.cacheInfo()
+        except Exception as e:
+            print(f"Failed to persist image processing settings to image cache: {e}")
     
     def _save_background_configurations_to_cache(self):
         cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
@@ -1414,7 +1505,7 @@ class BackgroundSubtractionDialog(QDialog):
             smooth_image = bool(config.get('smooth_image', False))
             row_additional_info = config.get('additional_info', additional_info)
             params_text = self._format_bg_params_text(params)
-            loss_text = "—" if loss_value is None else _to_metric_text(loss_value)
+            loss_text = "—" if loss_value is None else _to_metric_text(loss_value, decimal_places=4)
 
             if not name:
                 name = f"Config {self.backgroundConfigsTable.rowCount() + 1}"
@@ -1543,7 +1634,7 @@ class BackgroundSubtractionDialog(QDialog):
 
 
 # === Utility Functions for Metrics Formatting ===
-def _to_metric_text(value, as_percent=False, as_contribution=False):
+def _to_metric_text(value, as_percent=False, as_contribution=False, decimal_places=2):
     if value is None:
         return "—"
     try:
@@ -1554,7 +1645,7 @@ def _to_metric_text(value, as_percent=False, as_contribution=False):
             return f"{prefix}{numeric * 100:.0f} %"
         if as_percent:
             return f"{numeric * 100:.0f} %"
-        return f"{numeric:.2f}"
+        return f"{numeric:.{decimal_places}f}"
     except Exception:
         return str(value)
 

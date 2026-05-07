@@ -27,13 +27,13 @@ method_bounds = {
         "cirmax": [5, 40], # in %
     },
     "Smoothed-Gaussian": {
-        "fwhm": [1, 100], # in pixels
-        "cycles": [40, 2000],
+        "fwhm": [1, 150], # in pixels
+        "cycles": [5, 2000],
     },
     "Smoothed-BoxCar": {
-        "boxcar_x": [1, 100],
-        "boxcar_y": [1, 100],
-        "cycles": [40, 2000],
+        "boxcar_x": [1, 150],
+        "boxcar_y": [1, 150],
+        "cycles": [5, 2000],
     },
 }
 

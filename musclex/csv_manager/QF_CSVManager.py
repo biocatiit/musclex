@@ -128,7 +128,7 @@ class QF_CSVManager:
             data['backgroundMethod'] = quadFold.info['result_bg'].get('method', '-')
             data['backgroundConfigName'] = quadFold.info['result_bg'].get('selected_configuration_name', '-')
             data['parameters'] = quadFold.info['result_bg'].get('final_params', '-')
-            data['downsampled'] = quadFold.info['result_bg'].get('downsampled', '-')
+            data['downsampled'] = quadFold.info.get('downsample', '-')
             data['loss'] = quadFold.info['result_bg'].get('loss', '-')
             data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
 

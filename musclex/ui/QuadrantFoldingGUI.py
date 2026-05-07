@@ -639,8 +639,8 @@ class QuadrantFoldingGUI(BaseGUI):
         manual_settings_out_layout = QGridLayout(self.manualSettingsOutContainer)
         manual_settings_out_layout.setContentsMargins(0, 0, 0, 0)
         manual_settings_out_layout.setSpacing(6)
-        self._create_manual_settings_out_proxy()
-        self._populate_manual_processing_layout_proxy_out(manual_settings_out_layout)
+        self._create_manual_settings_out_widgets()
+        self._populate_manual_processing_layout_out(manual_settings_out_layout)
         bg_sub_layout.addWidget(self.manualSettingsOutContainer, 6, 0, 1, 4)
         self.bgChoiceOutChanged()
 
@@ -678,7 +678,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
         # TODO: cache bg metrics
-        # self._clear_bg_metrics_table()
         self._on_bg_options_changed(self.bgOptionsCB.currentIndex())
 
     def _create_manual_settings_proxy(self):
@@ -735,56 +734,100 @@ class QuadrantFoldingGUI(BaseGUI):
         self._bind_proxy_combobox(self._manual_proxy["thetabinCB"], self.thetabinCB)
         self._bind_proxy_combobox(self._manual_proxy["degreeCB"], self.degreeCB)
 
-    def _create_manual_settings_out_proxy(self):
-        self._manual_proxy_out_syncing = False
-        self._manual_proxy_out = {}
+    def _create_manual_settings_out_widgets(self):
+        """Create OUT background controls owned by the main Quadrant Folding UI."""
+        def _spinbox(min_val, max_val, value, step=1, suffix="", prefix=""):
+            spnbx = QSpinBox()
+            spnbx.setRange(min_val, max_val)
+            spnbx.setValue(value)
+            spnbx.setSingleStep(step)
+            spnbx.setKeyboardTracking(False)
+            if suffix:
+                spnbx.setSuffix(suffix)
+            if prefix:
+                spnbx.setPrefix(prefix)
+            return spnbx
 
-        self._manual_proxy_out["gaussFWHMOutLabel"] = self._clone_label(self.gaussFWHMOutLabel)
-        self._manual_proxy_out["boxcarOutLabel"] = self._clone_label(self.boxcarOutLabel)
-        self._manual_proxy_out["cycleOutLabel"] = self._clone_label(self.cycleOutLabel)
-        self._manual_proxy_out["windowSizeOutLabel"] = self._clone_label(self.windowSizeOutLabel)
-        self._manual_proxy_out["windowSepOutLabel"] = self._clone_label(self.windowSepOutLabel)
-        self._manual_proxy_out["thetaBinOutLabel"] = self._clone_label(self.thetaBinOutLabel)
-        self._manual_proxy_out["radialBinOutLabel"] = self._clone_label(self.radialBinOutLabel)
-        self._manual_proxy_out["pixRangeLabelOut"] = self._clone_label(self.pixRangeLabelOut)
-        self._manual_proxy_out["tensionOutLabel"] = self._clone_label(self.tensionOutLabel)
-        self._manual_proxy_out["tophatOutLabel"] = self._clone_label(self.tophatOutLabel)
-        self._manual_proxy_out["smoothOutLabel"] = self._clone_label(self.smoothOutLabel)
-        self._manual_proxy_out["bgChoiceOut"] = self._clone_combobox(self.bgChoiceOut)
-        self._manual_proxy_out["gaussFWHMOut"] = self._clone_spinbox(self.gaussFWHMOut)
-        self._manual_proxy_out["boxcarOutX"] = self._clone_spinbox(self.boxcarOutX)
-        self._manual_proxy_out["boxcarOutY"] = self._clone_spinbox(self.boxcarOutY)
-        self._manual_proxy_out["cycleOut"] = self._clone_spinbox(self.cycleOut)
-        self._manual_proxy_out["thetaBinOutCB"] = self._clone_combobox(self.thetaBinOutCB)
-        self._manual_proxy_out["radialBinOutSpnBx"] = self._clone_spinbox(self.radialBinOutSpnBx)
-        self._manual_proxy_out["winSizeOutX"] = self._clone_spinbox(self.winSizeOutX)
-        self._manual_proxy_out["winSizeOutY"] = self._clone_spinbox(self.winSizeOutY)
-        self._manual_proxy_out["winSepOutX"] = self._clone_spinbox(self.winSepOutX)
-        self._manual_proxy_out["winSepOutY"] = self._clone_spinbox(self.winSepOutY)
-        self._manual_proxy_out["minPixRangeOut"] = self._clone_double_spinbox(self.minPixRangeOut)
-        self._manual_proxy_out["maxPixRangeOut"] = self._clone_double_spinbox(self.maxPixRangeOut)
-        self._manual_proxy_out["smoothOutSpnBx"] = self._clone_double_spinbox(self.smoothOutSpnBx)
-        self._manual_proxy_out["tensionOutSpnBx"] = self._clone_double_spinbox(self.tensionOutSpnBx)
-        self._manual_proxy_out["tophatOutSpnBx"] = self._clone_spinbox(self.tophatOutSpnBx)
+        def _double_spinbox(min_val, max_val, value, decimals=2, step=0.1, suffix=""):
+            spnbx = QDoubleSpinBox()
+            spnbx.setRange(min_val, max_val)
+            spnbx.setValue(value)
+            spnbx.setDecimals(decimals)
+            spnbx.setSingleStep(step)
+            spnbx.setKeyboardTracking(False)
+            if suffix:
+                spnbx.setSuffix(suffix)
+            return spnbx
 
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["gaussFWHMOut"], self.gaussFWHMOut)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["boxcarOutX"], self.boxcarOutX)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["boxcarOutY"], self.boxcarOutY)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["cycleOut"], self.cycleOut)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["radialBinOutSpnBx"], self.radialBinOutSpnBx)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSizeOutX"], self.winSizeOutX)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSizeOutY"], self.winSizeOutY)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSepOutX"], self.winSepOutX)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["winSepOutY"], self.winSepOutY)
-        self._bind_proxy_spinbox_out(self._manual_proxy_out["tophatOutSpnBx"], self.tophatOutSpnBx)
+        self.bgChoiceOut = QComboBox()
+        for choice in self.allBGChoices:
+            if choice == "2D Convexhull": # not supported for outside background
+                continue
+            self.bgChoiceOut.addItem(choice)
+        self.bgChoiceOut.setCurrentIndex(0)
 
-        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["minPixRangeOut"], self.minPixRangeOut)
-        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["maxPixRangeOut"], self.maxPixRangeOut)
-        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["smoothOutSpnBx"], self.smoothOutSpnBx)
-        self._bind_proxy_double_spinbox_out(self._manual_proxy_out["tensionOutSpnBx"], self.tensionOutSpnBx)
+        self.gaussFWHMOutLabel = QLabel("Gaussian FWHM : ")
+        self.gaussFWHMOut = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_GAUSSIAN_FWHM)
 
-        self._bind_proxy_combobox_out(self._manual_proxy_out["bgChoiceOut"], self.bgChoiceOut)
-        self._bind_proxy_combobox_out(self._manual_proxy_out["thetaBinOutCB"], self.thetaBinOutCB)
+        self.boxcarOutLabel = QLabel("Box Car Size : ")
+        self.boxcarOutX = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_BOXCAR_SIZE, prefix='X:')
+        self.boxcarOutY = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_BOXCAR_SIZE, prefix='Y:')
+
+        self.cycleOutLabel = QLabel("Number of Cycles : ")
+        self.cycleOut = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_CYCLES)
+
+        self.windowSizeOutLabel = QLabel("Window Size : ")
+        self.winSizeOutX = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_WINDOW_SIZE, prefix='X:')
+        self.winSizeOutY = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_WINDOW_SIZE, prefix='Y:')
+
+        self.windowSepOutLabel = QLabel("Window Separation : ")
+        self.winSepOutX = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_WINDOW_SEP, prefix='X:')
+        self.winSepOutY = _spinbox(
+            qf_defaults.BG_PARAM_RANGE[0], qf_defaults.BG_PARAM_RANGE[1],
+            qf_defaults.DEFAULT_WINDOW_SEP, prefix='Y:')
+
+        self.minPixRangeOut = _double_spinbox(
+            qf_defaults.PIXEL_RANGE_LIMIT[0], qf_defaults.PIXEL_RANGE_LIMIT[1],
+            qf_defaults.DEFAULT_PIXEL_MIN, decimals=2, step=2, suffix="%")
+        self.maxPixRangeOut = _double_spinbox(
+            qf_defaults.PIXEL_RANGE_LIMIT[0], qf_defaults.PIXEL_RANGE_LIMIT[1],
+            qf_defaults.DEFAULT_PIXEL_MAX, decimals=2, step=2, suffix="%")
+        self.pixRangeLabelOut = QLabel("Pixel Range : ")
+
+        self.thetaBinOutLabel = QLabel("Bin Theta (deg) : ")
+        self.thetaBinOutCB = QComboBox()
+        self.thetaBinOutCB.addItems(qf_defaults.THETA_BIN_OPTIONS)
+        self.thetaBinOutCB.setCurrentIndex(qf_defaults.DEFAULT_THETA_BIN_INDEX)
+
+        self.radialBinOutLabel = QLabel("Radial Bin : ")
+        self.radialBinOutSpnBx = _spinbox(
+            qf_defaults.RADIAL_BIN_RANGE[0], qf_defaults.RADIAL_BIN_RANGE[1],
+            qf_defaults.DEFAULT_RADIAL_BIN, suffix=" Pixel(s)")
+
+        self.smoothOutLabel = QLabel("Smoothing factor : ")
+        self.smoothOutSpnBx = _double_spinbox(0, 10000, qf_defaults.DEFAULT_SMOOTHING, decimals=2, step=0.1)
+
+        self.tensionOutLabel = QLabel("Tension factor : ")
+        self.tensionOutSpnBx = _double_spinbox(0, 100, qf_defaults.DEFAULT_TENSION, decimals=2, step=0.1)
+
+        self.tophatOutLabel = QLabel("Top-hat Disk Size: ")
+        self.tophatOutSpnBx = _spinbox(
+            qf_defaults.TOPHAT_RANGE[0], qf_defaults.TOPHAT_RANGE[1],
+            qf_defaults.DEFAULT_TOPHAT_SIZE)
 
     def _create_transition_settings_proxy(self):
         self._transition_proxy_syncing = False
@@ -868,74 +911,78 @@ class QuadrantFoldingGUI(BaseGUI):
         layout.addWidget(self._manual_proxy["smoothLabel"], row, 0, 1, 1)
         layout.addWidget(self._manual_proxy["smoothSpnBx"], row, 1, 1, 1)
 
-    def _populate_manual_processing_layout_proxy_out(self, layout):
+    def _populate_manual_processing_layout_out(self, layout):
         row = 0
 
+        layout.addWidget(self._create_settings_separator(), row, 0, 1, 2)
+        row += 1
+
         layout.addWidget(QLabel("Subtraction Method:"), row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["bgChoiceOut"], row, 1, 1, 1)
+        layout.addWidget(self.bgChoiceOut, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["cycleOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["cycleOut"], row, 1, 1, 1)
+        layout.addWidget(self.cycleOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.cycleOut, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["gaussFWHMOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["gaussFWHMOut"], row, 1, 1, 1)
+        layout.addWidget(self.gaussFWHMOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.gaussFWHMOut, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["boxcarOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["boxcarOutX"], row, 1, 1, 1)
+        layout.addWidget(self.boxcarOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.boxcarOutX, row, 1, 1, 1)
         row += 1
         layout.addWidget(QWidget(), row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["boxcarOutY"], row, 1, 1, 1)
+        layout.addWidget(self.boxcarOutY, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["windowSizeOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["winSizeOutX"], row, 1, 1, 1)
+        layout.addWidget(self.windowSizeOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.winSizeOutX, row, 1, 1, 1)
         row += 1
         layout.addWidget(QWidget(), row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["winSizeOutY"], row, 1, 1, 1)
+        layout.addWidget(self.winSizeOutY, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["windowSepOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["winSepOutX"], row, 1, 1, 1)
+        layout.addWidget(self.windowSepOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.winSepOutX, row, 1, 1, 1)
         row += 1
         layout.addWidget(QWidget(), row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["winSepOutY"], row, 1, 1, 1)
+        layout.addWidget(self.winSepOutY, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["thetaBinOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["thetaBinOutCB"], row, 1, 1, 1)
+        layout.addWidget(self.thetaBinOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.thetaBinOutCB, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["radialBinOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["radialBinOutSpnBx"], row, 1, 1, 1)
+        layout.addWidget(self.radialBinOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.radialBinOutSpnBx, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["pixRangeLabelOut"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["minPixRangeOut"], row, 1, 1, 1)
+        layout.addWidget(self.pixRangeLabelOut, row, 0, 1, 1)
+        layout.addWidget(self.minPixRangeOut, row, 1, 1, 1)
         row += 1
         layout.addWidget(QWidget(), row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["maxPixRangeOut"], row, 1, 1, 1)
+        layout.addWidget(self.maxPixRangeOut, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["tensionOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["tensionOutSpnBx"], row, 1, 1, 1)
+        layout.addWidget(self.tensionOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.tensionOutSpnBx, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["tophatOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["tophatOutSpnBx"], row, 1, 1, 1)
+        layout.addWidget(self.tophatOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.tophatOutSpnBx, row, 1, 1, 1)
         row += 1
 
-        layout.addWidget(self._manual_proxy_out["smoothOutLabel"], row, 0, 1, 1)
-        layout.addWidget(self._manual_proxy_out["smoothOutSpnBx"], row, 1, 1, 1)
+        layout.addWidget(self.smoothOutLabel, row, 0, 1, 1)
+        layout.addWidget(self.smoothOutSpnBx, row, 1, 1, 1)
 
     def _populate_transition_processing_layout_proxy(self, layout):
-        layout.addWidget(QLabel("Transition Radius:"), 0, 0, 1, 2)
-        layout.addWidget(self._transition_proxy["tranRSpnBx"], 0, 2, 1, 2)
-        layout.addWidget(QLabel("Transition Delta:"), 1, 0, 1, 2)
-        layout.addWidget(self._transition_proxy["tranDeltaSpnBx"], 1, 2, 1, 2)
-        layout.addWidget(self._transition_proxy["showTranRadDeltaChkBx"], 2, 0, 1, 4)
+        layout.addWidget(self._create_settings_separator(), 0, 0, 1, 4)
+        layout.addWidget(QLabel("Transition Radius:"), 1, 0, 1, 2)
+        layout.addWidget(self._transition_proxy["tranRSpnBx"], 1, 2, 1, 2)
+        layout.addWidget(QLabel("Transition Delta:"), 2, 0, 1, 2)
+        layout.addWidget(self._transition_proxy["tranDeltaSpnBx"], 2, 2, 1, 2)
+        layout.addWidget(self._transition_proxy["showTranRadDeltaChkBx"], 3, 0, 1, 4)
 
     def _clone_spinbox(self, source):
         proxy = QSpinBox()
@@ -979,6 +1026,12 @@ class QuadrantFoldingGUI(BaseGUI):
         proxy.setHidden(source.isHidden())
         return proxy
 
+    def _create_settings_separator(self):
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        return separator
+
     def _bind_proxy_spinbox(self, proxy, source):
         def _proxy_changed(value):
             if self._manual_proxy_syncing:
@@ -997,24 +1050,6 @@ class QuadrantFoldingGUI(BaseGUI):
         proxy.valueChanged.connect(_proxy_changed)
         source.valueChanged.connect(_source_changed)
 
-    def _bind_proxy_spinbox_out(self, proxy, source):
-        def _proxy_changed(value):
-            if self._manual_proxy_out_syncing:
-                return
-            self._manual_proxy_out_syncing = True
-            source.setValue(value)
-            self._manual_proxy_out_syncing = False
-
-        def _source_changed(value):
-            if self._manual_proxy_out_syncing:
-                return
-            self._manual_proxy_out_syncing = True
-            proxy.setValue(value)
-            self._manual_proxy_out_syncing = False
-
-        proxy.valueChanged.connect(_proxy_changed)
-        source.valueChanged.connect(_source_changed)
-
     def _bind_proxy_double_spinbox(self, proxy, source):
         def _proxy_changed(value):
             if self._manual_proxy_syncing:
@@ -1029,24 +1064,6 @@ class QuadrantFoldingGUI(BaseGUI):
             self._manual_proxy_syncing = True
             proxy.setValue(value)
             self._manual_proxy_syncing = False
-
-        proxy.valueChanged.connect(_proxy_changed)
-        source.valueChanged.connect(_source_changed)
-
-    def _bind_proxy_double_spinbox_out(self, proxy, source):
-        def _proxy_changed(value):
-            if self._manual_proxy_out_syncing:
-                return
-            self._manual_proxy_out_syncing = True
-            source.setValue(value)
-            self._manual_proxy_out_syncing = False
-
-        def _source_changed(value):
-            if self._manual_proxy_out_syncing:
-                return
-            self._manual_proxy_out_syncing = True
-            proxy.setValue(value)
-            self._manual_proxy_out_syncing = False
 
         proxy.valueChanged.connect(_proxy_changed)
         source.valueChanged.connect(_source_changed)
@@ -1083,24 +1100,6 @@ class QuadrantFoldingGUI(BaseGUI):
             self._downsample_proxy_syncing = True
             proxy.setCurrentIndex(index)
             self._downsample_proxy_syncing = False
-
-        proxy.currentIndexChanged.connect(_proxy_changed)
-        source.currentIndexChanged.connect(_source_changed)
-
-    def _bind_proxy_combobox_out(self, proxy, source):
-        def _proxy_changed(index):
-            if self._manual_proxy_out_syncing:
-                return
-            self._manual_proxy_out_syncing = True
-            source.setCurrentIndex(index)
-            self._manual_proxy_out_syncing = False
-
-        def _source_changed(index):
-            if self._manual_proxy_out_syncing:
-                return
-            self._manual_proxy_out_syncing = True
-            proxy.setCurrentIndex(index)
-            self._manual_proxy_out_syncing = False
 
         proxy.currentIndexChanged.connect(_proxy_changed)
         source.currentIndexChanged.connect(_source_changed)
@@ -1281,14 +1280,7 @@ class QuadrantFoldingGUI(BaseGUI):
     def openBackgroundSubtractionDialog(self):
         """Open the background subtraction settings popup."""
         self._update_bg_method_summary()
-        if 'evaluation_baseline' in self.quadFold.info:
-            self.evaluationBaselineSpnBx.setValue(float(self.quadFold.info.get('evaluation_baseline',  self.evaluationBaselineSpnBx.value())))
-        if 'synthetic_amplitude' in self.quadFold.info:
-            self.amplitudeSpnBx.setValue(float(self.quadFold.info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
-        if 'synthetic_sigma_x' in self.quadFold.info:
-            self.sigmaXSpnBx.setValue(float(self.quadFold.info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
-        if 'synthetic_sigma_y' in self.quadFold.info:
-            self.sigmaYSpnBx.setValue(float(self.quadFold.info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
+        self._sync_metric_and_synthetic_widgets_from_info()
         self.bgSubDialog.show()
         self.bgSubDialog.raise_()
         self.bgSubDialog.activateWindow()
@@ -1327,7 +1319,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         method_text = "None" if method in (None, "") else str(method)
         params_text = self._format_bg_params_text(params)
-        loss_text = "—" if loss is None else _to_metric_text(loss)
+        loss_text = "—" if loss is None else _to_metric_text(loss, decimal_places=4)
 
         self.currentBGMethodLabel.setText(method_text)
         self.currentBGParamsLabel.setText(params_text)
@@ -2496,39 +2488,36 @@ class QuadrantFoldingGUI(BaseGUI):
             if widget is not None:
                 widget.setHidden(hidden)
 
-        def _set_hidden_out_proxy(key, hidden):
+        def _set_hidden_out_widget(key, hidden):
             _set_hidden(getattr(self, key, None), hidden)
-            widget = self._manual_proxy_out.get(key)
-            if widget is not None:
-                widget.setHidden(hidden)
 
-        _set_hidden_out_proxy('tophatOutSpnBx', not choice == 'White-top-hats')
-        _set_hidden_out_proxy('tophatOutLabel', not choice == 'White-top-hats')
-        _set_hidden_out_proxy('windowSizeOutLabel', not choice == 'Roving Window')
-        _set_hidden_out_proxy('winSizeOutX', not choice == 'Roving Window')
-        _set_hidden_out_proxy('winSizeOutY', not choice == 'Roving Window')
-        _set_hidden_out_proxy('windowSepOutLabel', not choice == 'Roving Window')
-        _set_hidden_out_proxy('winSepOutX', not choice == 'Roving Window')
-        _set_hidden_out_proxy('winSepOutY', not choice == 'Roving Window')
-        _set_hidden_out_proxy('maxPixRangeOut', not choice in ('Roving Window', 'Circularly-symmetric'))
-        _set_hidden_out_proxy('minPixRangeOut', not choice in ('Roving Window', 'Circularly-symmetric'))
-        _set_hidden_out_proxy('pixRangeLabelOut', not choice in ('Roving Window', 'Circularly-symmetric'))
-        _set_hidden_out_proxy('gaussFWHMOutLabel', not choice == 'Smoothed-Gaussian')
-        _set_hidden_out_proxy('gaussFWHMOut', not choice == 'Smoothed-Gaussian')
-        _set_hidden_out_proxy('boxcarOutLabel', not choice == 'Smoothed-BoxCar')
-        _set_hidden_out_proxy('boxcarOutX', not choice == 'Smoothed-BoxCar')
-        _set_hidden_out_proxy('boxcarOutY', not choice == 'Smoothed-BoxCar')
-        _set_hidden_out_proxy('cycleOutLabel', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
-        _set_hidden_out_proxy('cycleOut', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
-        _set_hidden_out_proxy('thetaBinOutLabel', True)
-        _set_hidden_out_proxy('thetaBinOutCB', True)
+        _set_hidden_out_widget('tophatOutSpnBx', not choice == 'White-top-hats')
+        _set_hidden_out_widget('tophatOutLabel', not choice == 'White-top-hats')
+        _set_hidden_out_widget('windowSizeOutLabel', not choice == 'Roving Window')
+        _set_hidden_out_widget('winSizeOutX', not choice == 'Roving Window')
+        _set_hidden_out_widget('winSizeOutY', not choice == 'Roving Window')
+        _set_hidden_out_widget('windowSepOutLabel', not choice == 'Roving Window')
+        _set_hidden_out_widget('winSepOutX', not choice == 'Roving Window')
+        _set_hidden_out_widget('winSepOutY', not choice == 'Roving Window')
+        _set_hidden_out_widget('maxPixRangeOut', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_widget('minPixRangeOut', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_widget('pixRangeLabelOut', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_widget('gaussFWHMOutLabel', not choice == 'Smoothed-Gaussian')
+        _set_hidden_out_widget('gaussFWHMOut', not choice == 'Smoothed-Gaussian')
+        _set_hidden_out_widget('boxcarOutLabel', not choice == 'Smoothed-BoxCar')
+        _set_hidden_out_widget('boxcarOutX', not choice == 'Smoothed-BoxCar')
+        _set_hidden_out_widget('boxcarOutY', not choice == 'Smoothed-BoxCar')
+        _set_hidden_out_widget('cycleOutLabel', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        _set_hidden_out_widget('cycleOut', not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        _set_hidden_out_widget('thetaBinOutLabel', True)
+        _set_hidden_out_widget('thetaBinOutCB', True)
 
-        _set_hidden_out_proxy('radialBinOutSpnBx', not choice == 'Circularly-symmetric')
-        _set_hidden_out_proxy('radialBinOutLabel', not choice == 'Circularly-symmetric')
-        _set_hidden_out_proxy('smoothOutLabel', not choice in ('Roving Window', 'Circularly-symmetric'))
-        _set_hidden_out_proxy('smoothOutSpnBx', not choice in ('Roving Window', 'Circularly-symmetric'))
-        _set_hidden_out_proxy('tensionOutLabel', not choice in ('Roving Window'))
-        _set_hidden_out_proxy('tensionOutSpnBx', not choice in ('Roving Window'))
+        _set_hidden_out_widget('radialBinOutSpnBx', not choice == 'Circularly-symmetric')
+        _set_hidden_out_widget('radialBinOutLabel', not choice == 'Circularly-symmetric')
+        _set_hidden_out_widget('smoothOutLabel', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_widget('smoothOutSpnBx', not choice in ('Roving Window', 'Circularly-symmetric'))
+        _set_hidden_out_widget('tensionOutLabel', not choice in ('Roving Window'))
+        _set_hidden_out_widget('tensionOutSpnBx', not choice in ('Roving Window'))
 
 
     def updateImportedBG(self):
@@ -2736,36 +2725,12 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.earlyStopSpnBx.setValue(float(info['early_stop']))
             if 'methods' in info and isinstance(info['methods'], (list, tuple)):
                 self._set_selected_optimization_methods(info['methods'])
+            if 'downsample' in info:
+                self.downsampleCB.setCurrentText(str(info['downsample']))
+            if 'smooth_image' in info:
+                self.smoothImageChkbx.setChecked(info['smooth_image'])
 
-            if 'mean_metric_values' in info and isinstance(info['mean_metric_values'], dict):
-                means = info['mean_metric_values']
-                self.meanMSESpnBx.setValue(float(means.get('MSE_SYN_MEAN', self.meanMSESpnBx.value())))
-                self.meanNegSynSpnBx.setValue(_fraction_to_percent_for_ui(means.get('SHARE_NEG_SYN_MEAN', self.meanNegSynSpnBx.value())))
-                self.meanNonBaselineSpnBx.setValue(_fraction_to_percent_for_ui(means.get('SHARE_NON_BASELINE_MEAN', self.meanNonBaselineSpnBx.value())))
-                self.meanNegConSpnBx.setValue(_fraction_to_percent_for_ui(means.get('SHARE_NEG_CON_MEAN', self.meanNegConSpnBx.value())))
-                self.meanSmoothSpnBx.setValue(float(means.get('SMOOTH_MEAN', self.meanSmoothSpnBx.value())))
-
-            if 'metric_weights' in info and isinstance(info['metric_weights'], dict):
-                weights = info['metric_weights']
-                self.weightMSESpnBx.setValue(float(weights.get('MSE', self.weightMSESpnBx.value())))
-                self.weightNegSynSpnBx.setValue(float(weights.get('Share_Neg_Synthetic', self.weightNegSynSpnBx.value())))
-                self.weightNonBaselineSpnBx.setValue(float(weights.get('Share_Non_Baseline', self.weightNonBaselineSpnBx.value())))
-                self.weightNegConSpnBx.setValue(float(weights.get('Share_Neg_Connected', self.weightNegConSpnBx.value())))
-                self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
-
-        if 'evaluation_baseline' in info:
-            self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline',  self.evaluationBaselineSpnBx.value())))
-        if 'synthetic_amplitude' in info:
-            self.amplitudeSpnBx.setValue(float(info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
-        if 'synthetic_sigma_x' in info:
-            self.sigmaXSpnBx.setValue(float(info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
-        if 'synthetic_sigma_y' in info:
-            self.sigmaYSpnBx.setValue(float(info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
-        if 'freq' in info:
-            freq_value = str(info.get('freq', self.freqCB.currentText()))
-            idx = self.freqCB.findText(freq_value)
-            if idx >= 0:
-                self.freqCB.setCurrentIndex(idx)
+        self._sync_metric_and_synthetic_widgets_from_info(info=info)
 
 
         # Range is already set to allow any value at spinbox creation
@@ -2779,6 +2744,51 @@ class QuadrantFoldingGUI(BaseGUI):
             self.rotate90Chkbx.setChecked(info['rotate'])
 
         self.uiUpdating = False
+    def _sync_metric_and_synthetic_widgets_from_info(self, info=None):
+        """
+        Sync metric table controls and synthetic/evaluation controls from cached info.
+        Refresh the loss table after spinboxes are updated so table text matches cache.
+        """
+        if info is None:
+            if not hasattr(self, "quadFold") or self.quadFold is None:
+                return
+            info = self.quadFold.info
+        if not isinstance(info, dict):
+            return
+
+        if 'mean_metric_values' in info and isinstance(info['mean_metric_values'], dict):
+            means = info['mean_metric_values']
+            self.meanMSESpnBx.setValue(float(means.get('MSE_SYN_MEAN', self.meanMSESpnBx.value())))
+            self.meanNegSynSpnBx.setValue(_fraction_to_percent_for_ui(means.get('SHARE_NEG_SYN_MEAN', self.meanNegSynSpnBx.value())))
+            self.meanNonBaselineSpnBx.setValue(_fraction_to_percent_for_ui(means.get('SHARE_NON_BASELINE_MEAN', self.meanNonBaselineSpnBx.value())))
+            self.meanNegConSpnBx.setValue(_fraction_to_percent_for_ui(means.get('SHARE_NEG_CON_MEAN', self.meanNegConSpnBx.value())))
+            self.meanSmoothSpnBx.setValue(float(means.get('SMOOTH_MEAN', self.meanSmoothSpnBx.value())))
+
+        if 'metric_weights' in info and isinstance(info['metric_weights'], dict):
+            weights = info['metric_weights']
+            self.weightMSESpnBx.setValue(float(weights.get('MSE', self.weightMSESpnBx.value())))
+            self.weightNegSynSpnBx.setValue(float(weights.get('Share_Neg_Synthetic', self.weightNegSynSpnBx.value())))
+            self.weightNonBaselineSpnBx.setValue(float(weights.get('Share_Non_Baseline', self.weightNonBaselineSpnBx.value())))
+            self.weightNegConSpnBx.setValue(float(weights.get('Share_Neg_Connected', self.weightNegConSpnBx.value())))
+            self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
+
+        if 'evaluation_baseline' in info:
+            self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value())))
+        if 'synthetic_amplitude' in info:
+            self.amplitudeSpnBx.setValue(float(info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
+        if 'synthetic_sigma_x' in info:
+            self.sigmaXSpnBx.setValue(float(info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
+        if 'synthetic_sigma_y' in info:
+            self.sigmaYSpnBx.setValue(float(info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
+        if 'freq' in info:
+            freq_value = str(info.get('freq', self.freqCB.currentText()))
+            idx = self.freqCB.findText(freq_value)
+            if idx >= 0:
+                self.freqCB.setCurrentIndex(idx)
+
+        if hasattr(self, "bgSubDialog"):
+            self.bgSubDialog._populate_loss_params_table()
+
 
 
 
@@ -3240,6 +3250,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 print("Adding default optimization configuration to background subtraction dialog")
                 self.bgSubDialog.addBackgroundConfiguration(name="Default Optimization")
                 self._addDefaultOptimizationConfig = False
+            self._sync_bg_widgets_from_info()
         if self._stopOptimizationRequested:
             self._stopOptimizationRequested = False
             self.stop_process = False
@@ -3510,7 +3521,6 @@ class QuadrantFoldingGUI(BaseGUI):
             print("UPDATE PARAMS SUCCESS")
 
         self._update_bg_method_summary()
-        self._sync_bg_widgets_from_info()
         self.bgSubDialog._update_bg_metrics_table()
         
 
@@ -3528,22 +3538,16 @@ class QuadrantFoldingGUI(BaseGUI):
         if not isinstance(info, dict):
             return
 
-        # Update method selection (in)
-        method = info.get("bgsub", None)
-        if (
-            method is not None
-            and hasattr(self, "allBGChoices")
-            and hasattr(self, "bgChoiceIn")
-            and method in self.allBGChoices
-        ):
-            try:
-                self.bgChoiceIn.blockSignals(True)
-                self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(method))
-            finally:
-                self.bgChoiceIn.blockSignals(False)
+        def _set_widget_value(widget, value, proxy_key=None):
+            for target in (widget, self._manual_proxy.get(proxy_key) if hasattr(self, "_manual_proxy") and proxy_key else None):
+                if target is None:
+                    continue
+                try:
+                    target.blockSignals(True)
+                    target.setValue(value)
+                finally:
+                    target.blockSignals(False)
 
-        # Push common bg-sub parameters into their widgets if present.
-        # (These keys match what QuadrantFolder writes into `info`.)
         mapping = [
             ("tophat", "tophatSpnBx", int),
             ("cirmax", "maxPixRange", float),
@@ -3573,11 +3577,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 val = caster(info.get(key))
             except Exception:
                 continue
-            try:
-                widget.blockSignals(True)
-                widget.setValue(val)
-            finally:
-                widget.blockSignals(False)
+            _set_widget_value(widget, val, widget_attr)
 
     def resetStatusbar(self):
         """
@@ -3633,7 +3633,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # ===== Background removal flags =====
         flags['bgsub'] = self.bgChoiceIn.currentText()
-        flags['downsample'] = int(self.downsampleCB.currentText())
         flags["cirmin"] = self.minPixRange.value()
         flags["cirmax"] = self.maxPixRange.value()
         flags['win_size_x'] = self.winSizeX.value()
@@ -3679,7 +3678,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['optimize'] = self.optimizeFlag is True
         flags['bg_options'] = self.bgOptionsCB.currentIndex()    
         flags['methods'] = self._get_selected_optimization_methods()
-        flags['steps'] = parse_optimization_steps()
+        flags['steps'] = parse_optimization_steps(self.stepsLineEdit.text())
         flags['max_iterations'] = self.maxIterationsSpnBx.value()
         flags['early_stop'] = self.earlyStopSpnBx.value()
         flags['mean_metric_values'] = {
@@ -3708,6 +3707,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['m1'] = self.m1SpnBx.value()
         flags['layer_line_width'] = self.layerLineWidthSpnBx.value()
         flags['smooth_image'] = self.smoothImageChkbx.isChecked()
+        flags['downsample'] = int(self.downsampleCB.currentText())
 
         # Auto-select from saved user background configurations (used mainly in batch processing)
         flags['choose_configurations_auto'] = self.chooseConfigurationsAutoChkBx.isChecked()
@@ -4215,16 +4215,30 @@ class QuadrantFoldingGUI(BaseGUI):
         self._set_downsample_from_image_size(original_image)
 
     def _set_downsample_from_image_size(self, image):
-        """Set downsample to 1 when image is smaller than 1000px."""
+        """Use cached downsample when available, otherwise set size-based default."""
         if image is None or not hasattr(self, 'downsampleCB'):
             return
 
         try:
+            info = self.quadFold.info if hasattr(self, "quadFold") and self.quadFold is not None else {}
+            cached_downsample = info.get('downsample', None) if isinstance(info, dict) else None
+
+            if cached_downsample not in (None, ""):
+                try:
+                    cached_text = str(int(cached_downsample))
+                    if self.downsampleCB.findText(cached_text) >= 0:
+                        self.downsampleCB.setCurrentText(cached_text)
+                        return
+                except Exception:
+                    pass
+
             h, w = image.shape[:2]
-            if max(h, w) < 1000:
-                self.downsampleCB.setCurrentText("1")
-            else:
-                self.downsampleCB.setCurrentText("2")
+            default_text = "1" if max(h, w) < 1000 else "2"
+            self.downsampleCB.setCurrentText(default_text)
+
+            # Keep info consistent so this default can be cached and reused next load.
+            if isinstance(info, dict):
+                info['downsample'] = int(default_text)
         except Exception:
             pass
 

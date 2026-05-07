@@ -694,9 +694,6 @@ class QuadrantFolder:
 
 
     def createArtificialData(self):
-        # amp = float(self.info.get('amp', 0.01))
-        # sigma_x_div = max(float(self.info.get('sigma_x_div', 5.0)), 1e-6)
-        # sigma_y_div = max(float(self.info.get('sigma_y_div', 10.0)), 1e-6)
         freq = str(self.info.get('freq', 'medium')).lower()
         AMP = 0.01
         SIGMA_X_DIV = 5.0
@@ -865,18 +862,17 @@ class QuadrantFolder:
 
         kwargs = self._build_bg_search_kwargs()
 
-        def _apply_selected_configuration(method, params, loss_value, config_name='-'):
+        def _apply_selected_configuration(method, params, loss_value, downsample_factor, config_name='-'):
             for key, value in params.items():
                 self.info[f"{key}"] = value
             self.info['result_bg']['final_params'] = params
             self.info['result_bg']['optimized'] = False
             self.info['result_bg']['method'] = method
             self.info['result_bg']['loss'] = loss_value
+            self.info['result_bg']['downsampled'] = downsample_factor
             self.info['result_bg']['selected_configuration_name'] = config_name if config_name else '-'
             self.info['bgsub'] = method
 
-        # import debugpy
-        # debugpy.breakpoint()  # force stop in this QThreadPool worker thread
 
         selection = self._select_background_configuration(kwargs, _apply_selected_configuration)
         best_method = selection['best_method']
@@ -1272,8 +1268,7 @@ class QuadrantFolder:
         method = self.info["bgsub"]
         tmp_rmin = self.info['_rmin']
 
-        # import debugpy
-        # debugpy.breakpoint() 
+
         if "BgSubFold" not in self.imgCache:
             img_in = np.array(self.info["bgimg"], dtype="float32")
             img_out = np.array(self.info["bgimg_out"], dtype="float32")
