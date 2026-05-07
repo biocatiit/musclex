@@ -1324,8 +1324,10 @@ class XRayViewerGUI(QMainWindow):
             self.first_slice = True
             tool_mgr.activate_tool('xv_legacy')
         else:
-            tool_mgr.deactivate_tool('xv_legacy')
-            self._setStatusPath(None)
+            # Capture the live slice state BEFORE deactivating the legacy
+            # placeholder: tool_mgr.deactivate_tool('xv_legacy') fires
+            # _on_xv_legacy_deactivated which clears self.function. Reading
+            # it after deactivate would always see None.
             if self.function is not None and self.function[0] == "slice":
                 func = self.function
                 self.saved_slice = func
@@ -1333,6 +1335,13 @@ class XRayViewerGUI(QMainWindow):
             else:
                 func = self.saved_slice
                 test_first_slice = False
+            tool_mgr.deactivate_tool('xv_legacy')
+            self._setStatusPath(None)
+            if not func:
+                # Toggled off without drawing anything (or before any
+                # slice was ever computed). Nothing to plot.
+                self.refreshAllTabs()
+                return
             cx, cy, angle = 0, 0, 0
             for i in range(1, len(func) - 1, 2):
                 cx = (func[i+1][0] + func[i][0])//2
@@ -1372,8 +1381,9 @@ class XRayViewerGUI(QMainWindow):
             self.first_box = True
             tool_mgr.activate_tool('xv_legacy')
         else:
-            tool_mgr.deactivate_tool('xv_legacy')
-            self._setStatusPath(None)
+            # Capture the live slice_box state BEFORE deactivating the
+            # legacy placeholder (which clears self.function via
+            # _on_xv_legacy_deactivated).
             if self.function is not None and self.function[0] == "slice_box":
                 func = self.function
                 self.saved_slice = func
@@ -1381,6 +1391,11 @@ class XRayViewerGUI(QMainWindow):
             else:
                 func = self.saved_slice
                 test_first_box = False
+            tool_mgr.deactivate_tool('xv_legacy')
+            self._setStatusPath(None)
+            if not func:
+                self.refreshAllTabs()
+                return
             if len(func) > 1:
                 cx, cy, angle = 0, 0, 0
                 cx = (func[2][0] + func[1][0])//2
