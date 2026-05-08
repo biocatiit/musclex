@@ -214,7 +214,7 @@ ImageNavigatorWidget.load_from_file
 One change — in `ProcessingWorkspace.on_file_loaded` — covers all four
 GUIs at once.
 
-### Legacy GUIs (DIImageWindow, DIBatchWindow, DiffractionCentroids, TotalDisplayIntensity)
+### Legacy GUIs (DIImageWindow, DIBatchWindow, DiffractionCentroids, TotalDiffractionIntensity)
 
 Each window resolves the context immediately after `browseFile` sets its
 `filePath`:
@@ -360,7 +360,7 @@ musclex qf -f /data/my_experiment
 | `musclex/ui/AddIntensitiesSingleExp.py` | Modified | Uses `dir_context.output_dir` for `aise_results/`; File menu created; resets results path on `outputDirChanged` |
 | `musclex/ui/AddIntensitiesMultipleExp.py` | Modified | Uses `dir_context.output_dir` for `aime_results/`; File menu created; own `_change_output_directory()` keyed on parent dir |
 | `musclex/ui/diffraction_centroids.py` | Modified | Passes `output_dir` to `DiffractionCentroids` and `DC_CSVManager`; File menu on both start and process windows |
-| `musclex/ui/TotalDisplayIntensity.py` | Modified | Uses `dir_context.output_dir` for `tdi_results/`; File menu action |
+| `musclex/ui/TotalDiffractionIntensity.py` | Modified | Uses `dir_context.output_dir` for `tdi_results/`; File menu action |
 | `musclex/utils/file_manager.py` | Modified | Scan-cache fallback; `self.output_dir`; log fallback |
 | `musclex/utils/settings_manager.py` | Modified | Callers pass `output_dir` to `switch_dir` |
 | `musclex/modules/EquatorImage.py` | Modified | `output_dir` param; cache writes use it |

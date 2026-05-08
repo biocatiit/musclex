@@ -41,7 +41,7 @@ from matplotlib.colors import Normalize
 from .ImageMaskTool import ImageMaskerWindow
 
 
-class TotalDisplayIntensity(QMainWindow):
+class TotalDiffractionIntensity(QMainWindow):
 
     def __init__(self):
         super().__init__()
@@ -64,7 +64,7 @@ class TotalDisplayIntensity(QMainWindow):
         """
         Initialize the UI
         """
-        self.setWindowTitle("Muscle X Total Display Intensity v." + __version__)
+        self.setWindowTitle("Muscle X Total Diffraction Intensity v." + __version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)

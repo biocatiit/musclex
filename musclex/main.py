@@ -126,11 +126,11 @@ def main(arguments=None):
             myapp = AIStartWindow()
             sys.exit(app.exec_())
         elif prog== 'tdi':
-            from musclex.ui.TotalDisplayIntensity import TotalDisplayIntensity
+            from musclex.ui.TotalDiffractionIntensity import TotalDiffractionIntensity
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
-            myapp = TotalDisplayIntensity()
+            myapp = TotalDiffractionIntensity()
             sys.exit(app.exec_())
         elif prog== 'qfce':
             print("Checkpoint 1")

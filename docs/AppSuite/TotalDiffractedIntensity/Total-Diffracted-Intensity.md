@@ -29,12 +29,10 @@ These metrics are valuable for comparing conditions (e.g., relaxed vs. contracte
 - From source (developer mode):
 
   ```bash
-  python3 -m musclex.ui.TotalDisplayIntensity
+  python3 -m musclex.ui.TotalDiffractionIntensity
   ```
 
 > Required Python packages: `PyQt5`, `matplotlib`, `fabio`, `numpy`, `pandas`.
->
-> Note that the class `TotalDisplayIntensity` will be renamed in a future release to `TotalDiffractedIntensity`.
 
 
 
@@ -186,7 +184,7 @@ This mask is then used in downstream image analysis and intensity extraction.
 
 | Component                     | File                                                  | Description                                                                                      |
 | ----------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| TDI integration               | `musclex/ui/TotalDisplayIntensity.py`                 | `maskButtonClicked()` launches the tool; `buildMask()` loads masks                               |
+| TDI integration               | `musclex/ui/TotalDiffractionIntensity.py`             | `maskButtonClicked()` launches the tool; `buildMask()` loads masks                               |
 | Masking UI & logic            | `musclex/ui/ImageMaskTool.py`                         | `ImageMaskerWindow` handles threshold sliders, dilation checkboxes, Rmin/Rmax, subtraction logic |
 | Manual mask drawing interface | Called via `Draw Mask` (uses built-in or pyFAI tools) |                                                                                                  |
 | File handling                 | `musclex/utils/file_manager.py`                       | `getBlankImageAndMask`, `getMaskOnly` parse files from disk                                      |
