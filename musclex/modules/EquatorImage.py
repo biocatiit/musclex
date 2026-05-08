@@ -427,6 +427,8 @@ class EquatorImage:
             right_hist = hist[int(center[0]):]
             right_hull = convexHull(right_hist, start_p=rmin, end_p=rmax, ignore=right_ignore) # Apply Convex hull for right histogram
             left_hull = convexHull(left_hist, start_p=rmin, end_p=rmax, ignore=left_ignore) # Apply Convex hull for left histogram
+            right_hull = self._interpolateIgnoredHullValues(right_hull, right_ignore, rmin, rmax)
+            left_hull = self._interpolateIgnoredHullValues(left_hull, left_ignore, rmin, rmax)
 
             hull = copy.copy(list(left_hull[::-1]))
             hull.extend(list(right_hull[:]))
@@ -442,6 +444,49 @@ class EquatorImage:
             self.removeInfo('tmp_peaks') # Remove temp peaks from info dict to make it be re-calculated
             
         print("Done.")
+
+    def _interpolateIgnoredHullValues(self, hull, ignore, start_p, end_p):
+        """
+        Fill EQ ignored columns in the background-subtracted curve by interpolation.
+
+        convexHull(ignore=...) still uses the ignore mask to keep the background
+        baseline from dropping into masked detector gaps, but its shared helper
+        currently forces ignored output samples to zero. For EQ fitting, that
+        creates artificial cuts in the peak signal, so this method restores only
+        the active hull range using neighboring non-ignored samples.
+        """
+        if ignore is None:
+            return hull
+
+        hull = np.array(hull, dtype=np.float32)
+        ignore = np.array(ignore, dtype=bool)
+        if len(hull) != len(ignore) or len(hull) == 0:
+            return hull
+
+        start_p = max(0, int(round(start_p)))
+        end_p = min(len(hull), int(round(end_p)))
+        if end_p <= start_p:
+            return hull
+
+        active = np.zeros(len(hull), dtype=bool)
+        active[start_p:end_p] = True
+        target = active & ignore
+        if not np.any(target):
+            return hull
+
+        valid = active & ~ignore
+        valid_indices = np.where(valid)[0]
+        target_indices = np.where(target)[0]
+        if len(valid_indices) < 2:
+            return hull
+
+        in_bounds = (target_indices > valid_indices[0]) & (target_indices < valid_indices[-1])
+        if not np.any(in_bounds):
+            return hull
+
+        fill_indices = target_indices[in_bounds]
+        hull[fill_indices] = np.interp(fill_indices, valid_indices, hull[valid_indices])
+        return hull
         
     def find_gaps(self, y_with_gaps, margin=3):
         # Find gap regions
