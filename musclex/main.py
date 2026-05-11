@@ -43,6 +43,86 @@ from musclex import stylesheet
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
 
+
+def _print_eq_headless_help():
+    """
+    Print a focused usage / help message for ``musclex eq -h``.
+
+    Why this exists:
+        Running ``musclex eq -h`` without ``-i``/``-f`` previously fell
+        through to the generic top-level help, which buries the
+        headless-specific arguments and does not mention resource
+        control hooks. Beamline operators integrating MuscleX into
+        control software need this information up front, so we surface
+        a dedicated help block for the headless Equator entry point.
+
+    The message lists required/optional arguments, common usage
+    examples, and the recommended resource-control patterns
+    (``MUSCLEX_WORKERS`` and ``taskset``) for shared data servers.
+    It also resolves and prints the currently active worker limit so
+    operators can confirm their environment settings at a glance.
+    """
+    import multiprocessing
+
+    # Resolve the effective worker limit using the same logic as
+    # EQStartWindowh._resolve_worker_limit, so the printed value
+    # matches what a real run would actually use.
+    env_val = os.environ.get('MUSCLEX_WORKERS')
+    try:
+        cpu_n = multiprocessing.cpu_count() or 2
+    except NotImplementedError:
+        cpu_n = 2
+
+    if env_val is not None:
+        try:
+            resolved = max(1, int(env_val))
+            worker_source = f"from MUSCLEX_WORKERS={env_val}"
+        except (TypeError, ValueError):
+            resolved = max(1, cpu_n - 2)
+            worker_source = f"MUSCLEX_WORKERS={env_val!r} is invalid, using default"
+    else:
+        resolved = max(1, cpu_n - 2)
+        worker_source = f"default (cpu_count {cpu_n} - 2; set MUSCLEX_WORKERS to override)"
+
+    lines = [
+        "",
+        "Equator (headless) - musclex eq -h",
+        "",
+        "Usage:",
+        "  musclex eq -h (-i <file> | -f <folder>) [-s <config.json>] [-d] [-o <output_dir>]",
+        "",
+        "Arguments:",
+        "  -i <filename>            Process a single image file",
+        "  -f <foldername>          Process every supported image in a folder (or .h5 file)",
+        "  -s <config.json>         Optional. Settings file saved from the GUI",
+        "                           (File > Save the current settings)",
+        "  -d                       Optional. Delete existing cache before processing",
+        "  -o, --output-dir <dir>   Optional. Directory for results, cache, and settings",
+        "                           (defaults to the input directory when writable)",
+        "",
+        "Examples:",
+        "  musclex eq -h -i sample.tif -s config.json",
+        "  musclex eq -h -f /data/folder -s config.json -o /data/results",
+        "  musclex eq -h -i failedcases.txt          # rerun only previously failed files",
+        "",
+        "Resource control (useful on shared beamline data servers):",
+        f"  Current worker limit : {resolved}  ({worker_source})",
+        "",
+        "  MUSCLEX_WORKERS=<n> musclex eq -h -f /data/folder -s config.json",
+        "      Cap concurrent worker processes to <n>",
+        "",
+        "  taskset -c 0-3 musclex eq -h -f /data/folder -s config.json",
+        "      Pin MuscleX and all of its child workers to logical CPUs 0-3 (Linux)",
+        "",
+        "  taskset -c 0-3 env MUSCLEX_WORKERS=4 musclex eq -h -f /data/folder -s config.json",
+        "      Hard cap on which cores may be used, plus a soft cap on worker count",
+        "",
+        "More details: https://musclex.readthedocs.io",
+        "",
+    ]
+    print("\n".join(lines))
+
+
 def main(arguments=None):
     in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
     h5_types = ['.h5', '.hdf5']
@@ -202,13 +282,20 @@ def main(arguments=None):
         else:
             run = False
 
-    elif len(arguments) >= 5 and arguments[1]=='eq' and arguments[2]=='-h':
+    elif len(arguments) >= 3 and arguments[1]=='eq' and arguments[2]=='-h':
+        # Lowered the length threshold from 5 to 3 so that bare
+        # ``musclex eq -h`` (no -i/-f) reaches this branch and gets a
+        # focused help message via `_print_eq_headless_help` instead of
+        # falling through to the generic top-level usage block.
         inputsetting=False
         delcache=False
         run=True
         i=3
         settingspath="empty"
         output_dir=None
+        # Initialize filename so we can distinguish "no input given" from
+        # "input given but other args malformed".
+        filename=None
         while i < len(arguments):
             if arguments[i]=='-s':
                 inputsetting=True
@@ -232,6 +319,12 @@ def main(arguments=None):
                 run=False
                 break
             i=i+1
+        # No input file/folder was supplied (e.g. plain ``musclex eq -h``
+        # or ``musclex eq -h -s config.json``). Show the dedicated
+        # headless help instead of crashing on ``filename=None``.
+        if run and filename is None:
+            _print_eq_headless_help()
+            sys.exit(0)
         if run:
             from musclex.headless.EQStartWindowh import EQStartWindowh
             EQStartWindowh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
