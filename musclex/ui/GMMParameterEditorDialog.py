@@ -238,8 +238,12 @@ class GMMParameterEditorDialog(QDialog):
         # Fill table
         self.paramTable.setRowCount(len(params_to_show))
         
+        import re
+        def _natural_sort_key(s):
+            return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', s)]
+
         row = 0
-        for param_name in sorted(params_to_show.keys()):
+        for param_name in sorted(params_to_show.keys(), key=_natural_sort_key):
             pdict = params_to_show[param_name]
             
             # Fixed checkbox
