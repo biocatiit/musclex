@@ -2052,7 +2052,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self._sync_eval_mask_settings_for_preview()
 
         # Force recompute on next draw
-        self.deleteInfo(['mask', 'synthetic_mask'])
+        self.deleteImgCache(['mask', 'synthetic_mask'])
 
         self.updated['result'] = False
         self.updateResultTab()
@@ -3112,13 +3112,13 @@ class QuadrantFoldingGUI(BaseGUI):
             if show_eval_mask:
                 self._sync_eval_mask_settings_for_preview()
                 self.quadFold.createMask()
-                mask = self.quadFold.info['mask']
+                mask = self.quadFold.imgCache['mask']
                 mask = mask.astype(bool)
                 if mask is not None:
                     ax.imshow(mask, cmap="Greys", alpha=0.2, interpolation="nearest")
             
             if display_mode == "Synthetic Mask" and show_synthetic_mask:
-                synthetic_mask = self.quadFold.info.get('synthetic_mask', None)
+                synthetic_mask = self.quadFold.imgCache.get('synthetic_mask', None)
                 if synthetic_mask is not None:
                     ax.imshow(synthetic_mask, cmap="Greys", alpha=0.5, interpolation="nearest")
 
