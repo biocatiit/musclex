@@ -193,7 +193,7 @@ class FolderImageWorker(BaseProcessWorker):
         if result is None:
             return
         
-        avg_fold = info.get("avg_fold")
+        avg_fold = self.quadFold.imgCache.get("avg_fold")
         if avg_fold is None:
             return
         
@@ -2079,17 +2079,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self._sync_synthetic_settings_for_preview()
 
-        self.deleteInfo([
-            'synthetic_data',
-            'synthetic_mask',
-            'avg_fold_with_syn',
-            '_avg_fold_with_syn',
-            'bgsubimg_syn',
-            'bgimg_syn',
-            'bgsubimg_out_syn',
-            'bgimg_out_syn',
-        ])
-        self.deleteImgCache(['BgFold_syn', 'BgSubFold_syn'])
+        self.deleteImgCache(['synthetic_mask','synthetic_data', 'avg_fold_with_syn','_avg_fold_with_syn',\
+             'BgFold_syn', 'BgSubFold_syn', 'BgFold_syn_in', 'BgSubFold_syn_in', \
+                'BgFold_syn_out', 'BgSubFold_syn_out'])
 
         try:
             self.quadFold.createArtificialData()
@@ -2208,7 +2200,7 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.refreshResultTab()
             elif func[0] == "rminmax":
                 # Set new R-min and R-max
-                img = self.quadFold.info['avg_fold']
+                img = self.quadFold.imgCache['avg_fold']
                 center = (img.shape[1], img.shape[0])
                 radius = distance((x, y), center)
                 func.append(radius)
@@ -2304,7 +2296,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.resultCanvas.draw_idle()
         elif func[0] == "rminmax":
             # draw circles
-            img = self.quadFold.info['avg_fold']
+            img = self.quadFold.imgCache['avg_fold']
             center = (img.shape[1] - 1, img.shape[0] - 1)
             radius = distance((x, y), center)
             if len(ax.patches) > len(self.function) - 1:
@@ -2572,9 +2564,8 @@ class QuadrantFoldingGUI(BaseGUI):
             self.stop_process = False
             self._set_optimization_button_running(True)
 
-        self.deleteInfo(['bgsubimg']) # delete result_img to make QuadrantFolder reproduce background subtracted image
         self.deleteInfo(['result_bg'])
-        self.deleteImgCache(['BgSubFold'])
+        self.deleteImgCache(['BgSubFold', 'BgSubFold_out', 'BgSubFold_syn', 'BgSubFold_syn_out', 'BgFold', 'BgFold_out', 'BgFold_syn', 'BgFold_syn_out'])
 
         self.resultDisplayModeCB.setEnabled(False)
 
@@ -2820,7 +2811,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def onFoldChkBoxToggled(self):
         if self.quadFold is not None:
-            self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
+            self.quadFold.deleteFromDict(self.quadFold.imgCache, 'avg_fold')
             # self.quadFold.info['avg_fold'] = self.quadFold.orig_img
             # self.quadFold.deleteFromDict(self.quadFold.imgCache, 'resultImg')
             self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
@@ -3058,7 +3049,7 @@ class QuadrantFoldingGUI(BaseGUI):
         try:
             img = self.quadFold.imgCache.get('resultImg', None)
             if img is None:
-                img = self.quadFold.imCache.get('resultFolded', None)
+                img = self.quadFold.imgCache.get('resultFolded', None)
                 
             if img is None:
                 self.uiUpdating = False
@@ -3077,7 +3068,7 @@ class QuadrantFoldingGUI(BaseGUI):
                             img = np.rot90(img)
 
                 elif display_mode == "Synthetic Signal" or display_mode == "Synthetic Mask":
-                    syn = self.quadFold.info.get('synthetic_data', None)
+                    syn = self.quadFold.imgCache.get('synthetic_data', None)
                     if syn is not None:
                         img = img + syn
 
@@ -3462,11 +3453,8 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
-        avg_fold = info["avg_fold"]
-        print("Avg_fold shape:")
+        avg_fold = self.quadFold.imgCache["avg_fold"]
         print(avg_fold.shape)
-        print("result shape: ")
-        print(result.shape)
         background = avg_fold-result
         resultImg = makeFullImage(background)
 

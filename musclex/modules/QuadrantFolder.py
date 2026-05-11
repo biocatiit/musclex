@@ -189,7 +189,7 @@ class QuadrantFolder:
         preprocessing, geometry, or configuration has changed).
         """
         print("  Clearing processing results cache")
-        self.deleteFromDict(self.info, 'avg_fold')
+        self.deleteFromDict(self.imgCache, 'avg_fold')
         self.deleteFromDict(self.info, 'rmin')
         self.deleteFromDict(self.info, 'rmax')
 
@@ -326,13 +326,19 @@ class QuadrantFolder:
         if self.info.get('force_recalc_bg'):
             # Force recompute of background subtraction results (batch manual mode)
             for key in (
-                'bgsubimg', 'bgimg',
-                'bgsubimg_out', 'bgimg_out',
-                'bgsubimg_syn', 'bgimg_syn',
-                'bgsubimg_out_syn', 'bgimg_out_syn',
                 'result_bg'
             ):
                 self.deleteFromDict(self.info, key)
+            
+            for key in (
+                'BgSubFold', 'BgFold',
+                'BgSubFold_in', 'BgFold_in',
+                'BgSubFold_out', 'BgFold_out',
+                'BgSubFold_syn', 'BgFold_syn',
+                'BgSubFold_syn_in', 'BgFold_syn_in',
+                'BgSubFold_syn_out', 'BgFold_syn_out',
+            ):
+                self.deleteFromDict(self.imgCache, key)
 
         if 'result_bg' not in self.info:
             self.info['result_bg'] = {}
@@ -493,48 +499,48 @@ class QuadrantFolder:
         """
         Apply a guided filter to remove noise 
         """
-        self.info['avg_fold'] = self.info['avg_fold'].astype(np.float32)
-        self.info["avg_fold_with_syn"] = self.info["avg_fold_with_syn"].astype(np.float32)
+        self.imgCache['avg_fold'] = self.imgCache['avg_fold'].astype(np.float32)
+        self.imgCache["avg_fold_with_syn"] = self.imgCache["avg_fold_with_syn"].astype(np.float32)
 
         if 'smooth_image' in self.info and self.info['smooth_image']:
-            self.info['_avg_fold'] = cv2.ximgproc.guidedFilter(
-                guide=self.info['avg_fold'],
-                src=self.info['avg_fold'],
+            self.imgCache['_avg_fold'] = cv2.ximgproc.guidedFilter(
+                guide=self.imgCache['avg_fold'],
+                src=self.imgCache['avg_fold'],
                 radius=7,
                 eps=1
             )
-            self.info['_avg_fold_with_syn'] = cv2.ximgproc.guidedFilter(
-                guide=self.info["avg_fold_with_syn"],
-                src=self.info["avg_fold_with_syn"],
+            self.imgCache['_avg_fold_with_syn'] = cv2.ximgproc.guidedFilter(
+                guide=self.imgCache["avg_fold_with_syn"],
+                src=self.imgCache["avg_fold_with_syn"],
                 radius=7,
                 eps=1
             )
         else:
-            self.info['_avg_fold'] = self.info['avg_fold']
-            self.info['_avg_fold_with_syn'] = self.info['avg_fold_with_syn']
+            self.imgCache['_avg_fold'] = self.imgCache['avg_fold']
+            self.imgCache['_avg_fold_with_syn'] = self.imgCache['avg_fold_with_syn']
 
 
     def downsampleImage(self):
-        self.info['_rmin'] = self.info['rmin'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmin']
-        self.info['_rmax'] = self.info['rmax'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmax']
-        self.info['_center'] = (self.center[0] // self.info['downsample'], self.center[1] // self.info['downsample']) if 'downsample' in self.info else self.center
+        self.imgCache['_rmin'] = self.info['rmin'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmin']
+        self.imgCache['_rmax'] = self.info['rmax'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmax']
+        self.imgCache['_center'] = (self.center[0] // self.info['downsample'], self.center[1] // self.info['downsample']) if 'downsample' in self.info else self.center
         
 
         if 'downsample' in self.info and self.info['downsample'] > 1:
             factor = self.info['downsample']
 
-            h, w = self.info['_avg_fold'].shape[:2]
+            h, w = self.imgCache['_avg_fold'].shape[:2]
             new_w = w // factor
             new_h = h // factor
             if w % factor != 0:
                 subtract = w % factor
-                self.info['_avg_fold'] = self.info['_avg_fold'][:, subtract:]
+                self.imgCache['_avg_fold'] = self.imgCache['_avg_fold'][:, subtract:]
             if h % factor != 0:
                 subtract = h % factor
-                self.info['_avg_fold'] = self.info['_avg_fold'][subtract:, :]
+                self.imgCache['_avg_fold'] = self.imgCache['_avg_fold'][subtract:, :]
 
-            self.info['_avg_fold'] = cv2.resize(self.info['_avg_fold'], (new_w, new_h), interpolation=cv2.INTER_AREA)
-            self.info['_avg_fold_with_syn'] = cv2.resize(self.info['_avg_fold_with_syn'], (new_w, new_h), interpolation=cv2.INTER_AREA)
+            self.imgCache['_avg_fold'] = cv2.resize(self.imgCache['_avg_fold'], (new_w, new_h), interpolation=cv2.INTER_AREA)
+            self.imgCache['_avg_fold_with_syn'] = cv2.resize(self.imgCache['_avg_fold_with_syn'], (new_w, new_h), interpolation=cv2.INTER_AREA)
    
     def upsampleImage(self, img):
         factor = self.info['downsample']
@@ -562,7 +568,7 @@ class QuadrantFolder:
         if 'rmin' in self.info and 'rmax' in self.info:
             return
         else:
-            copy_img = copy.copy(self.info['avg_fold'])
+            copy_img = copy.copy(self.imgCache['avg_fold'])
             center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
             npt_rad = int(distance(center, (0, 0)))
 
@@ -583,7 +589,7 @@ class QuadrantFolder:
             if 'rmax' not in self.info:
                 self.info['rmax'] = getDetectorEdge(totalI, end=(min(copy_img.shape[0], copy_img.shape[1]) - 1)) - 20
             
-        self.deleteFromDict(self.info, 'bgsubimg') # remove "bgsubimg" from info to make it reprocess
+        self.deleteFromDict(self.imgCache, 'BgSubFold') # remove "BgSubFold" from imgCache to make it reprocess
         print(f"Done. R-min is {str(self.info['rmin'])} and R-max is set to max: {str(self.info['rmax'])}")
 
     def getTransitionRad(self):
@@ -595,7 +601,7 @@ class QuadrantFolder:
         if transition_delta is None or float(transition_delta) < 0:
             self.info['transition_delta'] = 60
         
-        self.deleteFromDict(self.info, 'bgsubimg_out') # remove "bgsubimg_out" from info to make it reprocess
+        self.deleteFromDict(self.imgCache, 'BgSubFold_out') # remove "BgSubFold_out" from imgCache to make it reprocess
 
 
     def createMask(self):
@@ -603,8 +609,8 @@ class QuadrantFolder:
         Create a mask for the image based on rmin, rmax, and other parameters.
         Combines multiple mask types via element-wise multiplication.
         """
-        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
-        fullImg = makeFullImage(self.info['avg_fold'])
+        h, w = self.imgCache['avg_fold'].shape[0]*2, self.imgCache['avg_fold'].shape[1]*2
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
         
         masks = {
             'rminrmax': self._create_rminrmax_mask(h, w),
@@ -622,7 +628,7 @@ class QuadrantFolder:
                 continue
             mask *= m
         
-        self.info['mask'] = mask.astype(int)
+        self.imgCache['mask'] = mask.astype(int)
 
     def _create_rminrmax_mask(self, h, w):
         """Create radial min/max mask."""
@@ -663,8 +669,8 @@ class QuadrantFolder:
         return mask
     
     def _create_equator_center_beam_mask(self, h, w, fullImg):
-        h, w = self.info['avg_fold'].shape[0]*2, self.info['avg_fold'].shape[1]*2
-        fullImg = makeFullImage(self.info['avg_fold'])
+        h, w = self.imgCache['avg_fold'].shape[0]*2, self.imgCache['avg_fold'].shape[1]*2
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
 
 
         equator = get_projection(fullImg, gap=2, orientation=0, half=True)
@@ -730,10 +736,10 @@ class QuadrantFolder:
         return amplitude, sigma_x, sigma_y
 
     def ensureSyntheticGaussianDefaults(self):
-        if 'avg_fold' not in self.info:
+        if 'avg_fold' not in self.imgCache:
             return None
 
-        fullImg = makeFullImage(self.info['avg_fold'])
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
         i0, _ = find_i0_i1_peaks_auto(fullImg, rmin=30)
         i0 = 100 if abs(i0-100) > 50 else i0
         m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
@@ -744,7 +750,7 @@ class QuadrantFolder:
     def createArtificialData(self):
         freq = str(self.info.get('freq', 'medium')).lower()
 
-        fullImg = makeFullImage(self.info['avg_fold'])
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
 
         i0, i1 = find_i0_i1_peaks_auto(fullImg, rmin=30)
         i0 = 100 if abs(i0-100) > 50 else i0
@@ -778,7 +784,7 @@ class QuadrantFolder:
         
         amplitude, sigma_x, sigma_y = self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
 
-        print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
+        # print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
 
         gauss_data = GaussianArtificialData(image_shape=fullImg.shape)
         gauss_data.define_parameters(sigma_x=sigma_x, sigma_y=sigma_y, amplitude=amplitude)
@@ -793,10 +799,10 @@ class QuadrantFolder:
 
         gauss_data.apply_intencity_decrease()
 
-        self.info["synthetic_data"] = gauss_data.get_faded_image()
-        self.info["synthetic_mask"] = mask_data.get_mask()
-        syn_data_top_left = self.info["synthetic_data"][:self.info['avg_fold'].shape[0], :self.info['avg_fold'].shape[1]]
-        self.info["avg_fold_with_syn"] = self.info['avg_fold'] + syn_data_top_left
+        self.imgCache["synthetic_data"] = gauss_data.get_faded_image()
+        self.imgCache["synthetic_mask"] = mask_data.get_mask()
+        syn_data_top_left = self.imgCache["synthetic_data"][:self.imgCache['avg_fold'].shape[0], :self.imgCache['avg_fold'].shape[1]]
+        self.imgCache["avg_fold_with_syn"] = self.imgCache['avg_fold'] + syn_data_top_left
 
 
     def calculateAvgFold(self):
@@ -824,11 +830,11 @@ class QuadrantFolder:
         # Use top left quadrant as average fold if folding is disabled
         if self.info['fold_image'] == False:
             print("Folding is disabled. Using top left quadrant as average fold...")
-            self.info['folded'] = False
-            self.info['avg_fold'] = top_left
+            self.imgCache['folded'] = False
+            self.imgCache['avg_fold'] = top_left
             
 
-        elif 'avg_fold' not in self.info.keys():
+        elif 'avg_fold' not in self.imgCache.keys():
             self.deleteFromDict(self.info, 'rmin')
             self.deleteFromDict(self.info, 'rmax')
             print("Quadrant folding is being processed...")        
@@ -877,7 +883,7 @@ class QuadrantFolder:
             result = qfu.get_avg_fold_float32(np.array(quadrants, dtype="float32"), len(quadrants), fold_height, fold_width,
                                                 INVALID_PIXEL_THRESHOLD)
 
-        self.info['avg_fold'] = result
+        self.imgCache['avg_fold'] = result
         self.info['folded'] = True
 
 
@@ -914,24 +920,24 @@ class QuadrantFolder:
 
     def _build_bg_search_kwargs(self):
         raw_metrics_cache = self._prepare_bg_raw_metrics_cache()
-        folded_image = makeFullImage(self.info['avg_fold'])
+        folded_image = makeFullImage(self.imgCache['avg_fold'])
         return {
             'steps': self.info['steps'],
             'early_stop': self.info['early_stop'],
             'max_iterations': self.info['max_iterations'],
             'evaluation_baseline': self.info['evaluation_baseline'],
-            'tmp_avg_fold': self.info['_avg_fold'],
-            'avg_fold': self.info['avg_fold'],
-            'tmp_rmin': self.info['_rmin'],
+            'tmp_avg_fold': self.imgCache['_avg_fold'],
+            'avg_fold': self.imgCache['avg_fold'],
+            'tmp_rmin': self.imgCache['_rmin'],
             'rmin': self.info['rmin'],
-            'tmp_center': self.info['_center'],
-            'tmp_avg_fold_with_syn': self.info['_avg_fold_with_syn'],
-            'avg_fold_with_syn': self.info['avg_fold_with_syn'],
+            'tmp_center': self.imgCache['_center'],
+            'tmp_avg_fold_with_syn': self.imgCache['_avg_fold_with_syn'],
+            'avg_fold_with_syn': self.imgCache['avg_fold_with_syn'],
             'orig_img': folded_image,
             'rmax': self.info['rmax'],
-            'mask': self.info['mask'],
-            'synthetic_data': self.info['synthetic_data'],
-            'synthetic_mask': self.info['synthetic_mask'],
+            'mask': self.imgCache['mask'],
+            'synthetic_data': self.imgCache['synthetic_data'],
+            'synthetic_mask': self.imgCache['synthetic_mask'],
             'downsample_factor': self.info['downsample'],
             'smooth_image': self.info.get('smooth_image', False),
             'mean_metric_values': self.info.get('mean_metric_values', None),
@@ -1188,18 +1194,18 @@ class QuadrantFolder:
     def applyBackgroundSubtraction(self):
         """
         Apply background subtraction by user's choice.
-        - bgsubimg : fold after applying background subtraction
+        - BgSubFold : fold after applying background subtraction
         """
         self.parent.statusPrint("Applying Background Subtraction...")
         method = self.info["bgsub"]
         print(f"Background Subtraction is being processed... Method: {method}")
 
-        if "bgsubimg" not in self.info:
-            tmp_avg_fold = np.array(self.info['_avg_fold'], dtype="float32")
-            avg_fold = np.array(self.info['avg_fold'], dtype="float32")
-            tmp_rmin = self.info['_rmin']
+        if "BgSubFold" not in self.imgCache:
+            tmp_avg_fold = np.array(self.imgCache['_avg_fold'], dtype="float32")
+            avg_fold = np.array(self.imgCache['avg_fold'], dtype="float32")
+            tmp_rmin = self.imgCache['_rmin']
             rmin = self.info['rmin']
-            tmp_center = self.info['_center']
+            tmp_center = self.imgCache['_center']
 
             params = {}
             for key in method_params[method].keys():
@@ -1209,31 +1215,33 @@ class QuadrantFolder:
                            tmp_center, params, downsample_factor=self.info['downsample'])
             bg = avg_fold - result
 
-            self.info["bgsubimg"] = result
-            self.info["bgimg"] = bg
+            # self.info["bgsubimg"] = result
+            # self.info["bgimg"] = bg
 
             print(f"bg shape: {bg.shape}, result shape: {result.shape}")
         
-        self.imgCache['BgSubFold'] = copy.copy(self.info["bgsubimg"])
-        self.imgCache['BgFold'] = copy.copy(self.info["bgimg"])
+        self.imgCache['BgSubFold_in'] = copy.copy(result)
+        self.imgCache['BgFold_in'] = copy.copy(bg)
+        self.imgCache['BgSubFold'] = copy.copy(result)
+        self.imgCache['BgFold'] = copy.copy(bg)    
         self.deleteFromDict(self.imgCache, "resultImg")
         print("Done.")
 
     def applyTransitionBackgroundSubtraction(self):
         """
         Apply background subtraction by user's choice for outer area.
-        - bgsubimg_out : fold after applying background subtraction
+        - BgSubFold_out : fold after applying background subtraction
         """
         self.parent.statusPrint("Applying Background Subtraction (Outside transition radius)...")
         method = self.info["bgsub_out"]
         print(f"Background Subtraction is being processed... Method: {method}")
 
-        if "bgsubimg_out" not in self.info:
-            tmp_avg_fold = np.array(self.info['_avg_fold'], dtype="float32")
-            avg_fold = np.array(self.info['avg_fold'], dtype="float32")
-            tmp_rmin = self.info['_rmin']
+        if "BgSubFold_out" not in self.imgCache:
+            tmp_avg_fold = np.array(self.imgCache['_avg_fold'], dtype="float32")
+            avg_fold = np.array(self.imgCache['avg_fold'], dtype="float32")
+            tmp_rmin = self.imgCache['_rmin']
             rmin = self.info['rmin']
-            tmp_center = self.info['_center']
+            tmp_center = self.imgCache['_center']
 
             params = {}
             for key in method_params[method].keys():
@@ -1244,8 +1252,8 @@ class QuadrantFolder:
                            tmp_center, params, downsample_factor=self.info['downsample'])
             bg = avg_fold - result
 
-            self.info["bgsubimg_out"] = result
-            self.info["bgimg_out"] = bg
+        self.imgCache['BgSubFold_out'] = result
+        self.imgCache['BgFold_out'] = bg
 
         self.deleteFromDict(self.imgCache, "resultImg")
         self.deleteFromDict(self.imgCache, "BgSubFold")
@@ -1255,15 +1263,15 @@ class QuadrantFolder:
     def applyBackgroundSubtractionSynthetic(self):
         """
         Apply background subtraction by user's choice.
-        - bgsubimg : fold after applying background subtraction
+        - BgSubFold_syn : fold after applying background subtraction
         """
         print("Applying Background Subtraction to synthetic data... method: " + self.info["bgsub"])
         method = self.info["bgsub"]
-        tmp_rmin = self.info['_rmin']
-        tmp_center = self.info['_center']
+        tmp_rmin = self.imgCache['_rmin']
+        tmp_center = self.imgCache['_center']
 
-        avg_fold_with_syn = np.array(self.info['avg_fold_with_syn'], dtype="float32")
-        tmp_avg_fold_with_syn = np.array(self.info['_avg_fold_with_syn'], dtype="float32")
+        avg_fold_with_syn = np.array(self.imgCache['avg_fold_with_syn'], dtype="float32")
+        tmp_avg_fold_with_syn = np.array(self.imgCache['_avg_fold_with_syn'], dtype="float32")
 
         params = {}
         for key in method_params[method].keys():
@@ -1275,20 +1283,19 @@ class QuadrantFolder:
         if method != 'None':
             result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
 
-        self.info["bgsubimg_syn"] = result
-        self.info["bgimg_syn"] = bg_syn
+        self.imgCache['BgFold_syn_in'] = copy.copy(bg_syn)
+        self.imgCache['BgSubFold_syn_in'] = copy.copy(result)
         self.imgCache['BgFold_syn'] = copy.copy(bg_syn)
         self.imgCache['BgSubFold_syn'] = copy.copy(result)
-
 
     def applyTransitionBackgroundSubtractionSynthetic(self):
         method = self.info["bgsub_out"]
         print("Applying Background Subtraction to synthetic data... method: " + method)
-        tmp_rmin = self.info['_rmin']
-        tmp_center = self.info['_center']
+        tmp_rmin = self.imgCache['_rmin']
+        tmp_center = self.imgCache['_center']
 
-        avg_fold_with_syn = np.array(self.info['avg_fold_with_syn'], dtype="float32")
-        tmp_avg_fold_with_syn = np.array(self.info['_avg_fold_with_syn'], dtype="float32")
+        avg_fold_with_syn = np.array(self.imgCache['avg_fold_with_syn'], dtype="float32")
+        tmp_avg_fold_with_syn = np.array(self.imgCache['_avg_fold_with_syn'], dtype="float32")
 
         params = {}
         for key in method_params[method].keys():
@@ -1300,9 +1307,11 @@ class QuadrantFolder:
         # if method != 'None':
         #     result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
 
-        self.info["bgsubimg_out_syn"] = result
-        self.info["bgimg_out_syn"] = bg_syn
+        self.imgCache['BgFold_syn_out'] = copy.copy(bg_syn)
+        self.imgCache['BgSubFold_syn_out'] = copy.copy(result)
+
         self.deleteFromDict(self.imgCache, "BgFold_syn")
+        self.deleteFromDict(self.imgCache, "BgSubFold_syn")
 
 
     def mergeImages(self):
@@ -1313,12 +1322,12 @@ class QuadrantFolder:
         """
         self.parent.statusPrint("Merging Images...")
         method = self.info["bgsub"]
-        tmp_rmin = self.info['_rmin']
+        tmp_rmin = self.imgCache['_rmin']
 
 
         if "BgSubFold" not in self.imgCache:
-            img_in = np.array(self.info["bgimg"], dtype="float32")
-            img_out = np.array(self.info["bgimg_out"], dtype="float32")
+            img_in = np.array(self.imgCache["BgFold_in"], dtype="float32")
+            img_out = np.array(self.imgCache["BgFold_out"], dtype="float32")
 
             center = [img_in.shape[1]-1, img_in.shape[0]-1]
             rad = self.info["transition_radius"]
@@ -1326,7 +1335,7 @@ class QuadrantFolder:
 
             # Merge 2 images at merge radius using transition radius and delta
             self.imgCache['BgFold'] = qfu.combine_bgsub_linear_float32(img_in, img_out, center[0], center[1], rad, delta)
-            avg_fold = np.array(self.info['avg_fold'], dtype="float32")
+            avg_fold = np.array(self.imgCache['avg_fold'], dtype="float32")
             result = avg_fold - self.imgCache['BgFold']
 
             if method != 'None':
@@ -1336,8 +1345,8 @@ class QuadrantFolder:
             self.deleteFromDict(self.imgCache, "resultImg")
 
         if "BgFold_syn" not in self.imgCache:
-            img_in = np.array(self.info["bgimg_syn"], dtype="float32")
-            img_out = np.array(self.info["bgimg_out_syn"], dtype="float32")
+            img_in = np.array(self.imgCache["BgFold_syn_in"], dtype="float32")
+            img_out = np.array(self.imgCache["BgFold_syn_out"], dtype="float32")
 
             center = [img_in.shape[1]-1, img_in.shape[0]-1]
             rad = self.info["transition_radius"]
@@ -1345,7 +1354,7 @@ class QuadrantFolder:
 
             # Merge 2 images at merge radius using transition radius and delta
             self.imgCache['BgFold_syn'] = qfu.combine_bgsub_linear_float32(img_in, img_out, center[0], center[1], rad, delta)
-            avg_fold = np.array(self.info['avg_fold_with_syn'], dtype="float32")
+            avg_fold = np.array(self.imgCache['avg_fold_with_syn'], dtype="float32")
             result = avg_fold - self.imgCache['BgFold_syn']
 
             if method != 'None':
@@ -1356,7 +1365,7 @@ class QuadrantFolder:
         
     def generateResultImage(self):
         """
-        Put 4 self.info["BgSubFold"] together as a result image
+        Put BgSubFold_in, BgSubFold_out, BgSubFold_syn_in, BgSubFold_syn_out together as a result image
         :return:
         """
         self.parent.statusPrint("Generating Resultant Image...")
@@ -1370,16 +1379,11 @@ class QuadrantFolder:
         bg_scaled = self._applyTransformations(bg)
         self.imgCache['resultBg'] = bg_scaled
 
-        # baseline = self.info.get('evaluation_baseline', None)
-        # if baseline is None or float(baseline) <= 0.0:
-        #     baseline = get_radial_average_rmax(result_scaled + bg_scaled, self.info['rmax'], band_width=30) * 0.2
-        #     baseline = max(float(baseline), 0.0001)
-        #     self.info['evaluation_baseline'] = baseline
 
         if self.info["bgsub"] == 'None':
-            self.info['resultFolded'] = result_scaled
+            self.imgCache['resultFolded'] = result_scaled
         else:
-            self.info['resultFolded'] = result_scaled + bg_scaled
+            self.imgCache['resultFolded'] = result_scaled + bg_scaled
 
         print("Done.")
 
@@ -1421,9 +1425,10 @@ class QuadrantFolder:
             baseline = get_radial_average_rmax(result + bg, self.info['rmax'], band_width=30) * 0.2
             self.info['evaluation_baseline'] = baseline
         baseline = max(float(baseline), 0.0001)
-        syn_srt = self.info.get('synthetic_data', None)
-        syn_mask = self.info.get('synthetic_mask', None)
+        syn_srt = self.imgCache.get('synthetic_data', None)
+        syn_mask = self.imgCache.get('synthetic_mask', None)
         syn_fold = self.imgCache.get('BgSubFold_syn', None)
+        gen_mask = self.imgCache.get('mask', None)
         syn_img = makeFullImage(syn_fold) if syn_fold is not None else None
 
         kwargs = {
@@ -1433,7 +1438,7 @@ class QuadrantFolder:
             'syn_img': syn_img,
             'syn_srt': syn_srt,
             'syn_mask': syn_mask,
-            'gen_mask': self.info['mask'],
+            'gen_mask': gen_mask,
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
         }

@@ -808,7 +808,7 @@ def applySmoothedBGSub(fold, fwhm=15, boxcar_x=15, boxcar_y=15, cycles=250, typ=
 
 def applyCircularlySymBGSub2(fold, rmin, radial_bin=10, smooth=5, pc1=0, pc2=25, tension=1):
     """
-    Apply Circular Background Subtraction to average fold, and save the result to self.info['bgsubimg']
+    Apply Circular Background Subtraction to average fold, and save the result to BgSubFold
     """
 
     img = makeFullImage(fold)
