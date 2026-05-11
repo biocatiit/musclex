@@ -27,361 +27,306 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
-import json
-import copy
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-import fabio
+import pandas as pd
 
 from musclex import __version__
-from .pyqt_utils import *
-from ..utils.file_manager import *
-from matplotlib.colors import Normalize
-from .ImageMaskTool import ImageMaskerWindow
+from .pyqt_utils import (
+    QMainWindow, QWidget, QVBoxLayout, QLabel, QStatusBar, QMessageBox,
+    QApplication, QAction,
+)
+from ..utils.file_manager import fullPath
+from .widgets import ProcessingWorkspace
 
 
 class TotalDiffractionIntensity(QMainWindow):
+    """
+    Total Diffraction Intensity GUI.
+
+    Built on top of :class:`ProcessingWorkspace`. The workspace owns image
+    display, navigation, output-directory handling and blank/mask configuration
+    (Set Blank / Set Mask / Apply Blank / Apply Mask). This class only adds
+    the TDI-specific batch summary: for every image in the current folder
+    (or HDF5 file), compute the total and average intensity over valid pixels
+    and write ``summary.csv`` under ``<output_dir>/tdi_results/``.
+    """
 
     def __init__(self):
         super().__init__()
-        
+
         self.dir_path = ""
-        self.file_name = ""
-        self.img = None
-        self.imageMaskingTool = None
-        self.mask = None
-        self.masked_image = None
-        self.total_intens_calcs = {}
+        self.stop_process = False
 
-        self.h5List = []
-        self.h5Mode = False  # flag to indicate HDF5 mode
+        self._build_ui()
+        self._build_menu_bar()
+        self._connect_signals()
+        self.resize(1200, 800)
+        self.show()
 
-        self.initUI()
-        self.setConnections()
+    # ------------------------------------------------------------------
+    # UI construction
+    # ------------------------------------------------------------------
 
-    def initUI(self):
-        """
-        Initialize the UI
-        """
+    def _build_ui(self):
         self.setWindowTitle("Muscle X Total Diffraction Intensity v." + __version__)
-        self.centralWidget = QWidget(self)
-        self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
 
-        ## display browse file and folder buttons when program started
-        self.browseFileButton = QPushButton("Select an Image...")
-        self.browseFileButton.clicked.connect(self.browseFile)
-        self.browseFileButton.setFixedHeight(60)
-        self.drawMaskButton = QPushButton("Mask The Image")
-        self.drawMaskButton.clicked.connect(self.maskButtonClicked)
-        self.drawMaskButton.setFixedHeight(60)
+        central = QWidget(self)
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        self.canvImgGroup = QGroupBox("Image")
-        self.canvImgGroup.setCheckable(False)
-        self.canvImgLayout = QHBoxLayout(self.canvImgGroup)
-        
-        self.imgFigure = plt.figure()
-        self.imgCanvas = FigureCanvas(self.imgFigure)
-        
-        self.intenGrp = QGroupBox("Set Intensities")
-        self.intenGrp.setCheckable(False)
-        self.intenLayout = QVBoxLayout(self.intenGrp)
+        # ProcessingWorkspace handles: image display, navigation controls,
+        # blank/mask settings, output directory dialog, settings persistence.
+        # TDI does not need center / rotation / quadrant-folded settings, so
+        # only the blank/mask widget is added to the right panel.
+        self.workspace = ProcessingWorkspace(settings_dir="")
+        layout.addWidget(self.workspace, 1)
 
-        self.maxIntLabel = QLabel("Max intensity : ")
-        self.maxInt = QDoubleSpinBox()
-        self.maxInt.setSingleStep(5)
-        self.maxInt.setDecimals(0)
-        self.maxInt.setMaximum(999999999999999)
+        # Backwards-friendly aliases for clarity in the rest of the file.
+        self.navigator = self.workspace.navigator
+        self.image_viewer = self.workspace.navigator.image_viewer
+        self.file_manager = self.workspace.file_manager
+        self.navControls = self.workspace.navigator.nav_controls
 
-        self.minIntLabel = QLabel("Min intensity : ")
-        self.minInt = QDoubleSpinBox()
-        self.minInt.setSingleStep(5)
-        self.minInt.setDecimals(0)
-        self.minInt.setMaximum(999999999999999)
+        # Only blank/mask is relevant for total intensity.
+        self.workspace.right_panel.add_widget(self.workspace._blank_mask_widget)
 
-        self.intenLayout.addWidget(self.maxIntLabel)
-        self.intenLayout.addWidget(self.maxInt)
-        self.intenLayout.addWidget(self.minIntLabel)
-        self.intenLayout.addWidget(self.minInt)
+        # Status bar
+        self.statusBarWidget = QStatusBar()
+        self.imgDetailOnStatusBar = QLabel(
+            "  Please select an image or a folder to process"
+        )
+        self.statusBarWidget.addWidget(self.imgDetailOnStatusBar)
+        self.setStatusBar(self.statusBarWidget)
 
-        self.buttonGrp = QGroupBox("Navigate Directory")
-        self.buttonGrp.setCheckable(False)
-
-        self.buttonLayout = QHBoxLayout(self.buttonGrp)
-
-        self.nextFileButton = QPushButton(">>>")
-        self.prevFileButton = QPushButton("<<<")
-
-        self.buttonLayout.addWidget(self.prevFileButton)
-        self.buttonLayout.addWidget(self.nextFileButton)
-
-        self.intenLayout.addWidget(self.buttonGrp)
-
-        self.processFolderButton = QPushButton("Process Folder")
-        self.intenLayout.addWidget(self.processFolderButton)
-
-        self.canvImgLayout.addWidget(self.imgCanvas)
-        self.canvImgLayout.addWidget(self.intenGrp)
-
-        self.mainLayout.addWidget(self.browseFileButton)
-        self.mainLayout.addWidget(self.drawMaskButton)
-        self.mainLayout.addWidget(self.canvImgGroup)
-
-        self.statusBar = QStatusBar()
-        self.imgDetailOnStatusBar = QLabel("  Please select an image or a folder to process")
-        self.statusBar.addWidget(self.imgDetailOnStatusBar)
-        self.setStatusBar(self.statusBar)
-
-        # Menubar
+    def _build_menu_bar(self):
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
-        selectImageAction.triggered.connect(self.browseFile)
-        selectFolderAction = QAction('Select a Folder...', self)
-        selectFolderAction.setShortcut('Ctrl+F')
-        selectFolderAction.triggered.connect(self.browseFile)
+        selectImageAction.setToolTip(
+            "Open an image (or HDF5) file for total intensity analysis (Ctrl+I)"
+        )
+        selectImageAction.triggered.connect(self.navigator.browse_file)
+
         changeOutputDirAction = QAction('Change Output Directory...', self)
-        changeOutputDirAction.triggered.connect(self._change_output_directory)
+        changeOutputDirAction.setToolTip(
+            "Choose a different folder to write tdi_results/summary.csv"
+        )
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
-        fileMenu.addAction(selectFolderAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
+
         aboutAct = QAction('About', self)
-        aboutAct.triggered.connect(self.showAbout)
+        aboutAct.triggered.connect(self._show_about)
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
 
-        self.show()
-        self.resize(400,150)
+    def _connect_signals(self):
+        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
+        self.workspace.imageDataReady.connect(self._on_image_data_ready)
+        self.workspace.needsReprocess.connect(self._on_needs_reprocess)
 
-    def setConnections(self):
-        self.minInt.valueChanged.connect(self.refreshImage)
-        self.maxInt.valueChanged.connect(self.refreshImage)
+        self.navControls.processFolderButton.clicked.connect(
+            self._on_process_folder_toggled)
+        self.navControls.processH5Button.clicked.connect(
+            self._on_process_h5_toggled)
 
-        self.nextFileButton.clicked.connect(self.nextFBClicked)
-        self.prevFileButton.clicked.connect(self.prevFBClicked)
+    # ------------------------------------------------------------------
+    # Workspace event hooks
+    # ------------------------------------------------------------------
 
-        self.processFolderButton.clicked.connect(self.makeCSV)
+    def _on_folder_loaded(self, dir_path: str):
+        """Folder/file was just loaded (before first image)."""
+        self.dir_path = dir_path
+        self._update_process_button_text()
 
-    def _change_output_directory(self):
-        """Let the user pick a new output directory."""
-        from PySide6.QtWidgets import QDialog, QMessageBox
-        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
-        from ..utils.directory_context import DirectoryContext
-
-        if not hasattr(self, 'dir_context'):
-            QMessageBox.information(
-                self, "No folder loaded",
-                "Please load a file before changing the output directory.")
+    def _on_image_data_ready(self, image_data):
+        """Single image is ready — refresh display + status bar."""
+        if image_data is None:
             return
 
-        input_dir = self.dir_context.input_dir
-        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
-        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
-            return
+        self.workspace.update_display(image_data)
+        try:
+            img = image_data.get_working_image()
+        except Exception:
+            img = image_data.get_raw_image()
+        self.image_viewer.display_image(img)
 
-        new_output = dlg.chosen_output
-        _persist_association(input_dir, new_output)
-        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
-
-    def browseFile(self):
-        """
-        Popup input dialog and set file selection
-        """
-        print("Browse File")
-        self.newProcess = True
-        file_name = getAFile()
-        print("Get a file returns:", file_name)
-
-        if file_name != "":
-            self.file_name = file_name
-            self.onNewFileSelected(str(file_name))
-            self.centralWidget.setMinimumSize(700, 500)
-
-    def onNewFileSelected(self, file_name):
-        # Retrieve directory and file list info
-        self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(file_name))
-        # Resolve output directory (only on first load or dir change)
-        if not hasattr(self, 'dir_context') or self.dir_context.input_dir != self.dir_path:
-            from .widgets.output_dir_dialog import resolve_output_directory
-            from ..utils.directory_context import DirectoryContext
-            ctx = resolve_output_directory(self.dir_path, parent=self)
-            self.dir_context = ctx if ctx else DirectoryContext.colocated(self.dir_path)
-        # Clear any previous HDF5 list and set mode
-        self.h5List = []
-        self.setH5Mode(str(file_name))
-        # If in HDF5 mode, override imgList with h5List
-        if self.h5Mode:
-            self.imgList = self.h5List
-
-        # Clear the figure before adding a new subplot
-        self.imgFigure.clf()
-        self.ax = self.imgFigure.add_subplot(111)
-        print("Opening file:", file_name)
-        self.img = fabio.open(str(file_name)).data
-
-        max_inten = min(700, np.max(self.img) / 40)
-        self.maxInt.setValue(max_inten)
-
-        self.refreshImage()
-
-    def showAbout(self):
-        print("SHOW ABOUT CLICKED")
-
-    def maskButtonClicked(self):
-        self.imageMaskingTool = ImageMaskerWindow(
-            self.dir_path, 
-            self.file_name, 
-            self.minInt.value(), 
-            self.maxInt.value(), 
-            max_val=np.max(np.ravel(self.img)), 
-            orig_size=self.img.shape,
-            trans_mat=None,                                                    
-            rot_angle=None, 
-            isHDF5=self.ext.lower() in ['h5', 'hdf5']
+        idx = self.navigator.current_index + 1
+        total = len(self.file_manager.names) if self.file_manager.names else 0
+        self.imgDetailOnStatusBar.setText(
+            f"  Current File ({idx}/{total}) : {image_data.img_name}"
         )
-        
-        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
-            settings_path = join(join(self.dir_path, 'settings'))
-            blank_json = join(settings_path, 'blank_image_settings.json')
-            if os.path.exists(blank_json):
-                with open(blank_json, 'r') as f:
-                    info = json.load(f)
-                    if 'path' in info:
-                        img = fabio.open(info['path']).data
-                        fabio.tifimage.tifimage(data=img).write(join(settings_path, 'blank.tif'))
-            else:
-                mask_tif = join(settings_path, 'mask.tif')
-                if os.path.exists(mask_tif):
-                    os.rename(mask_tif, join(settings_path, 'maskonly.tif'))
 
-        self.buildMask()
-            
-    def refreshImage(self):
-        if self.img is not None:
-            self.imgDetailOnStatusBar.setText("Current File (" + str(self.currentFileNumber) + "/" + str(len(self.imgList)) + ") : " + self.file_name)
+    def _on_needs_reprocess(self):
+        """Settings (blank/mask) changed — reapply preprocessing and redisplay."""
+        image_data = self.workspace._current_image_data
+        if image_data is None:
+            return
+        image_data.reset_preprocessing()
+        self._on_image_data_ready(image_data)
 
-            if self.mask is None:
-                self.buildMask()
-            self.applyMask()
+    # ------------------------------------------------------------------
+    # Process Folder / H5 (PT-style Stop pattern)
+    # ------------------------------------------------------------------
 
-            self.ax.cla()
-            self.masked_image = np.array(self.masked_image, dtype=np.float32)
-            self.ax.imshow(self.masked_image, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
-            self.ax.invert_yaxis()
-            self.imgCanvas.draw()
-
-    def buildMask(self):
-        self.mask = np.ones_like(self.img)
-
-        from ..utils.settings_manager import SettingsManager
-        sm = SettingsManager(self.dir_path)
-        blank, mask, _ = sm.load_blank_and_mask()
-        maskOnly = sm.load_mask_only()
-
-        for m in [blank, mask, maskOnly]:
-            if m is not None:
-                self.mask = self.mask * m
-
-        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.dir_path
-        result_path = join(out, 'tdi_results')
-        if not exists(result_path):
-            os.makedirs(result_path)
-        fabio.tifimage.tifimage(data=self.mask).write(join(result_path, 'tdi_mask.tif'))
-
-    def applyMask(self):
-        if self.mask is None:
-            self.masked_image = copy.copy(self.img)
+    def _update_process_button_text(self):
+        if self.workspace.navigator.is_h5_mode:
+            self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
-            self.masked_image = self.mask * copy.copy(self.img)
+            self.navControls.processFolderButton.setText("Process Current Folder")
+        self.navControls.processH5Button.setText("Process All H5 Files")
 
-    def nextFBClicked(self):
-        print("Next button clicked")
-        if self.h5Mode:
-            if len(self.h5List) > 1:
-                self.h5index = (self.h5index + 1) % len(self.h5List)
-                next_file = os.path.join(self.dir_path, self.h5List[self.h5index])
-                print("Switching to HDF5 file:", next_file)
-                self.onNewFileSelected(next_file)
-        else:  
-            if len(self.imgList) > 0:
-                self.currentFileNumber = (self.currentFileNumber + 1) % len(self.imgList)
-                self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
-                print("Switching to image file:", self.file_name)
-                self.img = fabio.open(str(self.file_name)).data
-                self.maxInt.setValue(np.max(self.img) * 0.1)
-                self.refreshImage()
-
-    def prevFBClicked(self):
-        print("Previous button clicked")
-        if self.h5Mode:
-            if len(self.h5List) > 1:
-                self.h5index = (self.h5index - 1) % len(self.h5List)
-                prev_file = os.path.join(self.dir_path, self.h5List[self.h5index])
-                print("Switching to HDF5 file:", prev_file)
-                self.onNewFileSelected(prev_file)
+    def _on_process_folder_toggled(self):
+        btn = self.navControls.processFolderButton
+        if btn.isChecked():
+            btn.setText("Stop")
+            idxs = range(len(self.file_manager.names))
+            title = ("Process Current H5 File"
+                     if self.workspace.navigator.is_h5_mode
+                     else "Process Current Folder")
+            self._run_batch(idxs, title)
         else:
-            if len(self.imgList) > 0:
-                self.currentFileNumber = (self.currentFileNumber - 1) % len(self.imgList)
-                self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
-                print("Switching to image file:", self.file_name)
-                self.img = fabio.open(str(self.file_name)).data
-                self.maxInt.setValue(np.max(self.img))
-                self.refreshImage()
+            self.stop_process = True
 
-    def makeCSV(self):
-        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.dir_path
-        result_path = fullPath(out, "tdi_results")
-        if not exists(result_path):
-            os.makedirs(result_path)
+    def _on_process_h5_toggled(self):
+        btn = self.navControls.processH5Button
+        if btn.isChecked():
+            btn.setText("Stop")
+            start, end = self.file_manager.get_current_h5_range()
+            if start is None or end is None:
+                btn.setChecked(False)
+                self._update_process_button_text()
+                return
+            self._run_batch(range(start, end + 1), "Process Current H5 File")
+        else:
+            self.stop_process = True
 
-        csv_name = fullPath(result_path, 'summary.csv')
-        colnames = ['ImageName', 'MaskFileName', 'TotalIntensity', 'AvgIntensity']
+    def _run_batch(self, img_ids, title: str):
+        """Compute total/avg intensities for ``img_ids`` and write summary.csv."""
+        img_ids = list(img_ids)
+        if not img_ids:
+            self._reset_batch_buttons()
+            return
 
+        config = self.workspace.get_blank_mask_config()
+        info = (
+            f"{len(img_ids)} image(s) will be processed using current "
+            f"blank/mask settings:\n"
+            f"  - Apply Blank : {bool(config.get('apply_blank'))}\n"
+            f"  - Apply Mask  : {bool(config.get('apply_mask'))}\n\n"
+            "Are you sure you want to continue?"
+        )
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setText(title)
+        msg.setInformativeText(info)
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        if msg.exec_() != QMessageBox.Yes:
+            self._reset_batch_buttons()
+            return
+
+        # Resolve output directory
+        out_dir = (self.workspace.dir_context.output_dir
+                   if self.workspace.dir_context else self.dir_path)
+        result_dir = fullPath(out_dir, "tdi_results")
+        if not os.path.exists(result_dir):
+            os.makedirs(result_dir, exist_ok=True)
+        csv_path = fullPath(result_dir, "summary.csv")
+
+        self.stop_process = False
         rows = []
+        names = self.file_manager.names
 
-        for img in self.imgList:
-            self.file_name = join(self.dir_path, img)
-            if not os.path.exists(self.file_name):
-                print(f"File {self.file_name} not found. Skipping.")
-                continue
+        try:
+            for i_loop, idx in enumerate(img_ids):
+                if self.stop_process:
+                    break
+                if idx < 0 or idx >= len(names):
+                    continue
+                name = names[idx]
+                self.imgDetailOnStatusBar.setText(
+                    f"  Processing ({i_loop + 1}/{len(img_ids)}) : {name}"
+                )
+                # Allow Stop button to remain responsive
+                if i_loop % 5 == 0:
+                    QApplication.processEvents()
 
-            self.img = fabio.open(str(self.file_name)).data
+                img = self.file_manager.get_image_by_index(idx)
+                if img is None:
+                    print(f"TDI: failed to load image '{name}', skipping.")
+                    continue
 
-            # If the shape of image is different than the shape of mask, skip.
-            try:
-                self.applyMask()
-            except Exception as e:
-                print(f"Shape of {img} does not match the mask shape. Skipping. Exception: {e}")
-                continue
+                try:
+                    total, n_valid = self._measure_image(img, name)
+                except Exception as e:
+                    print(f"TDI: error measuring '{name}': {e}. Skipping.")
+                    continue
 
-            total_intensity = np.sum(np.ravel(self.masked_image))
-            unmasked_pixels = self.masked_image.size - np.sum(np.ravel(1 - self.mask))
+                rows.append({
+                    "ImageName": name,
+                    "TotalIntensity": total,
+                    "AvgIntensity": (total / n_valid) if n_valid else 0.0,
+                    "ValidPixels": n_valid,
+                })
 
-            new_row = {"ImageName": img, "MaskFileName": 'tdi_mask.tif', 
-                       "TotalIntensity": total_intensity, 
-                       "AvgIntensity": total_intensity / unmasked_pixels}
-            
-            rows.append(new_row)
+            df = pd.DataFrame(rows)
+            df.to_csv(
+                csv_path,
+                index=False,
+                columns=["ImageName", "TotalIntensity",
+                         "AvgIntensity", "ValidPixels"],
+            )
 
-        df = pd.DataFrame(rows)
-        df.to_csv(csv_name, index=False, columns=colnames)
+            stopped = self.stop_process
+            self.imgDetailOnStatusBar.setText(
+                f"  {'Stopped' if stopped else 'Done'}: wrote {len(rows)} row(s) to {csv_path}"
+            )
+        finally:
+            self._reset_batch_buttons()
 
-    def setH5Mode(self, file_name):
+    def _measure_image(self, img, name: str):
         """
-        Sets the HDF5 list of files and displays the right set of buttons depending on the file selected.
+        Compute (total_intensity, valid_pixel_count) for ``img`` using
+        ImageData's standard preprocessing (so blank/mask Apply checkboxes
+        are honoured exactly the same as in QF/PT). Pixels marked invalid
+        by mask application are excluded from both numerator and denominator.
         """
-        if self.ext.lower() in ['.h5', '.hdf5']:
-            self.h5Mode = True
-            for file in os.listdir(self.dir_path):
-                if file.endswith(".h5") or file.endswith(".hdf5"):
-                    self.h5List.append(file)
-            try:
-                self.h5index = self.h5List.index(os.path.split(file_name)[1])
-            except ValueError:
-                self.h5index = 0
-        else:
-            self.h5Mode = False
+        image_data = self.workspace.create_image_data(img, name)
+        working = image_data.get_working_image()
+        invalid = image_data.invalid_pixel_threshold
+
+        valid_mask = working != invalid
+        n_valid = int(np.count_nonzero(valid_mask))
+        total = float(working[valid_mask].sum()) if n_valid else 0.0
+        return total, n_valid
+
+    def _reset_batch_buttons(self):
+        self.navControls.processFolderButton.blockSignals(True)
+        self.navControls.processH5Button.blockSignals(True)
+        try:
+            self.navControls.processFolderButton.setChecked(False)
+            self.navControls.processH5Button.setChecked(False)
+        finally:
+            self.navControls.processFolderButton.blockSignals(False)
+            self.navControls.processH5Button.blockSignals(False)
+        self._update_process_button_text()
+
+    # ------------------------------------------------------------------
+    # Misc
+    # ------------------------------------------------------------------
+
+    def _show_about(self):
+        QMessageBox.about(
+            self,
+            "About",
+            "Muscle X – Total Diffraction Intensity v." + __version__ +
+            "\n\nComputes per-image total and average intensities over the "
+            "valid (non-masked) pixels and writes them to "
+            "tdi_results/summary.csv.",
+        )
