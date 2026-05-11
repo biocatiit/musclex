@@ -51,12 +51,12 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-from PySide6.QtGui import QImage, QPixmap, QFont
 from PySide6.QtCore import Qt
 
 import fabio
 
 from .pyqt_utils import getAFile
+from .widgets.image_viewer_widget import ImageViewerWidget
 
 
 class ImageBlankDialog(QDialog):
@@ -96,20 +96,23 @@ class ImageBlankDialog(QDialog):
         else:
             self.blank_image_info = None
 
-        # Show image.
-        self.imageLabel = QLabel()
-        # Set fixed (width, height)
-        self.imageLabel.setMinimumSize(800, 600)
-        # Optional: Set a border to visualize the area if you like
-        # self.imageLabel.setStyleSheet("border: 1px solid black;")
-        self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
+        # Image viewer (replaces the previous QLabel + manual QPixmap rendering).
+        # Provides built-in pan, wheel zoom, zoom-rectangle tool, and a
+        # DisplayOptionsPanel for intensity / log scale / colormap controls.
+        self.imageViewer = ImageViewerWidget(parent=self, show_display_panel=True)
+        self.imageViewer.canvas.setMinimumSize(800, 600)
+        # Seed initial intensity into the viewer (and its display_panel) before
+        # the first display_image() call so the panel reflects the caller's
+        # vmin/vmax instead of auto-scaling to img.min()/img.max().
+        self.imageViewer.set_display_options(vmin=self.vmin, vmax=self.vmax)
 
-        self.statusBar = QLabel(f"Current View: No Display")
+        self.statusBar = QLabel("Current View: No Display")
         self.statusBar.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
         self.imageWidget = QWidget()
         self.imageLayout = QVBoxLayout(self.imageWidget)
-        self.imageLayout.addWidget(self.imageLabel)
+        self.imageLayout.setContentsMargins(0, 0, 0, 0)
+        self.imageLayout.addWidget(self.imageViewer)
         self.imageLayout.addWidget(self.statusBar)
 
         # Empty Cell Image Selection Group (Top)
@@ -131,18 +134,20 @@ class ImageBlankDialog(QDialog):
         self.blankSelectionLayout.addWidget(self.blankWeightLabel, row, 0, 1, 2)
         self.blankSelectionLayout.addWidget(self.blankWeightText, row, 2, 1, 2)
 
-        # Display Options Group (Bottom) - 3 exclusive radio buttons
-        self.displayGroup = QGroupBox("Display Options")
+        # Compare Group - 3 exclusive radio buttons that pick which image to show.
+        # Renamed from "Display Options" so it does not collide with the
+        # ImageViewerWidget's built-in DisplayOptionsPanel.
+        self.compareGroup = QGroupBox("Compare")
         self.displayButtonGroup = QButtonGroup()
-        
+
         self.differenceImageRadio = QRadioButton("Difference Image (Original - Empty Cell)")
         self.originalImageRadio = QRadioButton("Original Image")
         self.emptyCellImageRadio = QRadioButton("Empty Cell Image")
-        
+
         self.displayButtonGroup.addButton(self.differenceImageRadio, 0)
         self.displayButtonGroup.addButton(self.originalImageRadio, 1)
         self.displayButtonGroup.addButton(self.emptyCellImageRadio, 2)
-        
+
         # Default to showing difference image if blank is available, otherwise original
         if self.blank_image_info is not None:
             self.differenceImageRadio.setChecked(True)
@@ -151,10 +156,10 @@ class ImageBlankDialog(QDialog):
             self.differenceImageRadio.setEnabled(False)
             self.emptyCellImageRadio.setEnabled(False)
 
-        self.displayLayout = QVBoxLayout(self.displayGroup)
-        self.displayLayout.addWidget(self.differenceImageRadio)
-        self.displayLayout.addWidget(self.originalImageRadio)
-        self.displayLayout.addWidget(self.emptyCellImageRadio)
+        self.compareLayout = QVBoxLayout(self.compareGroup)
+        self.compareLayout.addWidget(self.differenceImageRadio)
+        self.compareLayout.addWidget(self.originalImageRadio)
+        self.compareLayout.addWidget(self.emptyCellImageRadio)
 
         self.updateBlankWidgets()
 
@@ -167,9 +172,12 @@ class ImageBlankDialog(QDialog):
 
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
+        # DisplayOptionsPanel sits at the top of the right column.
+        self.settingsLayout.addWidget(self.imageViewer.display_panel)
+        self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.blankSelectionGroup)
         self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.displayGroup)
+        self.settingsLayout.addWidget(self.compareGroup)
         self.settingsLayout.addStretch()
 
         self.scrollArea = QScrollArea()
@@ -184,18 +192,10 @@ class ImageBlankDialog(QDialog):
         self.mainLayout.addLayout(self.contentLayout)
         self.mainLayout.addWidget(self.dialogButtons, alignment=Qt.AlignHCenter)
 
-        if self.imageData is not None:
-            scaledPixmap = self.createDisplayImage(self.imageData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-            self.imageLabel.setPixmap(scaledPixmap)
-
         self.refreshImage()
 
         self.setConnections()
-        
+
         # Automatically resize dialog to fit all widgets
         self.adjustSize()
 
@@ -260,64 +260,36 @@ class ImageBlankDialog(QDialog):
             self.originalImageRadio.setChecked(True)
 
     def refreshImage(self):
+        # The viewer keeps current vmin/vmax/log_scale/colormap and the current
+        # zoom across display_image() calls, so simply selecting a new array
+        # here will not reset the user's display parameters.
         if self.imageData is None:
-            self.imageLabel.clear()
             self.statusBar.setText("Current View: No Display")
             return
 
-        # Determine which radio button is selected
         if self.differenceImageRadio.isChecked():
-            # Show difference image (Original - Empty Cell)
             if self.blank_image_info is None:
-                self.imageLabel.clear()
                 self.statusBar.setText("Current View: No blank image available")
                 return
-            
             blank_image_weight = self.blank_image_info["weight"]
-            imageData = self.imageData.copy() - self.blank_image_info["blank_image"] * blank_image_weight
-            
-            scaledPixmap = self.createDisplayImage(imageData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Difference Image (scale: {blank_image_weight:.2f})")
-            
+            imageData = self.imageData - self.blank_image_info["blank_image"] * blank_image_weight
+            status = f"Current View: Difference Image (scale: {blank_image_weight:.2f})"
         elif self.originalImageRadio.isChecked():
-            # Show original image
-            imageData = self.imageData.copy()
-            
-            scaledPixmap = self.createDisplayImage(imageData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText("Current View: Original Image")
-            
+            imageData = self.imageData
+            status = "Current View: Original Image"
         elif self.emptyCellImageRadio.isChecked():
-            # Show empty cell image
             if self.blank_image_info is None:
-                self.imageLabel.clear()
                 self.statusBar.setText("Current View: No blank image available")
                 return
-            
             blank_image_weight = self.blank_image_info["weight"]
             imageData = self.blank_image_info["blank_image"] * blank_image_weight
-            
-            scaledPixmap = self.createDisplayImage(imageData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Empty Cell Image (scale: {blank_image_weight:.2f})")
-            
+            status = f"Current View: Empty Cell Image (scale: {blank_image_weight:.2f})"
         else:
-            # Fallback - should not happen
-            self.imageLabel.clear()
             self.statusBar.setText("Current View: No Display")
+            return
+
+        self.imageViewer.display_image(imageData)
+        self.statusBar.setText(status)
 
     def readBlankImage(self):
         blank_image_file_path = getAFile(path=str(self.settings_dir_path.parent))
@@ -379,39 +351,3 @@ class ImageBlankDialog(QDialog):
 
         return blank_image_info
 
-    def createDisplayImage(self,
-        imageArray,
-        minInt,
-        maxInt,
-        displayImageWidth,
-        displayImageHeight):
-        imageArray = imageArray.copy()
-        # Flip the image vertically (up-down) so it matches the display
-        # in the main window, where the y-axis is defined bottom-to-top
-        # using ax.set_ylim.
-        flippedImageArray = np.flipud(imageArray)
-
-        # Normalize the flipped image to the 0-255 range for display
-        if np.max(flippedImageArray) == np.min(flippedImageArray):
-            normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
-        else:
-            # If minInt == maxInt, just use the images min and max (perhaps need to change since we are performing operations)
-            if minInt == maxInt:
-                normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
-            else:
-                normFlippedImageArray = 255 * (np.array(flippedImageArray) - minInt) / (maxInt - minInt)
-            # Clip values to [0, 255] range before converting to uint8 to avoid underflow/overflow
-            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(np.uint8)
-
-        # Create a QImage from the 8-bit array
-        qImg = QImage(normFlippedImageArray.data, normFlippedImageArray.shape[1], normFlippedImageArray.shape[0], normFlippedImageArray.strides[0], QImage.Format_Grayscale8)
-
-        # Convert QImage to QPixmap
-        pixmap = QPixmap.fromImage(qImg)
-
-        # Scale the pixmap to fit within the display area while maintaining the aspect ratio
-        scaledPixmap = pixmap.scaled(
-            displayImageWidth, displayImageHeight,
-            Qt.KeepAspectRatio, Qt.SmoothTransformation)
-
-        return scaledPixmap
