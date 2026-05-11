@@ -78,7 +78,7 @@ from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
 from .widgets import ProcessingWorkspace
 from .base_gui import BaseGUI
-from ..utils.background_search import makeFullImage
+from ..utils.background_search import makeFullImage, get_projection, find_i0_i1_peaks_auto, find_m_peak_auto
 from ..utils.qf_defaults import parse_optimization_steps
 import time
 import random
@@ -1265,6 +1265,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'currentBGLossLabel',
             'bgMetricsTable',
             'bgMetricsTableTitle',
+            'saveMetricsToCsvChkBx',
             'addBackgroundConfigButton',
             'backgroundConfigsTable',
             'deleteBackgroundConfigButton',
@@ -2756,6 +2757,31 @@ class QuadrantFoldingGUI(BaseGUI):
         if not isinstance(info, dict):
             return
 
+        def _to_positive_float(value):
+            try:
+                parsed = float(value)
+            except Exception:
+                return None
+            return parsed if parsed > 0.0 else None
+
+        def _resolve_synthetic_defaults(local_info):
+            resolved_amp = _to_positive_float(local_info.get('synthetic_amplitude'))
+            resolved_sigma_x = _to_positive_float(local_info.get('synthetic_sigma_x'))
+            resolved_sigma_y = _to_positive_float(local_info.get('synthetic_sigma_y'))
+
+            # If any synthetic Gaussian parameter is missing, compute the same defaults as QuadrantFolder.
+            if resolved_amp is None or resolved_sigma_x is None or resolved_sigma_y is None:
+                computed = self.quadFold.ensureSyntheticGaussianDefaults()
+
+                if computed is not None:
+                    resolved_amp = _to_positive_float(computed[0]) or resolved_amp
+                    resolved_sigma_x = _to_positive_float(computed[1]) or resolved_sigma_x
+                    resolved_sigma_y = _to_positive_float(computed[2]) or resolved_sigma_y
+
+            return resolved_amp, resolved_sigma_x, resolved_sigma_y
+
+        synthetic_amplitude, synthetic_sigma_x, synthetic_sigma_y = _resolve_synthetic_defaults(info)
+
         if 'mean_metric_values' in info and isinstance(info['mean_metric_values'], dict):
             means = info['mean_metric_values']
             self.meanMSESpnBx.setValue(float(means.get('MSE_SYN_MEAN', self.meanMSESpnBx.value())))
@@ -2774,12 +2800,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if 'evaluation_baseline' in info:
             self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value())))
-        if 'synthetic_amplitude' in info:
-            self.amplitudeSpnBx.setValue(float(info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
-        if 'synthetic_sigma_x' in info:
-            self.sigmaXSpnBx.setValue(float(info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
-        if 'synthetic_sigma_y' in info:
-            self.sigmaYSpnBx.setValue(float(info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
+        if synthetic_amplitude is not None:
+            self.amplitudeSpnBx.setValue(float(synthetic_amplitude))
+        if synthetic_sigma_x is not None:
+            self.sigmaXSpnBx.setValue(float(synthetic_sigma_x))
+        if synthetic_sigma_y is not None:
+            self.sigmaYSpnBx.setValue(float(synthetic_sigma_y))
         if 'freq' in info:
             freq_value = str(info.get('freq', self.freqCB.currentText()))
             idx = self.freqCB.findText(freq_value)
@@ -3187,6 +3213,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.quadFold.info['result_bg']['selected_configuration_name'] = "Default Optimization"
         if self.csvManager is not None:
             self.csvManager.writeNewData(self.quadFold)
+        self._upsert_background_metrics_csv(quad_fold=self.quadFold)
 
         self.toggleCircleRminRmax()
         print("UI updated with new processing result")
@@ -3299,6 +3326,7 @@ class QuadrantFoldingGUI(BaseGUI):
             # In batch mode, write CSV data and save results without UI refresh
             self.csvManager.writeNewData(self.quadFold)
             self.saveResults()  # Save result images to qf_results/
+            self._upsert_background_metrics_csv(quad_fold=self.quadFold)
 
         if self.lock is not None:
             self.lock.release()
@@ -3495,6 +3523,88 @@ class QuadrantFoldingGUI(BaseGUI):
 
             self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
             self.csv_bg.to_csv(csv_path)
+
+    def _upsert_background_metrics_csv(self, quad_fold=None, flags=None):
+        """
+        Upsert one row per image into qf_results/bg/background_metrics.csv.
+        Row key is image filename (ImageName).
+        """
+        qf = quad_fold if quad_fold is not None else self.quadFold
+        if qf is None or not hasattr(qf, "info"):
+            return
+
+        if not self.saveMetricsToCsvChkBx.isChecked():
+            return
+
+        info = qf.info if isinstance(qf.info, dict) else {}
+        result_bg = info.get("result_bg", {}) or {}
+        raw_metrics = result_bg.get("metrics_raw", {}) or {}
+        norm_metrics = result_bg.get("metrics_normalized", {}) or {}
+        loss = result_bg.get("loss", None)
+        if not isinstance(raw_metrics, dict):
+            raw_metrics = {}
+        if not isinstance(norm_metrics, dict):
+            norm_metrics = {}
+        if len(raw_metrics) == 0 and len(norm_metrics) == 0 and loss is None:
+            return
+
+        filename = str(getattr(qf, "img_name", "") or "")
+        method = result_bg.get("method", None)
+        final_params = result_bg.get("final_params", None)
+        params_text = self._format_bg_params_text(final_params)
+        metric_weights = info.get("metric_weights", {})
+
+        mean_metric_values = info.get("mean_metric_values", {})
+        row_data = {
+            "Method": str(method),
+            "BgParameters": params_text,
+            "Loss": loss,
+            "Raw_MSE": raw_metrics.get("MSE", None),
+            "Raw_Share_Neg_Synthetic": raw_metrics.get("Share_Neg_Synthetic", None),
+            "Raw_Share_Non_Baseline": raw_metrics.get("Share_Non_Baseline", None),
+            "Raw_Share_Neg_Connected": raw_metrics.get("Share_Neg_Connected", None),
+            "Raw_Smoothness": raw_metrics.get("Smoothness", None),
+            "Norm_MSE": norm_metrics.get("MSE", None),
+            "Norm_Share_Neg_Synthetic": norm_metrics.get("Share_Neg_Synthetic", None),
+            "Norm_Share_Non_Baseline": norm_metrics.get("Share_Non_Baseline", None),
+            "Norm_Share_Neg_Connected": norm_metrics.get("Share_Neg_Connected", None),
+            "Norm_Smoothness": norm_metrics.get("Smoothness", None),
+            "Weight_MSE": metric_weights.get("MSE", None),
+            "Weight_Share_Neg_Synthetic": metric_weights.get("Share_Neg_Synthetic", None),
+            "Weight_Share_Non_Baseline": metric_weights.get("Share_Non_Baseline", None),
+            "Weight_Share_Neg_Connected": metric_weights.get("Share_Neg_Connected", None),
+            "Weight_Smoothness": metric_weights.get("Smoothness", None),
+            "Mean_MSE_SYN": mean_metric_values.get("MSE_SYN_MEAN", None),
+            "Mean_SHARE_NEG_SYN": mean_metric_values.get("SHARE_NEG_SYN_MEAN", None),
+            "Mean_SHARE_NON_BASELINE": mean_metric_values.get("SHARE_NON_BASELINE_MEAN", None),
+            "Mean_SHARE_NEG_CON": mean_metric_values.get("SHARE_NEG_CON_MEAN", None),
+            "Mean_SMOOTH": mean_metric_values.get("SMOOTH_MEAN", None),
+        }
+        ordered_columns = list(row_data.keys())
+
+        try:
+            csv_path = join(self.filePath, "qf_results", "bg", "background_metrics.csv")
+            os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+            if exists(csv_path):
+                df = pd.read_csv(csv_path)
+            else:
+                df = pd.DataFrame(columns=["ImageName"] + ordered_columns)
+
+            if "ImageName" in df.columns:
+                df = df.set_index("ImageName")
+            else:
+                df.index.name = "ImageName"
+
+            for col in ordered_columns:
+                if col not in df.columns:
+                    df[col] = np.nan
+            df = df.reindex(columns=ordered_columns)
+            df.loc[filename] = pd.Series(row_data)
+            df.sort_index(inplace=True)
+            df.to_csv(csv_path, index_label="ImageName")
+        except Exception as e:
+            print(f"Failed to upsert background metrics CSV for {filename}: {e}")
 
     def updateParams(self):
         """

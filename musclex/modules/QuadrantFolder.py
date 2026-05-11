@@ -127,7 +127,19 @@ class QuadrantFolder:
         #This is what all transformations will be done on
         self.start_img = copy.copy(self.orig_img)
 
-        # self.batch_context = batch_context or {}
+        
+        self._bg_raw_metrics_cache = {}
+        self._bg_raw_metrics_cache_image_id = self._get_bg_cache_image_id()
+
+    def _get_bg_cache_image_id(self):
+        return f"{self.img_path}/{self.img_name}"
+
+    def _prepare_bg_raw_metrics_cache(self):
+        image_id = self._get_bg_cache_image_id()
+        if self._bg_raw_metrics_cache_image_id != image_id:
+            self._bg_raw_metrics_cache = {}
+            self._bg_raw_metrics_cache_image_id = image_id
+        return self._bg_raw_metrics_cache
 
     def cacheInfo(self):
         """
@@ -693,11 +705,44 @@ class QuadrantFolder:
         return mask
 
 
-    def createArtificialData(self):
-        freq = str(self.info.get('freq', 'medium')).lower()
+    def _ensure_synthetic_gaussian_params(self, fullImg, i0, m1):
         AMP = 0.01
         SIGMA_X_DIV = 5.0
         SIGMA_Y_DIV = 10.0
+
+        amplitude = float(self.info.get('synthetic_amplitude', 0.0))
+        if amplitude <= 0.0:
+            equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
+            amplitude = equator_half[i0] * AMP * i0
+            amplitude = 4000 if amplitude < 4000 else amplitude
+            self.info['synthetic_amplitude'] = amplitude
+
+        # `synthetic_sigma_x` / `synthetic_sigma_y` are actual Gaussian sigmas (std dev, pixels)
+        sigma_x = float(self.info.get('synthetic_sigma_x', 0.0))
+        sigma_y = float(self.info.get('synthetic_sigma_y', 0.0))
+        if sigma_x <= 0.0:
+            sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
+            self.info['synthetic_sigma_x'] = sigma_x
+        if sigma_y <= 0.0:
+            sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
+            self.info['synthetic_sigma_y'] = sigma_y
+
+        return amplitude, sigma_x, sigma_y
+
+    def ensureSyntheticGaussianDefaults(self):
+        if 'avg_fold' not in self.info:
+            return None
+
+        fullImg = makeFullImage(self.info['avg_fold'])
+        i0, _ = find_i0_i1_peaks_auto(fullImg, rmin=30)
+        i0 = 100 if abs(i0-100) > 50 else i0
+        m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
+        m1 = 50 if abs(m1-50) > 50 else m1
+
+        return self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
+
+    def createArtificialData(self):
+        freq = str(self.info.get('freq', 'medium')).lower()
 
         fullImg = makeFullImage(self.info['avg_fold'])
 
@@ -731,23 +776,7 @@ class QuadrantFolder:
             step_x=step_x, step_y=step_y, 
             offset_x=offset_x, offset_y=offset_y, fold=True)
         
-        equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
-
-        amplitude = float(self.info.get('synthetic_amplitude', 0.0))
-        if amplitude <= 0.0:
-            amplitude = equator_half[i0] * AMP * i0
-            amplitude = 4000 if amplitude < 4000 else amplitude
-            self.info['synthetic_amplitude'] = amplitude
-
-        # `synthetic_sigma_x` / `synthetic_sigma_y` are actual Gaussian sigmas (std dev, pixels)
-        sigma_x = float(self.info.get('synthetic_sigma_x', 0.0))
-        sigma_y = float(self.info.get('synthetic_sigma_y', 0.0))
-        if sigma_x <= 0.0:
-            sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
-            self.info['synthetic_sigma_x'] = sigma_x
-        if sigma_y <= 0.0:
-            sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
-            self.info['synthetic_sigma_y'] = sigma_y
+        amplitude, sigma_x, sigma_y = self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
 
         print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
 
@@ -884,6 +913,7 @@ class QuadrantFolder:
             self._apply_existing_or_default_bg()
 
     def _build_bg_search_kwargs(self):
+        raw_metrics_cache = self._prepare_bg_raw_metrics_cache()
         folded_image = makeFullImage(self.info['avg_fold'])
         return {
             'steps': self.info['steps'],
@@ -903,8 +933,20 @@ class QuadrantFolder:
             'synthetic_data': self.info['synthetic_data'],
             'synthetic_mask': self.info['synthetic_mask'],
             'downsample_factor': self.info['downsample'],
+            'smooth_image': self.info.get('smooth_image', False),
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
+            'freq': self.info.get('freq', None),
+            'synthetic_amplitude': self.info.get('synthetic_amplitude', None),
+            'synthetic_sigma_x': self.info.get('synthetic_sigma_x', None),
+            'synthetic_sigma_y': self.info.get('synthetic_sigma_y', None),
+            'equator_mask_height': self.info.get('equator_mask_height', None),
+            'n_peaks': self.info.get('n_peaks', None),
+            'equator_center_beam_width': self.info.get('equator_center_beam_width', None),
+            'layer_line_width': self.info.get('layer_line_width', None),
+            'm1': self.info.get('m1', None),
+            'image_id': self._get_bg_cache_image_id(),
+            'raw_metrics_cache': raw_metrics_cache,
         }
 
     def _values_from_params(self, method, params):
@@ -1034,6 +1076,8 @@ class QuadrantFolder:
     def _optimize_background(self, kwargs):
         self.parent.statusPrint(f"Background subtraction methods to optimize: {self.info['methods']}")
         self.parent.statusPrint("Running optimization...")
+        kwargs['raw_metrics_cache'] = self._prepare_bg_raw_metrics_cache()
+        kwargs['image_id'] = self._get_bg_cache_image_id()
 
         # Keep one CPU core free for the GUI/main thread so the app remains responsive.
         # Also never spawn more workers than methods to evaluate.
@@ -1087,6 +1131,9 @@ class QuadrantFolder:
         best_params = None
         best_method = None
         for result in outputs:
+            cache_updates = result.get('raw_metrics_cache_updates', {})
+            if isinstance(cache_updates, dict) and cache_updates:
+                self._bg_raw_metrics_cache.update(cache_updates)
             loss = result['best_loss']
             params = result['best_params']
             method = result['method']

@@ -614,6 +614,7 @@ class BackgroundSubtractionDialog(QDialog):
             "QTableWidget { font-size: 13px; }"
             "QHeaderView::section { font-size: 11px; padding: 2px 4px; }"
         )
+        self.saveMetricsToCsvChkBx = QCheckBox("Save result metrics to csv")
 
 
         # ===== Configuration Selection Widgets =====
@@ -1001,6 +1002,7 @@ class BackgroundSubtractionDialog(QDialog):
         eval_group_layout = QGridLayout()
         eval_group_layout.addWidget(self.bgMetricsTableTitle, 0, 0)
         eval_group_layout.addWidget(self.bgMetricsTable, 1, 0)
+        eval_group_layout.addWidget(self.saveMetricsToCsvChkBx, 2, 0, Qt.AlignLeft)
         self.evalGroup.setLayout(eval_group_layout)
 
     def _setup_folder_layout(self):
