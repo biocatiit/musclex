@@ -1,5 +1,6 @@
 
 import os
+import json
 import cv2
 import numpy as np
 from scipy.signal import find_peaks, peak_widths
@@ -531,6 +532,131 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mea
 
     return normalized_metrics["Loss"]
 
+def compute_loss_from_raw(raw_metrics, mean_metric_values=None, metric_weights=None):
+    if not isinstance(raw_metrics, dict):
+        return np.inf
+
+    mean_values = dict(MEAN_METRIC_VALUES)
+    if isinstance(mean_metric_values, dict):
+        mean_values.update(mean_metric_values)
+
+    weights = dict(WEIGHTS)
+    if isinstance(metric_weights, dict):
+        weights.update(metric_weights)
+
+    mse = raw_metrics.get("MSE", 0.0) / mean_values["MSE_SYN_MEAN"]
+    share_neg_synthetic = raw_metrics.get("Share_Neg_Synthetic", 0.0) / mean_values["SHARE_NEG_SYN_MEAN"]
+    share_non_baseline = raw_metrics.get("Share_Non_Baseline", 0.0) / mean_values["SHARE_NON_BASELINE_MEAN"]
+    share_neg_connected = raw_metrics.get("Share_Neg_Connected", 0.0) / mean_values["SHARE_NEG_CON_MEAN"]
+    smoothness_value = raw_metrics.get("Smoothness", 0.0) / mean_values["SMOOTH_MEAN"]
+
+    loss = (mse * weights["MSE"] +
+            share_neg_synthetic * weights["Share_Neg_Synthetic"] +
+            share_non_baseline * weights["Share_Non_Baseline"] +
+            share_neg_connected * weights["Share_Neg_Connected"] +
+            smoothness_value * weights["Smoothness"])
+
+    return loss
+
+
+def _to_serializable(value):
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, tuple):
+        return [_to_serializable(v) for v in value]
+    if isinstance(value, list):
+        return [_to_serializable(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _to_serializable(v) for k, v in value.items()}
+    return value
+
+
+def _build_method_params(method, values):
+    params = {}
+    keys = list(method_params[method].keys())
+    for key in keys:
+        params[key] = values[method_order[method].index(keys.index(key))]
+    return params
+
+
+def _build_raw_metrics_cache_key(method, values, params, kwargs):
+    payload = {
+        "method": method,
+        "values": _to_serializable(list(values)),
+        "params": _to_serializable(params),
+        "image_id": kwargs.get("image_id"),
+        "downsample_factor": kwargs.get("downsample_factor"),
+        "smooth_image": kwargs.get("smooth_image"),
+        "evaluation_baseline": kwargs.get("evaluation_baseline"),
+        "synthetic_params": {
+            "freq": kwargs.get("freq"),
+            "synthetic_amplitude": kwargs.get("synthetic_amplitude"),
+            "synthetic_sigma_x": kwargs.get("synthetic_sigma_x"),
+            "synthetic_sigma_y": kwargs.get("synthetic_sigma_y"),
+            "tmp_rmin": kwargs.get("tmp_rmin"),
+            "rmin": kwargs.get("rmin"),
+            "rmax": kwargs.get("rmax"),
+            "tmp_center": _to_serializable(kwargs.get("tmp_center")),
+        },
+        "evaluation_mask_params": {
+            "equator_mask_height": kwargs.get("equator_mask_height"),
+            "n_peaks": kwargs.get("n_peaks"),
+            "equator_center_beam_width": kwargs.get("equator_center_beam_width"),
+            "layer_line_width": kwargs.get("layer_line_width"),
+            "m1": kwargs.get("m1"),
+        },
+    }
+    return json.dumps(_to_serializable(payload), sort_keys=True)
+
+
+def _build_result_record(method, params, raw_metrics, loss, cache_key, from_cache, mean_metric_values=None):
+    normalized_metrics = {}
+    if isinstance(raw_metrics, dict):
+        mean_values = dict(MEAN_METRIC_VALUES)
+        if isinstance(mean_metric_values, dict):
+            mean_values.update(mean_metric_values)
+
+        normalized_metrics = {
+            "MSE": raw_metrics.get("MSE", 0.0) / mean_values["MSE_SYN_MEAN"],
+            "Share_Neg_Synthetic": raw_metrics.get("Share_Neg_Synthetic", 0.0) / mean_values["SHARE_NEG_SYN_MEAN"],
+            "Share_Non_Baseline": raw_metrics.get("Share_Non_Baseline", 0.0) / mean_values["SHARE_NON_BASELINE_MEAN"],
+            "Share_Neg_Connected": raw_metrics.get("Share_Neg_Connected", 0.0) / mean_values["SHARE_NEG_CON_MEAN"],
+            "Smoothness": raw_metrics.get("Smoothness", 0.0) / mean_values["SMOOTH_MEAN"],
+        }
+
+    values_str = "_".join([str(params[k]) for k in params.keys()])
+    result = dict(normalized_metrics)
+    result.update({
+        "Loss": loss,
+        "method": method,
+        "params": values_str,
+        "params_dict": dict(params),
+        "raw_metrics": dict(raw_metrics) if isinstance(raw_metrics, dict) else {},
+        "cache_key": cache_key,
+        "from_cache": bool(from_cache),
+    })
+    return result
+
+
+def _build_cache_record(method, params, raw_metrics, cache_key, kwargs):
+    return {
+        "method": method,
+        "params": _to_serializable(params),
+        "raw_metrics": _to_serializable(raw_metrics),
+        "cache_key": cache_key,
+        "processing": {
+            "downsample_factor": kwargs.get("downsample_factor"),
+            "smooth_image": kwargs.get("smooth_image"),
+        },
+        "evaluation": {
+            "evaluation_baseline": kwargs.get("evaluation_baseline"),
+            "freq": kwargs.get("freq"),
+            "synthetic_amplitude": kwargs.get("synthetic_amplitude"),
+            "synthetic_sigma_x": kwargs.get("synthetic_sigma_x"),
+            "synthetic_sigma_y": kwargs.get("synthetic_sigma_y"),
+        },
+    }
+
 # ========================= Background Removal ==========================
 
 def upsampleImage(img, factor=2):
@@ -854,9 +980,58 @@ def optimize(method, **kwargs):
 
     cur_params = initial_params.copy()
     all_results = []
-    history = {}    
+    history = {}
+    raw_metrics_cache = kwargs.get('raw_metrics_cache', {})
+    if not isinstance(raw_metrics_cache, dict):
+        raw_metrics_cache = {}
+    cache_updates = {}
     done = False
     param_order = method_order[method]
+
+    def evaluate_candidate(test_params, use_timeout=True):
+        params_dict = _build_method_params(method, test_params)
+        cache_key = _build_raw_metrics_cache_key(method, test_params, params_dict, kwargs)
+        cached = raw_metrics_cache.get(cache_key, None)
+        if isinstance(cached, dict):
+            # print("Cached raw metrics found for key: ", cache_key)
+            raw_metrics = cached.get("raw_metrics", None)
+            if isinstance(raw_metrics, dict):
+                loss = compute_loss_from_raw(
+                    raw_metrics,
+                    mean_metric_values=kwargs.get('mean_metric_values', None),
+                    metric_weights=kwargs.get('metric_weights', None),
+                )
+                result = _build_result_record(
+                    method=method,
+                    params=params_dict,
+                    raw_metrics=raw_metrics,
+                    loss=loss,
+                    cache_key=cache_key,
+                    from_cache=True,
+                    mean_metric_values=kwargs.get('mean_metric_values', None),
+                )
+                return loss, [result]
+        # print("No cached raw metrics found for key: ", cache_key)
+        if use_timeout:
+            loss, result = process_file_with_timeout(test_params, method=method, **kwargs)
+        else:
+            loss, result = process_file(test_params, method=method, **kwargs)
+
+        if result:
+            result_entry = result[0]
+            raw_metrics = result_entry.get("raw_metrics", None)
+            if isinstance(raw_metrics, dict):
+                cache_record = _build_cache_record(
+                    method=method,
+                    params=params_dict,
+                    raw_metrics=raw_metrics,
+                    cache_key=cache_key,
+                    kwargs=kwargs,
+                )
+                raw_metrics_cache[cache_key] = cache_record
+                cache_updates[cache_key] = cache_record
+
+        return loss, result
     
     # log("\n>_ Main optimization loop:")
     # --- Main optimization loop ---
@@ -884,7 +1059,7 @@ def optimize(method, **kwargs):
                 if tuple(test_params) in history:
                     loss = history[tuple(test_params)]
                 else:
-                    loss, result = process_file_with_timeout(test_params, method=method, **kwargs)
+                    loss, result = evaluate_candidate(test_params, use_timeout=True)
                     history[tuple(test_params)] = loss
                     all_results.extend(result)
                 log(f"  Param {param_idx} = {v}, Loss = {loss:.6f}")
@@ -895,6 +1070,7 @@ def optimize(method, **kwargs):
                     best_loss = loss
                     best_value = v
                     improved = True
+                    log(f"  Best params: {best_value} Loss: {loss:.6f}")
             if improved:
                 step_idx = 0  # Reset step size if improved
             else:
@@ -911,7 +1087,8 @@ def optimize(method, **kwargs):
     best_params = cur_params.copy()
     # --- Final refinement: grid search with last three step sizes ---
     final_steps = steps[-2:-1]  # last two step sizes
-    best_loss, result = process_file_with_timeout(best_params, method=method, **kwargs)
+    best_loss, result = evaluate_candidate(best_params, use_timeout=True)
+    all_results.extend(result)
     improved = False
 
     log("\n>_ Refining best parameters with small grid search.")
@@ -936,7 +1113,7 @@ def optimize(method, **kwargs):
                 if tuple(candidate) in history:
                     loss = history[tuple(candidate)]
                 else:
-                    loss, result = process_file(candidate, method=method, **kwargs)
+                    loss, result = evaluate_candidate(candidate, use_timeout=False)
                     history[tuple(candidate)] = loss
                     all_results.extend(result)
                 if loss < best_loss:
@@ -952,7 +1129,8 @@ def optimize(method, **kwargs):
         'method': method,
         'best_params': best_params,
         'best_loss': best_loss,
-        'all_results': all_results
+        'all_results': all_results,
+        'raw_metrics_cache_updates': cache_updates,
     }
     return results
 
@@ -966,6 +1144,14 @@ class TimeoutException(Exception):
 def handler(signum, frame):
     raise TimeoutException()
 
+
+RAW_METRIC_KEYS = (
+    "MSE",
+    "Share_Neg_Synthetic",
+    "Share_Non_Baseline",
+    "Share_Neg_Connected",
+    "Smoothness",
+)
 
 def process_file_with_timeout(values, timeout=60000000, **kwargs):
     signal.signal(signal.SIGALRM, handler)
@@ -987,12 +1173,8 @@ def process_file(values=None, **kwargs):
     else:
         values = [float(x) for x in values]
 
-    values_str = "_".join([str(x) for x in values])
     result = []
-
-    params = {}
-    for key in method_params[method].keys():
-        params[key] = values[method_order[method].index(list(method_params[method].keys()).index(key))]
+    params = _build_method_params(method, values)
 
     kwargs_bg = {
         'method': kwargs.get('method', 'White-top-hats'),
@@ -1016,8 +1198,6 @@ def process_file(values=None, **kwargs):
     syn_dimg = makeFullImage(dimg_fold_syn)
     orig_img = kwargs['orig_img']
 
-    # Align generated image to original image shape before subtraction
-    # dimg = _match_shape_to_mask(dimg, orig_img.shape)
 
     dbg = orig_img - dimg
     baseline = kwargs.get('evaluation_baseline', None)
@@ -1025,7 +1205,7 @@ def process_file(values=None, **kwargs):
     syn_mask = kwargs.get('synthetic_mask', None)
     gen_mask = kwargs.get('mask', None)
 
-    metrics = full_eval_metrics(
+    raw_eval = full_eval_metrics(
         dimg,
         dbg,
         syn_img=syn_dimg,
@@ -1033,14 +1213,27 @@ def process_file(values=None, **kwargs):
         syn_mask=syn_mask,
         gen_mask=gen_mask,
         baseline_value=baseline,
+        normalize_metrics=False,
         mean_metric_values=kwargs.get('mean_metric_values', None),
         metric_weights=kwargs.get('metric_weights', None),
     )
-    
-    # for metric in metrics:
-    #     print(f"    - {metric}: {metrics[metric]:.10f}")
-    metrics['params'] = values_str
+
+    raw_metrics = {key: raw_eval.get(key, 0.0) for key in RAW_METRIC_KEYS}
+    loss = compute_loss_from_raw(
+        raw_metrics,
+        mean_metric_values=kwargs.get('mean_metric_values', None),
+        metric_weights=kwargs.get('metric_weights', None),
+    )
+    cache_key = _build_raw_metrics_cache_key(method, values, params, kwargs)
+    metrics = _build_result_record(
+        method=method,
+        params=params,
+        raw_metrics=raw_metrics,
+        loss=loss,
+        cache_key=cache_key,
+        from_cache=False,
+        mean_metric_values=kwargs.get('mean_metric_values', None),
+    )
     result.append(metrics)
-    loss = metrics['Loss']
 
     return loss, result
