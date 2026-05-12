@@ -417,6 +417,7 @@ def main(arguments=None):
                 from multiprocessing import Lock, Process, cpu_count
                 lock = Lock()
                 procs = []
+                max_procs = min(8, (cpu_count()-2)//3)
                 imgList = os.listdir(filename) if not is_file else [filename]
                 imgList.sort()
                 for image in imgList:
@@ -435,17 +436,17 @@ def main(arguments=None):
                                 proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext), kwargs={'output_dir': output_dir})
                                 procs.append(proc)
                                 proc.start()
-                                if len(procs) % cpu_count() == 0:
+                                if len(procs) >= max_procs:
                                     for proc in procs:
                                         proc.join()
                                     procs = []
-                    if len(procs) % cpu_count() == 0:
+                    if len(procs) >= max_procs:
                         for proc in procs:
                             proc.join()
                         procs = []
                 for proc in procs:
                     proc.join()
-                    sys.exit()
+                sys.exit()
     elif len(arguments) >= 5 and arguments[1]=='pt' and arguments[2]=='-h':
         inputsetting=False
         delcache=False

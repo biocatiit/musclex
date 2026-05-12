@@ -27,7 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 from os import makedirs
 from os.path import exists
-import hashlib
+# import hashlib
 import pandas as pd
 try:
     from ..utils.file_manager import fullPath
@@ -48,7 +48,12 @@ class QF_CSVManager:
         if not exists(result_path):
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
-        self.colnames = ['Filename', 'centerX', 'centerY', 'rotationAngle', 'hash', 'comment']
+        self.colnames = [
+            'Filename', 'centerX', 'centerY', 'rotationAngle',
+            'backgroundMethod', 'backgroundConfigName',
+            'parameters', 'downsampled',
+            'loss', 'bgSum'#, 'hash', 'comment'
+        ]
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
@@ -74,6 +79,10 @@ class QF_CSVManager:
             self.dataframe = pd.DataFrame(columns = self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
+            for col in self.colnames:
+                if col not in self.dataframe.columns:
+                    self.dataframe[col] = '-'
+
 
     def writeNewData(self, quadFold):
         """
@@ -110,11 +119,19 @@ class QF_CSVManager:
             data['centerX'] = center[0]
             data['centerY'] = center[1]
             data['rotationAngle'] = quadFold.rotation if quadFold.rotation is not None else 0.0
-            try:
-                data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
-            except:
-                print('Hash not generated, array not C-contiguous')
-                data['hash'] = '-'
+            # try:
+            #     data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
+            # except:
+            #     print('Hash not generated, array not C-contiguous')
+            #     data['hash'] = '-'
+
+            data['backgroundMethod'] = quadFold.info['result_bg'].get('method', '-')
+            data['backgroundConfigName'] = quadFold.info['result_bg'].get('selected_configuration_name', '-')
+            data['parameters'] = quadFold.info['result_bg'].get('final_params', '-')
+            data['downsampled'] = quadFold.info.get('downsample', '-')
+            data['loss'] = quadFold.info['result_bg'].get('loss', '-')
+            data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
+
 
             if failed:
                 self.failedcases.add(img_name)

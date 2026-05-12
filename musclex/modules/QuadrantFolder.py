@@ -27,10 +27,12 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import json
 import pickle
 import hashlib
-import json
 import fabio
+import time
+import multiprocessing as mp
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
@@ -44,12 +46,14 @@ try:
     from ..utils.file_manager import fullPath, createFolder
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
+    from ..utils.background_search import *
     from ..utils.image_data import ImageData
 except: # for coverage
     from modules import QF_utilities as qfu
     from utils.file_manager import fullPath, createFolder
     from utils.histogram_processor import *
     from utils.image_processor import *
+    from utils.background_search import *
     from utils.image_data import ImageData
 
 # Make sure the cython part is compiled
@@ -97,8 +101,8 @@ class QuadrantFolder:
         
         # Initialize state
         self.orig_image_center = None
-        self.dl, self.db = 0, 0
-        self.empty = False
+        # self.dl, self.db = 0, 0
+        # self.empty = False
         self.imgCache = {} # displayed images will be saved in this param
         self.ignoreFolds = set()
         self.version = __version__
@@ -140,6 +144,19 @@ class QuadrantFolder:
 
         #This is what all transformations will be done on
         self.start_img = copy.copy(self.orig_img)
+
+        self._bg_raw_metrics_cache = {}
+        self._bg_raw_metrics_cache_image_id = self._get_bg_cache_image_id()
+
+    def _get_bg_cache_image_id(self):
+        return f"{self.img_path}/{self.img_name}"
+
+    def _prepare_bg_raw_metrics_cache(self):
+        image_id = self._get_bg_cache_image_id()
+        if self._bg_raw_metrics_cache_image_id != image_id:
+            self._bg_raw_metrics_cache = {}
+            self._bg_raw_metrics_cache_image_id = image_id
+        return self._bg_raw_metrics_cache
 
     # Keys excluded from the persistent disk cache.
     #
@@ -231,6 +248,24 @@ class QuadrantFolder:
                   f"expected={CACHE_FORMAT_VERSION}); discarding old cache for {self.img_name}.")
             return None
         return info
+
+    def _check_stop(self):
+        if self.parent is not None and getattr(self.parent, "stop_process", False):
+            self.info['stopped'] = True
+            return True
+        return False
+
+    def _clearDependentCaches(self):
+        """
+        Clear QuadrantFolder's processing results cache.
+
+        Called when ImageData's fingerprint changes (indicating that
+        preprocessing, geometry, or configuration has changed).
+        """
+        print("  Clearing processing results cache")
+        self.deleteFromDict(self.imgCache, 'avg_fold')
+        self.deleteFromDict(self.info, 'rmin')
+        self.deleteFromDict(self.info, 'rmax')
 
     def delCache(self):
         """
@@ -340,9 +375,12 @@ class QuadrantFolder:
 
             updateInfo -> initParams -> findCenter -> getRotationAngle ->
             (fast-path check: load _folded.tif if fingerprint matches) ->
-            transformImage -> calculateAvgFold -> [fold_image bypass] ->
-            getRminmax -> getTransitionRad -> applyBackgroundSubtraction ->
-            mergeImages -> generateResultImage -> (stamp fingerprint + cache)
+            transformImage -> calculateAvgFold -> getRminmax ->
+            createMask -> createArtificialData -> smoothFold -> downsampleImage ->
+            searchBackground -> applyBackgroundSubtraction ->
+            applyBackgroundSubtractionSynthetic -> [if transition: getTransitionRad ->
+            applyTransitionBackgroundSubtraction -> applyTransitionBackgroundSubtractionSynthetic ->
+            mergeImages] -> generateResultImage -> evaluateResult -> (stamp fingerprint + cache)
 
         The actual result tif is written by the GUI / headless caller
         (they choose between cropped / compressed variants); next
@@ -366,6 +404,7 @@ class QuadrantFolder:
         """
         print(str(self.img_name) + " is being processed...")
 
+        self.info.pop('stopped', None)
         self.updateInfo(flags)
         self.initParams()
 
@@ -392,29 +431,27 @@ class QuadrantFolder:
         # ==========================================
         self.transformImage()
         self.calculateAvgFold()
-        if flags['fold_image'] == False:
-            self.info['folded'] = False
-
-            # get top left quandrant
-            #rotate_img = copy.copy(self.getRotatedImage())
-            rotate_img = copy.copy(self.orig_img)
-            center = self.center
-            center_x = int(center[0])
-            center_y = int(center[1])
-            img_height = rotate_img.shape[0]
-            img_width = rotate_img.shape[1]
-            fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
-            fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
-            top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
-
-            self.info['avg_fold'] = top_left
-
         self.getRminmax()
-        self.getTransitionRad()
-
+        self.createMask()
+        self.createArtificialData()
+        self.smoothFold()
+        self.downsampleImage()
+        if self._check_stop():
+            return
+        self.searchBackground()
+        if self._check_stop():
+            return
         self.applyBackgroundSubtraction()
-        self.mergeImages()
+        self.applyBackgroundSubtractionSynthetic()
+
+        if self.info['bg_options'] == 1: # Transition
+            self.getTransitionRad()
+            self.applyTransitionBackgroundSubtraction()
+            self.applyTransitionBackgroundSubtractionSynthetic()
+            self.mergeImages()
+
         self.generateResultImage()
+        self.evaluateResult()
 
         # The actual tif write is left to the GUI / headless caller --
         # they decide which variant (compressed / cropped) the user wants.
@@ -429,12 +466,9 @@ class QuadrantFolder:
             try:
                 self.cacheInfo()
             except (OSError, IOError) as e:
-                # Cache write failed (likely due to concurrent access), but processing succeeded
-                # Log the error but don't fail the entire processing
                 print(f"Warning: Failed to write cache for {self.img_name}: {e}")
                 import traceback
                 traceback.print_exc()
-
         self.parent.statusPrint("")
         return True
 
@@ -533,15 +567,37 @@ class QuadrantFolder:
 
         self.info.update(flags)
 
-        # In-memory caches that may have been populated by a previous
-        # process() call on this same QF instance are invalidated when
-        # the resolved ROI changes. The on-disk cache no longer keeps
-        # bgimg1/bgimg2 (see _NON_CACHED_KEYS) so their info-level
-        # deletion has been dropped here.
+        # In-memory caches invalidated when the resolved ROI changes.
         new_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
         if old_roi != new_roi:
             for key in ('BgSubFold', 'resultImg'):
                 self.deleteFromDict(self.imgCache, key)
+
+        if self.info.get('force_recalc_bg'):
+            # Force recompute of background subtraction results (batch manual mode)
+            self.deleteFromDict(self.info, 'result_bg')
+            for key in (
+                'BgSubFold', 'BgFold',
+                'BgSubFold_in', 'BgFold_in',
+                'BgSubFold_out', 'BgFold_out',
+                'BgSubFold_syn', 'BgFold_syn',
+                'BgSubFold_syn_in', 'BgFold_syn_in',
+                'BgSubFold_syn_out', 'BgFold_syn_out',
+            ):
+                self.deleteFromDict(self.imgCache, key)
+
+        if 'result_bg' not in self.info:
+            self.info['result_bg'] = {}
+            self.info['result_bg'].setdefault('method', None)
+            self.info['result_bg'].setdefault('final_params', None)
+            self.info['result_bg'].setdefault('optimized', None)
+            self.info['result_bg'].setdefault('downsampled', None)
+            self.info['result_bg'].setdefault('loss', None)
+            self.info['result_bg'].setdefault('metrics_normalized', None)
+            self.info['result_bg'].setdefault('metrics_raw', None)
+            self.info['result_bg'].setdefault('mean_metric_values', None)
+            self.info['result_bg'].setdefault('metric_weights', None)
+            self.info['result_bg'].setdefault('selected_configuration_name', None)
 
     def initParams(self):
         """
@@ -552,8 +608,7 @@ class QuadrantFolder:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:
             self.info['bgsub'] = 'None'
-        if 'bgsub2' not in self.info:
-            self.info['bgsub2'] = 'None'
+
 
 
     def findCenter(self):
@@ -619,7 +674,7 @@ class QuadrantFolder:
         Uses self.rotation and self.center from findCenter()/getRotationAngle() to build
         a single composite transformation matrix that's applied to orig_img.
         """
-        h_o, w_o = self.orig_img.shape
+        h_o, w_o = self.origSize
         x, y = self.center
         
         # Get angle from runtime variable (set by getRotationAngle)
@@ -662,8 +717,6 @@ class QuadrantFolder:
         # After transformation, center is at the middle of the transformed image
         self.center = (w_o//2, h_o//2)
 
-
-
     def getFoldNumber(self, x, y):
         """
         Get quadrant number by coordinates x, y (top left = 0, top right = 1, bottom left = 2, bottom right = 3)
@@ -684,532 +737,62 @@ class QuadrantFolder:
         if x >= center_x and y >= center_y:
             return 3
         return -1
-
-    def applyAngularBGSub(self):
+    
+    def smoothFold(self):
         """
-        Apply Circular Background Subtraction to average fold, and save the result to self.info['bgimg1']
+        Apply a guided filter to remove noise 
         """
-        copy_img = copy.copy(self.info['avg_fold'])
-        center = [copy_img.shape[1]-1, copy_img.shape[0]-1]
-        npt_rad = int(distance(center,(0,0)))
+        self.imgCache['avg_fold'] = self.imgCache['avg_fold'].astype(np.float32)
+        self.imgCache["avg_fold_with_syn"] = self.imgCache["avg_fold_with_syn"].astype(np.float32)
 
-        if 'detector' in self.info:
-            det = find_detector(copy_img, man_det=self.info['detector'])
+        if 'smooth_image' in self.info and self.info['smooth_image']:
+            self.imgCache['_avg_fold'] = cv2.ximgproc.guidedFilter(
+                guide=self.imgCache['avg_fold'],
+                src=self.imgCache['avg_fold'],
+                radius=7,
+                eps=1
+            )
+            self.imgCache['_avg_fold_with_syn'] = cv2.ximgproc.guidedFilter(
+                guide=self.imgCache["avg_fold_with_syn"],
+                src=self.imgCache["avg_fold_with_syn"],
+                radius=7,
+                eps=1
+            )
         else:
-            det = find_detector(copy_img)
-
-        ai = AzimuthalIntegrator(detector=det)
-        ai.setFit2D(100, center[0], center[1])
-        mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
-
-        start_p = self.info["cirmin"] # minimum value of circular background subtraction pixel range in percent
-        end_p = self.info["cirmax"] # maximum value of circular background subtraction pixel range in percent
-        rmin = self.info["rmin"] # minimum radius for background subtraction
-        rmax = self.info["rmax"] # maximum radius for background subtraction
-        theta_size = self.info["bin_theta"] # bin size in degree
-        nBins = 90/theta_size
-
-        I2D = []
-        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
-        for deg in range(180, 271):
-            _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method=integration_method, azimuth_range=(deg, deg+1))
-            I2D.append(I)
-
-        I2D = np.array(I2D)
-
-        sub_tr = []
-        for i in range(nBins):
-            # loop in each theta range
-            subr = []
-            theta1 = i * theta_size
-            theta2 = (i+1) * theta_size
-            if i+1 == nBins:
-                theta2 += 1
-
-            for r in range(0, I2D.shape[1]):
-                # Get azimuth line on each radius (in theta range)
-                rad = I2D[theta1:theta2,r]
-
-                if start_p == end_p:
-                    percentile = int(round(start_p * len(rad) / 100.))
-                    rad = np.array(sorted(rad)[percentile: percentile+1])
-                else:
-                    s = int(round(start_p * len(rad) / 100.))
-                    e = int(round(end_p * len(rad) / 100.))
-                    if s == e:
-                        rad = sorted(rad)[s: s+1]
-                    else:
-                        rad = np.array(sorted(rad)[s: e])
-
-                # Get mean value of pixel range
-                subr.append(np.mean(rad))
-
-            subr_hist = subr[rmin:rmax + 1]
-            hist_x = list(range(0, len(subr_hist)))
-
-            # Get pchip line from subtraction histogram
-            hull_x, hull_y = getHull(hist_x, subr_hist)
-            y_pchip = np.array(pchip(hull_x, hull_y, hist_x))
-
-            subr_hist = np.concatenate((np.zeros(rmin), y_pchip))
-            subr_hist = np.concatenate((subr_hist, np.zeros(len(subr) - rmax)))
-
-            sub_tr.append(subr_hist)
+            self.imgCache['_avg_fold'] = self.imgCache['avg_fold']
+            self.imgCache['_avg_fold_with_syn'] = self.imgCache['avg_fold_with_syn']
 
 
-        # Create Angular background from subtraction lines (pchipline in each bin)
-        bg_img = qfu.createAngularBG(copy_img.shape[1], copy_img.shape[0], np.array(sub_tr, dtype=np.float32), nBins)
+    def downsampleImage(self):
+        self.imgCache['_rmin'] = self.info['rmin'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmin']
+        self.imgCache['_rmax'] = self.info['rmax'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmax']
+        self.imgCache['_center'] = (self.center[0] // self.info['downsample'], self.center[1] // self.info['downsample']) if 'downsample' in self.info else self.center
 
-        result = copy_img - bg_img
-        result -= result.min()
+        if 'downsample' in self.info and self.info['downsample'] > 1:
+            factor = self.info['downsample']
 
-        # Subtract original average fold by background
-        self.info['bgimg1'] = result
+            h, w = self.imgCache['_avg_fold'].shape[:2]
+            new_w = w // factor
+            new_h = h // factor
+            if w % factor != 0:
+                subtract = w % factor
+                self.imgCache['_avg_fold'] = self.imgCache['_avg_fold'][:, subtract:]
+            if h % factor != 0:
+                subtract = h % factor
+                self.imgCache['_avg_fold'] = self.imgCache['_avg_fold'][subtract:, :]
 
-    def applyCircularlySymBGSub2(self, bgsub=1):
-        """
-        Apply Circular Background Subtraction to average fold, and save the result to self.info['bgimg1']
-        """
-        # fold = copy.copy(self.info['avg_fold'])
-        # # center = [fold.shape[1] + .5, fold.shape[0] + .5]
+            self.imgCache['_avg_fold'] = cv2.resize(self.imgCache['_avg_fold'], (new_w, new_h), interpolation=cv2.INTER_AREA)
+            self.imgCache['_avg_fold_with_syn'] = cv2.resize(self.imgCache['_avg_fold_with_syn'], (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-        # img = self.makeFullImage(fold)
-        # img = img.astype("float32")
-        # width = img.shape[1]
-        # height = img.shape[0]
-
-        # ad = np.ravel(img)
-        # ad = np.array(ad, 'f')
-        # b = np.array(ad, 'f')
-        # rmin = float(self.info['rmin'])
-        # rmax = float(self.info['rmax'])
-        # bin_size = float(self.info["radial_bin"])
-        # smoo = self.info['smooth']
-        # tension = self.info['tension']
-        # max_bin = int(np.ceil((rmax - rmin) / bin_size))*10
-        # max_num = int(np.ceil(rmax * 2 * np.pi))*10
-        # pc1 = self.info['cirmin']/100.
-        # pc2 = self.info['cirmax']/100.
-
-        # csyb = np.zeros(max_bin, 'f')
-        # csyd = np.zeros(max_bin, 'f')
-        # ys = np.zeros(max_bin, 'f')
-        # ysp = np.zeros(max_bin, 'f')
-        # wrk = np.zeros(max_bin * 9, 'f')
-        # pixbin = np.zeros(max_num, 'f')
-        # index_bn = np.zeros(max_num, 'f')
-
-        # ccp13.bgcsym2(ad=ad, b=b,
-        #               smoo=smoo,
-        #               tens=tension,
-        #               pc1=pc1,
-        #               pc2=pc2,
-        #               npix=width,
-        #               nrast=height,
-        #               dmin=rmin,
-        #               dmax=rmax,
-        #               xc=width/2.-.5,
-        #               yc=height/2.-.5,
-        #               dinc=bin_size,
-        #               csyb=csyb,
-        #               csyd=csyd,
-        #               ys=ys,
-        #               ysp=ysp,
-        #               wrk=wrk,
-        #               pixbin=pixbin,
-        #               index_bn=index_bn,
-        #               iprint=0,
-        #               ilog=6,
-        #               maxbin=max_bin,
-        #               maxnum=max_num)
-
-        # background = copy.copy(b)
-        # background[np.isnan(background)] = 0.
-        # background = np.array(background, 'float32')
-        # background = background.reshape((height, width))
-        # background = background[:fold.shape[0], :fold.shape[1]]
-        # result = np.array(fold - background, dtype=np.float32)
-        # result = qfu.replaceRmin(result, int(rmin), 0.)
-
-        # self.info['bgimg1'] = result
-
-        fold = copy.copy(self.info["avg_fold"])
-
-        img = self.makeFullImage(fold)
-        img = img.astype("float32")
-        width = img.shape[1]
-        height = img.shape[0]
-
-        ad = np.ravel(img)
-        rmin = float(self.info["rmin"])
-        rmax = width+1
-
-        if bgsub==2:
-            bin_size = float(self.info["radial_bin2"])
-            smoo = self.info["smooth2"]
-            pc1 = self.info["cirmin2"] / 100.0
-            pc2 = self.info["cirmax2"] / 100.0
-            tension =self.info["tension2"]
+    def upsampleImage(self, img):
+        factor = self.info['downsample']
+        if 'downsample' in self.info and self.info['downsample'] > 1:
+            h, w = img.shape[0] * factor, img.shape[1] * factor
+            upsampled_img = cv2.resize(img, (w, h), interpolation=cv2.INTER_CUBIC)
+            return upsampled_img
         else:
-            bin_size = float(self.info["radial_bin"])
-            smoo = self.info["smooth"]
-            pc1 = self.info["cirmin"] / 100.0
-            pc2 = self.info["cirmax"] / 100.0
-            tension =self.info["tension"]
-
-        # Call the new background subtraction function
-        background = replicate_bgcsym2(
-            AD=ad,
-            width=width,
-            height=height,
-            dmin=rmin,
-            dmax=rmax,
-            xc=width / 2.0 - 0.5,
-            yc=height / 2.0 - 0.5,
-            bin_size=bin_size,
-            smooth=smoo,
-            tension=tension,
-            pc1=pc1,
-            pc2=pc2
-        )
-
-        background = copy.copy(background)
-        background[np.isnan(background)] = 0.
-        background = np.array(background, 'float32')
-        background = background.reshape((height, width))
-        background = background[:fold.shape[0], :fold.shape[1]]
-        result = np.array(fold - background, dtype=np.float32)
-        result = qfu.replaceRmin(result, int(rmin), 0.)
-        return result
-
-
-
-    def applySmoothedBGSub(self, typ='gauss', bgsub=1):
-        """
-        Apply the background substraction smoothed, with default type to gaussian.
-        :param typ: type of the substraction
-        """
-        # fold = copy.copy(self.info['avg_fold'])
-
-        # img = self.makeFullImage(fold)
-        # img = img.astype("float32")
-        # width = img.shape[1]
-        # height = img.shape[0]
-
-        # img = np.ravel(img)
-        # buf = np.array(img, 'f')
-        # maxfunc = len(buf)
-        # cback = np.zeros(maxfunc, 'f')
-        # b = np.zeros(maxfunc, 'f')
-        # smbuf = np.zeros(maxfunc, 'f')
-        # vals = np.zeros(20, 'f')
-
-        # if typ == 'gauss':
-        #     vals[0] = self.info['fwhm']
-        #     vals[1] = self.info['cycles']
-        #     vals[2] = float(self.info['rmin'])
-        #     vals[3] = float(self.info['rmax'])
-        #     vals[4] = width / 2. - .5
-        #     vals[5] = height / 2. - .5
-        #     vals[6] = img.min() - 1
-
-        #     options = np.zeros((10, 10), 'S')
-        #     options[0] = ['G', 'A', 'U', 'S', 'S', '', '', '', '', '']
-        #     options = np.array(options, dtype='S')
-        # else:
-        #     vals[0] = self.info['boxcar_x']
-        #     vals[1] = self.info['boxcar_y']
-        #     vals[2] = self.info['cycles']
-        #     vals[3] = float(self.info['rmin'])
-        #     vals[4] = float(self.info['rmax'])
-        #     vals[5] = width / 2. - .5
-        #     vals[6] = height / 2. - .5
-
-        #     options = np.zeros((10, 10), 'S')
-        #     options[0] = ['B', 'O', 'X', 'C', 'A', '', '', '', '', '']
-        #     options = np.array(options, dtype='S')
-
-        # npix = width
-        # nrast = height
-        # xb = np.zeros(npix, 'f')
-        # yb = np.zeros(npix, 'f')
-        # ys = np.zeros(npix, 'f')
-        # ysp = np.zeros(npix, 'f')
-        # sig = np.zeros(npix, 'f')
-        # wrk = np.zeros(9 * npix, 'f')
-        # iflag = np.zeros(npix * nrast, 'f')
-        # ilog = 6
-
-        # ccp13.bcksmooth(buf=buf,
-        #                 cback=cback,
-        #                 b=b,
-        #                 smbuf=smbuf,
-        #                 vals=vals,
-        #                 options=options,
-        #                 xb=xb,
-        #                 yb=yb,
-        #                 ys=ys,
-        #                 ysp=ysp,
-        #                 sig=sig,
-        #                 wrk=wrk,
-        #                 iflag=iflag,
-        #                 ilog=ilog,
-        #                 nrast=nrast,
-        #                 npix=npix)
-
-        # background = copy.copy(b)
-        # background[np.isnan(background)] = 0.
-        # background = np.array(background, 'float32')
-        # background = background.reshape((height, width))
-        # background = background[:fold.shape[0], :fold.shape[1]]
-        # result = np.array(fold - background, dtype=np.float32)
-        # result = qfu.replaceRmin(result, int(self.info['rmin']), 0.)
-
-        # self.info['bgimg1'] = result
-
-        #--------------------------------NEW ROVING WINDOW BG SUB--------------------------------
-
-        fold = np.copy(self.info["avg_fold"])
-
-        img = self.makeFullImage(fold)
-        center = self.center
-        if "roi_w" in self.info and "roi_h" in self.info:
-            half_w = int(self.info["roi_w"]) // 2
-            half_h = int(self.info["roi_h"]) // 2
-            cx, cy = int(center[0]), int(center[1])
-            img = img[cy - half_h:cy + half_h, cx - half_w:cx + half_w]
-
-        img = img.astype("float32")
-        width = img.shape[1]
-        height = img.shape[0]
-
-        # Prepare options and parameter values based on 'typ'
-        if typ == "gauss":
-            filter_type = 'gaussian'
-            kernel_size = (self.info["fwhm2"], self.info["fwhm2"]) if bgsub==2 else  (self.info["fwhm"], self.info["fwhm"])
-            if kernel_size[0] % 2 == 0:
-                kernel_size = (kernel_size[0] + 1, kernel_size[1] + 1)
-            sigmaX = 0
-        else:
-            filter_type = 'boxcar'
-            kernel_size = (self.info["boxcar_x2"], self.info["boxcar_y2"]) if bgsub==2 else (self.info["boxcar_x"], self.info["boxcar_y"])
-            sigmaX = 0  # Set to zero for boxcar filter
-
-        tension = None # Not used in the function
-        edge_background = None  # You can provide edge background if available
-        cycles = self.info["cycles2"] if bgsub==2 else self.info["cycles"]
-        # Call bcksmooth function
-
-        res = replicate_bcksmooth(
-            image=img,
-            max_iterations=cycles,
-            filter_type=filter_type,
-            kernel_size=kernel_size,
-            sigmaX=sigmaX,
-            tension=tension,
-            edge_background=edge_background,
-        )
-
-        background = copy.copy(res)
-        background[np.isnan(background)] = 0.0
-        background = np.array(background, "float32")
-        background = background.reshape((height, width))
-        if "roi_w" in self.info and "roi_h" in self.info:
-            pad_y = max(fold.shape[0] - background.shape[0], 0)
-            pad_x = max(fold.shape[1] - background.shape[1], 0)
-            background = np.pad(background, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
-        else:
-            background = background[:fold.shape[0], :fold.shape[1]]
-        result = np.array(fold - background, dtype=np.float32)
-
-        # replacing negative values with 0
-        result = np.where(result < 0, 0, result)
-
-        # positive values are obtained by computing the difference between the result and the corresponding value in the original image if the correspondinv value in the result is positive
-        result = qfu.replaceRmin(result, int(self.info["rmin"]), 0.0)
-
-        return result
-
-
-    def applyRovingWindowBGSub(self, bgsub=1):
-        """
-        Apply Roving Window background subtraction
-        :return:
-        """
-        # fold = copy.copy(self.info['avg_fold'])
-        # # center = [fold.shape[1] + .5, fold.shape[0] + .5]
-
-        # img = self.makeFullImage(fold)
-        # width = img.shape[1]
-        # height = img.shape[0]
-        # img = np.ravel(img)
-        # buf = np.array(img, 'f')
-        # b = np.zeros(len(buf), 'f')
-        # iwid = self.info['win_size_x']
-        # jwid = self.info['win_size_y']
-        # isep = self.info['win_sep_x']
-        # jsep = self.info['win_sep_y']
-        # smoo = self.info['smooth']
-        # tension = self.info['tension']
-        # pc1 = self.info['cirmin'] / 100.
-        # pc2 = self.info['cirmax'] / 100.
-
-        # maxdim = width * height
-        # maxwin = (iwid * 2 + 1) * (jwid * 2 + 1)
-
-        # ccp13.bgwsrt2(buf=buf,
-        #               b=b,
-        #               iwid=iwid,
-        #               jwid=jwid,
-        #               isep=isep,
-        #               jsep=jsep,
-        #               smoo=smoo,
-        #               tens=tension,
-        #               pc1=pc1,
-        #               pc2=pc2,
-        #               npix=width,
-        #               nrast=height,
-        #               maxdim=maxdim,
-        #               maxwin=maxwin,
-        #               xb=np.zeros(maxdim, 'f'),
-        #               yb=np.zeros(maxdim, 'f'),
-        #               ys=np.zeros(maxdim, 'f'),
-        #               ysp=np.zeros(maxdim, 'f'),
-        #               wrk=np.zeros(9 * maxdim, 'f'),
-        #               bw=np.zeros(maxwin, 'f'),
-        #               index_bn=np.zeros(maxwin, 'i'),
-        #               iprint=0,
-        #               ilog=6)
-
-        # background = copy.copy(b)
-        # background[np.isnan(background)] = 0.
-        # background = np.array(background, 'float32')
-        # background = background.reshape((height, width))
-        # background = background[:fold.shape[0], :fold.shape[1]]
-        # result = np.array(fold - background, dtype=np.float32)
-        # result = qfu.replaceRmin(result, int(self.info['rmin']), 0.)
-
-        # self.info['bgimg1'] = result
-
-        #---------------------NEW VERSION OF ROVING WINDOW BACKGROUND SUBTRACTION---------------------#
-
-        fold = copy.copy(self.info["avg_fold"])
-
-        img = self.makeFullImage(fold)
-        center = self.center
-        if "roi_w" in self.info and "roi_h" in self.info:
-            half_w = int(self.info["roi_w"]) // 2
-            half_h = int(self.info["roi_h"]) // 2
-            cx, cy = int(center[0]), int(center[1])
-            img = img[cy - half_h:cy + half_h, cx - half_w:cx + half_w]
-
-        width = img.shape[1]
-        height = img.shape[0]
-        img = np.ravel(img)
-        buf = np.array(img, "f")
-
-        if bgsub==2:
-            iwid = self.info["win_size_x2"]
-            jwid = self.info["win_size_y2"]
-            isep = self.info["win_sep_x2"]
-            jsep = self.info["win_sep_y2"]
-            smoo = self.info["smooth2"]
-            tension = self.info["tension2"]
-            pc1 = self.info["cirmin2"] / 100.0
-            pc2 = self.info["cirmax2"] / 100.0
-        else:
-            iwid = self.info["win_size_x"]
-            jwid = self.info["win_size_y"]
-            isep = self.info["win_sep_x"]
-            jsep = self.info["win_sep_y"]
-            smoo = self.info["smooth"]
-            tension = self.info["tension"]
-            pc1 = self.info["cirmin"] / 100.0
-            pc2 = self.info["cirmax"] / 100.0
-
-        maxdim = width * height
-        maxwin = (iwid * 2 + 1) * (jwid * 2 + 1)
-
-        # Prepare additional parameters for replicate_bgwsrt2
-        xb = np.zeros(maxdim, dtype='f')
-        yb = np.zeros(maxdim, dtype='f')
-        ys = np.zeros(maxdim, dtype='f')  # Check if needed
-        ysp = np.zeros(maxdim, dtype='f') # Check if needed
-        wrk = np.zeros(9 * maxdim, dtype='f')  # Workspace array
-        bw = np.zeros(maxwin, dtype='f')  # Background window array
-        index_bn = np.zeros(maxwin, dtype='int')  # Check if needed
-        b = np.zeros(maxdim, dtype='f')  # Background array
-        # Call the replicate_bgwsrt2 function
-        b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
-        b= b.reshape((height, width))
-
-        if "roi_w" in self.info and "roi_h" in self.info:
-            pad_y = max(fold.shape[0] - b.shape[0], 0)
-            pad_x = max(fold.shape[1] - b.shape[1], 0)
-            b = np.pad(b, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
-        else:
-            b = b[:fold.shape[0], :fold.shape[1]]
-
-        result = np.array(fold - b, dtype=np.float32)
-        result = qfu.replaceRmin(result, int(self.info["rmin"]), 0.0)
-
-        return result
-
-    def applyCircularlySymBGSub(self):
-        """
-        Apply Circular Background Subtraction to average fold, and save the result to self.info['bgimg1']
-        """
-        copy_img = copy.copy(self.info['avg_fold'])
-        center = [copy_img.shape[1] - .5, copy_img.shape[0] - .5]
-        # npt_rad = int(distance(center, (0, 0)))
-
-        # ai = AzimuthalIntegrator(detector="agilent_titan")
-        # ai.setFit2D(100, center[0], center[1])
-        # mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
-
-        start_p = self.info["cirmin"]  # minimum value of circular background subtraction pixel range in percent
-        end_p = self.info["cirmax"]  # maximum value of circular background subtraction pixel range in percent
-        rmin = self.info["rmin"]  # minimum radius for background subtraction
-        rmax = self.info["rmax"]  # maximum radius for background subtraction
-        radial_bin = self.info["radial_bin"]
-        smoo = self.info['smooth']
-        # tension = self.info['tension']
-
-        max_pts = (2.*np.pi*rmax / 4. + 10) * radial_bin
-        nBin = int((rmax-rmin)/radial_bin)
-
-        xs, ys = qfu.getCircularDiscreteBackground(np.array(copy_img, np.float32), rmin, start_p, end_p, radial_bin, nBin, max_pts)
-
-        max_distance = int(round(distance(center, (0,0)))) + 10
-        sp = UnivariateSpline(xs, ys, s=smoo)
-        newx = np.arange(rmin, rmax)
-        interpolate = sp(newx)
-
-        newx = np.arange(0, max_distance)
-        newy = list(np.zeros(rmin))
-        newy.extend(list(interpolate))
-        newy.extend(np.zeros(max_distance-rmax))
-
-        self.info['bg_line'] = [xs, ys, newx, newy]
-        # Create background from spline line
-        background = qfu.createCircularlySymBG(copy_img.shape[1],copy_img.shape[0], np.array(newy, dtype=np.float32))
-
-        result = copy_img - background
-        # result -= result.min()
-
-        # Subtract original average fold by background
-        self.info['bgimg1'] = result
-
-    def getFirstPeak(self, hist):
-        """
-        Find the first peak using the histogram.
-        Start from index 5 and go to the right until slope is less than -10
-        :param hist: histogram
-        """
-        for i in range(5, int(len(hist)/2)):
-            if hist[i] - hist[i-1] < -10:
-                return i
-        return 20
+            return img
+        
 
     def getRminmax(self):
         """
@@ -1220,10 +803,14 @@ class QuadrantFolder:
 
         if 'fixed_rmin' in self.info:
             self.info['rmin'] = self.info['fixed_rmin']
-        elif 'rmin' in self.info:
+        
+        if 'fixed_rmax' in self.info:
+            self.info['rmax'] = self.info['fixed_rmax']
+
+        if 'rmin' in self.info and 'rmax' in self.info:
             return
         else:
-            copy_img = copy.copy(self.info['avg_fold'])
+            copy_img = copy.copy(self.imgCache['avg_fold'])
             center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
             npt_rad = int(distance(center, (0, 0)))
 
@@ -1237,80 +824,224 @@ class QuadrantFolder:
             ai.setFit2D(100, center[0], center[1])
             integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
+            
+            if 'rmin' not in self.info:
+                self.info['rmin'] = int(round(getFirstPeak(totalI) + 5))
 
-            self.info['rmin'] = int(round(self.getFirstPeak(totalI) + 10))
-            self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1)))
-
-        self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
-        self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg2" from info to make it reprocess
-        print("Done. R-min is "+str(self.info['rmin']))
-        if 'rmax' in self.info:
-            print(" and R-max is set to max: " + str(self.info['rmax']))
+            if 'rmax' not in self.info:
+                self.info['rmax'] = getDetectorEdge(totalI, end=(min(copy_img.shape[0], copy_img.shape[1]) - 1)) - 20
+            
+        self.deleteFromDict(self.imgCache, 'BgSubFold') # remove "BgSubFold" from imgCache to make it reprocess
+        print(f"Done. R-min is {str(self.info['rmin'])} and R-max is set to max: {str(self.info['rmax'])}")
 
     def getTransitionRad(self):
-        if 'transition_radius' not in self.info or self.info['transition_radius']  < 0:
+        transition_radius = self.info.get('transition_radius', -1)
+        if transition_radius is None or float(transition_radius) < 0:
             self.info['transition_radius'] = self.orig_img.shape[0] // 5
+
+        transition_delta = self.info.get('transition_delta', -1)
+        if transition_delta is None or float(transition_delta) < 0:
             self.info['transition_delta'] = 60
-        print(f"[INFO] Transition Radius: {self.info['transition_radius']} Transition Delta: {self.info['transition_delta']}")
+        
+        self.deleteFromDict(self.imgCache, 'BgSubFold_out') # remove "BgSubFold_out" from imgCache to make it reprocess
 
-    def apply2DConvexhull(self, copy_img, rmin, step=1):
+
+    def createMask(self):
         """
-        Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgimg1']
+        Create a mask for the image based on rmin, rmax, and other parameters.
+        Combines multiple mask types via element-wise multiplication.
         """
-        center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
-        rmax = copy_img.shape[0] + 10
+        h, w = self.imgCache['avg_fold'].shape[0]*2, self.imgCache['avg_fold'].shape[1]*2
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
+        
+        masks = {
+            'rminrmax': self._create_rminrmax_mask(h, w),
+            'equator': self._create_equator_mask(h, w, fullImg),
+            'peaks': self._create_equator_peaks_mask(h, w, fullImg),
+            'beam': self._create_equator_center_beam_mask(h, w, fullImg),
+            'layer_lines': self._create_layer_lines_mask(h, w, fullImg),
+        }
+        
+        # Combine all masks
+        mask = np.ones((h, w), dtype=int)
+        for name, m in masks.items():
+            if m is None:
+                print(f"Warning: {name} mask is None, skipping")
+                continue
+            mask *= m
+        
+        self.imgCache['mask'] = mask.astype(int)
 
-        # print(f"[IK] ConvexHull: rmin {rmin}, rmax {rmax}, step deg: {step}")
-        hist_x = list(np.arange(rmin, rmax + 1))
-        pchiplines = []
+    def _create_rminrmax_mask(self, h, w):
+        """Create radial min/max mask."""
+        mask = create_circular_mask(h, w, inside=True, radius=self.info['rmax'])
+        mask *= create_circular_mask(h, w, inside=False, radius=self.info['rmin'])
+        return mask.astype(int)
 
-        det = "agilent_titan"
-        npt_rad = int(distance(center, (0, 0)))
-        ai = AzimuthalIntegrator(detector=det)
-        ai.setFit2D(100, center[0], center[1])
+    def _create_equator_mask(self, h, w, fullImg):
+        meridian = get_projection(fullImg, orientation=1, gap=2, offset=200)
+        eq_fwhm = int(find_fwhm(meridian, rel_height=0.5))
 
-        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
-        step = 1 if step not in [0.5, 1, 2, 3, 5, 9, 10, 15, 18] else step
-        for deg in np.arange(180, 270 + step, step):
+        m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info['rmin'])
+        auto_y_height = ((m1_peak * 2) +  eq_fwhm) //2
+        auto_y_height = max(30, auto_y_height)
+        y_height = int(self.info.get('equator_mask_height', auto_y_height))
+        self.info['equator_mask_height'] = y_height
+        mask = create_rectangle_mask(h, w, x_length=w, y_height=y_height)
+        return mask.astype(int)
+        
+    def _create_equator_peaks_mask(self, h, w, fullImg):
 
-            if deg == 180 :
-                start_deg = 180
-                end_deg = 180 + step/2
-            elif deg >= 270:
-                start_deg=270 - step/2
-                end_deg=270
-            else:
-                start_deg=deg-step/2
-                end_deg=deg+step/2
+        equator = get_projection(fullImg, gap=2, orientation=0, half=True) # right half
 
-            # Integrate the image and base image to get the volume
-            _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg), correctSolidAngle=False)
-            hist_y = I[int(rmin):int(rmax+1)]
-            hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
+        peak_positions, _ = find_n_most_prominent_peaks(equator, n=self.info.get('n_peaks', 4))
 
-            hull_x, hull_y = getHull(hist_x, hist_y)
-            y_pchip = pchip(hull_x, hull_y, hist_x)
-            pchiplines.append(y_pchip)
+        fwhm_values = []
+        for peak in peak_positions:
+            fwhm = find_fwhm(equator, peak_index=peak, rel_height=0.5)
+            fwhm_values.append(fwhm)
+        if len(fwhm_values) > 0:
+            peak_width = int(np.mean(fwhm_values))*2
+        else:
+            peak_width = 30
 
-        # Smooth each histogram by radius
-        pchiplines = np.array(pchiplines, dtype="float32")
-        pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
+        mask = create_peak_mask((h, w), peak_positions=peak_positions, peak_width=peak_width)
+        return mask
+    
+    def _create_equator_center_beam_mask(self, h, w, fullImg):
+        h, w = self.imgCache['avg_fold'].shape[0]*2, self.imgCache['avg_fold'].shape[1]*2
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
 
-        # Smooth between neighboring histograms
-        pchiplines3 = weighted_neighborhood_average(pchiplines2, weights=[0.25, 0.5, 0.25])
 
-        # Produce Background from each pchip line
-        background = qfu.make2DConvexhullBG2(pchiplines3, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax, step)
+        equator = get_projection(fullImg, gap=2, orientation=0, half=True)
+        auto_beam_width = find_first_valley(equator, start=self.info['rmin']+5) # TODO
+        auto_beam_width = 20 if not auto_beam_width else auto_beam_width
+        beam_width = int(self.info.get('equator_center_beam_width', auto_beam_width))
+        self.info['equator_center_beam_width'] = beam_width
+        mask = create_circular_mask(h, w, inside=False, radius=beam_width)
+        return mask.astype(int)
+    
+    def _create_layer_lines_mask(self, h, w, fullImg):
+        m1_peak = int(self.info.get('m1', 0) or 0)
+        if m1_peak <= 0:
+            m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info['rmin'])
+        self.info['m1'] = m1_peak
+        layer_lines = get_layer_lines(m1_peak, num_lines=9)
 
-        # Smooth background image by gaussian filter
-        s = 10
-        w = 4
-        t = (((w - 1.) / 2.) - 0.5) / s
-        background = gaussian_filter(background, sigma=s, truncate=t)
+        if isinstance(self.info.get('layer_line_width', None), (int, float)) and self.info.get('layer_line_width'):
+            mask_width = int(self.info['layer_line_width'])
+        else:
+            fwhm_values = []
+            meridian = get_projection(fullImg, orientation=1, gap=2, half=True)
+            peaks = find_n_most_prominent_peaks(meridian, n=len(layer_lines))
 
-        # Subtract original average fold by background
-        result = copy_img - background
-        return result
+            for i in range(min(len(layer_lines), len(peaks))):
+                fwhm1 = find_fwhm(meridian, peak_index= layer_lines[i], rel_height=0.5)
+                fwhm2 = find_fwhm(meridian, peak_index= peaks[i], rel_height=0.5)
+                print(f"Layer line {i+1} at position {layer_lines[i]} has FWHM from layer line: {fwhm1} and FWHM from peak: {fwhm2}")
+                fwhm = int(max(fwhm1, fwhm2))
+                fwhm_values.append(fwhm)
+
+            mask_width = max(5, max(fwhm_values) if len(fwhm_values) > 0 else 5)
+                
+        self.info['layer_line_width'] = mask_width
+        mask = create_layer_lines_mask(h, w, layer_lines=layer_lines, width_line=mask_width)
+        return mask
+
+
+    def _ensure_synthetic_gaussian_params(self, fullImg, i0, m1):
+        AMP = 0.01
+        SIGMA_X_DIV = 5.0
+        SIGMA_Y_DIV = 10.0
+
+        amplitude = float(self.info.get('synthetic_amplitude', 0.0))
+        if amplitude <= 0.0:
+            equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
+            amplitude = equator_half[i0] * AMP * i0
+            amplitude = 500 if amplitude < 500 else amplitude
+            self.info['synthetic_amplitude'] = amplitude
+
+        # `synthetic_sigma_x` / `synthetic_sigma_y` are actual Gaussian sigmas (std dev, pixels)
+        sigma_x = float(self.info.get('synthetic_sigma_x', 0.0))
+        sigma_y = float(self.info.get('synthetic_sigma_y', 0.0))
+        if sigma_x <= 0.0:
+            sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
+            self.info['synthetic_sigma_x'] = sigma_x
+        if sigma_y <= 0.0:
+            sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
+            self.info['synthetic_sigma_y'] = sigma_y
+
+        return amplitude, sigma_x, sigma_y
+
+    def ensureSyntheticGaussianDefaults(self):
+        if 'avg_fold' not in self.imgCache:
+            return None
+
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
+        i0, _ = find_i0_i1_peaks_auto(fullImg, rmin=30)
+        i0 = 100 if abs(i0-100) > 50 else i0
+        m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
+        m1 = 50 if abs(m1-50) > 50 else m1
+
+        return self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
+
+    def createArtificialData(self):
+        freq = str(self.info.get('freq', 'medium')).lower()
+
+        fullImg = makeFullImage(self.imgCache['avg_fold'])
+
+        i0, i1 = find_i0_i1_peaks_auto(fullImg, rmin=30)
+        i0 = 100 if abs(i0-100) > 50 else i0
+        m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
+        m1 = 50 if abs(m1-50) > 50 else m1
+
+        if freq == 'sparse':
+            offset_x = int(i0 / 2)
+            step_x = int(i0*2)
+            offset_y = int(m1 / 2)
+            step_y = int(m1*2)
+        elif freq == 'medium':
+            offset_x = int(i0 / 2)
+            step_x = int(i0)
+            offset_y = int(m1 / 2)
+            step_y = int(m1)
+        elif freq == 'dense':
+            offset_x = int(i0 / 4)
+            step_x = int(i0 / 2)
+            offset_y = int(m1 / 4)
+            step_y = int(m1 / 2)
+        else:
+            offset_x = int(i0 / 2)
+            step_x = int(i0)
+            offset_y = int(m1 / 2)
+            step_y = int(m1)
+    
+        grid = get_grid(image_shape=fullImg.shape, 
+            step_x=step_x, step_y=step_y, 
+            offset_x=offset_x, offset_y=offset_y, fold=True)
+        
+        amplitude, sigma_x, sigma_y = self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
+
+        # print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
+
+        gauss_data = GaussianArtificialData(image_shape=fullImg.shape)
+        gauss_data.define_parameters(sigma_x=sigma_x, sigma_y=sigma_y, amplitude=amplitude)
+        gauss_data.pre_compute_kernel()
+
+        mask_data = MaskArtificialData(image_shape=fullImg.shape)
+        mask_data.define_parameters(sigma_x=sigma_x, sigma_y=sigma_y, mult_x=3, mult_y=6)
+
+        for point in grid:
+            gauss_data.create_image(point[0], point[1])
+            mask_data.create_image(point[0], point[1])
+
+        gauss_data.apply_intencity_decrease()
+
+        self.imgCache["synthetic_data"] = gauss_data.get_faded_image()
+        self.imgCache["synthetic_mask"] = mask_data.get_mask()
+        syn_data_top_left = self.imgCache["synthetic_data"][:self.imgCache['avg_fold'].shape[0], :self.imgCache['avg_fold'].shape[1]]
+        self.imgCache["avg_fold_with_syn"] = self.imgCache['avg_fold'] + syn_data_top_left
+
 
     def calculateAvgFold(self):
         """
@@ -1323,41 +1054,46 @@ class QuadrantFolder:
         therefore want a fresh fold.
         """
         self.parent.statusPrint("Calculating Avg Fold...")
-        # rmin/rmax are derived from avg_fold; force re-derivation.
-        self.deleteFromDict(self.info, 'rmin')
-        self.deleteFromDict(self.info, 'rmax')
-
-        rotate_img = self.orig_img #copy.copy(self.getRotatedImage())
+        rotate_img = self.orig_img
         center = self.center
         center_x = int(center[0])
         center_y = int(center[1])
 
-        print("Quadrant folding is being processed...")
-        img_width = rotate_img.shape[1]
         img_height = rotate_img.shape[0]
-        fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
-        fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
+        img_width = rotate_img.shape[1]
+        fold_width = max(int(center[0]), img_width-int(center[0]))
+        fold_height = max(int(center[1]), img_height-int(center[1]))
 
         if img_width < center_x or img_height < center_y:
-            print("ALERT: THE CENTER IS NOT INSIDE OF THE IMAGE!  THIS WILL LIKELY CAUSE AN ERROR") #Make future debugging easier
+            print("ALERT: THE CENTER IS NOT INSIDE OF THE IMAGE!  THIS WILL LIKELY CAUSE AN ERROR")
 
-        # Get each fold, and flip them to the same direction
         top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
+
+        # Use top left quadrant as average fold if folding is disabled
+        if self.info['fold_image'] == False:
+            print("Folding is disabled. Using top left quadrant as average fold...")
+            self.imgCache['folded'] = False
+            self.imgCache['avg_fold'] = top_left
+
+        elif 'avg_fold' not in self.imgCache.keys():
+            self.deleteFromDict(self.info, 'rmin')
+            self.deleteFromDict(self.info, 'rmax')
+            print("Quadrant folding is being processed...")
 
         top_right = rotate_img[max(center_y-fold_height,0):center_y, center_x:center_x+fold_width]
         top_right = cv2.flip(top_right,1)
 
-        buttom_left = rotate_img[center_y:center_y+fold_height, max(center_x-fold_width,0):center_x]
-        buttom_left = cv2.flip(buttom_left,0)
+        bottom_left = rotate_img[center_y:center_y+fold_height, max(center_x-fold_width,0):center_x]
+        bottom_left = cv2.flip(bottom_left,0)
 
-        buttom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
-        buttom_right = cv2.flip(buttom_right,1)
-        buttom_right = cv2.flip(buttom_right,0)
+        bottom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
+        bottom_right = cv2.flip(bottom_right,1)
+        bottom_right = cv2.flip(bottom_right,0)
 
         # Add all folds which are not ignored
         # Initialize quadrants array with invalid threshold (marks empty/invalid pixels)
         quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * INVALID_PIXEL_THRESHOLD
-        for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
+        for i, quad in enumerate([top_left, top_right, bottom_left, bottom_right]):
             quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
         remained = np.ones(4, dtype=bool)
         remained[list(self.info["ignore_folds"])] = False
@@ -1365,9 +1101,9 @@ class QuadrantFolder:
 
         # Get average fold from all folds
         self.get_avg_fold(quadrants,fold_height,fold_width)
+
         if 'resultImg' in self.imgCache:
             del self.imgCache['resultImg']
-
         print("Done.")
 
     def get_avg_fold(self, quadrants, fold_height, fold_width):
@@ -1386,67 +1122,434 @@ class QuadrantFolder:
             # Pass invalid threshold: pixels <= threshold are excluded from averaging
             result = qfu.get_avg_fold_float32(np.array(quadrants, dtype="float32"), len(quadrants), fold_height, fold_width,
                                                 INVALID_PIXEL_THRESHOLD)
-            # else:
-            #     result = np.mean( np.array(quadrants), axis=0 )
 
-        self.info['avg_fold'] = result
+        self.imgCache['avg_fold'] = result
         self.info['folded'] = True
+
+
+    def searchBackground(self):
+        """
+        Search for background subtraction method and apply it to average fold.
+        """
+
+        result_path = fullPath(self.img_path, "qf_cache")
+        createFolder(result_path)
+
+        kwargs = self._build_bg_search_kwargs()
+
+        def _apply_selected_configuration(method, params, loss_value, downsample_factor, config_name='-'):
+            for key, value in params.items():
+                self.info[f"{key}"] = value
+            self.info['result_bg']['final_params'] = params
+            self.info['result_bg']['optimized'] = False
+            self.info['result_bg']['method'] = method
+            self.info['result_bg']['loss'] = loss_value
+            self.info['result_bg']['downsampled'] = downsample_factor
+            self.info['result_bg']['selected_configuration_name'] = config_name if config_name else '-'
+            self.info['bgsub'] = method
+
+
+        selection = self._select_background_configuration(kwargs, _apply_selected_configuration)
+        best_method = selection['best_method']
+
+        if best_method is None and 'optimize' in self.info and self.info['optimize']:
+            best_method = self._optimize_background(kwargs)
+
+        if best_method is None:
+            self._apply_existing_or_default_bg()
+
+    def _build_bg_search_kwargs(self):
+        raw_metrics_cache = self._prepare_bg_raw_metrics_cache()
+        folded_image = makeFullImage(self.imgCache['avg_fold'])
+        return {
+            'steps': self.info['steps'],
+            'early_stop': self.info['early_stop'],
+            'max_iterations': self.info['max_iterations'],
+            'evaluation_baseline': self.info['evaluation_baseline'],
+            'tmp_avg_fold': self.imgCache['_avg_fold'],
+            'avg_fold': self.imgCache['avg_fold'],
+            'tmp_rmin': self.imgCache['_rmin'],
+            'rmin': self.info['rmin'],
+            'tmp_center': self.imgCache['_center'],
+            'tmp_avg_fold_with_syn': self.imgCache['_avg_fold_with_syn'],
+            'avg_fold_with_syn': self.imgCache['avg_fold_with_syn'],
+            'orig_img': folded_image,
+            'rmax': self.info['rmax'],
+            'mask': self.imgCache['mask'],
+            'synthetic_data': self.imgCache['synthetic_data'],
+            'synthetic_mask': self.imgCache['synthetic_mask'],
+            'downsample_factor': self.info['downsample'],
+            'smooth_image': self.info.get('smooth_image', False),
+            'mean_metric_values': self.info.get('mean_metric_values', None),
+            'metric_weights': self.info.get('metric_weights', None),
+            'freq': self.info.get('freq', None),
+            'synthetic_amplitude': self.info.get('synthetic_amplitude', None),
+            'synthetic_sigma_x': self.info.get('synthetic_sigma_x', None),
+            'synthetic_sigma_y': self.info.get('synthetic_sigma_y', None),
+            'equator_mask_height': self.info.get('equator_mask_height', None),
+            'n_peaks': self.info.get('n_peaks', None),
+            'equator_center_beam_width': self.info.get('equator_center_beam_width', None),
+            'layer_line_width': self.info.get('layer_line_width', None),
+            'm1': self.info.get('m1', None),
+            'image_id': self._get_bg_cache_image_id(),
+            'raw_metrics_cache': raw_metrics_cache,
+        }
+
+    def _values_from_params(self, method, params):
+        param_keys = list(method_params[method].keys())
+        ordered_values = [None] * len(param_keys)
+        for idx, key in enumerate(param_keys):
+            pos = method_order[method].index(idx)
+            ordered_values[pos] = params[key]
+        return ordered_values
+
+    def _normalize_params(self, method, cfg_params):
+        params = {}
+        cfg_params = cfg_params if isinstance(cfg_params, dict) else {}
+        for key, default_value in method_params[method].items():
+            value = cfg_params.get(key, default_value)
+            try:
+                if isinstance(default_value, int):
+                    value = int(round(float(value)))
+                elif isinstance(default_value, float):
+                    value = float(value)
+            except Exception:
+                value = default_value
+            params[key] = value
+        return params
+
+    def _select_background_configuration(self, kwargs, apply_selected_configuration):
+
+        manual_assignments = self.info.get('manual_background_assignments', {})
+        auto_configs = self.info.get('background_configurations', [])
+        batch_processing = self.info.get('batch_processing', False)
+        use_auto_configs = (
+            batch_processing
+            and bool(self.info.get('choose_configurations_auto', False))
+            and isinstance(auto_configs, list)
+            and len(auto_configs) > 0
+        )
+
+        assigned_cfg = manual_assignments.get(self.img_name, None)
+        use_manual_assignment = batch_processing and isinstance(manual_assignments, dict) and assigned_cfg is not None
+
+        reuse_saved_default_optimization = (
+            not batch_processing
+            and isinstance(auto_configs, list)
+            and not use_auto_configs
+            and not use_manual_assignment
+            and ('optimize' not in self.info or not self.info['optimize'])
+            and (self.info['result_bg']['method'] is None or self.info['result_bg']['method'] == 'None')
+            and (self.info['bgsub'] is None or self.info['bgsub'] == 'None')
+        )
+
+        best_method = None
+
+        if use_manual_assignment and isinstance(assigned_cfg, dict):
+            assigned_method = str(assigned_cfg.get('method', '') or '').strip()
+            assigned_name = str(assigned_cfg.get('name', '') or '').strip()
+            assigned_params = assigned_cfg.get('params', {})
+
+            if assigned_method in method_params and isinstance(assigned_params, dict):
+                eval_params = self._normalize_params(assigned_method, assigned_params)
+                values = self._values_from_params(assigned_method, eval_params)
+                try:
+                    loss, _ = process_file(values=values, method=assigned_method, **kwargs)
+                except Exception as e:
+                    print(f"Manual assigned configuration for '{self.img_name}' is invalid: {e}")
+                else:
+                    print(
+                        f"Using manually assigned configuration for '{self.img_name}': "
+                        f"{assigned_name or assigned_method} (method: {assigned_method}, loss: {loss})"
+                    )
+                    apply_selected_configuration(
+                        assigned_method,
+                        eval_params,
+                        loss,
+                        config_name=assigned_name if assigned_name else '-'
+                    )
+                    best_method = assigned_method
+
+        elif use_auto_configs or reuse_saved_default_optimization:
+            self.parent.statusPrint("Evaluating saved background configurations...")
+            best_loss = np.inf
+            best_params = None
+            best_method = None
+            best_name = None
+
+            for cfg in auto_configs:
+                if not isinstance(cfg, dict):
+                    continue
+                method = str(cfg.get('method', '') or '').strip()
+                if method not in method_params:
+                    continue
+
+                cfg_name = str(cfg.get('name', '') or '').strip()
+                cfg_params = cfg.get('params', {}) if isinstance(cfg.get('params', {}), dict) else {}
+
+                # Fill missing parameters from defaults and coerce types.
+                eval_params = self._normalize_params(method, cfg_params)
+
+                values = self._values_from_params(method, eval_params)
+                try:
+                    loss, _ = process_file(values=values, method=method, **kwargs)
+                except Exception as e:
+                    print(f"Skipping invalid background configuration '{cfg_name or method}': {e}")
+                    continue
+
+                print(f"Configuration '{cfg_name or method}' -> method: {method}, loss: {loss}")
+                if loss < best_loss:
+                    best_loss = loss
+                    best_params = eval_params
+                    best_method = method
+                    best_name = cfg_name
+
+            if best_method is not None and best_params is not None:
+                print(f"Best saved configuration: {best_name or '-'} ({best_method}) with loss {best_loss}")
+                apply_selected_configuration(
+                    best_method,
+                    best_params,
+                    best_loss,
+                    config_name=best_name if best_name else '-'
+                )
+            else:
+                # Fallback to existing behavior if provided configs are invalid.
+                print("No valid saved background configuration found. Falling back to existing processing mode.")
+                self.info['result_bg']['selected_configuration_name'] = '-'
+
+        return {'best_method': best_method}
+
+    def _optimize_background(self, kwargs):
+        self.parent.statusPrint(f"Background subtraction methods to optimize: {self.info['methods']}")
+        self.parent.statusPrint("Running optimization...")
+        kwargs['raw_metrics_cache'] = self._prepare_bg_raw_metrics_cache()
+        kwargs['image_id'] = self._get_bg_cache_image_id()
+
+        # Keep one CPU core free for the GUI/main thread so the app remains responsive.
+        # Also never spawn more workers than methods to evaluate.
+        cpu_count = max(1, mp.cpu_count())
+        reserved_for_ui = 1 if cpu_count > 1 else 0
+        n_proc = max(1, min(len(self.info['methods']), cpu_count - reserved_for_ui))
+
+        from functools import partial
+        outputs = []
+        func = partial(optimize_mp_wrapper, **kwargs)
+        methods = list(self.info['methods'])
+        with mp.Pool(processes=n_proc) as pool:
+            async_results = [pool.apply_async(func, (method,)) for method in methods]
+
+            total = len(async_results)
+            done = 0
+            last_report_t = 0.0
+            start = time.time()
+
+            while done < total:
+                done = sum(1 for ar in async_results if ar.ready())
+
+                if self._check_stop():
+                    try:
+                        pool.terminate()
+                        pool.join()
+                    finally:
+                        self.info['optimize'] = False
+                    return None
+
+                # Allow GUI hosts to pump pending UI events while optimization runs.
+                # (No-op in headless mode.)
+                if hasattr(self.parent, 'processPendingEvents'):
+                    try:
+                        self.parent.processPendingEvents()
+                    except Exception:
+                        pass
+
+                now = time.time()
+                # Throttle status updates to avoid flooding
+                if now - last_report_t > 30:
+                    self.parent.statusPrint(
+                        f"Optimizing background subtraction... {done}/{total} method(s) complete. Elasped time: {int(now - start)}s"
+                    )
+                    last_report_t = now
+                time.sleep(0.5)
+
+            outputs = [ar.get() for ar in async_results]
+
+        best_loss = np.inf
+        best_params = None
+        best_method = None
+        for result in outputs:
+            cache_updates = result.get('raw_metrics_cache_updates', {})
+            if isinstance(cache_updates, dict) and cache_updates:
+                self._bg_raw_metrics_cache.update(cache_updates)
+            loss = result['best_loss']
+            params = result['best_params']
+            method = result['method']
+            print(f"Method: {method}. Loss: {loss}. Best params: {params}")
+
+            for key, value in params.items():
+                self.info[f"{key}"] = value
+
+            if loss < best_loss:
+                best_loss = loss
+                best_params = params
+                best_method = method
+
+        print(f"Best params: {best_params}.  {best_loss} for method {best_method}")
+
+        self.info['result_bg']['final_params'] = best_params
+        self.info['result_bg']['optimized'] = True
+        self.info['result_bg']['method'] = best_method
+        self.info['result_bg']['loss'] = best_loss
+        self.info['result_bg']['selected_configuration_name'] = '-'
+
+        # resuse the best params for further processing
+        self.info['bgsub'] = best_method
+        for key, value in best_params.items():
+            self.info[f"{key}"] = value
+
+        self.info['optimize'] = False  # reset optimization flag after applying best params
+        return best_method
+
+    def _apply_existing_or_default_bg(self):
+        if self.info['result_bg']['method'] is not None and self.info['result_bg']['final_params'] is not None:
+            method = self.info['result_bg']['method']
+            params = self.info['result_bg']['final_params']
+            print(f"Using previously used background subtraction method: {method} with params: {params}")
+            for key, value in params.items():
+                self.info[f"{key}"] = value
+            self.info['bgsub'] = method
+            if 'selected_configuration_name' not in self.info['result_bg']:
+                self.info['result_bg']['selected_configuration_name'] = '-'
+        else:
+            print("No previous background subtraction method found. Using current settings.")
+            self.info['result_bg']['optimized'] = False
+            self.info['result_bg']['method'] = self.info['bgsub']
+            self.info['result_bg']['selected_configuration_name'] = '-'
+
+            params_keys = list(method_params[self.info['bgsub']].keys())
+            params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
+
+            self.info['result_bg']['final_params'] = params
+
 
     def applyBackgroundSubtraction(self):
         """
-        Apply background subtraction by user's choice. There are 2 images produced in this process
-        - bgimg1 : image after applying background subtraction INSIDE merge radius
-        - bgimg2 : image after applying background subtraction OUTSIDE merge radius
-
-        Always recomputes (no info-cache short-circuit) since bgimg1/bgimg2
-        are no longer persisted to disk and process() only reaches here on
-        the slow path.
+        Apply background subtraction by user's choice.
+        - BgSubFold : fold after applying background subtraction
         """
         self.parent.statusPrint("Applying Background Subtraction...")
         method = self.info["bgsub"]
-        method2 = self.info["bgsub2"]
-        print(f"Background Subtraction is being processed... In method: {method}, Out method: {method2}")
+        print(f"Background Subtraction is being processed... Method: {method}")
 
-        # Produce bgimg1
-        avg_fold = np.array(self.info['avg_fold'], dtype="float32")
-        if method == 'None':
-            self.info["bgimg1"] = avg_fold # if method is None, original average fold will be used
-        elif method == '2D Convexhull':
-            self.info["bgimg1"] = self.apply2DConvexhull(avg_fold, self.info['rmin'], self.info['deg1'])
-        elif method == 'Circularly-symmetric':
-            self.info["bgimg1"] = self.applyCircularlySymBGSub2(bgsub=1)
-        elif method == 'White-top-hats':
-            self.info["bgimg1"] = white_tophat(avg_fold, disk(self.info["tophat1"]))
-        elif method == 'Roving Window':
-            self.info["bgimg1"] = self.applyRovingWindowBGSub(bgsub=1)
-        elif method == 'Smoothed-Gaussian':
-            self.info["bgimg1"] = self.applySmoothedBGSub('gauss', bgsub=1)
-        elif method == 'Smoothed-BoxCar':
-            self.info["bgimg1"] = self.applySmoothedBGSub('boxcar', bgsub=1)
-        else:
-            self.info["bgimg1"] = avg_fold
-        self.deleteFromDict(self.imgCache, "BgSubFold")
+        if "BgSubFold" not in self.imgCache:
+            tmp_avg_fold = np.array(self.imgCache['_avg_fold'], dtype="float32")
+            avg_fold = np.array(self.imgCache['avg_fold'], dtype="float32")
+            tmp_rmin = self.imgCache['_rmin']
+            rmin = self.info['rmin']
+            tmp_center = self.imgCache['_center']
 
-        # Produce bgimg2
-        avg_fold = np.array(self.info['avg_fold'], dtype="float32")
-        if method2 == 'None':
-            self.info["bgimg2"] = avg_fold # if method is 'None', original average fold will be used
-        elif method2 == '2D Convexhull':
-            self.info["bgimg2"] = self.apply2DConvexhull(avg_fold, self.info['transition_radius']-self.info['transition_delta']//2-1, self.info['deg2'])
-        elif method == 'Circularly-symmetric':
-            self.info["bgimg2"] = self.applyCircularlySymBGSub2(bgsub=2)
-        elif method2 == 'White-top-hats':
-            self.info["bgimg2"] = white_tophat(avg_fold, disk(self.info["tophat2"]))
-        elif method == 'Roving Window':
-            self.info["bgimg2"] = self.applyRovingWindowBGSub(bgsub=2)
-        elif method2 == 'Smoothed-Gaussian':
-            self.info["bgimg2"] = self.applySmoothedBGSub('gauss', bgsub=2)
-        elif method2 == 'Smoothed-BoxCar':
-            self.info["bgimg2"] = self.applySmoothedBGSub('boxcar', bgsub=2)
-        else:
-            self.info["bgimg2"] = avg_fold
-        self.deleteFromDict(self.imgCache, "BgSubFold")
+            params = {}
+            for key in method_params[method].keys():
+                params[key] = self.info[key]
+
+            result = applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
+                           tmp_center, params, downsample_factor=self.info['downsample'])
+            bg = avg_fold - result
+
+            print(f"bg shape: {bg.shape}, result shape: {result.shape}")
+
+        self.imgCache['BgSubFold_in'] = copy.copy(result)
+        self.imgCache['BgFold_in'] = copy.copy(bg)
+        self.imgCache['BgSubFold'] = copy.copy(result)
+        self.imgCache['BgFold'] = copy.copy(bg)
+        self.deleteFromDict(self.imgCache, "resultImg")
         print("Done.")
+
+    def applyTransitionBackgroundSubtraction(self):
+        """
+        Apply background subtraction by user's choice for outer area.
+        - BgSubFold_out : fold after applying background subtraction
+        """
+        self.parent.statusPrint("Applying Background Subtraction (Outside transition radius)...")
+        method = self.info["bgsub_out"]
+        print(f"Background Subtraction is being processed... Method: {method}")
+
+        if "BgSubFold_out" not in self.imgCache:
+            tmp_avg_fold = np.array(self.imgCache['_avg_fold'], dtype="float32")
+            avg_fold = np.array(self.imgCache['avg_fold'], dtype="float32")
+            tmp_rmin = self.imgCache['_rmin']
+            rmin = self.info['rmin']
+            tmp_center = self.imgCache['_center']
+
+            params = {}
+            for key in method_params[method].keys():
+                params[key] = self.info[key+"_out"]
+                # print(f"Parameter for bgsub_out: {key}_out = {self.info[key + '_out']}")
+
+            result = applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
+                           tmp_center, params, downsample_factor=self.info['downsample'])
+            bg = avg_fold - result
+
+        self.imgCache['BgSubFold_out'] = result
+        self.imgCache['BgFold_out'] = bg
+
+        self.deleteFromDict(self.imgCache, "resultImg")
+        self.deleteFromDict(self.imgCache, "BgSubFold")
+        self.deleteFromDict(self.imgCache, "BgFold")
+        print("Done.")
+
+    def applyBackgroundSubtractionSynthetic(self):
+        """
+        Apply background subtraction by user's choice.
+        - BgSubFold_syn : fold after applying background subtraction
+        """
+        print("Applying Background Subtraction to synthetic data... method: " + self.info["bgsub"])
+        method = self.info["bgsub"]
+        tmp_rmin = self.imgCache['_rmin']
+        tmp_center = self.imgCache['_center']
+
+        avg_fold_with_syn = np.array(self.imgCache['avg_fold_with_syn'], dtype="float32")
+        tmp_avg_fold_with_syn = np.array(self.imgCache['_avg_fold_with_syn'], dtype="float32")
+
+        params = {}
+        for key in method_params[method].keys():
+            params[key] = self.info[key]
+            
+        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'])
+        bg_syn = avg_fold_with_syn - result
+        
+        if method != 'None':
+            result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
+
+        self.imgCache['BgFold_syn_in'] = copy.copy(bg_syn)
+        self.imgCache['BgSubFold_syn_in'] = copy.copy(result)
+        self.imgCache['BgFold_syn'] = copy.copy(bg_syn)
+        self.imgCache['BgSubFold_syn'] = copy.copy(result)
+
+    def applyTransitionBackgroundSubtractionSynthetic(self):
+        method = self.info["bgsub_out"]
+        print("Applying Background Subtraction to synthetic data... method: " + method)
+        tmp_rmin = self.imgCache['_rmin']
+        tmp_center = self.imgCache['_center']
+
+        avg_fold_with_syn = np.array(self.imgCache['avg_fold_with_syn'], dtype="float32")
+        tmp_avg_fold_with_syn = np.array(self.imgCache['_avg_fold_with_syn'], dtype="float32")
+
+        params = {}
+        for key in method_params[method].keys():
+            params[key] = self.info[key+"_out"]
+            
+        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'])
+        bg_syn = avg_fold_with_syn - result
+        
+        # if method != 'None':
+        #     result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
+
+        self.imgCache['BgFold_syn_out'] = copy.copy(bg_syn)
+        self.imgCache['BgSubFold_syn_out'] = copy.copy(result)
+
+        self.deleteFromDict(self.imgCache, "BgFold_syn")
+        self.deleteFromDict(self.imgCache, "BgSubFold_syn")
+
 
     def mergeImages(self):
         """
@@ -1455,34 +1558,74 @@ class QuadrantFolder:
         :return:
         """
         self.parent.statusPrint("Merging Images...")
+        method = self.info["bgsub"]
+        tmp_rmin = self.imgCache['_rmin']
+
 
         if "BgSubFold" not in self.imgCache:
-            img1 = np.array(self.info["bgimg1"], dtype="float32")
+            img_in = np.array(self.imgCache["BgFold_in"], dtype="float32")
+            img_out = np.array(self.imgCache["BgFold_out"], dtype="float32")
 
-            if self.info.get("bgsub2", "None") == "None":
-                # Only one method selected: use bgimg1 for the entire image, no blending
-                self.imgCache['BgSubFold'] = img1
-            else:
-                img2 = np.array(self.info["bgimg2"], dtype="float32")
-                center = [img1.shape[1]-1, img1.shape[0]-1]
-                rad = self.info["transition_radius"]
-                delta = self.info["transition_delta"]
+            center = [img_in.shape[1]-1, img_in.shape[0]-1]
+            rad = self.info["transition_radius"]
+            delta = self.info["transition_delta"]
 
-                # Merge 2 images at merge radius using transition radius and delta
-                self.imgCache['BgSubFold'] = qfu.combine_bgsub_linear_float32(img1, img2, center[0], center[1], rad, delta)
+            # Merge 2 images at merge radius using transition radius and delta
+            self.imgCache['BgFold'] = qfu.combine_bgsub_linear_float32(img_in, img_out, center[0], center[1], rad, delta)
+            avg_fold = np.array(self.imgCache['avg_fold'], dtype="float32")
+            result = avg_fold - self.imgCache['BgFold']
 
+            if method != 'None':
+                result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
+
+            self.imgCache['BgSubFold'] = result
             self.deleteFromDict(self.imgCache, "resultImg")
 
-        print("Done.")
+        if "BgFold_syn" not in self.imgCache:
+            img_in = np.array(self.imgCache["BgFold_syn_in"], dtype="float32")
+            img_out = np.array(self.imgCache["BgFold_syn_out"], dtype="float32")
 
+            center = [img_in.shape[1]-1, img_in.shape[0]-1]
+            rad = self.info["transition_radius"]
+            delta = self.info["transition_delta"]
+
+            # Merge 2 images at merge radius using transition radius and delta
+            self.imgCache['BgFold_syn'] = qfu.combine_bgsub_linear_float32(img_in, img_out, center[0], center[1], rad, delta)
+            avg_fold = np.array(self.imgCache['avg_fold_with_syn'], dtype="float32")
+            result = avg_fold - self.imgCache['BgFold_syn']
+
+            if method != 'None':
+                result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
+
+            self.imgCache['BgSubFold_syn'] = result
+        print("Done.")
+        
     def generateResultImage(self):
         """
-        Put 4 self.info["BgSubFold"] together as a result image
+        Put BgSubFold_in, BgSubFold_out, BgSubFold_syn_in, BgSubFold_syn_out together as a result image
         :return:
         """
         self.parent.statusPrint("Generating Resultant Image...")
         print("Generating result image from average fold...")
-        result = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
+
+        result = copy.copy(self.imgCache['BgSubFold'])
+        result = makeFullImage(result)
+        result_scaled = self._applyTransformations(result)
+        self.imgCache['resultImg'] = result_scaled
+        bg = makeFullImage(copy.copy(self.imgCache['BgFold']))
+        bg_scaled = self._applyTransformations(bg)
+        self.imgCache['resultBg'] = bg_scaled
+
+
+        if self.info["bgsub"] == 'None':
+            self.imgCache['resultFolded'] = result_scaled
+        else:
+            self.imgCache['resultFolded'] = result_scaled + bg_scaled
+
+        print("Done.")
+
+
+    def _applyTransformations(self, result):
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)
         result[np.isnan(result)] = 0.
@@ -1503,32 +1646,54 @@ class QuadrantFolder:
         M = cv2.getRotationMatrix2D(center, 0, 1/scale)
 
         result_scaled = cv2.warpAffine(result, M, (w, h))
+        return result_scaled
+        
 
-        self.imgCache['resultImg'] = result_scaled
-        print("Done.")
-
-    def makeFullImage(self, fold):
+    def evaluateResult(self):
         """
-        Flip + rotate 4 folds and combine them to 1 image
-        :param fold:
-        :return: result image
+        Evaluate the result by calculating the loss metrics on the result image and background. 
         """
-        fold_height = fold.shape[0]
-        fold_width = fold.shape[1]
+        self.parent.statusPrint("Evaluating Result...")
+        print("Evaluating result image...")
+        if 'resultImg' not in self.imgCache:
+            print("Result image not found. Please generate the result image first.")
+            return
+        
+        result = self.imgCache['resultImg']
+        bg = self.imgCache.get('resultBg', None)
 
-        top_left = fold
-        top_right = cv2.flip(fold, 1)
+        baseline = self.info.get('evaluation_baseline', None)
+        if baseline is None or float(baseline) <= 0.0:
+            baseline = get_radial_average_rmax(result + bg, self.info['rmax'], band_width=30) * 0.2
+            self.info['evaluation_baseline'] = baseline
+        baseline = max(float(baseline), 0.0001)
+        syn_srt = self.imgCache.get('synthetic_data', None)
+        syn_mask = self.imgCache.get('synthetic_mask', None)
+        syn_fold = self.imgCache.get('BgSubFold_syn', None)
+        gen_mask = self.imgCache.get('mask', None)
+        syn_img = makeFullImage(syn_fold) if syn_fold is not None else None
 
-        buttom_left = cv2.flip(fold, 0)
-        buttom_right = cv2.flip(buttom_left, 1)
+        kwargs = {
+            'dimg': result,
+            'dbg': bg,
+            'baseline': baseline,
+            'syn_img': syn_img,
+            'syn_srt': syn_srt,
+            'syn_mask': syn_mask,
+            'gen_mask': gen_mask,
+            'mean_metric_values': self.info.get('mean_metric_values', None),
+            'metric_weights': self.info.get('metric_weights', None),
+        }
+        eval_result = evaluate_loss(**kwargs, return_details=True)
+        self.info['result_bg']['loss'] = eval_result.get('loss', None)
+        self.info['result_bg']['metrics_normalized'] = eval_result.get('metrics_normalized', {})
+        self.info['result_bg']['metrics_raw'] = eval_result.get('metrics_raw', {})
+        self.info['result_bg']['mean_metric_values'] = self.info.get('mean_metric_values', None)
+        self.info['result_bg']['metric_weights'] = eval_result.get('metric_weights', None)
+        self.info['result_bg']['intensity'] = np.sum(bg)
 
-        resultImg = np.zeros((fold_height * 2, fold_width * 2))
-        resultImg[0:fold_height, 0:fold_width] = top_left
-        resultImg[0:fold_height, fold_width:fold_width * 2] = top_right
-        resultImg[fold_height:fold_height * 2, 0:fold_width] = buttom_left
-        resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = buttom_right
+        print("Evaluation complete. Loss: ", self.info['result_bg']['loss'])
 
-        return resultImg
 
     def statusPrint(self, text):
         """

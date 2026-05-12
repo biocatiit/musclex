@@ -37,12 +37,16 @@ from PIL import Image
 from musclex import __version__
 try:
     from ..utils.file_manager import *
+    from ..utils.background_search import makeFullImage
     from ..utils.image_processor import *
+    from ..utils.qf_defaults import build_default_flags
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..csv_manager.QF_CSVManager import QF_CSVManager
 except: # for coverage
     from utils.file_manager import *
+    from utils.background_search import makeFullImage
     from utils.image_processor import *
+    from utils.qf_defaults import build_default_flags
     from modules.QuadrantFolder import QuadrantFolder
     from csv_manager.QF_CSVManager import QF_CSVManager
 
@@ -276,7 +280,7 @@ class QuadrantFoldingh:
         result = self.quadFold.imgCache["BgSubFold"]
         avg_fold = info["avg_fold"]
         background = avg_fold-result
-        resultImg = self.quadFold.makeFullImage(background)
+        resultImg = makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
             resultImg = np.rot90(resultImg)
@@ -321,33 +325,15 @@ class QuadrantFoldingh:
         Get all flags for QuadrantFolder process() from widgets
         :return: flags (dict)
         """
-        flags = {}
+        flags = build_default_flags()
 
         flags['orientation_model'] = self.orientationModel
         flags['ignore_folds'] = self.ignoreFolds
-        # default values, same as QuadrantFoldingGUI.py default
-        flags['bgsub'] = 'None'
-        flags["cirmin"] = 0.0
-        flags["cirmax"] = 25.0
-        flags['win_size_x'] = 10
-        flags['win_size_y'] = 10
-        flags['win_sep_x'] = 10
-        flags['win_sep_y'] = 10
-        flags["bin_theta"] = 30
-        flags['radial_bin'] = 10
-        flags['smooth'] = 0.1
-        flags['tension'] = 1.0
-        flags["tophat1"] = 5
-        flags['tophat2'] = 20
         flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img)
-        flags['sigmoid'] = 0.1
-        flags['fwhm'] = 10
-        flags['boxcar_x'] = 10
-        flags['boxcar_y'] = 10
-        flags['cycles'] = 5
         flags['blank_mask'] = False
         flags['rotate'] = False
-        flags['fold_image'] = True # always fold image
+        flags['fold_image'] = True
+        flags['bg_options'] = 0 # default to "Manual Setting | One Method"
 
         if self.calSettings is not None:
             flags.update(self.calSettings)
