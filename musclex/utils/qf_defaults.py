@@ -71,7 +71,7 @@ BG_METHODS = [
 ]
 OPTIMIZATION_METHODS = BG_METHODS[1:]  # Exclude 'None' from optimization options
 DEFAULT_OPTIMIZATION_METHODS = ["Circularly-symmetric", "White-top-hats", "Smoothed-Gaussian"]
-DEFAULT_OPTIMIZATION_STEPS = "500, 250, 100, 50, 25, 10, 5, 3, 1"
+DEFAULT_OPTIMIZATION_STEPS = "100, 50, 25, 10, 5, 3, 1"
 
 
 def parse_optimization_steps(raw: str | None = None) -> List[float]:

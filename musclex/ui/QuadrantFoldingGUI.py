@@ -2074,7 +2074,7 @@ class QuadrantFoldingGUI(BaseGUI):
     def _refresh_synthetic_preview_if_visible(self):
         if self.uiUpdating or not self.ableToProcess() or not self._is_synthetic_preview_visible():
             return
-        if self.quadFold is None or 'avg_fold' not in self.quadFold.info:
+        if self.quadFold is None or 'avg_fold' not in self.quadFold.imgCache:
             return
 
         self._sync_synthetic_settings_for_preview()
@@ -2605,7 +2605,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.function = None
         self.display_points = None
         self.ignoreFolds.add(fold_number)
-        self.deleteInfo(['avg_fold'])
+        self.deleteImgCache(['avg_fold'])
         self.processImage()
 
     def removeIgnoreQuadrant(self):
@@ -2616,7 +2616,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.function = None
         self.display_points = None
         self.ignoreFolds.remove(fold_number)
-        self.deleteInfo(['avg_fold'])
+        self.deleteImgCache(['avg_fold'])
         self.processImage()
 
     def deleteInfo(self, delList):
@@ -2811,10 +2811,8 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def onFoldChkBoxToggled(self):
         if self.quadFold is not None:
-            self.quadFold.deleteFromDict(self.quadFold.imgCache, 'avg_fold')
-            # self.quadFold.info['avg_fold'] = self.quadFold.orig_img
-            # self.quadFold.deleteFromDict(self.quadFold.imgCache, 'resultImg')
-            self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
+            self.deleteImgCache(['avg_fold'])
+            self.deleteImgCache(['BgSubFold'])
             self.processImage()
 
 
@@ -3453,8 +3451,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
-        avg_fold = self.quadFold.imgCache["avg_fold"]
-        print(avg_fold.shape)
+        avg_fold = self.quadFold.imgCache.get("avg_fold", None)
         background = avg_fold-result
         resultImg = makeFullImage(background)
 

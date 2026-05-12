@@ -720,7 +720,7 @@ class QuadrantFolder:
         if amplitude <= 0.0:
             equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
             amplitude = equator_half[i0] * AMP * i0
-            amplitude = 4000 if amplitude < 4000 else amplitude
+            amplitude = 500 if amplitude < 500 else amplitude
             self.info['synthetic_amplitude'] = amplitude
 
         # `synthetic_sigma_x` / `synthetic_sigma_y` are actual Gaussian sigmas (std dev, pixels)

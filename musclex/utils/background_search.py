@@ -1070,7 +1070,8 @@ def optimize(method, **kwargs):
                     best_loss = loss
                     best_value = v
                     improved = True
-                    log(f"  Best params: {best_value} Loss: {loss:.6f}")
+                    if done:
+                        log(f"  Best params: {best_value} Loss: {loss:.6f}")
             if improved:
                 step_idx = 0  # Reset step size if improved
             else:
@@ -1091,37 +1092,37 @@ def optimize(method, **kwargs):
     all_results.extend(result)
     improved = False
 
-    log("\n>_ Refining best parameters with small grid search.")
-    if refine_params != 0:
-        for step in final_steps:
-            from itertools import product
-            refine_indices = param_order[:refine_params] if refine_params > 0 else param_order
-            param_ranges = []
-            for i in range(len(best_params)):
-                if i in refine_indices:
-                    vals = [
-                        max(bounds[i][0], min(bounds[i][1], best_params[i] + delta))
-                        for delta in [-step, 0, step]
-                    ]
-                    param_ranges.append(sorted(set(vals)))
-                else:
-                    # Only keep the current value for non-refined params
-                    param_ranges.append([best_params[i]])
-            # log(f" Refinement grid for step {step}: {param_ranges}")
-            for candidate in product(*param_ranges):
-                candidate = list(candidate)
-                if tuple(candidate) in history:
-                    loss = history[tuple(candidate)]
-                else:
-                    loss, result = evaluate_candidate(candidate, use_timeout=False)
-                    history[tuple(candidate)] = loss
-                    all_results.extend(result)
-                if loss < best_loss:
-                    # print(f"    Improved: {candidate} Loss: {loss:.6f}")
-                    best_loss = loss
-                    best_params = candidate
-                    improved = True
-    log(f"\nBest parameters after refinement: {best_params}, Loss: {best_loss:.6f}")
+    # log("\n>_ Refining best parameters with small grid search.")
+    # if refine_params != 0:
+    #     for step in final_steps:
+    #         from itertools import product
+    #         refine_indices = param_order[:refine_params] if refine_params > 0 else param_order
+    #         param_ranges = []
+    #         for i in range(len(best_params)):
+    #             if i in refine_indices:
+    #                 vals = [
+    #                     max(bounds[i][0], min(bounds[i][1], best_params[i] + delta))
+    #                     for delta in [-step, 0, step]
+    #                 ]
+    #                 param_ranges.append(sorted(set(vals)))
+    #             else:
+    #                 # Only keep the current value for non-refined params
+    #                 param_ranges.append([best_params[i]])
+    #         # log(f" Refinement grid for step {step}: {param_ranges}")
+    #         for candidate in product(*param_ranges):
+    #             candidate = list(candidate)
+    #             if tuple(candidate) in history:
+    #                 loss = history[tuple(candidate)]
+    #             else:
+    #                 loss, result = evaluate_candidate(candidate, use_timeout=False)
+    #                 history[tuple(candidate)] = loss
+    #                 all_results.extend(result)
+    #             if loss < best_loss:
+    #                 # print(f"    Improved: {candidate} Loss: {loss:.6f}")
+    #                 best_loss = loss
+    #                 best_params = candidate
+    #                 improved = True
+    # log(f"\nBest parameters after refinement: {best_params}, Loss: {best_loss:.6f}")
 
     params_keys = list(method_params[method].keys())
     best_params = {params_keys[i]: best_params[i] for i in range(len(best_params))}
