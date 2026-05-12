@@ -115,11 +115,16 @@ class TotalDiffractionIntensity(QMainWindow):
         self.workspace.right_panel.add_widget(self._build_radial_group())
 
         # Status bar
+        #   Left  (stretch)  : self.imgDetailOnStatusBar  -- filename / batch progress
+        #   Right (permanent): self.imgCoordOnStatusBar   -- live mouse cursor info
         self.statusBarWidget = QStatusBar()
         self.imgDetailOnStatusBar = QLabel(
             "  Please select an image or a folder to process"
         )
-        self.statusBarWidget.addWidget(self.imgDetailOnStatusBar)
+        self.imgCoordOnStatusBar = QLabel("")
+        self.imgCoordOnStatusBar.setMinimumWidth(320)
+        self.statusBarWidget.addWidget(self.imgDetailOnStatusBar, 1)
+        self.statusBarWidget.addPermanentWidget(self.imgCoordOnStatusBar)
         self.setStatusBar(self.statusBarWidget)
 
     def _build_radial_group(self) -> QGroupBox:
@@ -204,6 +209,10 @@ class TotalDiffractionIntensity(QMainWindow):
         # to the same signal; it silently ignores unknown tool names).
         self.image_viewer.toolCompleted.connect(self._on_tool_completed)
 
+        # Live cursor readout (x, y, intensity, distance from center).
+        self.image_viewer.coordinatesChanged.connect(
+            self._on_image_coordinates_changed)
+
         # Batch processing
         self.navControls.processFolderButton.clicked.connect(
             self._on_process_folder_toggled)
@@ -276,6 +285,19 @@ class TotalDiffractionIntensity(QMainWindow):
         elif tool_name == 'rmax':
             self._set_radius_value('rmax', int(result), auto_enable=True)
             self.setRmaxBtn.setChecked(False)
+
+    def _on_image_coordinates_changed(self, x: float, y: float, value: float):
+        """Show ``x, y, value`` (and distance from the current center) on the
+        right side of the status bar as the mouse moves over the image."""
+        xi = int(round(x))
+        yi = int(round(y))
+        parts = [f"x={xi}", f"y={yi}", f"value={value:.2f}"]
+        center = self._get_current_center()
+        if center is not None:
+            cx, cy = center
+            r = float(np.hypot(x - cx, y - cy))
+            parts.append(f"r={r:.1f} px")
+        self.imgCoordOnStatusBar.setText("  ".join(parts))
 
     # ------------------------------------------------------------------
     # Radial range handlers
