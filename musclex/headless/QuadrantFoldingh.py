@@ -334,8 +334,10 @@ class QuadrantFoldingh:
 
         flags['orientation_model'] = self.orientationModel
         flags['ignore_folds'] = self.ignoreFolds
-        flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img)
-        flags['blank_mask'] = False
+        # mask_thres removed from QuadrantFolder (uses INVALID_PIXEL_THRESHOLD
+        # constant now, see QuadrantFolder.initParams docstring); blank_mask
+        # is also no longer consumed by QF (ImageData applies blank/mask
+        # before the image reaches QF). Both intentionally omitted.
         flags['rotate'] = False
         flags['fold_image'] = True
         flags['bg_options'] = 0 # default to "Manual Setting | One Method"

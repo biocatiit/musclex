@@ -4072,7 +4072,9 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['win_size_y'] = self.winSizeY.value()
         flags['win_sep_x'] = self.winSepX.value()
         flags['win_sep_y'] = self.winSepY.value()
-        flags["bin_theta"] = int(self.thetabinCB.currentText())
+        # NOTE: bin_theta / bin_theta_out widgets (thetabinCB / thetaBinOutCB)
+        # exist for UI compatibility but their values are not consumed by
+        # QuadrantFolder.process(); deliberately not written into flags.
         flags['radial_bin'] = self.radialBinSpnBx.value()
         flags['smooth'] = self.smoothSpnBx.value()
         flags['tension'] = self.tensionSpnBx.value()
@@ -4091,7 +4093,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['win_size_y_out'] = self.winSizeOutY.value()
         flags['win_sep_x_out'] = self.winSepOutX.value()
         flags['win_sep_y_out'] = self.winSepOutY.value()
-        flags["bin_theta_out"] = int(self.thetaBinOutCB.currentText())
+        # bin_theta_out intentionally omitted (see note above).
         flags['radial_bin_out'] = self.radialBinOutSpnBx.value()
         flags['smooth_out'] = self.smoothOutSpnBx.value()
         flags['tension_out'] = self.tensionOutSpnBx.value()
@@ -4515,11 +4517,30 @@ class QuadrantFoldingGUI(BaseGUI):
         # Start from all current UI flags
         settings = dict(self.getFlags())
 
-        # Remove per-session / per-image keys that should not be persisted
+        # Remove per-session / per-image keys that should not be persisted.
+        # batch_processing / force_recalc_bg / manual_background_assignments
+        # are runtime state (run-scoped flags; manual_background_assignments
+        # is keyed by image filename and would silently leak when this
+        # settings file is reused on a different image set).
         for key in ('ignore_folds', 'orientation_model', 'blank_mask',
                     'apply_mask', 'mode_angle', 'roi_w', 'roi_h', 'detector',
-                    'center', 'fold_image', 'rotate'):
+                    'center', 'fold_image', 'rotate',
+                    'batch_processing', 'force_recalc_bg',
+                    'manual_background_assignments'):
             settings.pop(key, None)
+
+        # The 'out'-radius / transition fields are only consumed when
+        # bg_options==1 (Transition mode). Strip them otherwise so the
+        # persisted file reflects only what will actually be used.
+        if settings.get('bg_options') != 1:
+            for key in ('bgsub_out', 'cirmin_out', 'cirmax_out',
+                        'win_size_x_out', 'win_size_y_out',
+                        'win_sep_x_out', 'win_sep_y_out',
+                        'radial_bin_out', 'smooth_out', 'tension_out',
+                        'tophat_out', 'fwhm_out',
+                        'boxcar_x_out', 'boxcar_y_out', 'cycles_out',
+                        'transition_radius', 'transition_delta'):
+                settings.pop(key, None)
 
         # Output compression flag (not in getFlags, driven by its own checkbox)
         settings['compressed'] = self.compressFoldedImageChkBx.isChecked()

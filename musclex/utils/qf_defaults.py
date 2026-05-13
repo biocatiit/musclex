@@ -99,10 +99,16 @@ def parse_optimization_steps(raw: str | None = None) -> List[float]:
 
 def build_default_flags() -> Dict[str, Any]:
     """Return default processing flags derived from the dialog defaults."""
-    default_bin_theta = int(THETA_BIN_OPTIONS[DEFAULT_THETA_BIN_INDEX])
     default_degree = float(DEGREE_OPTIONS[DEFAULT_DEGREE_INDEX])
     default_downsample = int(DOWNSAMPLE_OPTIONS[DEFAULT_DOWNSAMPLE_INDEX])
 
+    # Notes on intentionally-omitted keys:
+    #   - bin_theta / bin_theta_out: still exposed in the UI (thetabinCB /
+    #     thetaBinOutCB combos) for compatibility, but QuadrantFolder.process()
+    #     does not consume them anywhere; do NOT include them here.
+    #   - amp / sigma_x_div / sigma_y_div: orphaned old names. QuadrantFolder
+    #     reads synthetic_amplitude / synthetic_sigma_x / synthetic_sigma_y
+    #     instead (see QuadrantFolder.evaluateResult and _ensure_synthetic_*).
     flags: Dict[str, Any] = {
         "bgsub": "None",
         "cirmin": DEFAULT_PIXEL_MIN,
@@ -111,7 +117,6 @@ def build_default_flags() -> Dict[str, Any]:
         "win_size_y": DEFAULT_WINDOW_SIZE,
         "win_sep_x": DEFAULT_WINDOW_SEP,
         "win_sep_y": DEFAULT_WINDOW_SEP,
-        "bin_theta": default_bin_theta,
         "radial_bin": DEFAULT_RADIAL_BIN,
         "smooth": DEFAULT_SMOOTHING,
         "tension": DEFAULT_TENSION,
@@ -135,7 +140,6 @@ def build_default_flags() -> Dict[str, Any]:
         "win_size_y_out": DEFAULT_WINDOW_SIZE,
         "win_sep_x_out": DEFAULT_WINDOW_SEP,
         "win_sep_y_out": DEFAULT_WINDOW_SEP,
-        "bin_theta_out": default_bin_theta,
         "radial_bin_out": DEFAULT_RADIAL_BIN,
         "smooth_out": DEFAULT_SMOOTHING,
         "tension_out": DEFAULT_TENSION,
@@ -152,9 +156,6 @@ def build_default_flags() -> Dict[str, Any]:
             "SMOOTH_MEAN": float(DEFAULT_MEAN_SMOOTH),
         },
         "evaluation_baseline": float(DEFAULT_EVAL_BASELINE),
-        "amp": float(DEFAULT_AMP),
-        "sigma_x_div": float(DEFAULT_SIGMA_X),
-        "sigma_y_div": float(DEFAULT_SIGMA_Y),
         "freq": DEFAULT_FREQ,
         "metric_weights": {
             "MSE": float(DEFAULT_WEIGHT_MSE),

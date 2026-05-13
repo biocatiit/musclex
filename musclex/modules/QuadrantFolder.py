@@ -391,10 +391,20 @@ class QuadrantFolder:
 
         flags keys (notable):
             ignore_folds - quadrants excluded from averaging
-            bgsub        - background-subtraction method (in-radius)
-            bgsub2       - background-subtraction method (out-radius)
-            sigmoid      - merge gradient between bgimg1 and bgimg2
-            cirmin/cirmax/tophat1/tophat2/...  - method-specific params
+            bgsub        - background-subtraction method name (in-radius)
+            bgsub_out    - background-subtraction method name (out-radius);
+                           only consumed when bg_options == 1 (Transition)
+            bg_options   - 0 = single method, 1 = Transition (uses bgsub_out
+                           outside transition_radius and merges in/out folds)
+            cirmin/cirmax/radial_bin/smooth/tension/tophat/fwhm/
+              boxcar_x/boxcar_y/cycles/degree
+                         - method-specific params for the in-radius pass;
+                           append "_out" for the out-radius pass (e.g.
+                           cirmin_out, tophat_out)
+            transition_radius / transition_delta
+                         - only used when bg_options == 1
+            optimize / methods / steps / max_iterations / early_stop
+                         - automated parameter search (BG optimizer)
             no_cache     - if present, skip writing the disk cache
             no_fast_path - if present, force a full reprocess even when
                            the cached fingerprint matches the current one
