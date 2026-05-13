@@ -1322,6 +1322,13 @@ class QuadrantFolder:
         manual_assignments = self.info.get('manual_background_assignments', {})
         auto_configs = self.info.get('background_configurations', [])
         batch_processing = self.info.get('batch_processing', False)
+        optimize_each_image = bool(self.info.get('optimize_each_image', False))
+
+        if batch_processing and optimize_each_image:
+            # Folder-level "Optimize each image" explicitly bypasses saved/manual selection.
+            self.info['result_bg']['selected_configuration_name'] = '-'
+            return {'best_method': None}
+
         use_auto_configs = (
             batch_processing
             and bool(self.info.get('choose_configurations_auto', False))
