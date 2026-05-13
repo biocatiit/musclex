@@ -501,10 +501,10 @@ class BackgroundSubtractionDialog(QDialog):
                                                                    value=qf_defaults.DEFAULT_EVAL_BASELINE,
             decimals=2, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
-
-        self.persistEvaluationBaselineChkBx = QCheckBox("Persist evaluation baseline")
+        self.persistEvaluationBaselineChkBx = QCheckBox("Persist Evaluation Baseline")
         self.persistEvaluationBaselineChkBx.setToolTip(
-            "When checked, the evaluation baseline value is carried over when you switch images (same as the spinbox)."
+            "Reuse one evaluation baseline across images while this UI stays open. "
+            "When baseline is 0, the first computed baseline is reused."
         )
 
         # min_val=0.0 lets the sentinel value 0.0 round-trip through the

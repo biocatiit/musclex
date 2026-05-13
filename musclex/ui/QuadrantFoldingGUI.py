@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 from musclex import __version__
-from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal, QTimer, QSize
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal, QTimer, QSize, QSignalBlocker
 from PySide6.QtWidgets import QStyle
 from queue import Queue
 import fabio
@@ -412,6 +412,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self._restoreOptimizeCheckboxAfterProcess = False
         self._OptimizationRunning = False
         self._stopOptimizationRequested = False
+        self._persisted_evaluation_baseline = None
+        self._persisted_eval_baseline_lock = Lock()
 
         self.initUI() # initial all GUI
 
@@ -1525,6 +1527,8 @@ class QuadrantFoldingGUI(BaseGUI):
             setattr(self, attr, getattr(self.bgSubDialog, attr))
 
         self.checkableButtons.append(self.setRminRmaxButton)
+        if hasattr(self, "persistEvaluationBaselineChkBx"):
+            self.persistEvaluationBaselineChkBx.toggled.connect(self._on_persist_evaluation_baseline_toggled)
 
     def openBackgroundSubtractionDialog(self):
         """Open the background subtraction settings popup."""
@@ -1532,6 +1536,64 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgSubDialog.show()
         self.bgSubDialog.raise_()
         self.bgSubDialog.activateWindow()
+
+    def _get_persisted_evaluation_baseline(self):
+        with self._persisted_eval_baseline_lock:
+            value = self._persisted_evaluation_baseline
+        if value is None:
+            return None
+        try:
+            parsed = float(value)
+        except Exception:
+            return None
+        return parsed if parsed > 0.0 else None
+
+    def _register_persisted_evaluation_baseline(self, baseline):
+        try:
+            parsed = float(baseline)
+        except Exception:
+            return self._get_persisted_evaluation_baseline()
+        if parsed <= 0.0:
+            return self._get_persisted_evaluation_baseline()
+
+        with self._persisted_eval_baseline_lock:
+            existing = self._persisted_evaluation_baseline
+            if existing is None:
+                self._persisted_evaluation_baseline = parsed
+                resolved = parsed
+            else:
+                resolved = float(existing)
+        return float(resolved)
+
+    def _clear_persisted_evaluation_baseline(self):
+        with self._persisted_eval_baseline_lock:
+            self._persisted_evaluation_baseline = None
+
+    def _register_persisted_baseline_from_processed_info(self, info):
+        if not isinstance(info, dict):
+            return
+        if not (
+            hasattr(self, "persistEvaluationBaselineChkBx")
+            and self.persistEvaluationBaselineChkBx.isChecked()
+        ):
+            return
+        baseline = info.get("evaluation_baseline", None)
+        resolved = self._register_persisted_evaluation_baseline(baseline)
+        if resolved is None:
+            return
+        if hasattr(self, "evaluationBaselineSpnBx"):
+            blocker = QSignalBlocker(self.evaluationBaselineSpnBx)
+            self.evaluationBaselineSpnBx.setValue(float(resolved))
+            del blocker
+
+    def _on_persist_evaluation_baseline_toggled(self, checked):
+        if checked:
+            if hasattr(self, "evaluationBaselineSpnBx"):
+                baseline = float(self.evaluationBaselineSpnBx.value())
+                if baseline > 0.0:
+                    self._register_persisted_evaluation_baseline(baseline)
+        else:
+            self._clear_persisted_evaluation_baseline()
 
 
     def _format_bg_params_text(self, params):
@@ -3108,6 +3170,20 @@ class QuadrantFoldingGUI(BaseGUI):
             self.weightNegConSpnBx.setValue(float(weights.get('Share_Neg_Connected', self.weightNegConSpnBx.value())))
             self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
 
+        if 'evaluation_baseline' in info:
+            self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value())))
+        # if synthetic_amplitude is not None:
+        #     self.amplitudeSpnBx.setValue(float(synthetic_amplitude))
+        # if synthetic_sigma_x is not None:
+        #     self.sigmaXSpnBx.setValue(float(synthetic_sigma_x))
+        # if synthetic_sigma_y is not None:
+        #     self.sigmaYSpnBx.setValue(float(synthetic_sigma_y))
+        if 'freq' in info:
+            freq_value = str(info.get('freq', self.freqCB.currentText()))
+            idx = self.freqCB.findText(freq_value)
+            if idx >= 0:
+                self.freqCB.setCurrentIndex(idx)
+
         if hasattr(self, "bgSubDialog"):
             self.bgSubDialog._populate_loss_params_table()
 
@@ -3658,6 +3734,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # Mark single-image processing complete before UI refresh so updateUI() is not blocked.
         self._singleProcessing = False
         self.quadFold = quad_fold
+        self._register_persisted_baseline_from_processed_info(quad_fold.info)
         if quad_fold.info.get('stopped'):
             return
 
@@ -3825,7 +3902,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def addTask(self, i):
         """Submit one image (by index) to the batch process pool.
-
         Builds a plain-Python ``job_args`` dict from current GUI state so
         the worker process can fully reconstruct an ``ImageData`` +
         ``QuadrantFolder`` without any Qt / parent references.
@@ -4024,6 +4100,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         filename = task.filename
         info = result.get('info') if isinstance(result, dict) else None
+        self._register_persisted_baseline_from_processed_info(info)
         center = result.get('center') if isinstance(result, dict) else None
         rotation = result.get('rotation') if isinstance(result, dict) else None
         has_result = bool(result.get('has_result')) if isinstance(result, dict) else False
@@ -5627,6 +5704,16 @@ class QuadrantFoldingGUI(BaseGUI):
         self.default_img_zoom = None
         self.default_result_img_zoom = None
         self.zoomOutClicked = True
+
+        if (
+            hasattr(self, "persistEvaluationBaselineChkBx")
+            and hasattr(self, "evaluationBaselineSpnBx")
+            and not self.persistEvaluationBaselineChkBx.isChecked()
+        ):
+            self._clear_persisted_evaluation_baseline()
+            blocker = QSignalBlocker(self.evaluationBaselineSpnBx)
+            self.evaluationBaselineSpnBx.setValue(0.0)
+            del blocker
 
         # Restore cache state if available
         if hasattr(self.quadFold, 'info'):
