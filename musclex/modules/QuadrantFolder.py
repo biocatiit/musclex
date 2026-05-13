@@ -174,11 +174,38 @@ class QuadrantFolder:
     #      reason the on-disk cache used to be ~12 MB/img. With a complete
     #      parameter fingerprint the fast-path can decide validity from
     #      params alone and just reload the tif.
+    # Runtime state injected by the caller (GUI batch loop / CLI driver)
+    # on every process() invocation. Treated as ephemeral:
+    #   - batch_processing            : True while a batch is in flight; the
+    #                                   single-image rerun afterwards must
+    #                                   not see this as True from cache.
+    #   - force_recalc_bg             : one-shot "discard cached BG results"
+    #                                   trigger for manual-mode batches;
+    #                                   must never persist past the run
+    #                                   that set it.
+    #   - manual_background_assignments: dict keyed by image filename ->
+    #                                   chosen BG config. Scoped to the
+    #                                   current batch only; pickling it
+    #                                   would silently leak A-set
+    #                                   assignments into B-set when
+    #                                   filenames happen to collide.
+    # Their *effect* on processing (chosen method/params) is captured by
+    # the regular bgsub/cirmin/... fields, which DO enter the fingerprint,
+    # so excluding these from the fingerprint cannot cause stale fast-path
+    # hits.
+    _RUNTIME_STATE_KEYS = (
+        'batch_processing',
+        'force_recalc_bg',
+        'manual_background_assignments',
+    )
+
     _NON_CACHED_KEYS = (
         # Transient ROI
         'roi_w', 'roi_h',
         # Image-bearing intermediates (now persisted only via _folded.tif)
         'avg_fold', 'bgimg1', 'bgimg2', 'bg_line',
+        # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
+        *_RUNTIME_STATE_KEYS,
     )
 
     # Image-array keys: these are outputs of processing, not inputs, so
@@ -198,6 +225,8 @@ class QuadrantFolder:
         'inv_transform',
         'centImgTransMat',
         'folded',
+        # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
+        *_RUNTIME_STATE_KEYS,
     )
 
     def cacheInfo(self):

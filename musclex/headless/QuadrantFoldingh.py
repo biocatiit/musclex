@@ -347,6 +347,16 @@ class QuadrantFoldingh:
         if 'center' in flags:
             flags.pop('center')
 
+        # Defensive: strip caller-injected runtime state if it ever made
+        # it into qfsettings.json (older GUI versions, or a hand-edited
+        # file). headless is always a fresh, single-image run -- there
+        # is no batch in flight, no manual BG batch assignment, and no
+        # "force recompute" trigger. Letting any of these come through
+        # would change BG selection logic mid-run.
+        for key in ('batch_processing', 'force_recalc_bg',
+                    'manual_background_assignments'):
+            flags.pop(key, None)
+
         # Translate the user-preference name 'fixed_roi_*' (used by
         # qfsettings.json to express "persist this ROI across images")
         # into the processing-parameter name 'roi_w/h' that QuadrantFolder
