@@ -237,6 +237,8 @@ class QuadrantFolder:
     _NON_CACHED_KEYS = (
         # Transient ROI
         'roi_w', 'roi_h',
+        # Runtime UI-only preference
+        'persist_evaluation_baseline',
         # Image-bearing intermediates (now persisted only via _folded.tif)
         'avg_fold', 'bgimg1', 'bgimg2', 'bg_line',
         # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
@@ -256,6 +258,7 @@ class QuadrantFolder:
         'program_version',
         'cache_format_version',
         'processing_fingerprint',
+        'persist_evaluation_baseline',
         'transform',
         'inv_transform',
         'centImgTransMat',
@@ -645,6 +648,14 @@ class QuadrantFolder:
             self.info.pop(key, None)
 
         self.info.update(flags)
+        persist_eval_baseline = bool(self.info.get('persist_evaluation_baseline', False))
+        if not persist_eval_baseline:
+            # Recompute baseline per image/run when persistence is disabled.
+            self.info['evaluation_baseline'] = 0.0
+        else:
+            parent_baseline = self._get_parent_persisted_evaluation_baseline()
+            if parent_baseline is not None:
+                self.info['evaluation_baseline'] = float(parent_baseline)
 
         # In-memory caches invalidated when the resolved ROI changes.
         new_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
@@ -1885,6 +1896,31 @@ class QuadrantFolder:
             self.info['result_bg']['symmetry'] = None
 
         print("Evaluation complete. Loss: ", self.info['result_bg']['loss'])
+
+    def _get_parent_persisted_evaluation_baseline(self):
+        getter = getattr(self.parent, "_get_persisted_evaluation_baseline", None)
+        if callable(getter):
+            value = getter()
+            if value is None:
+                return None
+            try:
+                parsed = float(value)
+            except Exception:
+                return None
+            return parsed if parsed > 0.0 else None
+        return None
+
+    def _register_parent_persisted_evaluation_baseline(self, baseline):
+        registrar = getattr(self.parent, "_register_persisted_evaluation_baseline", None)
+        if callable(registrar):
+            value = registrar(baseline)
+            if value is None:
+                return float(baseline)
+            try:
+                return float(value)
+            except Exception:
+                return float(baseline)
+        return float(baseline)
 
 
     def statusPrint(self, text):
