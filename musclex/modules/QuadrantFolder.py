@@ -48,6 +48,7 @@ try:
     from ..utils.image_processor import *
     from ..utils.background_search import *
     from ..utils.image_data import ImageData
+    from ..utils.fold_symmetry import _compute_fold_symmetry
 except: # for coverage
     from modules import QF_utilities as qfu
     from utils.file_manager import fullPath, createFolder
@@ -55,6 +56,7 @@ except: # for coverage
     from utils.image_processor import *
     from utils.background_search import *
     from utils.image_data import ImageData
+    from utils.fold_symmetry import _compute_fold_symmetry
 
 # Make sure the cython part is compiled
 # from subprocess import call
@@ -598,6 +600,7 @@ class QuadrantFolder:
             self.info['result_bg'].setdefault('mean_metric_values', None)
             self.info['result_bg'].setdefault('metric_weights', None)
             self.info['result_bg'].setdefault('selected_configuration_name', None)
+            self.info['result_bg'].setdefault('symmetry', None)
 
     def initParams(self):
         """
@@ -1691,6 +1694,25 @@ class QuadrantFolder:
         self.info['result_bg']['mean_metric_values'] = self.info.get('mean_metric_values', None)
         self.info['result_bg']['metric_weights'] = eval_result.get('metric_weights', None)
         self.info['result_bg']['intensity'] = np.sum(bg)
+
+        # Fold-symmetry score (normalised). Computed from the *original*
+        # pre-transform image so the score reflects what folding actually saw;
+        # this is the same input shape _compute_fold_symmetry expects (it
+        # re-runs the translate+rotate itself).
+        try:
+            if self._image_data is not None:
+                sym_img = self._image_data.get_working_image()
+                sym_center = self._image_data.center
+                sym_rotation = self._image_data.rotation
+            else:
+                sym_img = None
+                sym_center = self.orig_image_center
+                sym_rotation = self.rotation if self.rotation is not None else 0.0
+            sym = _compute_fold_symmetry(sym_img, sym_center, sym_rotation)
+            self.info['result_bg']['symmetry'] = sym.get('fold_std_norm', None)
+        except Exception as _sym_err:
+            print(f"Symmetry calculation failed: {_sym_err}")
+            self.info['result_bg']['symmetry'] = None
 
         print("Evaluation complete. Loss: ", self.info['result_bg']['loss'])
 

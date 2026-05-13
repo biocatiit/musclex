@@ -278,7 +278,12 @@ class QuadrantFoldingh:
         """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
-        avg_fold = info["avg_fold"]
+        # avg_fold lives in imgCache, not info (matches QuadrantFoldingGUI.saveBackground).
+        avg_fold = self.quadFold.imgCache.get("avg_fold", None)
+        if avg_fold is None:
+            # On the fast-path BgSubFold / avg_fold are not reconstructed; bg.tif
+            # from a previous session is still on disk so nothing to save here.
+            return
         background = avg_fold-result
         resultImg = makeFullImage(background)
 

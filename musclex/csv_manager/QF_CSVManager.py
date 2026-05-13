@@ -52,7 +52,7 @@ class QF_CSVManager:
             'Filename', 'centerX', 'centerY', 'rotationAngle',
             'backgroundMethod', 'backgroundConfigName',
             'parameters', 'downsampled',
-            'loss', 'bgSum'#, 'hash', 'comment'
+            'loss', 'bgSum', 'symmetry'#, 'hash', 'comment'
         ]
         self.loadFailedCases(dir_path)
         self.loadSummary()
@@ -131,6 +131,7 @@ class QF_CSVManager:
             data['downsampled'] = quadFold.info.get('downsample', '-')
             data['loss'] = quadFold.info['result_bg'].get('loss', '-')
             data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
+            data['symmetry'] = quadFold.info['result_bg'].get('symmetry', '-')
 
 
             if failed:
