@@ -1459,6 +1459,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'addBackgroundConfigButton',
             'backgroundConfigsTable',
             'deleteBackgroundConfigButton',
+            'optimizeEachImageChkBx',
             'chooseConfigurationsAutoChkBx',
             'createNewConfigurationsChkBx',
             'assignConfgurationsManually',
@@ -4232,7 +4233,11 @@ class QuadrantFoldingGUI(BaseGUI):
             flags['transition_delta'] = self.tranDeltaSpnBx.value()
 
         # ===== Background optimization flags (automated processing) =====
-        flags['optimize'] = self.optimizeFlag is True
+        optimize_each_image = bool(
+            hasattr(self, "optimizeEachImageChkBx") and self.optimizeEachImageChkBx.isChecked()
+        )
+        flags['optimize_each_image'] = optimize_each_image
+        flags['optimize'] = (self.optimizeFlag is True) or (self.batchProcessing and optimize_each_image)
         flags['bg_options'] = self.bgOptionsCB.currentIndex()    
         flags['methods'] = self._get_selected_optimization_methods()
         flags['steps'] = parse_optimization_steps(self.stepsLineEdit.text())
@@ -4275,7 +4280,9 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['downsample'] = int(self.downsampleCB.currentText())
 
         # Auto-select from saved user background configurations (used mainly in batch processing)
-        flags['choose_configurations_auto'] = self.chooseConfigurationsAutoChkBx.isChecked()
+        flags['choose_configurations_auto'] = (
+            self.chooseConfigurationsAutoChkBx.isChecked() and not optimize_each_image
+        )
 
         # TODO: add create new configurations for outliers
 
@@ -4285,7 +4292,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['batch_processing'] = self.batchProcessing
         flags['force_recalc_bg'] = bool(getattr(self, "_force_recalc_bg_for_batch", False))
 
-        if self.batchProcessing:
+        if self.batchProcessing and not optimize_each_image:
             resolved_manual_assignments = {}
             if len(flags['background_configurations']) > 0:
                 resolved_manual_assignments = self.bgSubDialog._resolve_manual_background_assignments_for_batch(flags['background_configurations'])
@@ -4477,6 +4484,10 @@ class QuadrantFoldingGUI(BaseGUI):
         )
 
         # ======= Manual assignments and auto selection both depend on saved configurations. ======
+        optimize_each_image = bool(
+            hasattr(self, "optimizeEachImageChkBx") and self.optimizeEachImageChkBx.isChecked()
+        )
+
         has_manual_assignments = (
             hasattr(self, "bgSubDialog")
             and isinstance(self.bgSubDialog.manualBackgroundAssignments, dict)
@@ -4485,7 +4496,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         resolved_manual_assignments = {}
         self._background_configurations = self.bgSubDialog._read_background_configurations()
-        if len(self._background_configurations) != 0:
+        if not optimize_each_image and len(self._background_configurations) != 0:
             resolved_manual_assignments = self.bgSubDialog._resolve_manual_background_assignments_for_batch(
                 self._background_configurations
             )
@@ -4580,10 +4591,12 @@ class QuadrantFoldingGUI(BaseGUI):
                 text += "\n  - Merge Transition Delta : " + str(self.tranDeltaSpnBx.value())
 
     
-        if self.chooseConfigurationsAutoChkBx.isChecked():
+        if optimize_each_image:
+            text += "\n  - Optimize Each Image : Enabled"
+        elif self.chooseConfigurationsAutoChkBx.isChecked():
             text += "\n  - Auto Configuration Selection : Enabled"
             text += f"\n  - Saved Configurations Loaded : {len(self._background_configurations)}"
-        if len(resolved_manual_assignments) > 0:
+        if not optimize_each_image and len(resolved_manual_assignments) > 0:
             text += f"\n  - Manual Assignments : {len(resolved_manual_assignments)} image(s)"
 
         text += '\n\nAre you sure you want to process ' + str(len(img_ids)) + ' image(s) in this Folder? \nThis might take a long time.'

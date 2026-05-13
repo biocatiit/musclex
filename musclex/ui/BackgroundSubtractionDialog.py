@@ -660,6 +660,11 @@ class BackgroundSubtractionDialog(QDialog):
         )
         self.chooseConfigurationsAutoChkBx.setChecked(True)
 
+        self.optimizeEachImageChkBx = QCheckBox("Optimize each image")
+        self.optimizeEachImageChkBx.setToolTip(
+            "Run full background optimization for every image in folder processing using current optimization settings"
+        )
+
         self.createNewConfigurationsChkBx = QCheckBox("Automatically create new configurations for outlier images")
         self.createNewConfigurationsChkBx.setToolTip(
             "Automatically create new background configurations for images that are considered outliers "
@@ -668,8 +673,9 @@ class BackgroundSubtractionDialog(QDialog):
 
         self.assignConfgurationsManually = QPushButton("Manually assign configurations to images")
 
-        self.chooseConfigurationsAutoChkBx.toggled.connect(self._update_manual_assignment_enabled)
-        self._update_manual_assignment_enabled(self.chooseConfigurationsAutoChkBx.isChecked())
+        self.chooseConfigurationsAutoChkBx.toggled.connect(self._update_folder_processing_controls)
+        self.optimizeEachImageChkBx.toggled.connect(self._update_folder_processing_controls)
+        self._update_folder_processing_controls()
 
         self.processFolderWithSelections = QPushButton("Process Current Folder")
         self.processFolderWithSelections.setStyleSheet(self.STYLES["process_button"])
@@ -1014,6 +1020,7 @@ class BackgroundSubtractionDialog(QDialog):
     def _setup_folder_layout(self):
         """Setup folder processing settings layout."""
         folder_layout = QGridLayout()
+        folder_layout.addWidget(self.optimizeEachImageChkBx)
         folder_layout.addWidget(self.chooseConfigurationsAutoChkBx)
         # folder_layout.addWidget(self.createNewConfigurationsChkBx)
         folder_layout.addWidget(self.assignConfgurationsManually)
@@ -1062,12 +1069,21 @@ class BackgroundSubtractionDialog(QDialog):
         else:
             self.lossParamsTable.setColumnHidden(0, True)
 
-    def _update_manual_assignment_enabled(self, checked=None):
-        if not hasattr(self, "chooseConfigurationsAutoChkBx"):
+    def _update_folder_processing_controls(self, checked=None):
+        if not hasattr(self, "chooseConfigurationsAutoChkBx") or not hasattr(self, "assignConfgurationsManually"):
             return
-        if checked is None and hasattr(self, "chooseConfigurationsAutoChkBx"):
-            checked = self.chooseConfigurationsAutoChkBx.isChecked()
-        self.assignConfgurationsManually.setEnabled(not bool(checked))
+
+        optimize_each = bool(getattr(self, "optimizeEachImageChkBx", None) and self.optimizeEachImageChkBx.isChecked())
+
+        self.chooseConfigurationsAutoChkBx.blockSignals(True)
+        self.chooseConfigurationsAutoChkBx.setEnabled(not optimize_each)
+        if optimize_each:
+            self.chooseConfigurationsAutoChkBx.setChecked(False)
+            self.assignConfgurationsManually.setEnabled(False)
+        else:
+            auto_checked = self.chooseConfigurationsAutoChkBx.isChecked() if checked is None else bool(checked)
+            self.assignConfgurationsManually.setEnabled(not auto_checked)
+        self.chooseConfigurationsAutoChkBx.blockSignals(False)
 
     def _set_selected_methods(self, methods):
         method_set = set(methods)
