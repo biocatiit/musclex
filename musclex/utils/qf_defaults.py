@@ -165,6 +165,7 @@ def build_default_flags() -> Dict[str, Any]:
             "SHARE_NEG_CON_MEAN": float(DEFAULT_MEAN_NEG_CON),
             "SMOOTH_MEAN": float(DEFAULT_MEAN_SMOOTH),
         },
+        "persist_evaluation_baseline": False,
         "evaluation_baseline": float(DEFAULT_EVAL_BASELINE),
         "freq": DEFAULT_FREQ,
         "metric_weights": {
