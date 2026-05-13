@@ -1083,9 +1083,6 @@ class QuadrantFoldingGUI(BaseGUI):
     def _populate_manual_processing_layout_out(self, layout):
         row = 0
 
-        self.applyBGButton = QPushButton("Apply")
-        self.applyBGButton.setToolTip("Recompute background subtraction with the current parameters and update the result image")
-
         layout.addWidget(self._create_settings_separator(), row, 0, 1, 2)
         row += 1
 
