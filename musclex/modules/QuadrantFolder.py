@@ -1452,25 +1452,82 @@ class QuadrantFolder:
         return best_method
 
     def _apply_existing_or_default_bg(self):
-        if self.info['result_bg']['method'] is not None and self.info['result_bg']['final_params'] is not None:
-            method = self.info['result_bg']['method']
-            params = self.info['result_bg']['final_params']
-            print(f"Using previously used background subtraction method: {method} with params: {params}")
-            for key, value in params.items():
-                self.info[f"{key}"] = value
-            self.info['bgsub'] = method
+        """
+        Final fallback after _select_background_configuration / optimization
+        produced no winner. Two cases:
+
+          1. The caller actively picked a method this run (widget /
+             loaded settings / headless flags -> info['bgsub'] is a
+             real method name). We honor that choice and rebuild
+             result_bg from the per-method params currently in info.
+             Any stale result_bg left over from a previous session is
+             dropped so the new pickle reflects the new choice.
+
+          2. info['bgsub'] is None/'None'. If a previously-applied
+             configuration is still on file (result_bg.method is a
+             real method name AND final_params is a non-empty dict),
+             reuse it -- this is the original "sticky last result"
+             behavior, useful when a user re-opens an image they
+             previously optimized. Otherwise leave result_bg in sync
+             with info['bgsub'] (no BG sub).
+
+        Special care: legacy pickles store the literal string 'None'
+        instead of Python None in info['result_bg']['method']. The
+        old `is not None` check treated 'None' as a valid prior
+        method, which caused user-supplied bgsub='Circularly-symmetric'
+        (etc.) to be silently reverted back to 'None'.
+        """
+        def _is_no_method(value):
+            return value is None or value == 'None'
+
+        current_method = self.info.get('bgsub')
+        prev_method = self.info['result_bg'].get('method')
+        prev_params = self.info['result_bg'].get('final_params')
+        has_usable_prev = (
+            not _is_no_method(prev_method)
+            and prev_method in method_params
+            and isinstance(prev_params, dict)
+            and len(prev_params) > 0
+        )
+
+        if not _is_no_method(current_method):
+            print(
+                f"Using user-selected background subtraction method: "
+                f"{current_method} (no optimization configuration matched)"
+            )
+            self.info['result_bg']['optimized'] = False
+            self.info['result_bg']['method'] = current_method
+            self.info['result_bg']['selected_configuration_name'] = '-'
+            if current_method in method_params:
+                params_keys = list(method_params[current_method].keys())
+                params = {k: self.info[k] for k in params_keys if k in self.info}
+            else:
+                params = {}
+            self.info['result_bg']['final_params'] = params
+            return
+
+        if has_usable_prev:
+            print(
+                f"Using previously used background subtraction method: "
+                f"{prev_method} with params: {prev_params}"
+            )
+            for key, value in prev_params.items():
+                self.info[key] = value
+            self.info['bgsub'] = prev_method
             if 'selected_configuration_name' not in self.info['result_bg']:
                 self.info['result_bg']['selected_configuration_name'] = '-'
+            return
+
+        print("No previous background subtraction method found. Using current settings.")
+        self.info['result_bg']['optimized'] = False
+        self.info['result_bg']['method'] = current_method
+        self.info['result_bg']['selected_configuration_name'] = '-'
+        if current_method in method_params:
+            params_keys = list(method_params[current_method].keys())
+            params = {k: self.info[k] for k in params_keys if k in self.info}
         else:
-            print("No previous background subtraction method found. Using current settings.")
-            self.info['result_bg']['optimized'] = False
-            self.info['result_bg']['method'] = self.info['bgsub']
-            self.info['result_bg']['selected_configuration_name'] = '-'
-
-            params_keys = list(method_params[self.info['bgsub']].keys())
-            params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
-
-            self.info['result_bg']['final_params'] = params
+            params = {}
+        self.info['result_bg']['final_params'] = params
 
 
     def applyBackgroundSubtraction(self):

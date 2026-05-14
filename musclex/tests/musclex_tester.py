@@ -343,6 +343,158 @@ class MuscleXGlobalTester(unittest.TestCase):
         )
 
 
+    ####### QF _apply_existing_or_default_bg REGRESSION #######
+    def testApplyExistingOrDefaultBgRespectsUserChoice(self):
+        """
+        Regression for the "Load Settings then reprocess silently
+        reverts to bgsub='None'" bug.
+
+        Reproduced via GUI: open image with no usable bg config ->
+        first run cached info['bgsub']='None' and
+        info['result_bg'] = {'method': 'None', 'final_params': {}, ...}
+        in qf_cache. User then 'Load Settings...' (sets widget to
+        'Circularly-symmetric') and re-process. updateInfo writes the
+        new bgsub to info, but result_bg is still the stale pickle.
+        searchBackground finds no manual / auto / optimization match
+        and falls back to _apply_existing_or_default_bg, which used
+        to treat the literal string 'None' from the prior pickle as
+        a valid "existing" method to reuse -- silently overwriting
+        info['bgsub'] back to 'None' and corrupting the new pickle.
+
+        This test exercises the helper directly with the two
+        scenarios it has to distinguish:
+
+          1. Caller picked a real method this run, prior pickle's
+             result_bg.method is the literal 'None'. The caller's
+             choice must win and result_bg must be rebuilt from
+             current info.
+          2. Caller did NOT pick a method (bgsub='None'/None) but a
+             usable prior configuration is on file. The sticky
+             reuse path must still kick in.
+        """
+        try:
+            from ..modules.QuadrantFolder import QuadrantFolder
+        except ImportError:
+            from modules.QuadrantFolder import QuadrantFolder
+
+        problems = []
+
+        # Scenario 1: user chose 'Circularly-symmetric', stale pickle
+        # holds the literal-string 'None' method with empty params.
+        qf1 = QuadrantFolder.__new__(QuadrantFolder)
+        qf1.info = {
+            'bgsub': 'Circularly-symmetric',
+            'cirmin': 0.0, 'cirmax': 25.0,
+            'radial_bin': 10, 'smooth': 0.1, 'tension': 1.0,
+            'result_bg': {
+                'method': 'None',
+                'final_params': {},
+                'selected_configuration_name': '-',
+                'optimized': False,
+            },
+        }
+        qf1._apply_existing_or_default_bg()
+
+        if qf1.info['bgsub'] != 'Circularly-symmetric':
+            problems.append(
+                f"Scenario 1: bgsub was silently reverted to "
+                f"{qf1.info['bgsub']!r} (expected 'Circularly-symmetric')"
+            )
+        if qf1.info['result_bg']['method'] != 'Circularly-symmetric':
+            problems.append(
+                f"Scenario 1: result_bg.method = "
+                f"{qf1.info['result_bg']['method']!r} (expected "
+                f"'Circularly-symmetric')"
+            )
+        expected_params = {
+            'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10,
+            'cirmin': 0.0, 'cirmax': 25.0,
+        }
+        if qf1.info['result_bg']['final_params'] != expected_params:
+            problems.append(
+                f"Scenario 1: result_bg.final_params not rebuilt from "
+                f"current info: got {qf1.info['result_bg']['final_params']!r} "
+                f"(expected {expected_params!r})"
+            )
+
+        # Scenario 2: no method this run, prior usable result on file
+        # -> sticky reuse should still work (no regression of legacy
+        # behavior).
+        qf2 = QuadrantFolder.__new__(QuadrantFolder)
+        prior_params = {
+            'smooth': 0.05, 'tension': 1.0, 'radial_bin': 10,
+            'cirmin': 0, 'cirmax': 25,
+        }
+        qf2.info = {
+            'bgsub': 'None',
+            'result_bg': {
+                'method': 'Circularly-symmetric',
+                'final_params': dict(prior_params),
+                'selected_configuration_name': '-',
+                'optimized': False,
+            },
+        }
+        qf2._apply_existing_or_default_bg()
+
+        if qf2.info['bgsub'] != 'Circularly-symmetric':
+            problems.append(
+                f"Scenario 2: sticky reuse did not fire; bgsub = "
+                f"{qf2.info['bgsub']!r} (expected 'Circularly-symmetric')"
+            )
+        if qf2.info.get('smooth') != 0.05:
+            problems.append(
+                f"Scenario 2: prior final_params not propagated back "
+                f"to top-level info (smooth = {qf2.info.get('smooth')!r}, "
+                f"expected 0.05)"
+            )
+
+        # Scenario 3: stale literal-string 'None' AND no method this
+        # run -> no usable prior, no user choice. Should leave
+        # everything coherent at 'None' (no crash, no resurrection of
+        # the bogus stale state).
+        qf3 = QuadrantFolder.__new__(QuadrantFolder)
+        qf3.info = {
+            'bgsub': 'None',
+            'result_bg': {
+                'method': 'None',
+                'final_params': {},
+                'selected_configuration_name': '-',
+                'optimized': False,
+            },
+        }
+        qf3._apply_existing_or_default_bg()
+
+        if qf3.info['bgsub'] != 'None':
+            problems.append(
+                f"Scenario 3: bgsub mutated unexpectedly to "
+                f"{qf3.info['bgsub']!r}"
+            )
+        if qf3.info['result_bg']['method'] != 'None':
+            problems.append(
+                f"Scenario 3: result_bg.method mutated to "
+                f"{qf3.info['result_bg']['method']!r}"
+            )
+
+        pass_test = not problems
+        if pass_test:
+            print(
+                "\nTesting QF _apply_existing_or_default_bg ..... "
+                "\033[0;32mPASSED\033[0;3140m"
+            )
+        else:
+            print(
+                "\nTesting QF _apply_existing_or_default_bg ..... "
+                f"\033[0;31mFAILED\033[0;3140m\n  - "
+                + "\n  - ".join(problems)
+            )
+        self.log_results(pass_test, "QF _apply_existing_or_default_bg")
+        self.assertTrue(
+            pass_test,
+            "_apply_existing_or_default_bg regressed: "
+            + "; ".join(problems),
+        )
+
+
     ####### DIFFRACTION TEST #######
     def testHeadlessMarDiffraction(self):
         mar_dir = os.path.join(self.currdir, "testImages", "MARimages")
