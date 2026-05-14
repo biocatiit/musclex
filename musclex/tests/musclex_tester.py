@@ -495,6 +495,124 @@ class MuscleXGlobalTester(unittest.TestCase):
         )
 
 
+    ####### QF FINGERPRINT WIDGET-TRUNCATION REGRESSION #######
+    def testQFFingerprintIgnoresWidgetTruncation(self):
+        """
+        Regression for the "loss drifts by ~1e-4 across image switches"
+        bug.
+
+        Symptom: with bgsub=Circularly-symmetric and the same image,
+        bgSum/symmetry are identical across repeated GUI image switches
+        but loss varies in the 4th-5th decimal. Root cause is a
+        round-trip precision loss on info fields that are
+        *computed-on-demand* by the pipeline (evaluation_baseline,
+        synthetic_amplitude/sigma_x/sigma_y, m1, layer_line_width) and
+        then read back through a QDoubleSpinBox(decimals=2)/QSpinBox in
+        getFlags(). The truncated widget value overwrites the
+        high-precision pickle value during updateInfo(), so
+        computeFingerprint() hashes a different number than the
+        fingerprint stored in the pickle -> fast path is rejected ->
+        slow path re-runs evaluateResult() with the truncated baseline
+        -> loss differs by ~1e-4. Fix: add these keys to
+        _NON_FINGERPRINT_KEYS so the widget round-trip can no longer
+        invalidate the fast path.
+
+        This test exercises the fingerprint slice computeFingerprint()
+        actually hashes, with no Qt dependency.
+        """
+        import json, hashlib
+        try:
+            from ..modules.QuadrantFolder import QuadrantFolder
+        except ImportError:
+            from modules.QuadrantFolder import QuadrantFolder
+
+        non_fp = set(QuadrantFolder._NON_FINGERPRINT_KEYS)
+        non_img = set(QuadrantFolder._IMAGE_ARRAY_KEYS)
+
+        def normalize(v):
+            if isinstance(v, dict):
+                return {k: normalize(v[k]) for k in sorted(v.keys(), key=str)}
+            if isinstance(v, set):
+                return sorted([normalize(x) for x in v], key=str)
+            if isinstance(v, (list, tuple)):
+                return [normalize(x) for x in v]
+            return v
+
+        def params_hash(info):
+            params = {k: normalize(v) for k, v in info.items()
+                      if k not in non_fp and k not in non_img}
+            blob = json.dumps(params, sort_keys=True, default=str).encode()
+            return hashlib.sha256(blob).hexdigest()
+
+        base = {
+            'bgsub': 'Circularly-symmetric',
+            'cirmin': 0.0, 'cirmax': 25.0,
+            'rmin': 25, 'rmax': 1533,
+            'fixed_rmin': 25, 'fixed_rmax': 1533,
+            'optimize': False, 'bg_options': 0, 'downsample': 2,
+        }
+        # Values the pipeline writes back to info (full FP precision).
+        high_prec = dict(base, **{
+            'evaluation_baseline': 11234.567891234,   # decimals=2 widget
+            'synthetic_amplitude': 543.7,             # decimals=0 widget
+            'synthetic_sigma_x': 4.3137081,           # decimals=2 widget
+            'synthetic_sigma_y': 8.6274163,           # decimals=2 widget
+            'm1': 100,                                # int spinbox
+            'layer_line_width': 5,                    # int spinbox
+        })
+        # The same info after a getFlags() round-trip through Qt spinboxes.
+        widget_trunc = dict(base, **{
+            'evaluation_baseline': 11234.57,
+            'synthetic_amplitude': 544.0,
+            'synthetic_sigma_x': 4.31,
+            'synthetic_sigma_y': 8.63,
+            'm1': 100,
+            'layer_line_width': 5,
+        })
+        # A genuine parameter change -- fingerprint must still reject this.
+        real_change = dict(high_prec, cirmin=2.0)
+
+        problems = []
+        if params_hash(high_prec) != params_hash(widget_trunc):
+            problems.append(
+                "fingerprint still drifts when widget truncation changes "
+                "computed-default fields; expected the round-trip to be a "
+                "no-op"
+            )
+        if params_hash(high_prec) == params_hash(real_change):
+            problems.append(
+                "fingerprint no longer detects a real parameter change "
+                "(cirmin 0.0 -> 2.0); _NON_FINGERPRINT_KEYS is overreaching"
+            )
+        # Belt-and-suspenders: every key we documented as widget-truncated
+        # must in fact be excluded from the fingerprint.
+        for k in QuadrantFolder._WIDGET_TRUNCATED_DEFAULT_KEYS:
+            if k not in non_fp:
+                problems.append(
+                    f"_WIDGET_TRUNCATED_DEFAULT_KEYS lists {k!r} but it is "
+                    f"not in _NON_FINGERPRINT_KEYS"
+                )
+
+        pass_test = not problems
+        if pass_test:
+            print(
+                "\nTesting QF fingerprint widget-truncation stability ..... "
+                "\033[0;32mPASSED\033[0;3140m"
+            )
+        else:
+            print(
+                "\nTesting QF fingerprint widget-truncation stability ..... "
+                f"\033[0;31mFAILED\033[0;3140m\n  - "
+                + "\n  - ".join(problems)
+            )
+        self.log_results(pass_test, "QF fingerprint widget-truncation stability")
+        self.assertTrue(
+            pass_test,
+            "QF fingerprint widget-truncation regression: "
+            + "; ".join(problems),
+        )
+
+
     ####### DIFFRACTION TEST #######
     def testHeadlessMarDiffraction(self):
         mar_dir = os.path.join(self.currdir, "testImages", "MARimages")

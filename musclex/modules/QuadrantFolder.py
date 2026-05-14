@@ -199,6 +199,39 @@ class QuadrantFolder:
         'manual_background_assignments',
     )
 
+    # Fields that the processing pipeline *fills in* on demand when the
+    # caller left them at a sentinel value (0.0 / -1 / etc.), AND that
+    # the GUI later reads back through a widget which can losslessly
+    # truncate the value (e.g. QDoubleSpinBox decimals=2). The full
+    # round-trip looks like:
+    #   1) qfsettings.json: evaluation_baseline = 0.0
+    #   2) process() / evaluateResult() computes baseline = 11234.5678
+    #      and writes it back into self.info (and the pickle).
+    #   3) On the next image switch the GUI populates
+    #      evaluationBaselineSpnBx, which has decimals=2, so it shows
+    #      11234.57 -- not 11234.5678.
+    #   4) getFlags() reads 11234.57 from the spinbox into flags and
+    #      updateInfo() overwrites self.info['evaluation_baseline'].
+    #   5) computeFingerprint() now hashes 11234.57 while the pickle's
+    #      stored fingerprint was hashed on 11234.5678 -> mismatch ->
+    #      forced slow-path rerun, with a slightly different loss every
+    #      time due to floating-point arithmetic on the truncated value.
+    # The defensive fix is to exclude these "computed default, widget-
+    # truncated on read-back" fields from the fingerprint entirely.
+    # They're still cached in the pickle (so the high-precision value
+    # is preserved as a default for subsequent runs); they just don't
+    # vote on whether the fast path is valid. Their actual effect on
+    # the result is bounded by the widget's own precision, which the
+    # user already accepted by configuring the spinbox.
+    _WIDGET_TRUNCATED_DEFAULT_KEYS = (
+        'evaluation_baseline',
+        'synthetic_amplitude',
+        'synthetic_sigma_x',
+        'synthetic_sigma_y',
+        'm1',
+        'layer_line_width',
+    )
+
     _NON_CACHED_KEYS = (
         # Transient ROI
         'roi_w', 'roi_h',
@@ -227,6 +260,9 @@ class QuadrantFolder:
         'folded',
         # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
         *_RUNTIME_STATE_KEYS,
+        # Computed defaults that the GUI's widgets can silently truncate
+        # on read-back (see _WIDGET_TRUNCATED_DEFAULT_KEYS docstring).
+        *_WIDGET_TRUNCATED_DEFAULT_KEYS,
     )
 
     def cacheInfo(self):
