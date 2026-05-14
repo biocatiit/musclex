@@ -152,7 +152,13 @@ class SingleImageWorker(BaseProcessWorker):
         self.flags = flags
     
     def _do_work(self):
-        self.quadFold.process(self.flags)
+        # QuadrantFolder.process() returns True when it ran the full
+        # pipeline, False when it took the fast-path (cached
+        # _folded.tif still valid). Stash it on the quadFold instance
+        # so the UI thread can decide whether saveBackground() is
+        # safe to call without needing to introduce a new signal slot.
+        ran_slow_path = bool(self.quadFold.process(self.flags))
+        self.quadFold._last_process_was_slow_path = ran_slow_path
         return self.quadFold
 
     def _get_image_name(self):
@@ -3535,7 +3541,10 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.quadFold.center  # Transformed coordinates
                 )
 
-        self.saveResults()
+        # Slow vs fast path is stashed by SingleImageWorker._do_work().
+        # Default to True so older call sites stay safe.
+        ran_slow_path = bool(getattr(self.quadFold, "_last_process_was_slow_path", True))
+        self.saveResults(full_process=ran_slow_path)
         print("Single processing complete")
 
         if self._restoreOptimizeCheckboxAfterProcess:
@@ -3821,12 +3830,21 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def saveBackground(self):
         """
-        Save the background in the bg folder
+        Save the background in the bg folder.
+
+        Skipped when the upstream process() took the fast-path: in that
+        case the BG-sub intermediates (BgSubFold, avg_fold) were never
+        reconstructed -- only resultImg was reloaded from
+        _folded.tif. The previous session's bg.tif is still on disk
+        so nothing is lost. Same defensive pattern as
+        FolderImageWorker._save_background.
         """
-        info = self.quadFold.info
-        result = self.quadFold.imgCache["BgSubFold"]
+        result = self.quadFold.imgCache.get("BgSubFold", None)
         avg_fold = self.quadFold.imgCache.get("avg_fold", None)
-        background = avg_fold-result
+        if result is None or avg_fold is None:
+            return
+        info = self.quadFold.info
+        background = avg_fold - result
         resultImg = makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
