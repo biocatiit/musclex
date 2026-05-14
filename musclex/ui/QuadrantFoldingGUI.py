@@ -4612,9 +4612,27 @@ class QuadrantFoldingGUI(BaseGUI):
         inline. Per-image and runtime state (_QF_SKIP_KEYS) is
         deliberately ignored even if present.
 
-        After applying, processing_fingerprint is cleared so the next
-        process() pass cannot take the fast path on a stale
-        _folded.tif written under different parameters.
+        Before triggering the reprocess we invalidate three layers of
+        cached state, mirroring what applyBGSub() does for the
+        manual "Apply" button. Otherwise loading a settings file
+        that changes the BG method (e.g. None -> Circularly-symmetric)
+        would reuse the stale BgSubFold / BgFold from the previous
+        method and the new CSV row would still report a zero bgSum:
+
+          - processing_fingerprint: dropped so process() cannot take
+            the fast-path on the cached _folded.tif written under
+            the old parameters.
+          - info['result_bg']: dropped so the BG-search fallback
+            rebuilds method / final_params from the just-loaded
+            settings instead of inheriting whatever was sticky from
+            the previous run.
+          - imgCache[BgSubFold* / BgFold*]: dropped so
+            applyBackgroundSubtraction() actually recomputes; its
+            in-method guard `if "BgSubFold" not in self.imgCache`
+            would otherwise silently skip the recompute and leave
+            the displayed/saved bg image at the previous method's
+            value (most visibly: bgSum=0 when the previous method
+            was 'None').
         """
         default_dir = os.path.join("musclex", "settings")
         filename = getAFile(filtr='Settings (*.json)', path=default_dir, parent=self)
@@ -4650,6 +4668,16 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if self.quadFold is not None:
             self.quadFold.info.pop('processing_fingerprint', None)
+            # Mirror applyBGSub(): a method/params change must invalidate
+            # the BG-subtraction caches end-to-end, or the next reprocess
+            # will hit applyBackgroundSubtraction()'s `if "BgSubFold" not
+            # in self.imgCache` guard and silently reuse the previous
+            # method's intermediates.
+            self.deleteInfo(['result_bg'])
+            self.deleteImgCache([
+                'BgSubFold', 'BgSubFold_out', 'BgSubFold_syn', 'BgSubFold_syn_out',
+                'BgFold', 'BgFold_out', 'BgFold_syn', 'BgFold_syn_out',
+            ])
 
         if self.ableToProcess():
             self.processImage()
