@@ -1,3 +1,3 @@
-Filename,centerX,centerY,rotationAngle,hash,comment
-P2_F5_849_1_094_data_000001_0006.tif,1671.46,1913.89,0.6999999999999886,f67137053e0267a1d1391ede6a0d8061d23ad6d913594b1f2a84fb5f56e5bcbdf2c8895bb568ed88cd3f3063cb142d9f7ca171b2dd61f1768b784b6c5b11b56e,
-P2_F5_849_2_095_data_000001_0044.tif,1671.46,1913.89,2.4,0b9903957474507e71f6206961e7a956118aae8e1881e0a9ac5223608dacebe0445cd653b103b4260e7f8d44068407c63971f748af93f40189eb6095a6c6c23d,
+Filename,centerX,centerY,rotationAngle,backgroundMethod,backgroundConfigName,parameters,downsampled,loss,bgSum,symmetry
+P2_F5_849_1_094_data_000001_0006.tif,1671.46,1913.89,0.6999999999999886,Circularly-symmetric,-,"{'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10, 'cirmin': 0.0, 'cirmax': 25.0}",2,0.1023340112843289,2587812.314041823,2.438545006972212
+P2_F5_849_2_095_data_000001_0044.tif,1671.46,1913.89,2.4,Circularly-symmetric,-,"{'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10, 'cirmin': 0.0, 'cirmax': 25.0}",2,0.10296119094247938,2687653.851158716,1.960360066530314
