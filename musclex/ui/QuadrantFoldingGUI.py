@@ -254,6 +254,18 @@ class FolderImageWorker(BaseProcessWorker):
 class EventEmitter(QObject):
     statusTextRequested = Signal(str)
 
+
+# qfsettings.json <-> widget bindings live in a Qt-free module so unit
+# tests can import them without pulling PySide6 / a display. See
+# musclex/utils/qf_settings_bindings.py for the source of truth.
+from ..utils.qf_settings_bindings import (   # noqa: E402  (top-of-file placement)
+    QF_SPINBOX_BINDINGS as _QF_SPINBOX_BINDINGS,
+    QF_COMBO_TEXT_BINDINGS as _QF_COMBO_TEXT_BINDINGS,
+    QF_CHECKBOX_BINDINGS as _QF_CHECKBOX_BINDINGS,
+    classify_qf_setting_key as _classify_qf_setting_key,
+)
+
+
 class QuadrantFoldingGUI(BaseGUI):
     """
     A class for window displaying all information of a selected image.
@@ -430,6 +442,13 @@ class QuadrantFoldingGUI(BaseGUI):
         saveSettingsAction.setToolTip("Save the current center, rotation, ROI and background parameters to a settings file (Ctrl+S)")
         saveSettingsAction.triggered.connect(self.saveSettings)
 
+        loadSettingsAction = QAction('Load Settings...', self)
+        loadSettingsAction.setShortcut('Ctrl+Shift+S')
+        loadSettingsAction.setToolTip(
+            "Load processing parameters from a previously saved qfsettings.json "
+            "(Ctrl+Shift+S). Per-image / runtime state is ignored.")
+        loadSettingsAction.triggered.connect(self.loadSettings)
+
         aboutAct = QAction('About', self)
         aboutAct.setToolTip("Show information about MuscleX and Quadrant Folding")
         aboutAct.triggered.connect(self.showAbout)
@@ -452,6 +471,7 @@ class QuadrantFoldingGUI(BaseGUI):
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(saveSettingsAction)
+        fileMenu.addAction(loadSettingsAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
 
@@ -4561,6 +4581,188 @@ class QuadrantFoldingGUI(BaseGUI):
             with open(filename, 'w') as f:
                 json.dump(settings, f)
 
+
+    def loadSettings(self):
+        """
+        Load settings from a previously-saved qfsettings.json and push
+        them into the widgets so the GUI state mirrors what headless /
+        the test suite would see when handed the same JSON.
+
+        Driven by the module-level binding tables
+        (_QF_SPINBOX_BINDINGS / _QF_COMBO_TEXT_BINDINGS /
+        _QF_CHECKBOX_BINDINGS) plus a few special-case keys handled
+        inline. Per-image and runtime state (_QF_SKIP_KEYS) is
+        deliberately ignored even if present.
+
+        After applying, processing_fingerprint is cleared so the next
+        process() pass cannot take the fast path on a stale
+        _folded.tif written under different parameters.
+        """
+        default_dir = os.path.join("musclex", "settings")
+        filename = getAFile(filtr='Settings (*.json)', path=default_dir, parent=self)
+        if not filename:
+            return
+
+        try:
+            with open(filename, 'r') as f:
+                loaded = json.load(f)
+        except Exception as exc:
+            QMessageBox.warning(
+                self, "Load Settings",
+                f"Failed to read {filename}:\n{exc}"
+            )
+            return
+
+        if not isinstance(loaded, dict):
+            QMessageBox.warning(
+                self, "Load Settings",
+                "Settings file did not contain a JSON object."
+            )
+            return
+
+        unknown_keys = [k for k in loaded
+                        if _classify_qf_setting_key(k) == 'unknown']
+        if unknown_keys:
+            # Warn but proceed -- unknown keys are likely future
+            # additions or hand-edits; the rest of the file can still
+            # be applied.
+            print(f"[loadSettings] Ignoring unknown keys in {filename}: {unknown_keys}")
+
+        self._apply_loaded_qf_settings(loaded)
+
+        if self.quadFold is not None:
+            self.quadFold.info.pop('processing_fingerprint', None)
+
+        if self.ableToProcess():
+            self.processImage()
+
+    def _apply_loaded_qf_settings(self, loaded):
+        """
+        Apply a sanitized qfsettings.json dict to the UI widgets.
+
+        Signals are blocked around the bulk of the assignment so we
+        don't trigger N reprocess passes mid-load; the post-load
+        processImage() call (or the bg_options handler we fire
+        manually at the end) drives the single re-render.
+        """
+        self.uiUpdating = True
+        try:
+            for k, w in _QF_SPINBOX_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                widget.blockSignals(True)
+                try:
+                    widget.setValue(loaded[k])
+                finally:
+                    widget.blockSignals(False)
+
+            for k, w, xform in _QF_COMBO_TEXT_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                # xform produces text that matches a combo item exactly
+                # (e.g. _degree_to_combo turns 1.0 -> "1"); findText is
+                # exact by default and that's what we want.
+                text = xform(loaded[k])
+                idx = widget.findText(text)
+                if idx >= 0:
+                    widget.blockSignals(True)
+                    try:
+                        widget.setCurrentIndex(idx)
+                    finally:
+                        widget.blockSignals(False)
+                    # Fire change handler exactly once (visibility /
+                    # panel updates depend on it). Doing this AFTER
+                    # unblocking keeps signal emission centralized.
+                    widget.currentIndexChanged.emit(idx)
+                else:
+                    print(f"[loadSettings] combo '{w}' has no item matching "
+                          f"{text!r} (from {k}={loaded[k]!r}); skipping.")
+
+            for k, w in _QF_CHECKBOX_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                widget.blockSignals(True)
+                try:
+                    widget.setChecked(bool(loaded[k]))
+                finally:
+                    widget.blockSignals(False)
+
+            # Special keys ----------------------------------------------------
+
+            if 'optimize' in loaded:
+                self.optimizeFlag = bool(loaded['optimize'])
+
+            if 'methods' in loaded and isinstance(loaded['methods'], (list, tuple)):
+                self._set_selected_optimization_methods(loaded['methods'])
+
+            if 'steps' in loaded and isinstance(loaded['steps'], (list, tuple)):
+                self.stepsLineEdit.setText(", ".join(str(v) for v in loaded['steps']))
+
+            if 'background_configurations' in loaded \
+                    and isinstance(loaded['background_configurations'], list) \
+                    and hasattr(self, 'bgSubDialog'):
+                # Replace wholesale -- the dialog will rebuild its UI
+                # from this list the next time it is opened.
+                self.bgSubDialog.backgroundConfigurations = list(
+                    loaded['background_configurations']
+                )
+
+            # Paired ROI: only enable "Persist ROI size" when both
+            # dimensions are present and positive.
+            roi_w = loaded.get('fixed_roi_w')
+            roi_h = loaded.get('fixed_roi_h')
+            if (isinstance(roi_w, (int, float)) and isinstance(roi_h, (int, float))
+                    and roi_w > 0 and roi_h > 0):
+                self.fixedRoiW.blockSignals(True)
+                self.fixedRoiH.blockSignals(True)
+                self.fixedRoiChkBx.blockSignals(True)
+                try:
+                    self.fixedRoiW.setValue(int(roi_w))
+                    self.fixedRoiH.setValue(int(roi_h))
+                    self.fixedRoiChkBx.setChecked(True)
+                finally:
+                    self.fixedRoiW.blockSignals(False)
+                    self.fixedRoiH.blockSignals(False)
+                    self.fixedRoiChkBx.blockSignals(False)
+
+            # Metric means / weights / synthetic / evaluation_baseline /
+            # freq: delegate to the existing sync helper, which already
+            # handles all the unit conversion (fraction<->percent) and
+            # synthetic-default resolution.
+            metric_info = {k: loaded[k] for k in (
+                'mean_metric_values', 'metric_weights',
+                'synthetic_amplitude', 'synthetic_sigma_x', 'synthetic_sigma_y',
+                'evaluation_baseline', 'freq',
+            ) if k in loaded}
+            if metric_info:
+                self._sync_metric_and_synthetic_widgets_from_info(info=metric_info)
+
+            # bg_options: applied last so the manual / transition /
+            # automated container visibility reflects the just-loaded
+            # in/out parameter values.
+            if 'bg_options' in loaded:
+                try:
+                    idx = int(loaded['bg_options'])
+                except (TypeError, ValueError):
+                    idx = -1
+                if 0 <= idx < self.bgOptionsCB.count():
+                    self.bgOptionsCB.setCurrentIndex(idx)
+                    # setCurrentIndex fires _on_bg_options_changed when
+                    # the index actually changes; force-fire when it
+                    # was already at idx so visibility is consistent.
+                    self._on_bg_options_changed(idx)
+
+        finally:
+            self.uiUpdating = False
 
 
     def _on_folder_loaded(self, dir_path: str):

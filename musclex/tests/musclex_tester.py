@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import os
 import sys
+import json
 import unittest
 # import subprocess
 import shutil
@@ -289,6 +290,58 @@ class MuscleXGlobalTester(unittest.TestCase):
         # Remove cache folders
         if os.path.exists(os.path.join(pilatus_dir, "qf_cache")):
             shutil.rmtree(os.path.join(pilatus_dir, "qf_cache"))
+
+
+    ####### QF SETTINGS BINDINGS SCHEMA TEST #######
+    def testQFSettingsBindingsSchema(self):
+        """
+        Every key persisted in a baseline qfsettings.json must be
+        classifiable by the GUI load-path binding tables. An 'unknown'
+        result means either:
+          - getFlags()/saveSettings() added a key without adding a
+            corresponding load binding, OR
+          - the JSON contains an obsolete key that should be removed
+            at the source (so headless and GUI stay in sync).
+        Either way, this test fails fast instead of letting Load
+        Settings silently drop fields.
+        """
+        try:
+            from ..utils.qf_settings_bindings import classify_qf_setting_key
+        except ImportError:  # for coverage / packaging
+            from utils.qf_settings_bindings import classify_qf_setting_key
+
+        datasets = ("MARimages", "EIGERimages", "PILATUSimages")
+        all_problems = {}
+        for ds in datasets:
+            path = os.path.join(self.currdir, "testImages", ds, "qfsettings.json")
+            if not os.path.isfile(path):
+                continue
+            with open(path, 'r') as f:
+                settings = json.load(f)
+            unknown = sorted(
+                k for k in settings
+                if classify_qf_setting_key(k) == 'unknown'
+            )
+            if unknown:
+                all_problems[ds] = unknown
+
+        pass_test = not all_problems
+        if pass_test:
+            print("\nTesting QF Settings bindings schema ..... "
+                  "\033[0;32mPASSED\033[0;3140m")
+        else:
+            print(
+                "\nTesting QF Settings bindings schema ..... "
+                f"\033[0;31mFAILED\033[0;3140m\nUnknown keys per dataset: "
+                f"{all_problems}"
+            )
+        self.log_results(pass_test, "QF Settings Bindings Schema")
+        self.assertTrue(
+            pass_test,
+            f"qfsettings.json contains keys not handled by loadSettings(): "
+            f"{all_problems}",
+        )
+
 
     ####### DIFFRACTION TEST #######
     def testHeadlessMarDiffraction(self):
