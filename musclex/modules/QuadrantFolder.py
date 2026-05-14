@@ -1499,10 +1499,20 @@ class QuadrantFolder:
 
             print(f"bg shape: {bg.shape}, result shape: {result.shape}")
 
-        self.imgCache['BgSubFold_in'] = copy.copy(result)
-        self.imgCache['BgFold_in'] = copy.copy(bg)
-        self.imgCache['BgSubFold'] = copy.copy(result)
-        self.imgCache['BgFold'] = copy.copy(bg)
+            # Cache writes must stay inside the if-block: `result` / `bg`
+            # are only defined when we actually recomputed. Hitting this
+            # method with `BgSubFold` already in imgCache (e.g. when
+            # process() takes the slow path after loadSettings clears
+            # processing_fingerprint but the in-memory cache is still
+            # warm) is a legitimate no-op for the cache.
+            self.imgCache['BgSubFold_in'] = copy.copy(result)
+            self.imgCache['BgFold_in'] = copy.copy(bg)
+            self.imgCache['BgSubFold'] = copy.copy(result)
+            self.imgCache['BgFold'] = copy.copy(bg)
+
+        # resultImg invalidation is intentional even on cache hit: the
+        # caller's next step regenerates it cheaply, and keeping a stale
+        # composited image around is the bigger risk.
         self.deleteFromDict(self.imgCache, "resultImg")
         print("Done.")
 
@@ -1531,9 +1541,15 @@ class QuadrantFolder:
                            tmp_center, params, downsample_factor=self.info['downsample'])
             bg = avg_fold - result
 
-        self.imgCache['BgSubFold_out'] = result
-        self.imgCache['BgFold_out'] = bg
+            # See applyBackgroundSubtraction(): cache writes must stay
+            # inside the if-block since `result` / `bg` are only bound
+            # on the recompute path.
+            self.imgCache['BgSubFold_out'] = result
+            self.imgCache['BgFold_out'] = bg
 
+        # Always invalidate the merged outputs so mergeImages() is
+        # guaranteed to rebuild them from the (possibly cached)
+        # _in / _out folds against the current transition radius.
         self.deleteFromDict(self.imgCache, "resultImg")
         self.deleteFromDict(self.imgCache, "BgSubFold")
         self.deleteFromDict(self.imgCache, "BgFold")
