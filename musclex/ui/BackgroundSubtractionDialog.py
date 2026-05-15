@@ -240,7 +240,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.downsampleCB.currentIndexChanged.connect(self._persist_image_processing_settings_to_image_cache)
 
         self.smoothImageChkbx = QCheckBox("Smooth Image")
-        self.smoothImageChkbx.setChecked(False)
+        self.smoothImageChkbx.setChecked(True)
         self.smoothImageChkbx.toggled.connect(self._persist_image_processing_settings_to_image_cache)
 
     def _create_evaluation_mask_widgets(self):
