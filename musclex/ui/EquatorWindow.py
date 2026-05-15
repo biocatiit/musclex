@@ -1707,11 +1707,28 @@ class EquatorWindow(QMainWindow):
 
     def saveSettings(self):
         """
-        save settings to json
+        Save settings to json.
+
+        Calibration-derived fields (lambda_sdd, detector, ...) are
+        deliberately excluded: those values are owned by
+        ``<dataset>/settings/calibration.info`` (managed by
+        CalibrationSettings) and writing them into the portable
+        eqsettings.json would create a second source of truth. The
+        headless path now also sources calibration from calibration.info
+        only (see ``EquatorWindowh.getSettings``), so the round-trip is
+        symmetric: GUI export -> headless import never carries
+        calibration through the JSON.
         """
         settings = self.getSettings()
-        # paramInfo = self.getInfoFromParameterEditor()
-        # settings['paramInfo'] = paramInfo
+
+        # Strip every calibration-related key. We don't import the
+        # exact set from the EQ binding tables to keep this list
+        # explicit and grep-able; the schema test will catch drift.
+        for k in (
+            'lambda_sdd', 'detector', 'calib_center',
+            'silverB', 'radius', 'type', 'sdd', 'pixel_size', 'lambda',
+        ):
+            settings.pop(k, None)
 
         filename = getSaveFile(os.path.join("musclex", "settings", "eqsettings.json"), None)
         if filename!="":

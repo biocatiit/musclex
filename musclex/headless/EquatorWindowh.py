@@ -206,9 +206,29 @@ class EquatorWindowh:
         """
         Get all settings for EquatorImage process() from widgets
         :return: settings (dict)
+
+        Calibration sourcing (must stay aligned with GUI ``EquatorWindow.getFlags``):
+        Calibration-derived fields (``lambda_sdd``, ``detector``) are NOT
+        read from the JSON settings file. They come exclusively from
+        ``<dataset>/settings/calibration.info`` via
+        ``SettingsManager.derive_processing_calibration()``. If the
+        calibration cache is absent, those fields stay absent here -- so
+        downstream calibration-dependent outputs (e.g. ``d10`` in
+        summary.csv) end up blank, matching the GUI's behaviour when the
+        user has not run calibration. Any legacy calibration fields
+        still present in the JSON are silently stripped to prevent a
+        stale JSON from masking a missing/changed calibration cache.
         """
         settings = {}
         settingspath=self.settingspath
+
+        default_settings = {
+            "left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0,
+            "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k": 0,
+            "orientation_model": 0, "model": "Gaussian", "isSkeletal": False,
+            "isExtraPeak": False, "mask_thres": 0.0, "90rotation": False,
+            "blank_mask": False,
+        }
 
         if self.inputsettings:
             try:
@@ -217,21 +237,39 @@ class EquatorWindowh:
             except Exception:
                 self.statusPrint("Can't load setting file")
                 self.inputsettings=False
-                settings={"left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0, \
-                    "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k":0, \
-                    "orientation_model": 0, "model": "Gaussian", "isSkeletal": False, \
-                    "isExtraPeak": False, "mask_thres": 0.0,  "90rotation": False,\
-                        "blank_mask": False}
+                settings = dict(default_settings)
         else:
-            settings={"left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0, \
-                    "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k":0, \
-                    "orientation_model": 0, "model": "Gaussian", "isSkeletal": False, \
-                    "isExtraPeak": False, "mask_thres": 0.0,  "90rotation": False,\
-                        "blank_mask": False}
+            settings = dict(default_settings)
 
-        for k in settings.keys():
+        for k in list(settings.keys()):
             if self.isDynamicParameter(k):
                 settings.pop(k)
+
+        # Strip calibration-owned fields. They live in calibration.info,
+        # not in the portable JSON. We import here to keep the dep
+        # graph one-way (utils -> headless), avoiding circular imports.
+        try:
+            from ..utils.settings_manager import SettingsManager
+        except ImportError:
+            from utils.settings_manager import SettingsManager
+
+        stripped = [k for k in (
+            'lambda_sdd', 'detector', 'calib_center',
+            'silverB', 'radius', 'type', 'sdd', 'pixel_size', 'lambda',
+        ) if k in settings]
+        for k in stripped:
+            settings.pop(k, None)
+        if stripped:
+            self.statusPrint(
+                f"[getSettings] Ignoring calibration fields in JSON {stripped}; "
+                f"calibration is sourced from <dataset>/settings/calibration.info"
+            )
+
+        # Merge calibration derived from <dataset>/settings/calibration.info.
+        # Empty dict when calibration.info is missing -> mirrors a GUI
+        # session where the user has not run calibration.
+        sm = SettingsManager(self.dir_path)
+        settings.update(sm.derive_processing_calibration())
 
         return settings
 

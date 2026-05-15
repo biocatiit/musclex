@@ -119,6 +119,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing Equator on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Equator MAR Image")
+        self._compareToGuiBaselineIfPresent(
+            mar_dir,
+            os.path.join(mar_dir, "eq_results", "summary.csv"),
+            "Equator MAR",
+            gui_subdir="eq_results_gui", gui_filename="summary.csv",
+            ignore_cols=(),
+        )
         self.assertTrue(pass_test,"Equator Image Headless Test for MAR image failed.")
 
         # Remove cache folders
@@ -152,6 +159,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing Equator on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Equator EIGER Image")
+        self._compareToGuiBaselineIfPresent(
+            eiger_dir,
+            os.path.join(eiger_dir, "eq_results", "summary.csv"),
+            "Equator EIGER",
+            gui_subdir="eq_results_gui", gui_filename="summary.csv",
+            ignore_cols=(),
+        )
         self.assertTrue(pass_test,"Equator Image Headless Test for EIGER image failed.")
 
         # Remove cache folders
@@ -185,6 +199,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing Equator on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Equator PILATUS Image")
+        self._compareToGuiBaselineIfPresent(
+            pilatus_dir,
+            os.path.join(pilatus_dir, "eq_results", "summary.csv"),
+            "Equator PILATUS",
+            gui_subdir="eq_results_gui", gui_filename="summary.csv",
+            ignore_cols=(),
+        )
         self.assertTrue(pass_test,"Equator Image Headless Test for PILATUS image failed.")
 
         # Remove cache folders
@@ -192,23 +213,33 @@ class MuscleXGlobalTester(unittest.TestCase):
             shutil.rmtree(os.path.join(pilatus_dir, "eq_cache"))
 
     ####### QUADRANT FOLDER TEST #######
-    def _compareToGuiBaselineIfPresent(self, dataset_dir, generated_results, label):
+    def _compareToGuiBaselineIfPresent(
+        self, dataset_dir, generated_results, label,
+        gui_subdir="qf_results_gui", gui_filename="summary.csv",
+        ignore_cols=(5,),
+    ):
         """
-        Optional secondary check: if <dataset_dir>/qf_results_gui/summary.csv
-        exists, compare the freshly-generated headless summary.csv against
-        it. The qf_results_gui CSV is meant to be dropped in by the user
-        after a manual GUI run; this lets us catch headless<->GUI drift
-        without committing the GUI CSV as the authoritative baseline.
+        Optional secondary check: if <dataset_dir>/<gui_subdir>/<gui_filename>
+        exists, compare the freshly-generated headless CSV against it.
+        That CSV is meant to be dropped in by the user after a manual
+        GUI run; this lets us catch headless<->GUI drift without
+        committing the GUI CSV as the authoritative baseline.
 
-        - No-op (silent) when qf_results_gui/summary.csv is absent.
+        - No-op (silent) when the GUI CSV is absent.
         - assertTrue-fails when present but mismatched, so the regression
           surfaces in the unittest report. Failure here is independent of
-          the upstream qf_results/summary.csv baseline comparison.
+          the upstream <module>_results/summary.csv baseline comparison.
 
-        ignore_columns / sort_key / rtol / atol mirror the qf_results
-        comparison to keep both checks apples-to-apples.
+        ``gui_subdir`` / ``gui_filename`` / ``ignore_cols`` allow per-module
+        overrides:
+          - QF uses qf_results_gui/summary.csv with ignore_columns=[5]
+            (the parameters column, which serializes a dict and can
+            differ in dict ordering across runs).
+          - EQ uses eq_results_gui/summary2.csv with no ignored columns.
+        ``sort_key`` / ``rtol`` / ``atol`` come from module-level globals
+        so this helper stays a thin shim.
         """
-        gui_results = os.path.join(dataset_dir, "qf_results_gui", "summary.csv")
+        gui_results = os.path.join(dataset_dir, gui_subdir, gui_filename)
         if not os.path.exists(gui_results):
             return
 
@@ -216,7 +247,8 @@ class MuscleXGlobalTester(unittest.TestCase):
               f"{gui_results}\033[0;3140m")
         pass_test = compare_csv_files(
             generated_results, gui_results,
-            ignore_columns=[5], sort_key=sort_key, rtol=rtol, atol=atol,
+            ignore_columns=list(ignore_cols),
+            sort_key=sort_key, rtol=rtol, atol=atol,
         )
         if pass_test:
             print(f"Testing {label} headless-vs-GUI on {dataset_dir} ..... "
@@ -436,6 +468,95 @@ class MuscleXGlobalTester(unittest.TestCase):
             f"eqsettings.json contains keys not handled by loadSettings(): "
             f"{all_problems}",
         )
+
+
+    def testDeriveProcessingCalibration(self):
+        """
+        Lock the contract between SettingsManager.derive_processing_calibration()
+        and EquatorWindow.getFlags() so headless and GUI stay aligned:
+
+          - No calibration.info OR empty cache -> empty dict. This
+            mirrors the GUI state when the user never opened the
+            calibration dialog (downstream summary.csv shows ``d10 = -``).
+          - ``type == 'img'`` -> ``lambda_sdd = silverB * radius`` (no
+            other intermediate copied through).
+          - ``type != 'img'`` -> ``lambda_sdd = lambda * sdd / pixel_size``.
+          - ``detector`` is passed through whenever present.
+
+        Drift here means GUI ``getFlags`` and headless ``getSettings``
+        will compute different lambda_sdd values from the same
+        calibration.info, which silently corrupts d10 / fit metrics
+        without a noisy failure.
+        """
+        try:
+            from ..utils.settings_manager import SettingsManager
+        except ImportError:  # for coverage / packaging
+            from utils.settings_manager import SettingsManager
+
+        import tempfile
+        import pickle
+        import pathlib
+
+        def _make_cache(tmpdir, settings):
+            d = pathlib.Path(tmpdir, 'settings')
+            d.mkdir(parents=True, exist_ok=True)
+            with open(d / 'calibration.info', 'wb') as f:
+                pickle.dump({'version': 'test', 'path': '',
+                             'settings': settings}, f)
+            return tmpdir
+
+        cases = []
+
+        with tempfile.TemporaryDirectory() as t:
+            cases.append(("no settings dir at all",
+                          SettingsManager('').derive_processing_calibration(),
+                          {}))
+            cases.append(("missing calibration.info",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {}))
+
+        with tempfile.TemporaryDirectory() as t:
+            _make_cache(t, {})
+            cases.append(("empty settings dict",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {}))
+
+        with tempfile.TemporaryDirectory() as t:
+            _make_cache(t, {'type': 'img',
+                            'silverB': 5.838, 'radius': 884.0,
+                            'detector': 'pilatus3_2m'})
+            cases.append(("img-type with detector",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {'lambda_sdd': 5.838 * 884.0,
+                           'detector': 'pilatus3_2m'}))
+
+        with tempfile.TemporaryDirectory() as t:
+            _make_cache(t, {'type': 'cont',
+                            'lambda': 1.5, 'sdd': 200.0, 'pixel_size': 0.075})
+            cases.append(("cont-type without detector",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {'lambda_sdd': 1.5 * 200.0 / 0.075}))
+
+        with tempfile.TemporaryDirectory() as t:
+            _make_cache(t, {'type': 'img', 'silverB': 1.0})
+            cases.append(("img-type missing radius -> no lambda_sdd",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {}))
+
+        problems = [(label, got, want)
+                    for label, got, want in cases if got != want]
+        pass_test = not problems
+        if pass_test:
+            print("\nTesting SettingsManager.derive_processing_calibration"
+                  " ..... \033[0;32mPASSED\033[0;3140m")
+        else:
+            print("\nTesting SettingsManager.derive_processing_calibration"
+                  " ..... \033[0;31mFAILED\033[0;3140m")
+            for label, got, want in problems:
+                print(f"  case {label!r}: got={got}, want={want}")
+        self.log_results(pass_test, "SettingsManager.derive_processing_calibration")
+        self.assertTrue(pass_test,
+                        f"derive_processing_calibration contract drift: {problems}")
 
 
     ####### QF _apply_existing_or_default_bg REGRESSION #######

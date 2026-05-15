@@ -112,19 +112,21 @@ EQ_SPECIAL_KEYS = frozenset({
 
 
 # Keys that may appear in eqsettings.json but are owned by another
-# subsystem (calibration, workspace blank/mask, etc.). The EQ load
-# path silently ignores them -- their own subsystem reads them via
-# their own code path.
+# subsystem and the EQ load path intentionally ignores them.
 #
-# Rationale:
-#   - lambda_sdd / calib_center / detector / silverB / radius / type :
-#     calibration settings, owned by workspace.calibration_settings.
-#     Importing them via EQ load would create a divergent calibration
-#     state and is intentionally a no-op here.
-#   - blank_mask : owned by workspace.get_blank_mask_config().
+#   - Calibration-derived fields (lambda_sdd, detector, calib_center,
+#     silverB, radius, type, sdd, pixel_size, lambda):
+#     single-sourced from <dataset>/settings/calibration.info via
+#     SettingsManager. EquatorWindow.saveSettings() strips these on
+#     export and EquatorWindowh.getSettings() strips them on import,
+#     so a well-behaved JSON should not contain them. They are listed
+#     here only so legacy / hand-edited files do not trip the schema
+#     test (they get classified as 'skip' instead of 'unknown').
+#   - blank_mask: owned by workspace.get_blank_mask_config().
 EQ_SKIP_KEYS = frozenset({
     'lambda_sdd', 'calib_center', 'detector',
     'silverB', 'radius', 'type',
+    'sdd', 'pixel_size', 'lambda',
     'blank_mask',
 })
 

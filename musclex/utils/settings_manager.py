@@ -394,6 +394,98 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving calibration cache: {e}")
 
+    # Keys that the EQ/QF/etc. processing pipelines actually consume.
+    # Listed here (rather than scattered across module/UI code) so the
+    # GUI save path and the headless load path agree on which derived
+    # fields belong to calibration -- and therefore which fields must
+    # NOT be written to a portable <module>settings.json file.
+    PROCESSING_CALIBRATION_KEYS = ("lambda_sdd", "detector")
+
+    def derive_processing_calibration(self) -> dict:
+        """Return calibration values that downstream image processing
+        consumes, derived from ``calibration.info``.
+
+        Output keys:
+            - ``lambda_sdd`` (float): wavelength * sample-detector-distance
+              normalized by pixel size; used by EquatorImage to compute
+              ``d10 = lambda_sdd / S10``.
+            - ``detector`` (str, optional): detector name; consumed by
+              ``find_detector(..., man_det=...)``.
+
+        Returns ``{}`` if ``calibration.info`` is missing or unusable.
+        The empty-dict case is intentional and load-bearing: it mirrors
+        the GUI behaviour when the user has not run calibration, so
+        headless and GUI agree on "no calibration -> d10 = '-'".
+
+        This is the single source of truth for the calibration derivation
+        formulas (``silverB * radius`` vs ``lambda * sdd / pixel_size``);
+        both ``EquatorWindow.getFlags`` (GUI) and ``EquatorWindowh.getSettings``
+        (headless) call into it so the two paths cannot drift.
+        """
+        cache = self.load_calibration_cache()
+        if not cache or 'settings' not in cache:
+            return {}
+        cs = cache['settings']
+        out: dict = {}
+        cal_type = cs.get('type')
+        if cal_type == 'img':
+            if 'silverB' in cs and 'radius' in cs:
+                out['lambda_sdd'] = cs['silverB'] * cs['radius']
+        else:
+            if all(k in cs for k in ('lambda', 'sdd', 'pixel_size')) and cs['pixel_size']:
+                out['lambda_sdd'] = cs['lambda'] * cs['sdd'] / cs['pixel_size']
+        if 'detector' in cs:
+            out['detector'] = cs['detector']
+        return out
+
+    # Keys that GUI getFlags() derives from calibration_settings and
+    # pushes into the per-image processing settings dict. Used by both
+    # the GUI's saveSettings (to strip them from exported JSON) and by
+    # headless eq/qf to inject the same derived values from
+    # calibration.info, so the two paths stay symmetric.
+    PROCESSING_CALIBRATION_KEYS = ('lambda_sdd', 'detector')
+
+    def derive_processing_calibration(self) -> dict:
+        """Translate ``calibration.info`` into the per-image processing
+        keys that ``EquatorImage`` / ``QuadrantFolder`` actually consume.
+
+        Mirrors ``EquatorWindow.getFlags()``:
+
+        - type == "img":  lambda_sdd = silverB * radius
+        - else:           lambda_sdd = lambda * sdd / pixel_size
+        - detector copied through when present
+
+        Returns ``{}`` when there is no calibration cache, the cache
+        carries an empty ``settings`` dict (i.e. the user opened the
+        calibration dialog but never accepted real values), or required
+        keys for the derivation are missing. An empty dict is the
+        deliberate signal to downstream code that the user has NOT
+        performed calibration, so calibration-dependent outputs
+        (notably ``d10`` in EQ summary.csv) must stay blank.
+        """
+        cache = self.load_calibration_cache()
+        if not cache:
+            return {}
+        cs = cache.get('settings')
+        if not cs:
+            return {}
+
+        derived: dict = {}
+        cal_type = cs.get('type')
+        if cal_type == 'img':
+            if 'silverB' in cs and 'radius' in cs:
+                derived['lambda_sdd'] = cs['silverB'] * cs['radius']
+        else:
+            if 'lambda' in cs and 'sdd' in cs and 'pixel_size' in cs:
+                pixel_size = cs['pixel_size']
+                if pixel_size:
+                    derived['lambda_sdd'] = (
+                        1.0 * cs['lambda'] * cs['sdd'] / pixel_size
+                    )
+        if 'detector' in cs:
+            derived['detector'] = cs['detector']
+        return derived
+
     def load_calibration_dialog(self) -> Optional[dict]:
         """Load ``calibrationDialog.json``. Returns the dict or None."""
         path = self.settings_path / "calibrationDialog.json"
