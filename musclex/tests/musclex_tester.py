@@ -217,6 +217,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         self, dataset_dir, generated_results, label,
         gui_subdir="qf_results_gui", gui_filename="summary.csv",
         ignore_cols=(5,),
+        rtol_override=None, atol_override=None,
     ):
         """
         Optional secondary check: if <dataset_dir>/<gui_subdir>/<gui_filename>
@@ -235,20 +236,28 @@ class MuscleXGlobalTester(unittest.TestCase):
           - QF uses qf_results_gui/summary.csv with ignore_columns=[5]
             (the parameters column, which serializes a dict and can
             differ in dict ordering across runs).
-          - EQ uses eq_results_gui/summary2.csv with no ignored columns.
-        ``sort_key`` / ``rtol`` / ``atol`` come from module-level globals
-        so this helper stays a thin shim.
+          - EQ uses eq_results_gui/summary.csv with no ignored columns.
+          - PT uses pt_results_gui/summary.csv with no ignored columns
+            and a wider rtol to mirror the upstream PT baseline check.
+
+        ``rtol_override`` / ``atol_override`` let each test pin the same
+        tolerance the module's primary baseline uses. Defaults to the
+        module-level ``rtol`` / ``atol`` when omitted.
         """
         gui_results = os.path.join(dataset_dir, gui_subdir, gui_filename)
         if not os.path.exists(gui_results):
             return
+
+        effective_rtol = rtol if rtol_override is None else rtol_override
+        effective_atol = atol if atol_override is None else atol_override
 
         print(f"\033[3;33m\nVerifying that headless {label} matches GUI summary at "
               f"{gui_results}\033[0;3140m")
         pass_test = compare_csv_files(
             generated_results, gui_results,
             ignore_columns=list(ignore_cols),
-            sort_key=sort_key, rtol=rtol, atol=atol,
+            sort_key=sort_key,
+            rtol=effective_rtol, atol=effective_atol,
         )
         if pass_test:
             print(f"Testing {label} headless-vs-GUI on {dataset_dir} ..... "
@@ -952,6 +961,12 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "ProjectionTraces MAR_PT_Convex_Hull_Vertical")
+        self._compareToGuiBaselineIfPresent(
+            pt_dir, generated_results,
+            "ProjectionTraces MAR_PT_Convex_Hull_Vertical",
+            gui_subdir="pt_results_gui", gui_filename="summary.csv",
+            ignore_cols=(), rtol_override=1,
+        )
         self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for MAR_PT_Convex_Hull_Vertical failed.")
 
         # Remove cache folders
@@ -980,6 +995,12 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "ProjectionTraces EIGER_PT_Convex_Hull_Vertical")
+        self._compareToGuiBaselineIfPresent(
+            pt_dir, generated_results,
+            "ProjectionTraces EIGER_PT_Convex_Hull_Vertical",
+            gui_subdir="pt_results_gui", gui_filename="summary.csv",
+            ignore_cols=(), rtol_override=1,
+        )
         self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for EIGER_PT_Convex_Hull_Vertical failed.")
 
         # Remove cache folders
@@ -1008,6 +1029,12 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "ProjectionTraces PT_FittingGaussians_Horizontal")
+        self._compareToGuiBaselineIfPresent(
+            pt_dir, generated_results,
+            "ProjectionTraces PT_FittingGaussians_Horizontal",
+            gui_subdir="pt_results_gui", gui_filename="summary.csv",
+            ignore_cols=(), rtol_override=1,
+        )
         self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for PT_FittingGaussians_Horizontal failed.")
 
         # Remove cache folders
