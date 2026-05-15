@@ -2934,30 +2934,14 @@ class QuadrantFoldingGUI(BaseGUI):
         if not isinstance(info, dict):
             return
 
-        def _to_positive_float(value):
-            try:
-                parsed = float(value)
-            except Exception:
-                return None
-            return parsed if parsed > 0.0 else None
-
-        def _resolve_synthetic_defaults(local_info):
-            resolved_amp = _to_positive_float(local_info.get('synthetic_amplitude'))
-            resolved_sigma_x = _to_positive_float(local_info.get('synthetic_sigma_x'))
-            resolved_sigma_y = _to_positive_float(local_info.get('synthetic_sigma_y'))
-
-            # If any synthetic Gaussian parameter is missing, compute the same defaults as QuadrantFolder.
-            if resolved_amp is None or resolved_sigma_x is None or resolved_sigma_y is None:
-                computed = self.quadFold.ensureSyntheticGaussianDefaults()
-
-                if computed is not None:
-                    resolved_amp = _to_positive_float(computed[0]) or resolved_amp
-                    resolved_sigma_x = _to_positive_float(computed[1]) or resolved_sigma_x
-                    resolved_sigma_y = _to_positive_float(computed[2]) or resolved_sigma_y
-
-            return resolved_amp, resolved_sigma_x, resolved_sigma_y
-
-        synthetic_amplitude, synthetic_sigma_x, synthetic_sigma_y = _resolve_synthetic_defaults(info)
+        # Read synthetic Gaussian params directly from info.
+        # If a value is absent or <= 0.0 (the sentinel meaning "auto-compute
+        # at process time"), we set the spinbox to 0.0 so that getFlags()
+        # propagates the sentinel to the next process() call.  This prevents
+        # a computed value from image A leaking into image B via the spinbox.
+        synthetic_amplitude = float(info.get('synthetic_amplitude', 0.0))
+        synthetic_sigma_x = float(info.get('synthetic_sigma_x', 0.0))
+        synthetic_sigma_y = float(info.get('synthetic_sigma_y', 0.0))
 
         if 'mean_metric_values' in info and isinstance(info['mean_metric_values'], dict):
             means = info['mean_metric_values']
@@ -2975,14 +2959,10 @@ class QuadrantFoldingGUI(BaseGUI):
             self.weightNegConSpnBx.setValue(float(weights.get('Share_Neg_Connected', self.weightNegConSpnBx.value())))
             self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
 
-        if 'evaluation_baseline' in info:
-            self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value())))
-        if synthetic_amplitude is not None:
-            self.amplitudeSpnBx.setValue(float(synthetic_amplitude))
-        if synthetic_sigma_x is not None:
-            self.sigmaXSpnBx.setValue(float(synthetic_sigma_x))
-        if synthetic_sigma_y is not None:
-            self.sigmaYSpnBx.setValue(float(synthetic_sigma_y))
+        self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', 0.0)))
+        self.amplitudeSpnBx.setValue(synthetic_amplitude)
+        self.sigmaXSpnBx.setValue(synthetic_sigma_x)
+        self.sigmaYSpnBx.setValue(synthetic_sigma_y)
         if 'freq' in info:
             freq_value = str(info.get('freq', self.freqCB.currentText()))
             idx = self.freqCB.findText(freq_value)

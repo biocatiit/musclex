@@ -504,12 +504,12 @@ class BackgroundSubtractionDialog(QDialog):
                                 decimals=0, step=0.001)
 
         self.sigmaXLabel = self._create_label("Sigma X:", "small")
-        self.sigmaXSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
+        self.sigmaXSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
                                   value=qf_defaults.DEFAULT_SIGMA_X, 
                                   decimals=2, step=0.5)
 
         self.sigmaYLabel = self._create_label("Sigma Y:", "small")
-        self.sigmaYSpnBx = self._create_double_spinbox(min_val=0.0001, max_val=1e6, 
+        self.sigmaYSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
                                   value=qf_defaults.DEFAULT_SIGMA_Y, 
                                   decimals=2, step=0.5)
 
