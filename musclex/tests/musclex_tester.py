@@ -192,6 +192,47 @@ class MuscleXGlobalTester(unittest.TestCase):
             shutil.rmtree(os.path.join(pilatus_dir, "eq_cache"))
 
     ####### QUADRANT FOLDER TEST #######
+    def _compareToGuiBaselineIfPresent(self, dataset_dir, generated_results, label):
+        """
+        Optional secondary check: if <dataset_dir>/qf_results_gui/summary.csv
+        exists, compare the freshly-generated headless summary.csv against
+        it. The qf_results_gui CSV is meant to be dropped in by the user
+        after a manual GUI run; this lets us catch headless<->GUI drift
+        without committing the GUI CSV as the authoritative baseline.
+
+        - No-op (silent) when qf_results_gui/summary.csv is absent.
+        - assertTrue-fails when present but mismatched, so the regression
+          surfaces in the unittest report. Failure here is independent of
+          the upstream qf_results/summary.csv baseline comparison.
+
+        ignore_columns / sort_key / rtol / atol mirror the qf_results
+        comparison to keep both checks apples-to-apples.
+        """
+        gui_results = os.path.join(dataset_dir, "qf_results_gui", "summary.csv")
+        if not os.path.exists(gui_results):
+            return
+
+        print(f"\033[3;33m\nVerifying that headless {label} matches GUI summary at "
+              f"{gui_results}\033[0;3140m")
+        pass_test = compare_csv_files(
+            generated_results, gui_results,
+            ignore_columns=[5], sort_key=sort_key, rtol=rtol, atol=atol,
+        )
+        if pass_test:
+            print(f"Testing {label} headless-vs-GUI on {dataset_dir} ..... "
+                  f"\033[0;32mPASSED\033[0;3140m")
+        else:
+            print(f"\nTesting {label} headless-vs-GUI on {dataset_dir} ..... "
+                  f"\033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nGUI reference file: {p2}\n" \
+                    .format(p1=generated_results, p2=gui_results))
+        self.log_results(pass_test, f"{label} headless-vs-GUI")
+        self.assertTrue(
+            pass_test,
+            f"{label} headless summary does not match GUI summary at {gui_results}.",
+        )
+
     def testHeadlessMarQuadrantFolder(self):
         mar_dir = os.path.join(self.currdir, "testImages", "MARimages")
         for filename in os.listdir(mar_dir):
@@ -219,6 +260,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing QuadrantFolder on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "QuadrantFolder MAR Image")
+        self._compareToGuiBaselineIfPresent(mar_dir, generated_results, "QuadrantFolder MAR")
         self.assertTrue(pass_test,"QuadrantFolder Image Headless Test for MAR image failed.")
 
         # Remove cache folders
@@ -252,6 +294,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing QuadrantFolder on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "QuadrantFolder EIGER Image")
+        self._compareToGuiBaselineIfPresent(eiger_dir, generated_results, "QuadrantFolder EIGER")
         self.assertTrue(pass_test,"QuadrantFolder Image Headless Test for EIGER image failed.")
 
         # Remove cache folders
@@ -285,6 +328,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(f"Testing QuadrantFolder on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "QuadrantFolder PILATUS Image")
+        self._compareToGuiBaselineIfPresent(pilatus_dir, generated_results, "QuadrantFolder PILATUS")
         self.assertTrue(pass_test,"QuadrantFolder Image Headless Test for PILATUS image failed.")
 
         # Remove cache folders
