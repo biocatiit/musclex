@@ -65,13 +65,27 @@ EQ_SPARSE_FIX_BINDINGS = (
 
 
 # Suffixes that, prefixed by 'left' or 'right', identify keys handled by
-# EQ_FittingTab.applyLoadedSettings(). Each one is a sparse-fix pair on
-# the corresponding tab. The fitting tab applies its own visibility
-# rules (model == 'Voigt' for *_gamma*, isSkeletal for *_z*, etc.).
+# EQ_FittingTab.applyLoadedSettings(). Two variants exist:
+#
+# _fix_* (sparse-fix): key present → check the checkbox + set spinbox value.
+#                       key absent → uncheck the checkbox.
+# _*    (value hint):  key present → set the spinbox value without checking
+#                       the checkbox (parameter is free but has an initial
+#                       guess from the previous GUI run).
+#
+# getFittingSettings() writes exactly one of the two variants per parameter:
+# the _fix_ key when the checkbox is checked, the plain key otherwise.
 EQ_FITTING_FIX_SUFFIXES = (
     '_fix_sigmac', '_fix_sigmas', '_fix_sigmad', '_fix_gamma',
     '_fix_intz', '_fix_sigz', '_fix_zline', '_fix_gammaz',
     '_fix_intz_EP', '_fix_sigz_EP', '_fix_zline_EP', '_fix_gammaz_EP',
+)
+
+# Unfixed value-hint suffixes: written by getFittingSettings() when the
+# parameter's fix-checkbox is NOT ticked. applyLoadedSettings() sets the
+# spinbox but leaves the checkbox unchecked.
+EQ_FITTING_VAL_SUFFIXES = (
+    '_sigmac', '_sigmas', '_sigmad', '_gamma',
 )
 
 
@@ -142,10 +156,21 @@ def _is_fitting_fix_key(key):
     return suffix in EQ_FITTING_FIX_SUFFIXES
 
 
+def _is_fitting_val_key(key):
+    """True if ``key`` is the unfixed value-hint variant of a fitting param."""
+    if key.startswith('left'):
+        suffix = key[len('left'):]
+    elif key.startswith('right'):
+        suffix = key[len('right'):]
+    else:
+        return False
+    return suffix in EQ_FITTING_VAL_SUFFIXES
+
+
 def classify_eq_setting_key(key):
     """Return one of 'spinbox', 'combo_text', 'combo_index', 'checkbox',
-    'sparse_fix', 'fitting_fix', 'special', 'skip', 'unknown' describing
-    how EquatorWindow.loadSettings() will treat ``key``.
+    'sparse_fix', 'fitting_fix', 'fitting_val', 'special', 'skip', 'unknown'
+    describing how EquatorWindow.loadSettings() will treat ``key``.
 
     'unknown' means the test suite should fail -- it indicates either a
     new key in the JSON without a corresponding load path, or an obsolete
@@ -169,6 +194,8 @@ def classify_eq_setting_key(key):
             return 'sparse_fix'
     if _is_fitting_fix_key(key):
         return 'fitting_fix'
+    if _is_fitting_val_key(key):
+        return 'fitting_val'
     if key in EQ_SPECIAL_KEYS:
         return 'special'
     if key in EQ_SKIP_KEYS:

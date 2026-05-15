@@ -579,12 +579,47 @@ class EQ_FittingTab(QWidget):
                 except (TypeError, ValueError):
                     pass
 
+        def _apply_val(json_key, spinbox):
+            """Apply the unfixed-variant value (key without _fix_).
+            The checkbox stays unchecked; only the spinbox gets the hint value."""
+            if json_key in settings:
+                try:
+                    spinbox.setValue(float(settings[json_key]))
+                except (TypeError, ValueError):
+                    pass
+
         self.syncUI = True
         try:
-            _apply_pair(side + '_fix_sigmac', self.fixSigmaC, self.sigmaCSpinBx)
-            _apply_pair(side + '_fix_sigmad', self.fixSigmaD, self.sigmaDSpinBx)
-            _apply_pair(side + '_fix_sigmas', self.fixSigmaS, self.sigmaSSpinBx)
-            _apply_pair(side + '_fix_gamma',  self.fixGamma,  self.gammaSpinBx)
+            # Fixed variants set the checkbox + spinbox.
+            # If the fixed key is absent but an unfixed value key exists,
+            # apply the spinbox value and leave the checkbox unchecked.
+            if side + '_fix_sigmac' in settings:
+                _apply_pair(side + '_fix_sigmac', self.fixSigmaC, self.sigmaCSpinBx)
+            else:
+                self.fixSigmaC.setChecked(False)
+                self.sigmaCSpinBx.setEnabled(False)
+                _apply_val(side + '_sigmac', self.sigmaCSpinBx)
+
+            if side + '_fix_sigmad' in settings:
+                _apply_pair(side + '_fix_sigmad', self.fixSigmaD, self.sigmaDSpinBx)
+            else:
+                self.fixSigmaD.setChecked(False)
+                self.sigmaDSpinBx.setEnabled(False)
+                _apply_val(side + '_sigmad', self.sigmaDSpinBx)
+
+            if side + '_fix_sigmas' in settings:
+                _apply_pair(side + '_fix_sigmas', self.fixSigmaS, self.sigmaSSpinBx)
+            else:
+                self.fixSigmaS.setChecked(False)
+                self.sigmaSSpinBx.setEnabled(False)
+                _apply_val(side + '_sigmas', self.sigmaSSpinBx)
+
+            if side + '_fix_gamma' in settings:
+                _apply_pair(side + '_fix_gamma', self.fixGamma, self.gammaSpinBx)
+            else:
+                self.fixGamma.setChecked(False)
+                self.gammaSpinBx.setEnabled(False)
+                _apply_val(side + '_gamma', self.gammaSpinBx)
 
             _apply_pair(side + '_fix_intz',   self.fixedIntZ,   self.intZSpnBx)
             _apply_pair(side + '_fix_sigz',   self.fixedSigZ,   self.sigZSpnBx)
