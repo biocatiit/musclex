@@ -350,6 +350,8 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self._singleProcessing = False
         self._singleWorker = None
+        # Successful single-image process completions for the image currently shown
+        # (reset in _on_image_data_ready). Used e.g. to seed UI once per image.
         self._restoreOptimizeCheckboxAfterProcess = False
         self._OptimizationRunning = False
         self._stopOptimizationRequested = False
@@ -1016,6 +1018,10 @@ class QuadrantFoldingGUI(BaseGUI):
         # from the grid by duplicate (row, col) placement.
         row = 0
 
+        self.innerBackgroundSectionHeading = self._create_bg_section_heading("Inner background")
+        layout.addWidget(self.innerBackgroundSectionHeading, row, 0, 1, 2)
+        row += 1
+
         layout.addWidget(QLabel("Subtraction Method:"), row, 0, 1, 1)
         layout.addWidget(self._manual_proxy["bgChoiceIn"], row, 1, 1, 1)
         row += 1
@@ -1083,6 +1089,9 @@ class QuadrantFoldingGUI(BaseGUI):
     def _populate_manual_processing_layout_out(self, layout):
         row = 0
 
+        layout.addWidget(self._create_bg_section_heading("Outer Background"), row, 0, 1, 2)
+        row += 1
+
         layout.addWidget(self._create_settings_separator(), row, 0, 1, 2)
         row += 1
 
@@ -1146,12 +1155,18 @@ class QuadrantFoldingGUI(BaseGUI):
         layout.addWidget(self.smoothOutSpnBx, row, 1, 1, 1)
 
     def _populate_transition_processing_layout_proxy(self, layout):
-        layout.addWidget(self._create_settings_separator(), 0, 0, 1, 4)
-        layout.addWidget(QLabel("Transition Radius:"), 1, 0, 1, 2)
-        layout.addWidget(self._transition_proxy["tranRSpnBx"], 1, 2, 1, 2)
-        layout.addWidget(QLabel("Transition Delta:"), 2, 0, 1, 2)
-        layout.addWidget(self._transition_proxy["tranDeltaSpnBx"], 2, 2, 1, 2)
-        layout.addWidget(self._transition_proxy["showTranRadDeltaChkBx"], 3, 0, 1, 4)
+        row = 0
+        layout.addWidget(self._create_bg_section_heading("Transition Settings"), row, 0, 1, 4)
+        row += 1
+        layout.addWidget(self._create_settings_separator(), row, 0, 1, 4)
+        row += 1
+        layout.addWidget(QLabel("Transition Radius:"), row, 0, 1, 2)
+        layout.addWidget(self._transition_proxy["tranRSpnBx"], row, 2, 1, 2)
+        row += 1
+        layout.addWidget(QLabel("Transition Delta:"), row, 0, 1, 2)
+        layout.addWidget(self._transition_proxy["tranDeltaSpnBx"], row, 2, 1, 2)
+        row += 1
+        layout.addWidget(self._transition_proxy["showTranRadDeltaChkBx"], row, 0, 1, 4)
 
     def _clone_spinbox(self, source):
         proxy = QSpinBox()
@@ -1200,6 +1215,11 @@ class QuadrantFoldingGUI(BaseGUI):
         separator.setFrameShape(QFrame.HLine)
         separator.setFrameShadow(QFrame.Sunken)
         return separator
+
+    def _create_bg_section_heading(self, text):
+        label = QLabel(text)
+        label.setStyleSheet("font-weight: bold;")
+        return label
 
     def _bind_proxy_spinbox(self, proxy, source):
         def _proxy_changed(value):
@@ -1419,6 +1439,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'meanNegConSpnBx',
             'meanSmoothSpnBx',
             'evaluationBaselineSpnBx',
+            'persistEvaluationBaselineChkBx',
             'amplitudeSpnBx',
             'sigmaXSpnBx',
             'sigmaYSpnBx',
@@ -1450,7 +1471,6 @@ class QuadrantFoldingGUI(BaseGUI):
     def openBackgroundSubtractionDialog(self):
         """Open the background subtraction settings popup."""
         self._update_bg_method_summary()
-        self._sync_metric_and_synthetic_widgets_from_info()
         self.bgSubDialog.show()
         self.bgSubDialog.raise_()
         self.bgSubDialog.activateWindow()
@@ -1735,6 +1755,8 @@ class QuadrantFoldingGUI(BaseGUI):
             self.applyBGButtonProxy.setVisible(is_manual_one or is_manual_transition)
         if hasattr(self, "manualSettingsContainer"):
             self.manualSettingsContainer.setVisible(is_manual_one or is_manual_transition)
+        if hasattr(self, "innerBackgroundSectionHeading"):
+            self.innerBackgroundSectionHeading.setVisible(is_manual_transition)
         if hasattr(self, "manualSettingsOutContainer"):
             self.manualSettingsOutContainer.setVisible(is_manual_transition)
         if hasattr(self, "transitionSettingsContainer"):
@@ -2851,6 +2873,37 @@ class QuadrantFoldingGUI(BaseGUI):
             self.spResultminInt.setDecimals(2)
 
         info = self.quadFold.info
+
+        # Evaluation baseline: per-image (from cached info / auto after process) vs persist across navigations.
+        eb_min = qf_defaults.MIN_EVAL_BASELINE
+        persist_eval_baseline = (
+            hasattr(self, "persistEvaluationBaselineChkBx")
+            and self.persistEvaluationBaselineChkBx is not None
+            and self.persistEvaluationBaselineChkBx.isChecked()
+        )
+        if previnfo is not None and persist_eval_baseline:
+            prev_b = previnfo.get("evaluation_baseline")
+            try:
+                if prev_b is not None:
+                    fv = float(prev_b)
+                    if fv > 0:
+                        self.evaluationBaselineSpnBx.setValue(max(eb_min, fv))
+            except (TypeError, ValueError):
+                pass
+        else:
+            cur_b = info.get("evaluation_baseline")
+            try:
+                if cur_b is not None:
+                    fv = float(cur_b)
+                    if fv > 0:
+                        self.evaluationBaselineSpnBx.setValue(max(eb_min, fv))
+                    else:
+                        self.evaluationBaselineSpnBx.setValue(qf_defaults.DEFAULT_EVAL_BASELINE)
+                else:
+                    self.evaluationBaselineSpnBx.setValue(qf_defaults.DEFAULT_EVAL_BASELINE)
+            except (TypeError, ValueError):
+                self.evaluationBaselineSpnBx.setValue(qf_defaults.DEFAULT_EVAL_BASELINE)
+
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
@@ -2884,14 +2937,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
             if 'optimize' in info:
                 self.optimizeFlag = bool(info['optimize'])
-            if 'equator_mask_height' in info:
-                self.equatorMaskHeightSpnBx.setValue(int(info['equator_mask_height']))
-            if 'equator_center_beam_width' in info:
-                self.equatorCenterBeamSpnBx.setValue(int(info['equator_center_beam_width']))
-            if 'm1' in info:
-                self.m1SpnBx.setValue(int(info['m1']))
-            if 'layer_line_width' in info:
-                self.layerLineWidthSpnBx.setValue(int(info['layer_line_width']))
             if 'steps' in info and isinstance(info['steps'], (list, tuple)):
                 self.stepsLineEdit.setText(", ".join([str(v) for v in info['steps']]))
             if 'max_iterations' in info:
@@ -2906,7 +2951,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.smoothImageChkbx.setChecked(info['smooth_image'])
 
         self._sync_metric_and_synthetic_widgets_from_info(info=info)
-
+        self._push_session_bg_eval_settings_to_info(info=info)
 
         # Range is already set to allow any value at spinbox creation
         if not self.resPersistIntensity.isChecked():
@@ -2919,9 +2964,67 @@ class QuadrantFoldingGUI(BaseGUI):
             self.rotate90Chkbx.setChecked(info['rotate'])
 
         self.uiUpdating = False
+
+    def _push_session_bg_eval_settings_to_info(self, info=None):
+        """Apply evaluation / mask / synthetic controls from the UI into ``info``.
+
+        Session-global widgets drive processing when navigating images; each folder ``info`` is updated so the backend reads consistent keys.
+
+        Evaluation baseline is only pushed when "Persist evaluation baseline" is checked; otherwise each image keeps its own ``evaluation_baseline`` (from cache / per-image ``evaluateResult``)."""
+        if not hasattr(self, "quadFold") or self.quadFold is None:
+            return
+        if info is None:
+            info = self.quadFold.info
+        if not isinstance(info, dict):
+            return
+        persist_eval = (
+            hasattr(self, "persistEvaluationBaselineChkBx")
+            and self.persistEvaluationBaselineChkBx is not None
+            and self.persistEvaluationBaselineChkBx.isChecked()
+        )
+        if persist_eval:
+            info['evaluation_baseline'] = max(
+                qf_defaults.MIN_EVAL_BASELINE,
+                float(self.evaluationBaselineSpnBx.value()),
+            )
+        info['equator_mask_height'] = int(self.equatorMaskHeightSpnBx.value())
+        info['equator_center_beam_width'] = int(self.equatorCenterBeamSpnBx.value())
+        info['m1'] = int(self.m1SpnBx.value())
+        info['layer_line_width'] = int(self.layerLineWidthSpnBx.value())
+        info['synthetic_amplitude'] = float(self.amplitudeSpnBx.value())
+        info['synthetic_sigma_x'] = float(self.sigmaXSpnBx.value())
+        info['synthetic_sigma_y'] = float(self.sigmaYSpnBx.value())
+        info['freq'] = str(self.freqCB.currentText())
+
+    def _seed_synthetic_spinboxes_from_ensure_defaults(self):
+        """Set synthetic Gaussian spinboxes using ``ensureSyntheticGaussianDefaults`` once ``avg_fold`` exists.
+
+        Called after the first successful process for the current image so values match the folded pattern;
+        respects ``MIN_SYNTHETIC_*`` via ``QuadrantFolder._ensure_synthetic_gaussian_params``."""
+        if not hasattr(self, "quadFold") or self.quadFold is None:
+            return
+        if "avg_fold" not in self.quadFold.imgCache:
+            return
+        computed = self.quadFold.ensureSyntheticGaussianDefaults()
+        if computed is None:
+            return
+        amp, sig_x, sig_y = computed
+        self.uiUpdating = True
+        try:
+            self.amplitudeSpnBx.setValue(float(amp))
+            self.sigmaXSpnBx.setValue(float(sig_x))
+            self.sigmaYSpnBx.setValue(float(sig_y))
+        finally:
+            self.uiUpdating = False
+        self._push_session_bg_eval_settings_to_info()
+
     def _sync_metric_and_synthetic_widgets_from_info(self, info=None):
         """
-        Sync metric table controls and synthetic/evaluation controls from cached info.
+        Sync metric table controls from cached info (means and weights).
+
+        Evaluation baseline respects "Persist evaluation baseline" (see Background Subtraction settings): when off, baseline is restored per image from ``info``; when on, UI wins across navigations via ``_push_session_bg_eval_settings_to_info``.
+
+        Equator / layer mask parameters and synthetic Gaussian parameters are not loaded here; they follow the UI session and are written into ``info`` by ``_push_session_bg_eval_settings_to_info``.
         Refresh the loss table after spinboxes are updated so table text matches cache.
         """
         if info is None:
@@ -2930,15 +3033,6 @@ class QuadrantFoldingGUI(BaseGUI):
             info = self.quadFold.info
         if not isinstance(info, dict):
             return
-
-        # Read synthetic Gaussian params directly from info.
-        # If a value is absent or <= 0.0 (the sentinel meaning "auto-compute
-        # at process time"), we set the spinbox to 0.0 so that getFlags()
-        # propagates the sentinel to the next process() call.  This prevents
-        # a computed value from image A leaking into image B via the spinbox.
-        synthetic_amplitude = float(info.get('synthetic_amplitude', 0.0))
-        synthetic_sigma_x = float(info.get('synthetic_sigma_x', 0.0))
-        synthetic_sigma_y = float(info.get('synthetic_sigma_y', 0.0))
 
         if 'mean_metric_values' in info and isinstance(info['mean_metric_values'], dict):
             means = info['mean_metric_values']
@@ -2955,16 +3049,6 @@ class QuadrantFoldingGUI(BaseGUI):
             self.weightNonBaselineSpnBx.setValue(float(weights.get('Share_Non_Baseline', self.weightNonBaselineSpnBx.value())))
             self.weightNegConSpnBx.setValue(float(weights.get('Share_Neg_Connected', self.weightNegConSpnBx.value())))
             self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
-
-        self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', 0.0)))
-        self.amplitudeSpnBx.setValue(synthetic_amplitude)
-        self.sigmaXSpnBx.setValue(synthetic_sigma_x)
-        self.sigmaYSpnBx.setValue(synthetic_sigma_y)
-        if 'freq' in info:
-            freq_value = str(info.get('freq', self.freqCB.currentText()))
-            idx = self.freqCB.findText(freq_value)
-            if idx >= 0:
-                self.freqCB.setCurrentIndex(idx)
 
         if hasattr(self, "bgSubDialog"):
             self.bgSubDialog._populate_loss_params_table()
@@ -3492,6 +3576,29 @@ class QuadrantFoldingGUI(BaseGUI):
         self.quadFold = quad_fold
         if quad_fold.info.get('stopped'):
             return
+
+        persist_eval_ok = (
+            hasattr(self, "persistEvaluationBaselineChkBx")
+            and self.persistEvaluationBaselineChkBx is not None
+            and not self.persistEvaluationBaselineChkBx.isChecked()
+        )
+        if persist_eval_ok:
+            eb = quad_fold.info.get('evaluation_baseline')
+            try:
+                if eb is not None:
+                    fv = float(eb)
+                    if fv > 0:
+                        self.uiUpdating = True
+                        try:
+                            self.evaluationBaselineSpnBx.setValue(max(qf_defaults.MIN_EVAL_BASELINE, fv))
+                        finally:
+                            self.uiUpdating = False
+            except (TypeError, ValueError):
+                pass
+
+        self._process_count_for_current_image += 1
+        if self._process_count_for_current_image == 1 and "avg_fold" in quad_fold.imgCache:
+            self._seed_synthetic_spinboxes_from_ensure_defaults()
 
         self.updateParams()
         self.refreshAllTabs()
@@ -4138,7 +4245,15 @@ class QuadrantFoldingGUI(BaseGUI):
             'SHARE_NEG_CON_MEAN': _fraction_to_percent_for_ui(self.meanNegConSpnBx.value()),
             'SMOOTH_MEAN': float(self.meanSmoothSpnBx.value()),
         }
-        flags['evaluation_baseline'] = float(self.evaluationBaselineSpnBx.value())
+        flags['evaluation_baseline'] = max(
+            qf_defaults.MIN_EVAL_BASELINE,
+            float(self.evaluationBaselineSpnBx.value()),
+        )
+        flags['persist_evaluation_baseline'] = bool(
+            hasattr(self, "persistEvaluationBaselineChkBx")
+            and self.persistEvaluationBaselineChkBx is not None
+            and self.persistEvaluationBaselineChkBx.isChecked()
+        )
         flags['synthetic_amplitude'] = float(self.amplitudeSpnBx.value())
         flags['synthetic_sigma_x'] = float(self.sigmaXSpnBx.value())
         flags['synthetic_sigma_y'] = float(self.sigmaYSpnBx.value())
@@ -4867,7 +4982,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # Create QuadrantFolder processor
         qf_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
         self.quadFold = QuadrantFolder(self.current_image_data, self, output_dir=qf_output)
-        
+        self._process_count_for_current_image = 0
+
         # Update UI for new image
         self._update_ui_for_image()
         

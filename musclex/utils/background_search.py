@@ -9,6 +9,7 @@ from scipy.ndimage.filters import gaussian_filter, convolve1d
 
 from. background_search_utils import *
 from ..converted_fortran.converted_fortran import *
+from ..utils import qf_defaults
 try:
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
@@ -965,10 +966,12 @@ def optimize_mp_wrapper(method, **kwargs):
 
 def optimize(method, **kwargs):
     
-    steps = kwargs.get('steps', [10, 7, 5, 3, 1])
-    early_stop = kwargs.get('early_stop', 0.01)
+    from musclex.utils.qf_defaults import DEFAULT_OPTIMIZATION_STEPS, parse_optimization_steps, DEFAULT_EARLY_STOP, DEFAULT_MAX_ITERATIONS
+
+    steps = kwargs.get('steps', parse_optimization_steps(DEFAULT_OPTIMIZATION_STEPS))
+    early_stop = kwargs.get('early_stop', DEFAULT_EARLY_STOP)
     print(f"Optimization parameters: steps={steps}, early_stop={early_stop}")
-    max_iterations = kwargs.get('max_iterations', 15)
+    max_iterations = kwargs.get('max_iterations', DEFAULT_MAX_ITERATIONS)
     refine_params = kwargs.get('refine_params', -1)
 
     log(f">_ Optimizing with method: {method}")
@@ -1202,6 +1205,8 @@ def process_file(values=None, **kwargs):
 
     dbg = orig_img - dimg
     baseline = kwargs.get('evaluation_baseline', None)
+    if baseline is not None:
+        baseline = max(qf_defaults.MIN_EVAL_BASELINE, float(baseline))
     syn_srt = kwargs.get('synthetic_data', None)
     syn_mask = kwargs.get('synthetic_mask', None)
     gen_mask = kwargs.get('mask', None)

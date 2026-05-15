@@ -48,6 +48,7 @@ try:
     from ..utils.image_processor import *
     from ..utils.background_search import *
     from ..utils.image_data import ImageData
+    from ..utils import qf_defaults
     from ..utils.fold_symmetry import _compute_fold_symmetry
 except: # for coverage
     from modules import QF_utilities as qfu
@@ -56,6 +57,7 @@ except: # for coverage
     from utils.image_processor import *
     from utils.background_search import *
     from utils.image_data import ImageData
+    from utils import qf_defaults
     from utils.fold_symmetry import _compute_fold_symmetry
 
 # Make sure the cython part is compiled
@@ -1031,23 +1033,31 @@ class QuadrantFolder:
         AMP = 0.01
         SIGMA_X_DIV = 5.0
         SIGMA_Y_DIV = 10.0
+        min_amp = float(qf_defaults.MIN_SYNTHETIC_AMPLITUDE)
+        min_sig_x = float(qf_defaults.MIN_SYNTHETIC_SIGMA_X)
+        min_sig_y = float(qf_defaults.MIN_SYNTHETIC_SIGMA_Y)
 
         amplitude = float(self.info.get('synthetic_amplitude', 0.0))
         if amplitude <= 0.0:
             equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
             amplitude = equator_half[i0] * AMP * i0
-            amplitude = 500 if amplitude < 500 else amplitude
-            self.info['synthetic_amplitude'] = amplitude
+            amplitude = min_amp if amplitude < min_amp else amplitude
+
+        amplitude = max(min_amp, amplitude)
+        self.info['synthetic_amplitude'] = amplitude
 
         # `synthetic_sigma_x` / `synthetic_sigma_y` are actual Gaussian sigmas (std dev, pixels)
         sigma_x = float(self.info.get('synthetic_sigma_x', 0.0))
         sigma_y = float(self.info.get('synthetic_sigma_y', 0.0))
         if sigma_x <= 0.0:
             sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
-            self.info['synthetic_sigma_x'] = sigma_x
         if sigma_y <= 0.0:
             sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
-            self.info['synthetic_sigma_y'] = sigma_y
+
+        sigma_x = max(min_sig_x, sigma_x)
+        sigma_y = max(min_sig_y, sigma_y)
+        self.info['synthetic_sigma_x'] = sigma_x
+        self.info['synthetic_sigma_y'] = sigma_y
 
         return amplitude, sigma_x, sigma_y
 
@@ -1813,11 +1823,16 @@ class QuadrantFolder:
         result = self.imgCache['resultImg']
         bg = self.imgCache.get('resultBg', None)
 
-        baseline = self.info.get('evaluation_baseline', None)
-        if baseline is None or float(baseline) <= 0.0:
-            baseline = get_radial_average_rmax(result + bg, self.info['rmax'], band_width=30) * 0.2
-            self.info['evaluation_baseline'] = baseline
-        baseline = max(float(baseline), 0.0001)
+        stack = result if bg is None else (result + bg)
+        persist_manual = bool(self.info.get('persist_evaluation_baseline', False))
+        if not persist_manual:
+            baseline = get_radial_average_rmax(stack, self.info['rmax'], band_width=30) * 0.2
+        else:
+            baseline = self.info.get('evaluation_baseline', None)
+            if baseline is None or float(baseline) <= 0.0:
+                baseline = get_radial_average_rmax(stack, self.info['rmax'], band_width=30) * 0.2
+        baseline = max(float(baseline), qf_defaults.MIN_EVAL_BASELINE)
+        self.info['evaluation_baseline'] = baseline
         syn_srt = self.imgCache.get('synthetic_data', None)
         syn_mask = self.imgCache.get('synthetic_mask', None)
         syn_fold = self.imgCache.get('BgSubFold_syn', None)

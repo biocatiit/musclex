@@ -93,9 +93,9 @@ class BackgroundSubtractionDialog(QDialog):
         """Factory method for consistent QDoubleSpinBox creation."""
         spnbx = QDoubleSpinBox()
         spnbx.setRange(min_val, max_val)
-        spnbx.setValue(value)
         spnbx.setDecimals(decimals)
         spnbx.setSingleStep(step)
+        spnbx.setValue(value)
         spnbx.setKeyboardTracking(False)
         if suffix:
             spnbx.setSuffix(suffix)
@@ -460,7 +460,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.earlyStopLabel = QLabel("Early Stop Loss Threshold:")
         self.earlyStopSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1.0, 
                                                           value=qf_defaults.DEFAULT_EARLY_STOP,
-            decimals=4, step=0.01,
+            decimals=4, step=0.005,
             tooltip="Threshold for early stopping during optimization per background subtraction parameter.")
         
         
@@ -493,24 +493,29 @@ class BackgroundSubtractionDialog(QDialog):
 
         # ===== Evaluation Metrics Settings =====
         self.evaluationBaselineLabel = self._create_label("Evaluation Baseline:", "small")
-        self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e9, 
+        self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_EVAL_BASELINE, max_val=1e9, 
                                                                    value=qf_defaults.DEFAULT_EVAL_BASELINE,
             decimals=2, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
 
+        self.persistEvaluationBaselineChkBx = QCheckBox("Persist evaluation baseline")
+        self.persistEvaluationBaselineChkBx.setToolTip(
+            "When checked, the evaluation baseline value is carried over when you switch images (same as the spinbox)."
+        )
+
         self.amplitudeLabel = self._create_label("Synthetic Amplitude:", "small")
-        self.amplitudeSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                value=qf_defaults.DEFAULT_AMP, 
+        self.amplitudeSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_SYNTHETIC_AMPLITUDE, max_val=1e6, 
+                                value=qf_defaults.DEFAULT_SYNTHETIC_AMPLITUDE, 
                                 decimals=0, step=0.001)
 
         self.sigmaXLabel = self._create_label("Sigma X:", "small")
-        self.sigmaXSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                  value=qf_defaults.DEFAULT_SIGMA_X, 
+        self.sigmaXSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_SYNTHETIC_SIGMA_X, max_val=1e6, 
+                                  value=qf_defaults.DEFAULT_SYNTHETIC_SIGMA_X, 
                                   decimals=2, step=0.5)
 
         self.sigmaYLabel = self._create_label("Sigma Y:", "small")
-        self.sigmaYSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
-                                  value=qf_defaults.DEFAULT_SIGMA_Y, 
+        self.sigmaYSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_SYNTHETIC_SIGMA_Y, max_val=1e6, 
+                                  value=qf_defaults.DEFAULT_SYNTHETIC_SIGMA_Y, 
                                   decimals=2, step=0.5)
 
         self.freqLabel = self._create_label("Sampling Frequency:", "small")
@@ -951,6 +956,7 @@ class BackgroundSubtractionDialog(QDialog):
         additional_layout = QGridLayout()
         additional_layout.addWidget(self.evaluationBaselineLabel, 0, 0, 1, 1)
         additional_layout.addWidget(self.evaluationBaselineSpnBx, 0, 1, 1, 1)
+        additional_layout.addWidget(self.persistEvaluationBaselineChkBx, 0, 2, 1, 2)
         additional_layout.addWidget(self.amplitudeLabel, 1, 0, 1, 1)
         additional_layout.addWidget(self.amplitudeSpnBx, 1, 1, 1, 1)
         additional_layout.addWidget(self.freqLabel, 1, 2, 1, 1)
@@ -1424,7 +1430,10 @@ class BackgroundSubtractionDialog(QDialog):
                 'SHARE_NEG_CON_MEAN': float(self.meanNegConSpnBx.value()),
                 'SMOOTH_MEAN': float(self.meanSmoothSpnBx.value()),
             }
-            evaluation_baseline = float(self.evaluationBaselineSpnBx.value())
+            evaluation_baseline = max(
+                qf_defaults.MIN_EVAL_BASELINE,
+                float(self.evaluationBaselineSpnBx.value()),
+            )
             synthetic_amplitude = float(self.amplitudeSpnBx.value())
             synthetic_sigma_x = float(self.sigmaXSpnBx.value())
             synthetic_sigma_y = float(self.sigmaYSpnBx.value())
