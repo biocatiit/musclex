@@ -755,6 +755,10 @@ class EquatorWindow(QMainWindow):
         saveSettingsAction.setShortcut('Ctrl+S')
         saveSettingsAction.triggered.connect(self.saveSettings)
 
+        loadSettingsAction = QAction('Load Settings...', self)
+        loadSettingsAction.setShortcut('Ctrl+L')
+        loadSettingsAction.triggered.connect(self.loadSettings)
+
         clearCacheAction = QAction('Clear All Caches in Current Folder', self)
         clearCacheAction.setShortcut('Ctrl+D')
         clearCacheAction.triggered.connect(self.clearAllCache)
@@ -772,6 +776,7 @@ class EquatorWindow(QMainWindow):
         fileMenu.addAction(processFolderAction)
         fileMenu.addAction(clearCacheAction)
         fileMenu.addAction(saveSettingsAction)
+        fileMenu.addAction(loadSettingsAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
 
@@ -1712,6 +1717,215 @@ class EquatorWindow(QMainWindow):
         if filename!="":
             with open(filename,'w') as f:
                 json.dump(settings,f)
+
+    def loadSettings(self):
+        """
+        Load settings from a previously-saved eqsettings.json and push
+        them into the widgets so the GUI state mirrors what headless /
+        the test suite would see when handed the same JSON.
+
+        Driven by the declarative tables in
+        musclex/utils/eq_settings_bindings.py. Calibration / workspace
+        keys (lambda_sdd, calib_center, detector, blank_mask, ...) are
+        deliberately ignored here -- they are owned by other subsystems
+        (CalibrationSettings, ProcessingWorkspace) and importing them
+        through this path would create a divergent calibration state.
+
+        After applying widget state we wipe the on-disk and in-memory
+        EquatorImage cache so the next process() call rebuilds fit
+        results, peaks, hulls, etc. from the freshly-loaded parameters.
+        Otherwise loading a settings file that changes, say, model
+        Gaussian->Voigt would still display the previous fit because
+        EquatorImage.process() short-circuits on a populated cache.
+        """
+        from ..utils.eq_settings_bindings import classify_eq_setting_key
+
+        default_dir = os.path.join("musclex", "settings")
+        filename = getAFile(filtr='Settings (*.json)', path=default_dir, parent=self)
+        if not filename:
+            return
+
+        try:
+            with open(filename, 'r') as f:
+                loaded = json.load(f)
+        except Exception as exc:
+            QMessageBox.warning(
+                self, "Load Settings",
+                f"Failed to read {filename}:\n{exc}"
+            )
+            return
+
+        if not isinstance(loaded, dict):
+            QMessageBox.warning(
+                self, "Load Settings",
+                "Settings file did not contain a JSON object."
+            )
+            return
+
+        unknown_keys = [k for k in loaded
+                        if classify_eq_setting_key(k) == 'unknown']
+        if unknown_keys:
+            # Warn but proceed -- unknown keys are likely future
+            # additions or hand-edits; the rest of the file can still
+            # be applied.
+            print(f"[loadSettings] Ignoring unknown keys in {filename}: {unknown_keys}")
+
+        self._apply_loaded_eq_settings(loaded)
+
+        # Wipe the per-image cache so the next process() pass rebuilds
+        # fit_results / peaks / hulls etc. from the just-loaded params.
+        # Without this, EquatorImage.process() reuses any pre-existing
+        # cache and the displayed/saved fit would silently lag the
+        # imported settings.
+        if self.bioImg is not None:
+            self.bioImg.delCache()
+            for k in ('fit_results', 'peaks', 'hist', 'hulls',
+                      'tmp_peaks', 'int_area'):
+                self.bioImg.removeInfo(k)
+            if self.fixedIntAreaChkBx is not None and not self.fixedIntAreaChkBx.isChecked():
+                self.fixedIntArea = None
+
+        self.processImage()
+
+    def _apply_loaded_eq_settings(self, loaded):
+        """
+        Apply a sanitized eqsettings.json dict to the UI widgets.
+
+        Signals are blocked around the bulk of the assignment so we
+        don't fire one reprocess per spinbox-change mid-load; the
+        post-load processImage() drives a single re-render.
+
+        Ordering rules:
+          - General-settings checkboxes (isSkeletal / isExtraPeak)
+            must precede the fitting-tab apply call: the tab's
+            visibility of *_z* / *_EP* widgets is gated on those.
+          - modelSelect must also precede the fitting-tab apply: the
+            tab gates *_gamma* visibility on model == Voigt.
+        """
+        from ..utils.eq_settings_bindings import (
+            EQ_SPINBOX_BINDINGS,
+            EQ_COMBO_TEXT_BINDINGS,
+            EQ_COMBO_INDEX_BINDINGS,
+            EQ_CHECKBOX_BINDINGS,
+            EQ_SPARSE_FIX_BINDINGS,
+        )
+
+        prev_sync = self.syncUI
+        self.syncUI = True
+        try:
+            # 1) Drive general-settings combos/checkboxes first so the
+            # fitting tab sees the correct model/skeletal/extra-peak
+            # context when it applies its own widgets.
+            for k, w, to_text in EQ_COMBO_TEXT_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                widget.blockSignals(True)
+                try:
+                    idx = widget.findText(to_text(loaded[k]))
+                    if idx >= 0:
+                        widget.setCurrentIndex(idx)
+                finally:
+                    widget.blockSignals(False)
+
+            for k, w in EQ_COMBO_INDEX_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                widget.blockSignals(True)
+                try:
+                    widget.setCurrentIndex(int(loaded[k]))
+                finally:
+                    widget.blockSignals(False)
+                # orientation_model also lives as a plain attribute the
+                # rest of EquatorWindow reads from; keep them in sync.
+                if k == 'orientation_model':
+                    self.orientationModel = int(loaded[k])
+
+            for k, w in EQ_CHECKBOX_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                widget.blockSignals(True)
+                try:
+                    widget.setChecked(bool(loaded[k]))
+                finally:
+                    widget.blockSignals(False)
+
+            # extraPeakChkBx is enabled only when isSkeletal is on. The
+            # binding above already set the checked state; mirror the
+            # enable state too so the UI doesn't show a stale combo.
+            if 'isSkeletal' in loaded:
+                self.extraPeakChkBx.setEnabled(bool(loaded['isSkeletal']))
+
+            # 2) Plain spinboxes.
+            for k, w in EQ_SPINBOX_BINDINGS:
+                if k not in loaded:
+                    continue
+                widget = getattr(self, w, None)
+                if widget is None:
+                    continue
+                widget.blockSignals(True)
+                try:
+                    widget.setValue(loaded[k])
+                finally:
+                    widget.blockSignals(False)
+
+            # 3) Sparse "fix"-pair widgets on the main window. Key
+            # present <=> tick checkbox + setValue; key absent <=>
+            # untick + leave value alone.
+            for k, cb_attr, sp_attr in EQ_SPARSE_FIX_BINDINGS:
+                checkbox = getattr(self, cb_attr, None)
+                spinbox = getattr(self, sp_attr, None)
+                if checkbox is None or spinbox is None:
+                    continue
+                present = k in loaded
+                checkbox.blockSignals(True)
+                spinbox.blockSignals(True)
+                try:
+                    checkbox.setChecked(present)
+                    spinbox.setEnabled(present)
+                    if present:
+                        try:
+                            spinbox.setValue(float(loaded[k]))
+                        except (TypeError, ValueError):
+                            pass
+                finally:
+                    checkbox.blockSignals(False)
+                    spinbox.blockSignals(False)
+
+            # 4) fixed_int_area is a tuple stored on a plain attribute,
+            # not a widget. Presence of the key means "tick the
+            # fixedIntAreaChkBx and remember the int_area"; absence
+            # means clear it.
+            if 'fixed_int_area' in loaded:
+                self.fixedIntAreaChkBx.blockSignals(True)
+                try:
+                    self.fixedIntAreaChkBx.setChecked(True)
+                    val = loaded['fixed_int_area']
+                    if isinstance(val, (list, tuple)) and len(val) == 2:
+                        self.fixedIntArea = (val[0], val[1])
+                finally:
+                    self.fixedIntAreaChkBx.blockSignals(False)
+            else:
+                self.fixedIntAreaChkBx.blockSignals(True)
+                try:
+                    self.fixedIntAreaChkBx.setChecked(False)
+                finally:
+                    self.fixedIntAreaChkBx.blockSignals(False)
+
+            # 5) Per-side fitting tab widgets. The tab honors model /
+            # isSkeletal / isExtraPeak gating internally.
+            self.left_fitting_tab.applyLoadedSettings(loaded)
+            self.right_fitting_tab.applyLoadedSettings(loaded)
+        finally:
+            self.syncUI = prev_sync
 
     def clearAllCache(self):
         """

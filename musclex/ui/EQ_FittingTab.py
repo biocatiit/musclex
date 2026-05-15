@@ -546,6 +546,58 @@ class EQ_FittingTab(QWidget):
 
         return settings
 
+    def applyLoadedSettings(self, settings):
+        """
+        Inverse of getFittingSettings(): given a dict loaded from an
+        eqsettings.json file, drive every per-side widget on this tab
+        back to the saved state.
+
+        Sparse-fix semantics: a key like ``"left_fix_sigmac": 1.0``
+        being present means "tick fixSigmaC and setValue(1.0)"; a key
+        being absent means "leave fixSigmaC unchecked" -- which is
+        why every fix-checkbox gets an explicit setChecked(False)
+        when its key is missing from the dict.
+
+        Visibility-gated keys (``*_gamma*`` requires model == Voigt;
+        ``*_z*`` requires isSkeletal; ``*_EP*`` additionally requires
+        isExtraPeak) are still applied so the widget state is correct
+        if/when the user later toggles those modes back on.
+
+        Args:
+            settings: dict-like loaded from eqsettings.json. May be a
+                full settings file (only per-side keys are consulted).
+        """
+        side = self.side
+
+        def _apply_pair(json_key, checkbox, spinbox):
+            present = json_key in settings
+            checkbox.setChecked(present)
+            spinbox.setEnabled(present)
+            if present:
+                try:
+                    spinbox.setValue(float(settings[json_key]))
+                except (TypeError, ValueError):
+                    pass
+
+        self.syncUI = True
+        try:
+            _apply_pair(side + '_fix_sigmac', self.fixSigmaC, self.sigmaCSpinBx)
+            _apply_pair(side + '_fix_sigmad', self.fixSigmaD, self.sigmaDSpinBx)
+            _apply_pair(side + '_fix_sigmas', self.fixSigmaS, self.sigmaSSpinBx)
+            _apply_pair(side + '_fix_gamma',  self.fixGamma,  self.gammaSpinBx)
+
+            _apply_pair(side + '_fix_intz',   self.fixedIntZ,   self.intZSpnBx)
+            _apply_pair(side + '_fix_sigz',   self.fixedSigZ,   self.sigZSpnBx)
+            _apply_pair(side + '_fix_zline',  self.fixedZline,  self.zlineSpnBx)
+            _apply_pair(side + '_fix_gammaz', self.fixedGammaZ, self.gammaZSpnBx)
+
+            _apply_pair(side + '_fix_intz_EP',   self.fixedIntZEP,   self.intZSpnBxEP)
+            _apply_pair(side + '_fix_sigz_EP',   self.fixedSigZEP,   self.sigZSpnBxEP)
+            _apply_pair(side + '_fix_zline_EP',  self.fixedZlineEP,  self.zlineSpnBxEP)
+            _apply_pair(side + '_fix_gammaz_EP', self.fixedGammaZEP, self.gammaZSpnBxEP)
+        finally:
+            self.syncUI = False
+
     def init_logging(self):
         """
         Initialize the logging

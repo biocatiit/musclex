@@ -387,6 +387,57 @@ class MuscleXGlobalTester(unittest.TestCase):
         )
 
 
+    ####### EQ SETTINGS BINDINGS SCHEMA TEST #######
+    def testEQSettingsBindingsSchema(self):
+        """
+        Every key persisted in a baseline eqsettings.json must be
+        classifiable by EquatorWindow.loadSettings()'s binding tables.
+        An 'unknown' result means either:
+          - getSettings() / getFittingSettings() added a key without
+            adding a corresponding load binding, OR
+          - the JSON contains an obsolete key that should be removed
+            at the source (so headless and GUI stay in sync).
+        Either way, this test fails fast instead of letting Load
+        Settings silently drop fields.
+        """
+        try:
+            from ..utils.eq_settings_bindings import classify_eq_setting_key
+        except ImportError:  # for coverage / packaging
+            from utils.eq_settings_bindings import classify_eq_setting_key
+
+        datasets = ("MARimages", "EIGERimages", "PILATUSimages")
+        all_problems = {}
+        for ds in datasets:
+            path = os.path.join(self.currdir, "testImages", ds, "eqsettings.json")
+            if not os.path.isfile(path):
+                continue
+            with open(path, 'r') as f:
+                settings = json.load(f)
+            unknown = sorted(
+                k for k in settings
+                if classify_eq_setting_key(k) == 'unknown'
+            )
+            if unknown:
+                all_problems[ds] = unknown
+
+        pass_test = not all_problems
+        if pass_test:
+            print("\nTesting EQ Settings bindings schema ..... "
+                  "\033[0;32mPASSED\033[0;3140m")
+        else:
+            print(
+                "\nTesting EQ Settings bindings schema ..... "
+                f"\033[0;31mFAILED\033[0;3140m\nUnknown keys per dataset: "
+                f"{all_problems}"
+            )
+        self.log_results(pass_test, "EQ Settings Bindings Schema")
+        self.assertTrue(
+            pass_test,
+            f"eqsettings.json contains keys not handled by loadSettings(): "
+            f"{all_problems}",
+        )
+
+
     ####### QF _apply_existing_or_default_bg REGRESSION #######
     def testApplyExistingOrDefaultBgRespectsUserChoice(self):
         """
