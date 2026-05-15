@@ -680,7 +680,7 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
-        self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
+        # self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
         # self.fittingOptionsLayout2.addLayout(self.marginLayout)
         # self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
         # self.fittingOptionsLayout2.addWidget(self.addGapsButton)
