@@ -4896,10 +4896,11 @@ class QuadrantFoldingGUI(BaseGUI):
             # drop these JSON fields. (freq is already handled by the combo
             # loop above via QF_COMBO_TEXT_BINDINGS.)
             #
-            # Spinbox min_val clamping (MIN_EVAL_BASELINE / MIN_SYNTHETIC_*)
-            # is intentional: any legacy sentinel 0.0 in the JSON will be
-            # clamped up, and _seed_synthetic_spinboxes_from_ensure_defaults
-            # re-seeds sigma/amplitude after the first process if needed.
+            # The SpinBoxes accept 0.0 as a sentinel (min_val=0); the
+            # backend (_ensure_synthetic_gaussian_params) re-derives a
+            # real value from the folded image when info has 0/<=0 and
+            # then clamps with MIN_SYNTHETIC_* / MIN_EVAL_BASELINE. So a
+            # plain setValue here mirrors the headless qfsettings.json path.
             for json_key, widget_attr in (
                 ('evaluation_baseline', 'evaluationBaselineSpnBx'),
                 ('synthetic_amplitude', 'amplitudeSpnBx'),

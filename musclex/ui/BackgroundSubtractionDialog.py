@@ -493,7 +493,11 @@ class BackgroundSubtractionDialog(QDialog):
 
         # ===== Evaluation Metrics Settings =====
         self.evaluationBaselineLabel = self._create_label("Evaluation Baseline:", "small")
-        self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_EVAL_BASELINE, max_val=1e9, 
+        # min_val=0.0 lets the sentinel value 0.0 round-trip through
+        # the SpinBox unchanged (loadSettings sentinel + persist_manual
+        # fall-back path in QuadrantFolder.evaluateResult). The actual
+        # MIN_EVAL_BASELINE floor is applied inside evaluateResult().
+        self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e9,
                                                                    value=qf_defaults.DEFAULT_EVAL_BASELINE,
             decimals=2, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
@@ -503,19 +507,28 @@ class BackgroundSubtractionDialog(QDialog):
             "When checked, the evaluation baseline value is carried over when you switch images (same as the spinbox)."
         )
 
+        # min_val=0.0 lets the sentinel value 0.0 round-trip through the
+        # widget unchanged so loadSettings() can express "let the backend
+        # derive synthetic Gaussian parameters from the folded image".
+        # The actual safety floor (MIN_SYNTHETIC_*) is applied inside
+        # QuadrantFolder._ensure_synthetic_gaussian_params via max(...);
+        # without min_val=0.0, the SpinBox would silently clamp the
+        # sentinel up to MIN_SYNTHETIC_*, _push_session_bg_eval_settings_to_info
+        # / getFlags() would then bake that floor into info/flags, and
+        # the dynamic-derivation path would be bypassed.
         self.amplitudeLabel = self._create_label("Synthetic Amplitude:", "small")
-        self.amplitudeSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_SYNTHETIC_AMPLITUDE, max_val=1e6, 
-                                value=qf_defaults.DEFAULT_SYNTHETIC_AMPLITUDE, 
+        self.amplitudeSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6,
+                                value=qf_defaults.DEFAULT_SYNTHETIC_AMPLITUDE,
                                 decimals=0, step=0.001)
 
         self.sigmaXLabel = self._create_label("Sigma X:", "small")
-        self.sigmaXSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_SYNTHETIC_SIGMA_X, max_val=1e6, 
-                                  value=qf_defaults.DEFAULT_SYNTHETIC_SIGMA_X, 
+        self.sigmaXSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6,
+                                  value=qf_defaults.DEFAULT_SYNTHETIC_SIGMA_X,
                                   decimals=2, step=0.5)
 
         self.sigmaYLabel = self._create_label("Sigma Y:", "small")
-        self.sigmaYSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_SYNTHETIC_SIGMA_Y, max_val=1e6, 
-                                  value=qf_defaults.DEFAULT_SYNTHETIC_SIGMA_Y, 
+        self.sigmaYSpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6,
+                                  value=qf_defaults.DEFAULT_SYNTHETIC_SIGMA_Y,
                                   decimals=2, step=0.5)
 
         self.freqLabel = self._create_label("Sampling Frequency:", "small")
