@@ -4770,6 +4770,13 @@ class QuadrantFoldingGUI(BaseGUI):
                 'BgSubFold', 'BgSubFold_out', 'BgSubFold_syn', 'BgSubFold_syn_out',
                 'BgFold', 'BgFold_out', 'BgFold_syn', 'BgFold_syn_out',
             ])
+            # Mirror the post-rebase session-push contract: synthetic /
+            # mask / freq widgets are session-global, and processImage()
+            # reads them out of info (not directly from widgets), so we
+            # need to flush the just-loaded widget values into info
+            # before reprocessing or process() would see stale info
+            # values from the previous image.
+            self._push_session_bg_eval_settings_to_info()
 
         if self.ableToProcess():
             self.processImage()
@@ -4872,17 +4879,47 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.fixedRoiH.blockSignals(False)
                     self.fixedRoiChkBx.blockSignals(False)
 
-            # Metric means / weights / synthetic / evaluation_baseline /
-            # freq: delegate to the existing sync helper, which already
-            # handles all the unit conversion (fraction<->percent) and
-            # synthetic-default resolution.
+            # Metric means / weights -- the only fields the sync helper
+            # still handles (fraction<->percent conversion lives in there).
             metric_info = {k: loaded[k] for k in (
                 'mean_metric_values', 'metric_weights',
-                'synthetic_amplitude', 'synthetic_sigma_x', 'synthetic_sigma_y',
-                'evaluation_baseline', 'freq',
             ) if k in loaded}
             if metric_info:
                 self._sync_metric_and_synthetic_widgets_from_info(info=metric_info)
+
+            # synthetic Gaussian / evaluation baseline / freq used to be
+            # routed through _sync_metric_and_synthetic_widgets_from_info,
+            # but the post-rebase design treats them as session-global
+            # widgets pushed *into* info via _push_session_bg_eval_settings_to_info.
+            # That means the helper no longer reads them, so we have to
+            # set the widgets directly here or loadSettings would silently
+            # drop these JSON fields. (freq is already handled by the combo
+            # loop above via QF_COMBO_TEXT_BINDINGS.)
+            #
+            # Spinbox min_val clamping (MIN_EVAL_BASELINE / MIN_SYNTHETIC_*)
+            # is intentional: any legacy sentinel 0.0 in the JSON will be
+            # clamped up, and _seed_synthetic_spinboxes_from_ensure_defaults
+            # re-seeds sigma/amplitude after the first process if needed.
+            for json_key, widget_attr in (
+                ('evaluation_baseline', 'evaluationBaselineSpnBx'),
+                ('synthetic_amplitude', 'amplitudeSpnBx'),
+                ('synthetic_sigma_x',   'sigmaXSpnBx'),
+                ('synthetic_sigma_y',   'sigmaYSpnBx'),
+            ):
+                if json_key not in loaded:
+                    continue
+                widget = getattr(self, widget_attr, None)
+                if widget is None:
+                    continue
+                try:
+                    val = float(loaded[json_key])
+                except (TypeError, ValueError):
+                    continue
+                widget.blockSignals(True)
+                try:
+                    widget.setValue(val)
+                finally:
+                    widget.blockSignals(False)
 
             # bg_options: applied last so the manual / transition /
             # automated container visibility reflects the just-loaded
