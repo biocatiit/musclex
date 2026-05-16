@@ -1,3 +1,3 @@
 Filename,centerX,centerY,rotationAngle,backgroundMethod,backgroundConfigName,parameters,downsampled,loss,bgSum,symmetry
-P1_F1_tet_1_100_005_0001.tif,417.03,515.45,0.9000000000000057,Circularly-symmetric,-,"{'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10, 'cirmin': 0.0, 'cirmax': 25.0}",2,0.1436972520552515,1224070.0606038868,1.7593242576763055
-P1_F1_tet_1_100_005_0002.tif,417.03,515.45,0.8000000000000114,Circularly-symmetric,-,"{'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10, 'cirmin': 0.0, 'cirmax': 25.0}",2,0.14330654224039943,1288492.8893218935,1.7079722761260607
+P1_F1_tet_1_100_005_0001.tif,417.03,515.45,0.9000000000000057,Circularly-symmetric,-,"{'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10, 'cirmin': 0.0, 'cirmax': 25.0}",2,0.1455491767556938,1224070.0606038868,1.7593242576763055
+P1_F1_tet_1_100_005_0002.tif,417.03,515.45,0.8000000000000114,Circularly-symmetric,-,"{'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10, 'cirmin': 0.0, 'cirmax': 25.0}",2,0.1451757298665375,1288492.8893218935,1.7079722761260607
