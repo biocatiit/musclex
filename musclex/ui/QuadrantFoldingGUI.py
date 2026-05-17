@@ -2380,6 +2380,11 @@ class QuadrantFoldingGUI(BaseGUI):
         info['synthetic_sigma_x'] = float(self.sigmaXSpnBx.value())
         info['synthetic_sigma_y'] = float(self.sigmaYSpnBx.value())
         info['freq'] = str(self.freqCB.currentText())
+        info['save_metrics_to_csv'] = bool(
+            hasattr(self, "saveMetricsToCsvChkBx")
+            and self.saveMetricsToCsvChkBx is not None
+            and self.saveMetricsToCsvChkBx.isChecked()
+        )
 
     def _refresh_synthetic_preview_if_visible(self):
         if self.uiUpdating or not self.ableToProcess() or not self._is_synthetic_preview_visible():
@@ -4443,10 +4448,15 @@ class QuadrantFoldingGUI(BaseGUI):
         if qf is None or not hasattr(qf, "info"):
             return
 
-        if not self.saveMetricsToCsvChkBx.isChecked():
+        info = qf.info if isinstance(qf.info, dict) else {}
+        save_metrics_enabled = bool(
+            hasattr(self, "saveMetricsToCsvChkBx")
+            and self.saveMetricsToCsvChkBx is not None
+            and self.saveMetricsToCsvChkBx.isChecked()
+        )
+        if not save_metrics_enabled:
             return
 
-        info = qf.info if isinstance(qf.info, dict) else {}
         result_bg = info.get("result_bg", {}) or {}
         raw_metrics = result_bg.get("metrics_raw", {}) or {}
         norm_metrics = result_bg.get("metrics_normalized", {}) or {}
@@ -4725,6 +4735,11 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['layer_line_width'] = self.layerLineWidthSpnBx.value()
         flags['smooth_image'] = self.smoothImageChkbx.isChecked()
         flags['downsample'] = int(self.downsampleCB.currentText())
+        flags['save_metrics_to_csv'] = bool(
+            hasattr(self, "saveMetricsToCsvChkBx")
+            and self.saveMetricsToCsvChkBx is not None
+            and self.saveMetricsToCsvChkBx.isChecked()
+        )
 
         # Auto-select from saved user background configurations (used mainly in batch processing)
         flags['choose_configurations_auto'] = (
