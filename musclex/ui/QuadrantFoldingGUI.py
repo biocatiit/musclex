@@ -3087,8 +3087,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         Evaluation baseline respects "Persist evaluation baseline" (see Background Subtraction settings): when off, baseline is restored per image from ``info``; when on, UI wins across navigations via ``_push_session_bg_eval_settings_to_info``.
 
-        Equator / layer mask parameters and synthetic Gaussian parameters are not loaded here; they follow the UI session and are written into ``info`` by ``_push_session_bg_eval_settings_to_info``.
-        Refresh the loss table after spinboxes are updated so table text matches cache.
+        Equator / layer mask parameters remain session-driven and are
+        written into ``info`` by ``_push_session_bg_eval_settings_to_info``.
+        Synthetic Gaussian parameters and evaluation baseline are loaded
+        from ``info`` when present.
+        Refresh the loss table after spinboxes are updated so table text
+        matches cache.
         """
         if info is None:
             if not hasattr(self, "quadFold") or self.quadFold is None:
@@ -3114,13 +3118,16 @@ class QuadrantFoldingGUI(BaseGUI):
             self.weightSmoothSpnBx.setValue(float(weights.get('Smoothness', self.weightSmoothSpnBx.value())))
 
         if 'evaluation_baseline' in info:
-            self.evaluationBaselineSpnBx.setValue(float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value())))
-        # if synthetic_amplitude is not None:
-        #     self.amplitudeSpnBx.setValue(float(synthetic_amplitude))
-        # if synthetic_sigma_x is not None:
-        #     self.sigmaXSpnBx.setValue(float(synthetic_sigma_x))
-        # if synthetic_sigma_y is not None:
-        #     self.sigmaYSpnBx.setValue(float(synthetic_sigma_y))
+            self.evaluationBaselineSpnBx.setValue(max(
+                qf_defaults.MIN_EVAL_BASELINE,
+                float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value()))
+            ))
+        if 'synthetic_amplitude' in info:
+            self.amplitudeSpnBx.setValue(float(info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
+        if 'synthetic_sigma_x' in info:
+            self.sigmaXSpnBx.setValue(float(info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
+        if 'synthetic_sigma_y' in info:
+            self.sigmaYSpnBx.setValue(float(info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
         if 'freq' in info:
             freq_value = str(info.get('freq', self.freqCB.currentText()))
             idx = self.freqCB.findText(freq_value)
