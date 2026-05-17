@@ -87,6 +87,7 @@ QF_CHECKBOX_BINDINGS = (
     ('optimize_each_image',        'optimizeEachImageChkBx'),
     ('choose_configurations_auto', 'chooseConfigurationsAutoChkBx'),
     ('persist_evaluation_baseline','persistEvaluationBaselineChkBx'),
+    ('save_metrics_to_csv',        'saveMetricsToCsvChkBx'),
     ('compressed',                 'compressFoldedImageChkBx'),
 )
 
