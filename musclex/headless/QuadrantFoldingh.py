@@ -271,6 +271,7 @@ class QuadrantFoldingh:
                 # so saveBackground is skipped.
                 if full_process:
                     self.saveBackground()
+                self._upsert_background_metrics_csv(flags=flags)
 
     def saveBackground(self):
         """
@@ -315,6 +316,94 @@ class QuadrantFoldingh:
 
         self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
         self.csv_bg.to_csv(csv_path)
+
+    def _upsert_background_metrics_csv(self, flags=None):
+        """
+        Upsert one row per image into qf_results/bg/background_metrics.csv.
+        Row key is image filename (ImageName).
+        """
+        if self.quadFold is None or not hasattr(self.quadFold, "info"):
+            return
+
+        info = self.quadFold.info if isinstance(self.quadFold.info, dict) else {}
+        save_metrics_enabled = None
+        if isinstance(flags, dict) and 'save_metrics_to_csv' in flags:
+            save_metrics_enabled = bool(flags.get('save_metrics_to_csv'))
+        elif 'save_metrics_to_csv' in info:
+            save_metrics_enabled = bool(info.get('save_metrics_to_csv'))
+        else:
+            save_metrics_enabled = False
+        if not save_metrics_enabled:
+            return
+
+        result_bg = info.get("result_bg", {}) or {}
+        raw_metrics = result_bg.get("metrics_raw", {}) or {}
+        norm_metrics = result_bg.get("metrics_normalized", {}) or {}
+        loss = result_bg.get("loss", None)
+        if not isinstance(raw_metrics, dict):
+            raw_metrics = {}
+        if not isinstance(norm_metrics, dict):
+            norm_metrics = {}
+        if len(raw_metrics) == 0 and len(norm_metrics) == 0 and loss is None:
+            return
+
+        filename = str(getattr(self.quadFold, "img_name", "") or "")
+        method = result_bg.get("method", None)
+        final_params = result_bg.get("final_params", None)
+        params_text = str(final_params)
+        metric_weights = info.get("metric_weights", {})
+        mean_metric_values = info.get("mean_metric_values", {})
+
+        row_data = {
+            "Method": str(method),
+            "BgParameters": params_text,
+            "Loss": loss,
+            "Raw_MSE": raw_metrics.get("MSE", None),
+            "Raw_Share_Neg_Synthetic": raw_metrics.get("Share_Neg_Synthetic", None),
+            "Raw_Share_Non_Baseline": raw_metrics.get("Share_Non_Baseline", None),
+            "Raw_Share_Neg_Connected": raw_metrics.get("Share_Neg_Connected", None),
+            "Raw_Smoothness": raw_metrics.get("Smoothness", None),
+            "Norm_MSE": norm_metrics.get("MSE", None),
+            "Norm_Share_Neg_Synthetic": norm_metrics.get("Share_Neg_Synthetic", None),
+            "Norm_Share_Non_Baseline": norm_metrics.get("Share_Non_Baseline", None),
+            "Norm_Share_Neg_Connected": norm_metrics.get("Share_Neg_Connected", None),
+            "Norm_Smoothness": norm_metrics.get("Smoothness", None),
+            "Weight_MSE": metric_weights.get("MSE", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Share_Neg_Synthetic": metric_weights.get("Share_Neg_Synthetic", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Share_Non_Baseline": metric_weights.get("Share_Non_Baseline", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Share_Neg_Connected": metric_weights.get("Share_Neg_Connected", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Smoothness": metric_weights.get("Smoothness", None) if isinstance(metric_weights, dict) else None,
+            "Mean_MSE_SYN": mean_metric_values.get("MSE_SYN_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SHARE_NEG_SYN": mean_metric_values.get("SHARE_NEG_SYN_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SHARE_NON_BASELINE": mean_metric_values.get("SHARE_NON_BASELINE_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SHARE_NEG_CON": mean_metric_values.get("SHARE_NEG_CON_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SMOOTH": mean_metric_values.get("SMOOTH_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+        }
+        ordered_columns = list(row_data.keys())
+
+        try:
+            csv_path = join(self.output_dir, "qf_results", "bg", "background_metrics.csv")
+            os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+            if exists(csv_path):
+                df = pd.read_csv(csv_path)
+            else:
+                df = pd.DataFrame(columns=["ImageName"] + ordered_columns)
+
+            if "ImageName" in df.columns:
+                df = df.set_index("ImageName")
+            else:
+                df.index.name = "ImageName"
+
+            for col in ordered_columns:
+                if col not in df.columns:
+                    df[col] = None
+            df = df.reindex(columns=ordered_columns)
+            df.loc[filename] = pd.Series(row_data)
+            df.sort_index(inplace=True)
+            df.to_csv(csv_path, index_label="ImageName")
+        except Exception as e:
+            self.statusPrint(f"Failed to upsert background metrics CSV for {filename}: {e}")
 
     def updateParams(self):
         """

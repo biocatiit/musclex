@@ -83,11 +83,12 @@ QF_COMBO_TEXT_BINDINGS = (
 
 # (json_key, widget_attr) -- via .isChecked()/.setChecked()
 QF_CHECKBOX_BINDINGS = (
-    ('smooth_image',                 'smoothImageChkbx'),
-    ('optimize_each_image',          'optimizeEachImageChkBx'),
-    ('choose_configurations_auto',   'chooseConfigurationsAutoChkBx'),
-    ('persist_evaluation_baseline',  'persistEvaluationBaselineChkBx'),
-    ('compressed',                   'compressFoldedImageChkBx'),
+    ('smooth_image',               'smoothImageChkbx'),
+    ('optimize_each_image',        'optimizeEachImageChkBx'),
+    ('choose_configurations_auto', 'chooseConfigurationsAutoChkBx'),
+    ('persist_evaluation_baseline','persistEvaluationBaselineChkBx'),
+    ('save_metrics_to_csv',        'saveMetricsToCsvChkBx'),
+    ('compressed',                 'compressFoldedImageChkBx'),
 )
 
 
