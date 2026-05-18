@@ -1630,8 +1630,14 @@ class QuadrantFolder:
             for key in method_params[method].keys():
                 params[key] = self.info[key]
 
+            eval_mask = self.imgCache.get('mask', None)
+            fold_mask = eval_mask[:avg_fold.shape[0], :avg_fold.shape[1]]
+            if eval_mask is None:
+                self.createMask()
+                eval_mask = self.imgCache.get('mask', None)
             result = applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
-                           tmp_center, params, downsample_factor=self.info['downsample'])
+                           tmp_center, params, downsample_factor=self.info['downsample'],
+                           mask=fold_mask)
             bg = avg_fold - result
 
             print(f"bg shape: {bg.shape}, result shape: {result.shape}")
@@ -1672,10 +1678,15 @@ class QuadrantFolder:
             params = {}
             for key in method_params[method].keys():
                 params[key] = self.info[key+"_out"]
-                # print(f"Parameter for bgsub_out: {key}_out = {self.info[key + '_out']}")
 
+            eval_mask = self.imgCache.get('mask', None)
+            fold_mask = eval_mask[:avg_fold.shape[0], :avg_fold.shape[1]]
+            if eval_mask is None:
+                self.createMask()
+                eval_mask = self.imgCache.get('mask', None)
             result = applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
-                           tmp_center, params, downsample_factor=self.info['downsample'])
+                           tmp_center, params, downsample_factor=self.info['downsample'],
+                           mask=fold_mask)
             bg = avg_fold - result
 
             # See applyBackgroundSubtraction(): cache writes must stay
@@ -1709,7 +1720,9 @@ class QuadrantFolder:
         for key in method_params[method].keys():
             params[key] = self.info[key]
             
-        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'])
+        eval_mask = self.imgCache.get('mask', None)
+        fold_mask = eval_mask[:avg_fold_with_syn.shape[0], :avg_fold_with_syn.shape[1]]
+        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'], mask=fold_mask)
         bg_syn = avg_fold_with_syn - result
         
         if method != 'None':
@@ -1733,7 +1746,9 @@ class QuadrantFolder:
         for key in method_params[method].keys():
             params[key] = self.info[key+"_out"]
             
-        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'])
+        eval_mask = self.imgCache.get('mask', None)
+        fold_mask = eval_mask[:avg_fold_with_syn.shape[0], :avg_fold_with_syn.shape[1]]
+        result = applyBackgroundRemoval(method, tmp_avg_fold_with_syn, avg_fold_with_syn, tmp_rmin, None, tmp_center, params, downsample_factor=self.info['downsample'], mask=fold_mask)
         bg_syn = avg_fold_with_syn - result
         
         # if method != 'None':

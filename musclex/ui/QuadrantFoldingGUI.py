@@ -2354,6 +2354,15 @@ class QuadrantFoldingGUI(BaseGUI):
             return False
         return self.resultDisplayModeCB.currentText() in ("Evaluation Mask", "Synthetic Mask")
 
+    def _on_evaluation_mask_settings_changed(self):
+        """Evaluation mask controls changed; drop cached mask so Apply rebuilds it."""
+        if self.uiUpdating or self.quadFold is None:
+            return
+
+        self._push_session_bg_eval_settings_to_info()
+        self.deleteImgCache(['mask', 'synthetic_mask'])
+        self._refresh_mask_preview_if_visible()
+
     def _refresh_mask_preview_if_visible(self):
         if not self.ableToProcess() or not self._is_mask_preview_visible():
             return
@@ -2421,48 +2430,19 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def equatorMaskHeightChanged(self):
         """Triggered when Equator Mask Height changes."""
-        if self.uiUpdating:
-            return
-
-        if self.quadFold is not None:
-            self.quadFold.info['equator_mask_height'] = self.equatorMaskHeightSpnBx.value()
-
-        self._refresh_mask_preview_if_visible()
-
+        self._on_evaluation_mask_settings_changed()
 
     def equatorMaskCenterBeamChanged(self):
         """Triggered when Equator Mask Center Beam changes."""
-        if self.uiUpdating:
-            return
-        
-        if self.quadFold is not None:
-            self.quadFold.info['equator_center_beam_width'] = self.equatorCenterBeamSpnBx.value()
-
-        self._refresh_mask_preview_if_visible()
-
-        
+        self._on_evaluation_mask_settings_changed()
 
     def m1Changed(self):
         """Triggered when M1 spacing changes."""
-        if self.uiUpdating:
-            return
-
-        if self.quadFold is not None:
-            self.quadFold.info['m1'] = self.m1SpnBx.value()
-
-        self._refresh_mask_preview_if_visible()
-
+        self._on_evaluation_mask_settings_changed()
 
     def layerLineMaskWidthChanged(self):
         """Triggered when layer line width changes."""
-        if self.uiUpdating:
-            return
-
-        if self.quadFold is not None:
-            self.quadFold.info['layer_line_width'] = self.layerLineWidthSpnBx.value()
-
-
-        self._refresh_mask_preview_if_visible()
+        self._on_evaluation_mask_settings_changed()
 
 
 
@@ -2895,8 +2875,16 @@ class QuadrantFoldingGUI(BaseGUI):
             self.stop_process = False
             self._set_optimization_button_running(True)
 
+        self._push_session_bg_eval_settings_to_info()
         self.deleteInfo(['result_bg'])
-        self.deleteImgCache(['BgSubFold', 'BgSubFold_out', 'BgSubFold_syn', 'BgSubFold_syn_out', 'BgFold', 'BgFold_out', 'BgFold_syn', 'BgFold_syn_out'])
+        self.deleteImgCache([
+            'mask',
+            'BgSubFold', 'BgSubFold_out', 'BgSubFold_syn', 'BgSubFold_syn_out',
+            'BgFold', 'BgFold_out', 'BgFold_syn', 'BgFold_syn_out',
+            'BgSubFold_in', 'BgFold_in', 'BgSubFold_syn_in', 'BgFold_syn_in',
+            'BgSubFold_syn_out', 'BgFold_syn_out',
+        ])
+        # self._force_no_fast_path_on_process = True
 
         self.resultDisplayModeCB.setEnabled(False)
 
@@ -3850,6 +3838,7 @@ class QuadrantFoldingGUI(BaseGUI):
     def _on_single_processing_finished(self):
         self._singleProcessing = False
         self._singleWorker = None
+        # self._force_no_fast_path_on_process = False
 
         if self._OptimizationRunning:
             self._set_optimization_button_running(False)
@@ -4799,6 +4788,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if self.calSettings is not None and 'detector' in self.calSettings:
             flags['detector'] = self.calSettings['detector']
+
+        # if getattr(self, '_force_no_fast_path_on_process', False):
+        #     flags['no_fast_path'] = True
 
         return flags
     
