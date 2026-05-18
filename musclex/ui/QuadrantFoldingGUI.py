@@ -4702,9 +4702,9 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['early_stop'] = self.earlyStopSpnBx.value()
         flags['mean_metric_values'] = {
             'MSE_SYN_MEAN': float(self.meanMSESpnBx.value()),
-            'SHARE_NEG_SYN_MEAN': _fraction_to_percent_for_ui(self.meanNegSynSpnBx.value()),
-            'SHARE_NON_BASELINE_MEAN': _fraction_to_percent_for_ui(self.meanNonBaselineSpnBx.value()),
-            'SHARE_NEG_CON_MEAN': _fraction_to_percent_for_ui(self.meanNegConSpnBx.value()),
+            'SHARE_NEG_SYN_MEAN': _percent_to_fraction_for_flags(self.meanNegSynSpnBx.value()),
+            'SHARE_NON_BASELINE_MEAN': _percent_to_fraction_for_flags(self.meanNonBaselineSpnBx.value()),
+            'SHARE_NEG_CON_MEAN': _percent_to_fraction_for_flags(self.meanNegConSpnBx.value()),
             'SMOOTH_MEAN': float(self.meanSmoothSpnBx.value()),
         }
         flags['evaluation_baseline'] = max(

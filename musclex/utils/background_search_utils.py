@@ -81,11 +81,11 @@ method_params = {
     },
     "Smoothed-Gaussian": {
         "fwhm": 10, # in pixels
-        "cycles": 200,
+        "cycles": 100,
     },
     "Smoothed-BoxCar": {
         "boxcar_x": 10,
         "boxcar_y": 10,
-        "cycles": 200,
+        "cycles": 100,
     },
 }
