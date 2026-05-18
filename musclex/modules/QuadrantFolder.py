@@ -1040,18 +1040,23 @@ class QuadrantFolder:
         return mask
 
 
-    def _ensure_synthetic_gaussian_params(self, fullImg, i0, m1):
-        AMP = 0.01
+    def _ensure_synthetic_gaussian_params(self, fullImg, i0, m1, i1=None):
         SIGMA_X_DIV = 5.0
         SIGMA_Y_DIV = 10.0
         min_amp = float(qf_defaults.MIN_SYNTHETIC_AMPLITUDE)
         min_sig_x = float(qf_defaults.MIN_SYNTHETIC_SIGMA_X)
         min_sig_y = float(qf_defaults.MIN_SYNTHETIC_SIGMA_Y)
+        frac_i0 = float(qf_defaults.SYNTHETIC_AMPLITUDE_FRAC_I0)
+        frac_i1 = float(qf_defaults.SYNTHETIC_AMPLITUDE_FRAC_I1)
 
         amplitude = float(self.info.get('synthetic_amplitude', 0.0))
         if amplitude <= 0.0:
             equator_half = get_projection(fullImg, gap=2, orientation=0, half=True)
-            amplitude = equator_half[i0] * AMP * i0
+            i0_idx = min(max(int(i0), 0), len(equator_half) - 1)
+            i1_idx = min(max(int(i1), 0), len(equator_half) - 1)
+            i0_peak = float(equator_half[i0_idx])
+            i1_peak = float(equator_half[i1_idx])
+            amplitude = frac_i0 * i0_peak + frac_i1 * i1_peak
             amplitude = min_amp if amplitude < min_amp else amplitude
 
         amplitude = max(min_amp, amplitude)
@@ -1119,7 +1124,7 @@ class QuadrantFolder:
             step_x=step_x, step_y=step_y, 
             offset_x=offset_x, offset_y=offset_y, fold=True)
         
-        amplitude, sigma_x, sigma_y = self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
+        amplitude, sigma_x, sigma_y = self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1, i1=i1)
 
         # print(f"Creating synthetic data with amplitude: {amplitude}, sigma_x: {sigma_x}, sigma_y: {sigma_y}, step_x: {step_x}, step_y: {step_y}")
 
@@ -1854,8 +1859,11 @@ class QuadrantFolder:
         syn_srt = self.imgCache.get('synthetic_data', None)
         syn_mask = self.imgCache.get('synthetic_mask', None)
         syn_fold = self.imgCache.get('BgSubFold_syn', None)
+        syn_fold_base = self.imgCache.get('BgSubFold', None)
         gen_mask = self.imgCache.get('mask', None)
-        syn_img = makeFullImage(syn_fold) if syn_fold is not None else None
+        syn_img, syn_srt, syn_mask = prepare_synthetic_eval_pair(
+            syn_fold, syn_fold_base, syn_srt, syn_mask
+        )
 
         kwargs = {
             'dimg': result,
