@@ -556,7 +556,6 @@ def smoothness(dimg, dbg, mask_equator):
     if mean_intensity <= 0:
         return 0.0
     smoothness_value = np.sum(dy) / (mask_sum * mean_intensity)
-    # smoothness_value *= 1000
     return float(smoothness_value)
 
 
@@ -976,15 +975,47 @@ def applyRovingWindowBGSub(fold, center, win_size_x=15, win_size_y=15, win_sep_x
     b = b[:fold.shape[0], :fold.shape[1]]
     return b
 
+def applyAverageBGSub(fold, mask=None):
+    """
+    Subtract a constant background equal to the mean intensity of the fold.
+
+    If mask is provided, the mean uses only pixels where mask > 0 (non-masked
+    evaluation regions). Falls back to the full-fold mean when no valid pixels
+    are found or mask is None.
+    """
+    if mask is not None:
+        mask = np.asarray(mask)
+        valid = mask > 0
+        if valid.shape != fold.shape:
+            print(f"mask shape: {mask.shape}, fold shape: {fold.shape}")
+            print(f"resizing mask to fold shape")
+            valid = cv2.resize(
+                mask.astype(np.float32),
+                (fold.shape[1], fold.shape[0]),
+                interpolation=cv2.INTER_NEAREST,
+            ) > 0
+        if np.any(valid):
+            print(f"number of non-zero pixels in valid: {np.sum(valid)}")
+            mean_val = np.mean(fold[valid])
+            print(f"mean value: {mean_val}")
+        else:
+            print(f"no non-zero pixels in valid")
+            mean_val = np.mean(fold)
+    else:
+        mean_val = np.mean(fold)
+    return np.full_like(fold, mean_val, dtype=np.float32)
+
 
 def applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
-                           tmp_center, params, downsample_factor=1):
+                           tmp_center, params, downsample_factor=1, mask=None):
     """
     Apply background removal 
     """
     from ..modules import QF_utilities as qfu
     if method == 'None':
         bg = np.zeros_like(avg_fold)
+    elif method == 'Average':
+        bg = applyAverageBGSub(avg_fold, mask=mask)
     elif method == '2D Convexhull':
         bg = apply2DConvexhull(tmp_avg_fold, tmp_rmin, params['degree'])
     elif method == 'White-top-hats':
@@ -1001,8 +1032,7 @@ def applyBackgroundRemoval(method, tmp_avg_fold, avg_fold, tmp_rmin, rmin, \
         print(f"Unknown background removal method: {method}. Not applying background removal.")
         bg = np.zeros_like(avg_fold)
     
-    if downsample_factor > 1 and method != 'None':
-        # print(f"Upsampling background from downsampled version by factor {downsample_factor}...")
+    if downsample_factor > 1 and method not in ('None', 'Average'):
         bg = upsampleImage(bg, factor=downsample_factor)
     bg = padToShape(bg, avg_fold.shape)
 
@@ -1273,6 +1303,7 @@ def process_file(values=None, **kwargs):
         'tmp_center': kwargs['tmp_center'],
         'params': params,
         'downsample_factor': kwargs['downsample_factor'],
+        'mask': kwargs.get('mask', None),
 
     }
 

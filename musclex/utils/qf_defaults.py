@@ -75,6 +75,7 @@ DEFAULT_FREQ = "medium"
 # BG Subtraction Methods
 BG_METHODS = [
     "None",
+    "Average",
     "2D Convexhull",
     "Circularly-symmetric",
     "White-top-hats",
@@ -82,7 +83,7 @@ BG_METHODS = [
     "Smoothed-BoxCar",
     "Roving Window",
 ]
-OPTIMIZATION_METHODS = BG_METHODS[1:]  # Exclude 'None' from optimization options
+OPTIMIZATION_METHODS = BG_METHODS[2:]  # Exclude 'None' from optimization options
 DEFAULT_OPTIMIZATION_METHODS = ["Circularly-symmetric", "White-top-hats", "Smoothed-Gaussian"]
 DEFAULT_OPTIMIZATION_STEPS = "100, 50, 25, 10, 5, 3, 1"
 
