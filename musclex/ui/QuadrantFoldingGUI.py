@@ -257,6 +257,46 @@ class FolderImageWorker(BaseProcessWorker):
             with self.lock:
                 self.bgDict[filename] = np.sum(result_img)
 
+class _BatchImageDataProxy:
+    """Minimal stand-in for QuadrantFolder._image_data used by csvManager.
+
+    QF_CSVManager.writeNewData only reads the ``.center`` attribute, so the
+    real ImageData (which would need the image array in memory) is not worth
+    reconstructing in the GUI process after the worker has already returned
+    a final center tuple.
+    """
+    __slots__ = ('center',)
+
+    def __init__(self, center):
+        self.center = center
+
+
+class _BatchQuadFoldProxy:
+    """Lightweight QuadrantFolder stand-in for post-batch persistence.
+
+    The real ``QuadrantFolder`` does its work in a separate process and
+    then returns only the serializable bits (``info``, ``center``,
+    ``rotation``, etc.). On the GUI side we still need to feed those
+    bits into ``QF_CSVManager.writeNewData`` and
+    ``_upsert_background_metrics_csv``, both of which access ``info``,
+    ``img_name``, ``imgCache``, ``rotation``, ``_image_data.center``,
+    and ``orig_image_center`` on a "quadFold" object. This proxy
+    provides exactly those fields and nothing else.
+    """
+    __slots__ = ('img_name', 'info', 'rotation', 'imgCache',
+                 '_image_data', 'orig_image_center')
+
+    def __init__(self, img_name, info, center, rotation, has_result):
+        self.img_name = img_name
+        self.info = info if isinstance(info, dict) else {}
+        self.rotation = rotation if rotation is not None else 0.0
+        # csvManager.writeNewData treats 'resultImg' as a presence flag, so a
+        # sentinel value is enough — we don't ship the actual ndarray back.
+        self.imgCache = {'resultImg': True} if has_result else {}
+        self._image_data = _BatchImageDataProxy(center) if center is not None else None
+        self.orig_image_center = center
+
+
 class EventEmitter(QObject):
     statusTextRequested = Signal(str)
 
@@ -309,15 +349,24 @@ class QuadrantFoldingGUI(BaseGUI):
         self.csvManager = None
         
         self.threadPool = QThreadPool()
-        # Limit for concurrent workers used by Process Folder / Process H5.
-        # Change this value to control how many tasks run in parallel.
-        self.maxConcurrentProcesses = min(8, int(self.threadPool.maxThreadCount() / 3))
+        # NOTE: Batch processing now uses a separate multiprocessing
+        # ProcessPoolExecutor (see initProcessExecutor / _batchProcessImages).
+        # The QThreadPool above is kept for single-image processing
+        # (SingleImageWorker) where cross-process pickling would just add
+        # latency without benefit.
         self.tasksQueue = Queue()
         self.currentTask = None
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
+
+        # Multiprocessing task management (mirrors EquatorWindow)
+        from ..utils.task_manager import ProcessingTaskManager
+        self.taskManager = ProcessingTaskManager()
+        self.processExecutor = None
+        self.pendingJobArgs = {}  # job_index -> job_args (for retry)
+        self.retryJobArgs = []    # job_args queued for the retry phase
         self.batchProcessing = False  # Flag to indicate batch processing mode
         
         # Retry and statistics tracking
@@ -3070,7 +3119,18 @@ class QuadrantFoldingGUI(BaseGUI):
         # ✅ Save settings before closing
         if hasattr(self, 'workspace'):
             self.workspace.save_settings()
-        
+
+        # Tear down the multiprocessing pool so child processes don't
+        # outlive the GUI. We use wait=False because we don't want the
+        # GUI close path to block on long-running optimizations; futures
+        # whose work is in-flight will be abandoned.
+        if getattr(self, 'processExecutor', None) is not None:
+            try:
+                self.processExecutor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+            self.processExecutor = None
+
         self.close()
 
     def markFixedInfo(self, currentInfo, prevInfo):
@@ -3696,160 +3756,358 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.applyBGButton.setStyleSheet(format_stopped)
 
 
-    def addTask(self, i):
-        params = QuadFoldParams(self.getFlags(), i, self.file_manager, self)
+    def initProcessExecutor(self):
+        """Initialize persistent process pool for parallel batch processing.
 
-        self.tasksQueue.put(params)
+        Mirrors EquatorWindow.initProcessExecutor(): a single
+        ProcessPoolExecutor is reused across batches so we don't pay
+        spawn/import overhead on every Process Folder run.
+        """
+        from concurrent.futures import ProcessPoolExecutor
+        from ..headless.mp_executor import init_worker
+        import multiprocessing as _mp
 
-        # If there's no task currently running, start the next task
-        self.startNextTask()
+        worker_count = int(os.environ.get(
+            'MUSCLEX_WORKERS', max(1, (os.cpu_count() or 2) - 2)
+        ))
 
-    def thread_done(self, quadFold):
-        # Write to tasks_done.txt (safely in main thread, no lock needed)
         try:
-            out = self.workspace.dir_context.output_dir if self.workspace.dir_context else quadFold.img_path
-            with open(out + "/qf_results/tasks_done.txt", "a") as file:
-                file.write(quadFold.img_name + " saving image\n")
-        except (OSError, IOError) as e:
-            print(f"Warning: Failed to write to tasks_done.txt for {quadFold.img_name}: {e}")
+            # Use 'spawn' context to avoid Qt fork-safety issues.
+            # 'fork' (Linux default) copies Qt's mutexes/file-descriptors into
+            # the child, causing workers to crash immediately.
+            mp_ctx = _mp.get_context('spawn')
+            self.processExecutor = ProcessPoolExecutor(
+                max_workers=worker_count,
+                initializer=init_worker,
+                mp_context=mp_ctx,
+            )
+            print(f"QF: initialized process pool with {worker_count} workers (spawn)")
+        except Exception as e:
+            print(f"QF: failed to create process pool: {e}")
+            print("  Batch processing will run in the main process (single worker)")
+            self.processExecutor = None
 
-        # Temporarily switch context to the finished image to update outputs
-        prevQuadFold = self.quadFold
-        self.quadFold = quadFold
+    def addTask(self, i):
+        """Submit one image (by index) to the batch process pool.
 
-        # In batch processing mode, skip UI updates for each task
-        if not self.batchProcessing:
-            self.onProcessingFinished()
-        else:
-            # In batch mode, write CSV data and save results without UI refresh
-            self.csvManager.writeNewData(self.quadFold)
-            self.saveResults()  # Save result images to qf_results/
-            self._upsert_background_metrics_csv(quad_fold=self.quadFold)
+        Builds a plain-Python ``job_args`` dict from current GUI state so
+        the worker process can fully reconstruct an ``ImageData`` +
+        ``QuadrantFolder`` without any Qt / parent references.
+        """
+        if self.processExecutor is None:
+            self.initProcessExecutor()
 
-            # Restore previous reference so UI continues showing user's current image
-            self.quadFold = prevQuadFold
+        if self.processExecutor is None:
+            # Pool unavailable — fall back to in-process processing so we
+            # at least keep going (worker count = 1).
+            self._processOneInProcess(i)
+            return
 
-            # Track success statistics
-            if self.isRetryPhase:
-                self.retrySuccessCount += 1
+        job_args = self._build_qf_job_args(i)
+        if job_args is None:
+            return
+
+        from ..headless.mp_executor import process_one_qf_image
+        future = self.processExecutor.submit(process_one_qf_image, job_args)
+        self.taskManager.submit_task(job_args['filename'], i, future)
+        # Track job_args so retry phase can resubmit without re-reading widgets.
+        self.pendingJobArgs[i] = job_args
+        future.add_done_callback(self._onFutureDone)
+
+    def _build_qf_job_args(self, job_index, override_flags=None):
+        """Snapshot all picklable state needed to process one image headlessly.
+
+        Run only on the main thread; the returned dict is fully self-contained
+        and will be pickled across to the worker process.
+        """
+        if not self.file_manager or job_index < 0 or job_index >= len(self.file_manager.names):
+            return None
+
+        filename = self.file_manager.names[job_index]
+        spec = self.file_manager.specs[job_index]
+
+        # Snapshot flags. Use deepcopy so any subsequent UI edits while the
+        # batch is running don't sneak into already-submitted jobs.
+        flags = copy.deepcopy(override_flags if override_flags is not None else self.getFlags())
+
+        # Manual center/rotation (per-image, from settings JSON via panel).
+        manual_center, manual_rotation = (None, None)
+        if self.workspace is not None:
+            try:
+                manual_center, manual_rotation = self.workspace.get_manual_settings(filename)
+            except Exception:
+                manual_center, manual_rotation = (None, None)
+
+        blank_mask_config = {'apply_blank': False, 'apply_mask': False, 'blank_weight': 1.0}
+        orientation_model = 0
+        inpaint = False
+        detector = None
+        if self.workspace is not None:
+            try:
+                blank_mask_config = self.workspace.get_blank_mask_config()
+            except Exception:
+                pass
+            orientation_model = getattr(self.workspace, '_orientation_model', 0) or 0
+            inpaint = getattr(self.workspace, 'inpaint_enabled', False)
+        if self.calSettings is not None and 'detector' in self.calSettings:
+            detector = self.calSettings['detector']
+
+        out = (self.workspace.dir_context.output_dir
+               if self.workspace and self.workspace.dir_context
+               else self.file_manager.dir_path)
+
+        compress_folded = True
+        if hasattr(self, 'compressFoldedImageChkBx'):
+            try:
+                compress_folded = bool(self.compressFoldedImageChkBx.isChecked())
+            except Exception:
+                pass
+
+        return {
+            'dir_path': self.file_manager.dir_path,
+            'filename': filename,
+            'spec': spec,
+            'flags': flags,
+            'bgsub': self.bgChoiceIn.currentText() if hasattr(self, 'bgChoiceIn') else 'None',
+            'output_dir': out,
+            'manual_center': tuple(manual_center) if manual_center is not None else None,
+            'manual_rotation': manual_rotation,
+            'apply_blank': bool(blank_mask_config.get('apply_blank', False)),
+            'apply_mask': bool(blank_mask_config.get('apply_mask', False)),
+            'blank_weight': float(blank_mask_config.get('blank_weight', 1.0)),
+            'inpaint': bool(inpaint),
+            'orientation_model': int(orientation_model),
+            'detector': detector,
+            'compress_folded': compress_folded,
+            'job_index': int(job_index),
+        }
+
+    def _processOneInProcess(self, job_index):
+        """Fallback: run one image's batch pipeline in the GUI process.
+
+        Only used when ``ProcessPoolExecutor`` could not be created
+        (sandbox / fork-restricted environments). Mirrors the worker
+        return shape and routes through the same completion handler so
+        batch accounting (success/retry/UI progress) stays identical.
+        """
+        from ..headless.mp_executor import process_one_qf_image
+        from concurrent.futures import Future
+
+        job_args = self._build_qf_job_args(job_index)
+        if job_args is None:
+            return
+
+        self.pendingJobArgs[job_index] = job_args
+        future = Future()
+        future.set_running_or_notify_cancel()
+        self.taskManager.submit_task(job_args['filename'], job_index, future)
+        try:
+            result = process_one_qf_image(job_args)
+            future.set_result(result)
+        except Exception as e:
+            future.set_exception(e)
+        self._onFutureDone(future)
+
+    def _onFutureDone(self, future):
+        """Process-pool callback. Bounces work back to the main thread.
+
+        ``concurrent.futures`` invokes done-callbacks from a background
+        thread inside the executor manager; touching Qt widgets there is
+        unsafe. Route through QTimer.singleShot(0, ...) so the rest of
+        the completion path runs on the GUI thread (same pattern as
+        EquatorWindow._onFutureDone).
+        """
+        QTimer.singleShot(0, self, lambda: self.onImageProcessed(future))
+
+    def onImageProcessed(self, future):
+        """Main-thread handler for one completed batch image.
+
+        Mirrors EquatorWindow.onImageProcessed:
+            1. Drain the future / capture errors
+            2. Hand the result to taskManager
+            3. Persist results via the main thread (CSV, tasks_done.txt,
+               background metrics, aggregated bg dict)
+            4. Update progress bar / status
+            5. When the batch is fully accounted for, kick off retry or
+               run the finalize path (onBatchComplete).
+        """
+        try:
+            try:
+                result = future.result()
+                error = result.get('error') if isinstance(result, dict) else None
+            except Exception as fut_exc:
+                # Worker process died abruptly (BrokenProcessPool, segfault, ...).
+                error = traceback.format_exc()
+                result = {'filename': None, 'info': None, 'error': error}
+
+            task = self.taskManager.complete_task(future, result, error)
+            if not task:
+                return
+
+            filename = task.filename or (result.get('filename') if isinstance(result, dict) else None)
+
+            if error:
+                self._record_task_error(task.job_index, filename, error)
             else:
-                self.successCount += 1
+                self._record_task_success(task, result)
 
-    def thread_error(self, error_payload, params):
+            # Progress bar update (percentage mode, same as legacy path)
+            self.tasksDone += 1
+            if self.progressBar.maximum() != 100:
+                self.progressBar.setRange(0, 100)
+                self.progressBar.setFormat("Retrying: %p%" if self.isRetryPhase else "%p%")
+            if self.totalFiles > 0:
+                self.progressBar.setValue(int(100.0 / self.totalFiles * self.tasksDone))
+
+            # All accounted for? Kick off retry phase or finalize.
+            if self.tasksDone >= self.totalFiles:
+                self._on_batch_phase_complete()
+        except Exception as cb_exc:
+            print(f"QF onImageProcessed callback error: {cb_exc}")
+            traceback.print_exc()
+
+    def _record_task_success(self, task, result):
+        """Persist a successful worker result on the main thread.
+
+        Worker has already written the folded.tif + bg.tif + qf_cache to
+        disk. Main thread is responsible for the things that need GUI
+        state or that need to be serialized across the batch:
+        ``tasks_done.txt``, the CSV summary, background metrics CSV,
+        ``bgAsyncDict``, and the retry/stats counters.
         """
-        Handle task error - queue for retry or record final failure.
+        filename = task.filename
+        info = result.get('info') if isinstance(result, dict) else None
+        center = result.get('center') if isinstance(result, dict) else None
+        rotation = result.get('rotation') if isinstance(result, dict) else None
+        has_result = bool(result.get('has_result')) if isinstance(result, dict) else False
+        bg_sum = result.get('bg_sum') if isinstance(result, dict) else None
 
-        ``error_payload`` is the dict emitted by BaseProcessWorker._handle_error
-        ({'error', 'traceback', 'image_name'}). Older code paths may emit a
-        plain string, so handle both for safety.
-        """
-        filename = params.file_manager.names[params.index]
+        out = (self.workspace.dir_context.output_dir
+               if self.workspace and self.workspace.dir_context
+               else self.filePath)
 
-        if isinstance(error_payload, dict):
-            error_str = error_payload.get('traceback') or error_payload.get('error') or str(error_payload)
-        else:
-            error_str = str(error_payload)
+        try:
+            os.makedirs(join(out, 'qf_results'), exist_ok=True)
+            with open(join(out, 'qf_results', 'tasks_done.txt'), 'a') as fh:
+                fh.write(filename + ' saving image\n')
+        except (OSError, IOError) as e:
+            print(f"Warning: Failed to write to tasks_done.txt for {filename}: {e}")
+
+        # CSV write needs a quadFold-like object. Build a lightweight
+        # shim mirroring the fields csvManager.writeNewData() reads.
+        try:
+            if info is not None and self.csvManager is not None:
+                self.csvManager.writeNewData(_BatchQuadFoldProxy(filename, info, center, rotation, has_result))
+        except Exception as e:
+            print(f"Failed to write CSV for {filename}: {e}")
+
+        try:
+            if info is not None:
+                self._upsert_background_metrics_csv(
+                    quad_fold=_BatchQuadFoldProxy(filename, info, center, rotation, has_result)
+                )
+        except Exception as e:
+            print(f"Failed to upsert background metrics for {filename}: {e}")
+
+        if bg_sum is not None:
+            self.bgAsyncDict[filename] = bg_sum
+
+        # Drop the snapshot — we no longer need to retry this job.
+        self.pendingJobArgs.pop(task.job_index, None)
 
         if self.isRetryPhase:
-            # Already retried once, record as final failure
+            self.retrySuccessCount += 1
+        else:
+            self.successCount += 1
+
+    def _record_task_error(self, job_index, filename, error_str):
+        """Track a failed worker invocation for retry / final reporting."""
+        filename = filename or f"<job_{job_index}>"
+
+        if self.isRetryPhase:
             self.retryFailCount += 1
             self.failedTaskErrors[filename] = error_str
+            self.pendingJobArgs.pop(job_index, None)
             print(f"Task failed after retry: {filename}")
         else:
-            # First failure - save error and queue for retry
             self.firstAttemptErrors[filename] = error_str
-            self.retryQueue.put(params)
+            # Queue the same job_args for resubmission in the retry phase.
+            job_args = self.pendingJobArgs.get(job_index)
+            if job_args is not None:
+                self.retryJobArgs.append(job_args)
             print(f"Task failed, queued for retry: {filename}")
 
-    def thread_finished(self):
+    def _on_batch_phase_complete(self):
+        """Either start the retry phase, or run the final batch cleanup."""
+        if not self.isRetryPhase and self.retryJobArgs:
+            retry_count = len(self.retryJobArgs)
+            print(f"Starting retry phase with {retry_count} failed tasks")
+            self.isRetryPhase = True
+            self.totalFiles = retry_count
+            self.tasksDone = 0
+            self.progressBar.setValue(0)
+            self.progressBar.setFormat("Retrying: %p%")
 
-        self.tasksDone += 1
-        # Ensure progress bar is in percentage mode (0-100 range)
-        if self.progressBar.maximum() != 100:
-            self.progressBar.setRange(0, 100)
-            self.progressBar.setFormat("%p%")
-        self.progressBar.setValue(int(100. / self.totalFiles * self.tasksDone))
-        
-        if not self.tasksQueue.empty():
-            self.startNextTask()
-        else:
-            if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
-                # Check if we need to start retry phase
-                if not self.isRetryPhase and not self.retryQueue.empty():
-                    # Enter retry phase
-                    print(f"Starting retry phase with {self.retryQueue.qsize()} failed tasks")
-                    self.isRetryPhase = True
-                    self.totalFiles = self.retryQueue.qsize()
-                    self.tasksDone = 0
-                    
-                    # Move retry queue items to main task queue
-                    while not self.retryQueue.empty():
-                        self.tasksQueue.put(self.retryQueue.get())
-                    
-                    # Reset progress bar for retry phase
-                    self.progressBar.setValue(0)
-                    self.progressBar.setFormat("Retrying: %p%")
-                    
-                    self.startNextTask()
-                    return
-                
-                print("All threads are complete")
-                self.batchProcessing = False  # Disable batch processing mode
-                self._force_recalc_bg_for_batch = False
-                if hasattr(self, "bgSubDialog"):
-                    # Reload saved configurations so manual assignment dialog remains usable
-                    try:
-                        self.bgSubDialog._load_background_configurations_from_cache()
-                    except Exception:
-                        pass
-                self.progressBar.setVisible(False)
-                self.navControls.filenameLineEdit.setEnabled(True)
-                
-                # Reset the button state - temporarily disconnect signal to avoid triggering clearTasks()
-                self.navControls.processFolderButton.toggled.disconnect(self.batchProcBtnToggled)
-                self.navControls.processFolderButton.setChecked(False)
-                self.navControls.processFolderButton.setText("Process Current Folder")
-                self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-                
+            to_submit, self.retryJobArgs = self.retryJobArgs, []
+            from ..headless.mp_executor import process_one_qf_image
+            for job_args in to_submit:
+                if self.stop_process or self.processExecutor is None:
+                    self._processOneInProcess(job_args['job_index'])
+                    continue
+                future = self.processExecutor.submit(process_one_qf_image, job_args)
+                self.taskManager.submit_task(job_args['filename'], job_args['job_index'], future)
+                self.pendingJobArgs[job_args['job_index']] = job_args
+                future.add_done_callback(self._onFutureDone)
+            return
+
+        self._finalize_batch()
+
+    def _finalize_batch(self):
+        """Wrap up a batch: aggregated CSVs, button state, summary popup."""
+        print("All batch tasks complete")
+        self.batchProcessing = False
+        self._force_recalc_bg_for_batch = False
+
+        if hasattr(self, "bgSubDialog"):
+            try:
+                self.bgSubDialog._load_background_configurations_from_cache()
+            except Exception:
+                pass
+
+        self.progressBar.setVisible(False)
+        self.navControls.filenameLineEdit.setEnabled(True)
+
+        try:
+            self.navControls.processFolderButton.toggled.disconnect(self.batchProcBtnToggled)
+            self.navControls.processFolderButton.setChecked(False)
+            self.navControls.processFolderButton.setText("Process Current Folder")
+            self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        except Exception:
+            pass
+
+        try:
+            if self.csvManager is not None:
                 self.csvManager.sortCSV()
-                out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
-                os.makedirs(join(out, 'qf_results'), exist_ok=True)
-                os.makedirs(join(out, 'qf_results/bg'), exist_ok=True)
-                with open(join(out, 'qf_results/bg/background_sum.csv'), 'w', newline='') as csvfile:
-                    writer = csv.writer(csvfile)
+        except Exception as e:
+            print(f"Failed to sort summary CSV: {e}")
 
-                    writer.writerow(['Name', 'Sum'])
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
+        try:
+            os.makedirs(join(out, 'qf_results'), exist_ok=True)
+            os.makedirs(join(out, 'qf_results', 'bg'), exist_ok=True)
+            with open(join(out, 'qf_results', 'bg', 'background_sum.csv'), 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['Name', 'Sum'])
+                for name, total in self.bgAsyncDict.items():
+                    writer.writerow([name, total])
+        except Exception as e:
+            print(f"Failed to write aggregated background_sum.csv: {e}")
 
-                    for name, sum in self.bgAsyncDict.items():
-                        writer.writerow([name, sum])
+        self.pendingJobArgs.clear()
+        self.retryJobArgs = []
 
-                # Note: UI is NOT refreshed after batch processing
-                # The displayed image remains the same as before batch processing started
-                # If you want to display a specific image after completion, you can manually navigate to it
-                
-                # Write error log and processing summary
-                self.writeProcessingLog()
-                
-                self.showProcessingFinishedMessage()
-
-    def startNextTask(self):
-        self.progressBar.setVisible(True)
-        self.navControls.filenameLineEdit.setEnabled(False)
-        bg_csv_lock = Lock()
-        worker_limit = max(1, min(self.maxConcurrentProcesses, self.threadPool.maxThreadCount()))
-        
-        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < worker_limit:
-            params = self.tasksQueue.get()
-            self.currentTask = FolderImageWorker(params, 
-                                      self.workspace._center_settings, 
-                                      self.workspace._rotation_settings,
-                                      self.bgChoiceIn.currentText(),
-                                      bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
-            self.currentTask.signals.result.connect(self.thread_done)
-            self.currentTask.signals.error.connect(self.thread_error)
-            self.currentTask.signals.finished.connect(self.thread_finished)
-
-            self.threadPool.start(self.currentTask)
+        self.writeProcessingLog()
+        self.showProcessingFinishedMessage()
 
 
     def onProcessingFinished(self):
@@ -4401,25 +4659,48 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def clearTasks(self):
         """
-        Stop scheduling new tasks, clear queued tasks, and reset UI state.
-        Running tasks will be allowed to finish.
+        Stop scheduling new tasks, cancel queued tasks, and reset UI state.
+        Already-running worker processes will run to completion (futures
+        get cancelled only if they haven't started yet).
         """
         # Prevent any further enqueuing/scheduling
         self.stop_process = True
 
-        # Clear any runnables that have been queued to the pool but not yet started
+        # Cancel any pending futures in the process pool. We tear the pool
+        # down so it cannot start new tasks; a fresh one will be created
+        # on the next batch via initProcessExecutor().
+        if self.processExecutor is not None:
+            try:
+                self.processExecutor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+            self.processExecutor = None
+
+        # Belt-and-suspenders: clear thread pool too (used by single-image
+        # worker; harmless during a batch since it's unused there).
         if self.threadPool is not None:
             try:
                 self.threadPool.clear()
             except Exception:
                 pass
 
-        # Drain our local queue of params that haven't been submitted yet
+        # Drain leftover bookkeeping
         try:
             while not self.tasksQueue.empty():
                 self.tasksQueue.get_nowait()
         except Exception:
             pass
+        self.pendingJobArgs.clear()
+        self.retryJobArgs = []
+        # Clear the task manager so any stale done-callbacks that fire
+        # after this point (cancelled futures, BrokenProcessPool, ...) are
+        # rejected by taskManager.complete_task() and don't bump tasksDone
+        # in a future fresh batch.
+        try:
+            self.taskManager.clear()
+        except Exception:
+            pass
+        self.batchProcessing = False
 
         # Reset UI elements
         self.progressBar.setVisible(False)
@@ -4604,7 +4885,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self._force_recalc_bg_for_batch = manual_bg_selected
             self.totalFiles = len(img_ids)
             self.tasksDone = 0
-            
+
             # Reset retry and statistics tracking
             self.retryQueue = Queue()
             self.isRetryPhase = False
@@ -4614,6 +4895,15 @@ class QuadrantFoldingGUI(BaseGUI):
             self.firstAttemptErrors = {}
             self.failedTaskErrors = {}
             self.saveErrors = {}
+
+            # Reset multiprocessing bookkeeping (mirrors EquatorWindow)
+            self.taskManager.clear()
+            self.pendingJobArgs.clear()
+            self.retryJobArgs = []
+            self.bgAsyncDict = {}
+            if self.processExecutor is None:
+                self.initProcessExecutor()
+
             for idx, i in enumerate(img_ids):
                 if self.stop_process:
                     break
@@ -4624,7 +4914,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
             # self.progressBar.setVisible(False)
             # Note: Don't setChecked(False) here - it will trigger clearTasks() and clear the queue!
-            # The button will be reset in thread_finished() when all tasks complete
+            # The button will be reset in _finalize_batch() when all tasks complete
         else:
             # User cancelled the dialog, reset button
             self.navControls.processFolderButton.setChecked(False)
