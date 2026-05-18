@@ -367,6 +367,13 @@ class QuadrantFoldingGUI(BaseGUI):
         self.processExecutor = None
         self.pendingJobArgs = {}  # job_index -> job_args (for retry)
         self.retryJobArgs = []    # job_args queued for the retry phase
+        # User-Stop UX (mirrors EquatorWindow.stopProcess):
+        # while a batch is winding down we show an indeterminate progress
+        # dialog and poll taskManager.get_running_count() until all
+        # in-flight workers have wound down.
+        self._stop_initiated = False
+        self._stopProgress = None
+        self._stopMsgTimer = None
         self.batchProcessing = False  # Flag to indicate batch processing mode
         
         # Retry and statistics tracking
@@ -3120,6 +3127,21 @@ class QuadrantFoldingGUI(BaseGUI):
         if hasattr(self, 'workspace'):
             self.workspace.save_settings()
 
+        # Tear down any in-flight Stop dialog/timer so they don't fire
+        # callbacks on a half-destroyed widget.
+        if getattr(self, '_stopMsgTimer', None) is not None:
+            try:
+                self._stopMsgTimer.stop()
+            except Exception:
+                pass
+            self._stopMsgTimer = None
+        if getattr(self, '_stopProgress', None) is not None:
+            try:
+                self._stopProgress.close()
+            except Exception:
+                pass
+            self._stopProgress = None
+
         # Tear down the multiprocessing pool so child processes don't
         # outlive the GUI. We use wait=False because we don't want the
         # GUI close path to block on long-running optimizations; futures
@@ -4021,8 +4043,20 @@ class QuadrantFoldingGUI(BaseGUI):
             self.successCount += 1
 
     def _record_task_error(self, job_index, filename, error_str):
-        """Track a failed worker invocation for retry / final reporting."""
+        """Track a failed worker invocation for retry / final reporting.
+
+        When the user has pressed Stop (``_stop_initiated``), we treat
+        every error as final and do *not* queue it for retry — the
+        whole point of Stop is to wind down, not to keep grinding.
+        """
         filename = filename or f"<job_{job_index}>"
+
+        if getattr(self, '_stop_initiated', False):
+            # User-initiated stop: cancelled/failed tasks are final.
+            self.failedTaskErrors[filename] = error_str
+            self.pendingJobArgs.pop(job_index, None)
+            print(f"Task cancelled during stop: {filename}")
+            return
 
         if self.isRetryPhase:
             self.retryFailCount += 1
@@ -4039,7 +4073,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def _on_batch_phase_complete(self):
         """Either start the retry phase, or run the final batch cleanup."""
-        if not self.isRetryPhase and self.retryJobArgs:
+        if (not self.isRetryPhase
+                and self.retryJobArgs
+                and not getattr(self, '_stop_initiated', False)):
             retry_count = len(self.retryJobArgs)
             print(f"Starting retry phase with {retry_count} failed tasks")
             self.isRetryPhase = True
@@ -4063,10 +4099,29 @@ class QuadrantFoldingGUI(BaseGUI):
         self._finalize_batch()
 
     def _finalize_batch(self):
-        """Wrap up a batch: aggregated CSVs, button state, summary popup."""
+        """Wrap up a batch: aggregated CSVs, button state, summary popup.
+
+        Idempotent: if ``batchProcessing`` is already False (e.g. a stale
+        callback fires after the polling-stop dialog already finalized
+        the batch) this method short-circuits without double-writing
+        artefacts or double-popping a completion dialog.
+        """
+        if not getattr(self, 'batchProcessing', False):
+            return
         print("All batch tasks complete")
         self.batchProcessing = False
         self._force_recalc_bg_for_batch = False
+
+        # Shut down the process pool now that nothing else will be
+        # submitted. We use wait=False because, at this point, every
+        # worker has already finished (either normally or via the
+        # stop-poll which only releases this path when running_count==0).
+        if self.processExecutor is not None:
+            try:
+                self.processExecutor.shutdown(wait=False, cancel_futures=False)
+            except Exception:
+                pass
+            self.processExecutor = None
 
         if hasattr(self, "bgSubDialog"):
             try:
@@ -4075,13 +4130,23 @@ class QuadrantFoldingGUI(BaseGUI):
                 pass
 
         self.progressBar.setVisible(False)
-        self.navControls.filenameLineEdit.setEnabled(True)
+        try:
+            self.navControls.filenameLineEdit.setEnabled(True)
+        except Exception:
+            pass
 
         try:
             self.navControls.processFolderButton.toggled.disconnect(self.batchProcBtnToggled)
             self.navControls.processFolderButton.setChecked(False)
+            self.navControls.processFolderButton.setEnabled(True)
             self.navControls.processFolderButton.setText("Process Current Folder")
             self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        except Exception:
+            pass
+        try:
+            self.navControls.processH5Button.setChecked(False)
+            self.navControls.processH5Button.setEnabled(True)
+            self.navControls.processH5Button.setText("Process Current H5 File")
         except Exception:
             pass
 
@@ -4105,9 +4170,20 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.pendingJobArgs.clear()
         self.retryJobArgs = []
+        # Clear task manager last — any stale callbacks that fire after
+        # this point will find their future missing and return early
+        # from onImageProcessed (see complete_task -> None check).
+        try:
+            self.taskManager.clear()
+        except Exception:
+            pass
 
         self.writeProcessingLog()
-        self.showProcessingFinishedMessage()
+        # Only show the "Complete" popup on natural completion. For
+        # user-initiated Stop we let _updateStopProgress show its own
+        # "Stopped" message instead, so the user doesn't get two popups.
+        if not getattr(self, '_stop_initiated', False):
+            self.showProcessingFinishedMessage()
 
 
     def onProcessingFinished(self):
@@ -4659,70 +4735,197 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def clearTasks(self):
         """
-        Stop scheduling new tasks, cancel queued tasks, and reset UI state.
-        Already-running worker processes will run to completion (futures
-        get cancelled only if they haven't started yet).
-        """
-        # Prevent any further enqueuing/scheduling
-        self.stop_process = True
+        Handle user "Stop" click during a batch.
 
-        # Cancel any pending futures in the process pool. We tear the pool
-        # down so it cannot start new tasks; a fresh one will be created
-        # on the next batch via initProcessExecutor().
+        Mirrors ``EquatorWindow.stopProcess``: cancel queued futures, show
+        an indeterminate "Stopping..." progress dialog, then poll the task
+        manager's running-count and finalize the batch when every worker
+        process has wound down.
+
+        Workers that have already started cannot be killed mid-pipeline
+        (no Python-level interrupt), but ``cancel_futures=True`` prevents
+        any *queued* task from starting. The popup tells the user how
+        many are still running so the wait is visible instead of silent.
+        """
+        # If no batch is running, just reset UI bits and bail out.
+        if not getattr(self, 'batchProcessing', False):
+            self._reset_batch_ui_only()
+            return
+
+        # Mark stop so retry phase / completion popup is skipped.
+        self.stop_process = True
+        self._stop_initiated = True
+
+        # Discard any retry queue: user wants out, not another attempt.
+        self.retryJobArgs = []
+
+        # Cancel pending futures. Already-running workers keep going to
+        # avoid leaving half-written cache / tif on disk; we'll wait for
+        # them in _updateStopProgress.
         if self.processExecutor is not None:
             try:
                 self.processExecutor.shutdown(wait=False, cancel_futures=True)
             except Exception:
                 pass
-            self.processExecutor = None
+            # Don't clear self.processExecutor here — _finalize_batch will.
+            # We need it to stay around so add_done_callback can still fire.
 
-        # Belt-and-suspenders: clear thread pool too (used by single-image
-        # worker; harmless during a batch since it's unused there).
+        # Single-image thread pool (unused in batch) — safe to clear.
         if self.threadPool is not None:
             try:
                 self.threadPool.clear()
             except Exception:
                 pass
 
-        # Drain leftover bookkeeping
+        # Drain any leftover bookkeeping that never made it to the pool.
         try:
             while not self.tasksQueue.empty():
                 self.tasksQueue.get_nowait()
         except Exception:
             pass
-        self.pendingJobArgs.clear()
-        self.retryJobArgs = []
-        # Clear the task manager so any stale done-callbacks that fire
-        # after this point (cancelled futures, BrokenProcessPool, ...) are
-        # rejected by taskManager.complete_task() and don't bump tasksDone
-        # in a future fresh batch.
+
+        # Repaint the folder button as "Stopping..." so the user gets
+        # immediate feedback even before the modal popup is up.
         try:
-            self.taskManager.clear()
+            self.navControls.processFolderButton.toggled.disconnect(self.batchProcBtnToggled)
+            self.navControls.processFolderButton.setText("Stopping...")
+            self.navControls.processFolderButton.setChecked(False)
+            self.navControls.processFolderButton.setEnabled(False)
+            self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         except Exception:
             pass
-        self.batchProcessing = False
+        try:
+            self.navControls.processH5Button.setText("Stopping...")
+            self.navControls.processH5Button.setEnabled(False)
+        except Exception:
+            pass
 
-        # Reset UI elements
+        running_count = self.taskManager.get_running_count()
+
+        msg = (f"Stopping Batch Processing\n\n"
+               f"Waiting for {running_count} task(s) to complete...")
+        # ``None`` cancel button → user can't cancel the stop itself.
+        self._stopProgress = QProgressDialog(msg, None, 0, 0, self)
+        self._stopProgress.setWindowTitle("Stopping...")
+        self._stopProgress.setWindowFlags(
+            Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        )
+        self._stopProgress.setModal(False)
+        self._stopProgress.setMinimumDuration(0)
+        self._stopProgress.show()
+
+        self._stopMsgTimer = QTimer(self)
+        self._stopMsgTimer.setInterval(300)
+        self._stopMsgTimer.timeout.connect(self._updateStopProgress)
+        self._stopMsgTimer.start()
+
+        # Trigger an immediate check in case running_count is already 0
+        # (e.g. user clicked Stop after all tasks had already started
+        # their cleanup phase).
+        QTimer.singleShot(0, self._updateStopProgress)
+
+    def _updateStopProgress(self):
+        """Tick-handler for the 'Stopping...' progress dialog.
+
+        Runs on the GUI thread every 300ms. As soon as the running count
+        hits zero we close the dialog, run the standard batch finalize
+        path, and notify the user.
+        """
+        if self._stopProgress is None:
+            return
+        try:
+            running_count = self.taskManager.get_running_count()
+        except Exception:
+            running_count = 0
+
+        msg = (f"Stopping Batch Processing\n\n"
+               f"Waiting for {running_count} task(s) to complete...")
+        try:
+            self._stopProgress.setLabelText(msg)
+        except Exception:
+            pass
+
+        if running_count > 0:
+            return
+
+        # All workers have wound down. Tear the dialog + timer down,
+        # then run final cleanup (idempotent w.r.t. _finalize_batch).
+        if self._stopMsgTimer is not None:
+            try:
+                self._stopMsgTimer.stop()
+            except Exception:
+                pass
+            self._stopMsgTimer = None
+        try:
+            self._stopProgress.close()
+        except Exception:
+            pass
+        self._stopProgress = None
+
+        # _finalize_batch is idempotent: it short-circuits if
+        # batchProcessing is already False (this can happen when the
+        # last callback already ran _on_batch_phase_complete before the
+        # polling tick fired).
+        if getattr(self, 'batchProcessing', False):
+            self._finalize_batch()
+
+        # Show a brief 'stopped' summary so the user has a clear marker
+        # of completion (mirrors EQ's _cleanupAfterBatch UX, which uses
+        # the dialog close itself as the marker).
+        if self._stop_initiated:
+            self._stop_initiated = False
+            self._show_batch_stopped_message()
+
+    def _reset_batch_ui_only(self):
+        """Reset batch-related UI without touching pool / task state.
+
+        Used when ``clearTasks`` is called while no batch is running
+        (defensive — e.g. toggling the Process Folder button while the
+        progress bar is hidden).
+        """
         self.progressBar.setVisible(False)
-        self.navControls.filenameLineEdit.setEnabled(True)
-
-        # Restore button texts and toggle off
+        try:
+            self.navControls.filenameLineEdit.setEnabled(True)
+        except Exception:
+            pass
         try:
             self.navControls.processFolderButton.setText("Process Current Folder")
             self.navControls.processFolderButton.setChecked(False)
+            self.navControls.processFolderButton.setEnabled(True)
         except Exception:
             pass
         try:
             self.navControls.processH5Button.setText("Process Current H5 File")
             self.navControls.processH5Button.setChecked(False)
+            self.navControls.processH5Button.setEnabled(True)
         except Exception:
             pass
-
-        # Do not keep a reference to a current task that may be finishing
-        # It will still signal finished; we just won't schedule more
         self.currentTask = None
         self._batch_background_configurations = []
         self._force_recalc_bg_for_batch = False
+
+    def _show_batch_stopped_message(self):
+        """Brief popup acknowledging a user-initiated stop."""
+        try:
+            totalSuccess = self.successCount + self.retrySuccessCount
+            totalProcessed = totalSuccess + self.retryFailCount
+            cancelledCount = max(0, self.totalFiles - totalProcessed) if self.totalFiles else 0
+
+            msgBox = QMessageBox(self)
+            msgBox.setWindowTitle("Batch Stopped")
+            msgBox.setIcon(QMessageBox.Information)
+            text = (
+                f"Batch processing was stopped by user.\n\n"
+                f"Completed: {totalSuccess}\n"
+                f"Cancelled / not processed: {cancelledCount}"
+            )
+            if self.retryFailCount > 0:
+                text += f"\nFailed: {self.retryFailCount}"
+            msgBox.setText(text)
+            msgBox.setStandardButtons(QMessageBox.Ok)
+            msgBox.exec_()
+        except Exception as e:
+            print(f"QF: could not show stopped message: {e}")
         
     def h5batchProcBtnToggled(self):
         """
@@ -4901,6 +5104,20 @@ class QuadrantFoldingGUI(BaseGUI):
             self.pendingJobArgs.clear()
             self.retryJobArgs = []
             self.bgAsyncDict = {}
+            # Clear any leftover Stop-state from a previous interrupted batch.
+            self._stop_initiated = False
+            if self._stopProgress is not None:
+                try:
+                    self._stopProgress.close()
+                except Exception:
+                    pass
+                self._stopProgress = None
+            if self._stopMsgTimer is not None:
+                try:
+                    self._stopMsgTimer.stop()
+                except Exception:
+                    pass
+                self._stopMsgTimer = None
             if self.processExecutor is None:
                 self.initProcessExecutor()
 
