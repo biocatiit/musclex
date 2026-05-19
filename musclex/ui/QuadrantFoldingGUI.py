@@ -3973,16 +3973,27 @@ class QuadrantFoldingGUI(BaseGUI):
             else:
                 self._record_task_success(task, result)
 
-            # Progress bar update (percentage mode, same as legacy path)
-            self.tasksDone += 1
+            stats = self.taskManager.get_statistics()
+
+            # During user-initiated Stop, the stop dialog owns the UX and
+            # waits for real running workers to wind down. Cancelled queued
+            # futures can complete in a burst; do not let that burst jump the
+            # main progress bar or trigger early finalization.
+            if getattr(self, '_stop_initiated', False):
+                return
+
+            # Progress bar update: use taskManager as the single source of
+            # truth instead of maintaining a second tasksDone counter.
             if self.progressBar.maximum() != 100:
                 self.progressBar.setRange(0, 100)
                 self.progressBar.setFormat("Retrying: %p%" if self.isRetryPhase else "%p%")
-            if self.totalFiles > 0:
-                self.progressBar.setValue(int(100.0 / self.totalFiles * self.tasksDone))
+            if stats['total'] > 0:
+                done = stats['completed'] + stats['failed']
+                self.progressBar.setValue(int(100.0 * done / stats['total']))
 
             # All accounted for? Kick off retry phase or finalize.
-            if self.tasksDone >= self.totalFiles:
+            if (stats['pending'] == 0 and
+                    stats['completed'] + stats['failed'] == stats['total']):
                 self._on_batch_phase_complete()
         except Exception as cb_exc:
             print(f"QF onImageProcessed callback error: {cb_exc}")
@@ -4081,6 +4092,11 @@ class QuadrantFoldingGUI(BaseGUI):
             self.isRetryPhase = True
             self.totalFiles = retry_count
             self.tasksDone = 0
+            # Retry is a new accounting phase. Success/failure counters above
+            # already preserve first-attempt results, so reset taskManager to
+            # make retry progress/statistics reflect only retry submissions.
+            self.taskManager.clear()
+            self.progressBar.setRange(0, 100)
             self.progressBar.setValue(0)
             self.progressBar.setFormat("Retrying: %p%")
 
@@ -4740,7 +4756,7 @@ class QuadrantFoldingGUI(BaseGUI):
         Mirrors ``EquatorWindow.stopProcess``: cancel queued futures, show
         an indeterminate "Stopping..." progress dialog, then poll the task
         manager's running-count and finalize the batch when every worker
-        process has wound down.
+        process has wound down and every completion callback is accounted for.
 
         Workers that have already started cannot be killed mid-pipeline
         (no Python-level interrupt), but ``cancel_futures=True`` prevents
@@ -4758,6 +4774,16 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # Discard any retry queue: user wants out, not another attempt.
         self.retryJobArgs = []
+
+        # Switch the main progress bar to busy mode while Stop is winding
+        # down. The stop dialog below shows the actual running-task count;
+        # the main bar should not jump forward as queued futures cancel.
+        try:
+            self.progressBar.setRange(0, 0)
+            self.progressBar.setFormat("Stopping...")
+            self.progressBar.setVisible(True)
+        except Exception:
+            pass
 
         # Cancel pending futures. Already-running workers keep going to
         # avoid leaving half-written cache / tif on disk; we'll wait for
@@ -4827,28 +4853,37 @@ class QuadrantFoldingGUI(BaseGUI):
     def _updateStopProgress(self):
         """Tick-handler for the 'Stopping...' progress dialog.
 
-        Runs on the GUI thread every 300ms. As soon as the running count
-        hits zero we close the dialog, run the standard batch finalize
-        path, and notify the user.
+        Runs on the GUI thread every 300ms. Once no worker is running and
+        every completion/cancellation callback has been accounted for, we
+        close the dialog, run the standard batch finalize path, and notify
+        the user.
         """
         if self._stopProgress is None:
             return
         try:
             running_count = self.taskManager.get_running_count()
+            stats = self.taskManager.get_statistics()
         except Exception:
             running_count = 0
+            stats = {'pending': 0}
 
-        msg = (f"Stopping Batch Processing\n\n"
-               f"Waiting for {running_count} task(s) to complete...")
+        pending_count = stats.get('pending', 0)
+        if running_count > 0:
+            msg = (f"Stopping Batch Processing\n\n"
+                   f"Waiting for {running_count} task(s) to complete...")
+        else:
+            msg = (f"Stopping Batch Processing\n\n"
+                   f"Finalizing {pending_count} task callback(s)...")
         try:
             self._stopProgress.setLabelText(msg)
         except Exception:
             pass
 
-        if running_count > 0:
+        if running_count > 0 or pending_count > 0:
             return
 
-        # All workers have wound down. Tear the dialog + timer down,
+        # All workers have wound down and every completion/cancellation
+        # callback has been accounted for. Tear the dialog + timer down,
         # then run final cleanup (idempotent w.r.t. _finalize_batch).
         if self._stopMsgTimer is not None:
             try:
