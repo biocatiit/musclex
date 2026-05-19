@@ -414,6 +414,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self._stopOptimizationRequested = False
         self._persisted_evaluation_baseline = None
         self._persisted_eval_baseline_lock = Lock()
+        self._persisted_synthetic_params = None
+        self._persisted_synthetic_params_lock = Lock()
 
         self.initUI() # initial all GUI
 
@@ -1502,6 +1504,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'amplitudeSpnBx',
             'sigmaXSpnBx',
             'sigmaYSpnBx',
+            'persistSyntheticDataChkBx',
             'freqCB',
             'weightMSESpnBx',
             'weightNegSynSpnBx',
@@ -1529,6 +1532,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.checkableButtons.append(self.setRminRmaxButton)
         if hasattr(self, "persistEvaluationBaselineChkBx"):
             self.persistEvaluationBaselineChkBx.toggled.connect(self._on_persist_evaluation_baseline_toggled)
+        if hasattr(self, "persistSyntheticDataChkBx"):
+            self.persistSyntheticDataChkBx.toggled.connect(self._on_persist_synthetic_data_toggled)
 
     def openBackgroundSubtractionDialog(self):
         """Open the background subtraction settings popup."""
@@ -1594,6 +1599,103 @@ class QuadrantFoldingGUI(BaseGUI):
                     self._register_persisted_evaluation_baseline(baseline)
         else:
             self._clear_persisted_evaluation_baseline()
+
+    def _is_synthetic_data_persisted(self):
+        """Return True when the "Persist synthetic data" checkbox is checked."""
+        return (
+            hasattr(self, "persistSyntheticDataChkBx")
+            and self.persistSyntheticDataChkBx is not None
+            and self.persistSyntheticDataChkBx.isChecked()
+        )
+
+    def _get_persisted_synthetic_params(self):
+        """Return the persisted ``(amplitude, sigma_x, sigma_y)`` tuple, or ``None``.
+
+        Returns ``None`` if no synthetic params have been registered yet or
+        if any of them is non-positive (which means the optimizer / GUI
+        should recompute them from the image).
+        """
+        with self._persisted_synthetic_params_lock:
+            value = self._persisted_synthetic_params
+        if value is None:
+            return None
+        try:
+            amp, sx, sy = (float(value[0]), float(value[1]), float(value[2]))
+        except Exception:
+            return None
+        if amp <= 0.0 or sx <= 0.0 or sy <= 0.0:
+            return None
+        return (amp, sx, sy)
+
+    def _register_persisted_synthetic_params(self, amplitude, sigma_x, sigma_y):
+        """Persist synthetic params on first use; later calls return the existing tuple.
+
+        This mirrors ``_register_persisted_evaluation_baseline``: once a valid
+        tuple is captured (e.g. after the first per-image computation), it
+        sticks across image navigations while the checkbox stays checked.
+        """
+        try:
+            amp = float(amplitude)
+            sx = float(sigma_x)
+            sy = float(sigma_y)
+        except Exception:
+            return self._get_persisted_synthetic_params()
+        if amp <= 0.0 or sx <= 0.0 or sy <= 0.0:
+            return self._get_persisted_synthetic_params()
+
+        with self._persisted_synthetic_params_lock:
+            existing = self._persisted_synthetic_params
+            if existing is None:
+                self._persisted_synthetic_params = (amp, sx, sy)
+                resolved = (amp, sx, sy)
+            else:
+                resolved = tuple(float(v) for v in existing)
+        return resolved
+
+    def _clear_persisted_synthetic_params(self):
+        with self._persisted_synthetic_params_lock:
+            self._persisted_synthetic_params = None
+
+    def _register_persisted_synthetic_from_processed_info(self, info):
+        """After processing, persist synthetic params from ``info`` if the checkbox is on."""
+        if not isinstance(info, dict):
+            return
+        if not self._is_synthetic_data_persisted():
+            return
+        resolved = self._register_persisted_synthetic_params(
+            info.get("synthetic_amplitude"),
+            info.get("synthetic_sigma_x"),
+            info.get("synthetic_sigma_y"),
+        )
+        if resolved is None:
+            return
+        amp, sx, sy = resolved
+        self.uiUpdating = True
+        try:
+            if hasattr(self, "amplitudeSpnBx"):
+                blocker = QSignalBlocker(self.amplitudeSpnBx)
+                self.amplitudeSpnBx.setValue(amp)
+                del blocker
+            if hasattr(self, "sigmaXSpnBx"):
+                blocker = QSignalBlocker(self.sigmaXSpnBx)
+                self.sigmaXSpnBx.setValue(sx)
+                del blocker
+            if hasattr(self, "sigmaYSpnBx"):
+                blocker = QSignalBlocker(self.sigmaYSpnBx)
+                self.sigmaYSpnBx.setValue(sy)
+                del blocker
+        finally:
+            self.uiUpdating = False
+
+    def _on_persist_synthetic_data_toggled(self, checked):
+        if checked:
+            amp = float(self.amplitudeSpnBx.value()) if hasattr(self, "amplitudeSpnBx") else 0.0
+            sx = float(self.sigmaXSpnBx.value()) if hasattr(self, "sigmaXSpnBx") else 0.0
+            sy = float(self.sigmaYSpnBx.value()) if hasattr(self, "sigmaYSpnBx") else 0.0
+            if amp > 0.0 and sx > 0.0 and sy > 0.0:
+                self._register_persisted_synthetic_params(amp, sx, sy)
+        else:
+            self._clear_persisted_synthetic_params()
 
 
     def _format_bg_params_text(self, params):
@@ -3104,9 +3206,24 @@ class QuadrantFoldingGUI(BaseGUI):
         info['equator_center_beam_width'] = int(self.equatorCenterBeamSpnBx.value())
         info['m1'] = int(self.m1SpnBx.value())
         info['layer_line_width'] = int(self.layerLineWidthSpnBx.value())
-        info['synthetic_amplitude'] = float(self.amplitudeSpnBx.value())
-        info['synthetic_sigma_x'] = float(self.sigmaXSpnBx.value())
-        info['synthetic_sigma_y'] = float(self.sigmaYSpnBx.value())
+        # Synthetic Gaussian params: same shape as evaluation_baseline above.
+        # When persistence is OFF we leave info alone so the per-image
+        # values computed by QuadrantFolder._ensure_synthetic_gaussian_params
+        # are preserved. When persistence is ON, the UI / persisted tuple
+        # wins across images.
+        persist_synth = self._is_synthetic_data_persisted()
+        info['persist_synthetic_data'] = persist_synth
+        if persist_synth:
+            persisted = self._get_persisted_synthetic_params()
+            if persisted is not None:
+                amp, sx, sy = persisted
+            else:
+                amp = float(self.amplitudeSpnBx.value())
+                sx = float(self.sigmaXSpnBx.value())
+                sy = float(self.sigmaYSpnBx.value())
+            info['synthetic_amplitude'] = amp
+            info['synthetic_sigma_x'] = sx
+            info['synthetic_sigma_y'] = sy
         info['freq'] = str(self.freqCB.currentText())
 
     def _seed_synthetic_spinboxes_from_ensure_defaults(self):
@@ -3172,12 +3289,27 @@ class QuadrantFoldingGUI(BaseGUI):
                 qf_defaults.MIN_EVAL_BASELINE,
                 float(info.get('evaluation_baseline', self.evaluationBaselineSpnBx.value()))
             ))
-        if 'synthetic_amplitude' in info:
-            self.amplitudeSpnBx.setValue(float(info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
-        if 'synthetic_sigma_x' in info:
-            self.sigmaXSpnBx.setValue(float(info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
-        if 'synthetic_sigma_y' in info:
-            self.sigmaYSpnBx.setValue(float(info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
+        # Synthetic Gaussian params follow the persist-synthetic-data toggle
+        # (see "Persist synthetic data" in Background Subtraction settings).
+        # When OFF, the spinboxes display the most recent per-image computed
+        # values; we never restore them from prior cache here because that
+        # would defeat the point of recomputing per image. Once processing
+        # completes for the current image, _seed_synthetic_spinboxes_from_ensure_defaults
+        # repopulates the spinboxes with what was actually computed.
+        if self._is_synthetic_data_persisted():
+            persisted = self._get_persisted_synthetic_params()
+            if persisted is not None:
+                amp, sx, sy = persisted
+                self.amplitudeSpnBx.setValue(amp)
+                self.sigmaXSpnBx.setValue(sx)
+                self.sigmaYSpnBx.setValue(sy)
+            else:
+                if 'synthetic_amplitude' in info:
+                    self.amplitudeSpnBx.setValue(float(info.get('synthetic_amplitude', self.amplitudeSpnBx.value())))
+                if 'synthetic_sigma_x' in info:
+                    self.sigmaXSpnBx.setValue(float(info.get('synthetic_sigma_x', self.sigmaXSpnBx.value())))
+                if 'synthetic_sigma_y' in info:
+                    self.sigmaYSpnBx.setValue(float(info.get('synthetic_sigma_y', self.sigmaYSpnBx.value())))
         if 'freq' in info:
             freq_value = str(info.get('freq', self.freqCB.currentText()))
             idx = self.freqCB.findText(freq_value)
@@ -3735,6 +3867,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self._singleProcessing = False
         self.quadFold = quad_fold
         self._register_persisted_baseline_from_processed_info(quad_fold.info)
+        self._register_persisted_synthetic_from_processed_info(quad_fold.info)
         if quad_fold.info.get('stopped'):
             return
 
@@ -4488,6 +4621,10 @@ class QuadrantFoldingGUI(BaseGUI):
             "Mean_SHARE_NON_BASELINE": mean_metric_values.get("SHARE_NON_BASELINE_MEAN", None),
             "Mean_SHARE_NEG_CON": mean_metric_values.get("SHARE_NEG_CON_MEAN", None),
             "Mean_SMOOTH": mean_metric_values.get("SMOOTH_MEAN", None),
+            "Evaluation_Baseline_Value": info.get("evaluation_baseline", None) if isinstance(info, dict) else None,
+            "Synthetic_Amplitude_Value": info.get("synthetic_amplitude", None) if isinstance(info, dict) else None,
+            "Synthetic_Sigma_X_Value": info.get("synthetic_sigma_x", None) if isinstance(info, dict) else None,
+            "Synthetic_Sigma_Y_Value": info.get("synthetic_sigma_y", None) if isinstance(info, dict) else None,
         }
         ordered_columns = list(row_data.keys())
 
@@ -4705,9 +4842,27 @@ class QuadrantFoldingGUI(BaseGUI):
             and self.persistEvaluationBaselineChkBx is not None
             and self.persistEvaluationBaselineChkBx.isChecked()
         )
-        flags['synthetic_amplitude'] = float(self.amplitudeSpnBx.value())
-        flags['synthetic_sigma_x'] = float(self.sigmaXSpnBx.value())
-        flags['synthetic_sigma_y'] = float(self.sigmaYSpnBx.value())
+        # Synthetic Gaussian params: when persistence is OFF we send 0 so
+        # QuadrantFolder._ensure_synthetic_gaussian_params recomputes them
+        # from the current image; when ON we send either the persisted
+        # tuple (registered after a previous image) or the UI values.
+        persist_synth = self._is_synthetic_data_persisted()
+        flags['persist_synthetic_data'] = persist_synth
+        if persist_synth:
+            persisted = self._get_persisted_synthetic_params()
+            if persisted is not None:
+                amp, sx, sy = persisted
+            else:
+                amp = float(self.amplitudeSpnBx.value())
+                sx = float(self.sigmaXSpnBx.value())
+                sy = float(self.sigmaYSpnBx.value())
+            flags['synthetic_amplitude'] = amp
+            flags['synthetic_sigma_x'] = sx
+            flags['synthetic_sigma_y'] = sy
+        else:
+            flags['synthetic_amplitude'] = 0.0
+            flags['synthetic_sigma_x'] = 0.0
+            flags['synthetic_sigma_y'] = 0.0
         flags['freq'] = str(self.freqCB.currentText())
         flags['metric_weights'] = {
             'MSE': float(self.weightMSESpnBx.value()),
@@ -5728,6 +5883,15 @@ class QuadrantFoldingGUI(BaseGUI):
             blocker = QSignalBlocker(self.evaluationBaselineSpnBx)
             self.evaluationBaselineSpnBx.setValue(0.0)
             del blocker
+
+        if (
+            hasattr(self, "persistSyntheticDataChkBx")
+            and hasattr(self, "amplitudeSpnBx")
+            and hasattr(self, "sigmaXSpnBx")
+            and hasattr(self, "sigmaYSpnBx")
+            and not self.persistSyntheticDataChkBx.isChecked()
+        ):
+            self._clear_persisted_synthetic_params()
 
         # Restore cache state if available
         if hasattr(self.quadFold, 'info'):
