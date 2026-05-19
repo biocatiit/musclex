@@ -241,6 +241,7 @@ class QuadrantFolder:
         'roi_w', 'roi_h',
         # Runtime UI-only preference
         'persist_evaluation_baseline',
+        'persist_synthetic_data',
         # Image-bearing intermediates (now persisted only via _folded.tif)
         'avg_fold', 'bgimg1', 'bgimg2', 'bg_line',
         # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
@@ -261,6 +262,7 @@ class QuadrantFolder:
         'cache_format_version',
         'processing_fingerprint',
         'persist_evaluation_baseline',
+        'persist_synthetic_data',
         'transform',
         'inv_transform',
         'centImgTransMat',
@@ -666,6 +668,13 @@ class QuadrantFolder:
             parent_baseline = self._get_parent_persisted_evaluation_baseline()
             if parent_baseline is not None:
                 self.info['evaluation_baseline'] = float(parent_baseline)
+
+        persist_synthetic_data = bool(self.info.get('persist_synthetic_data', False))
+        if not persist_synthetic_data:
+            # Recompute synthetic Gaussian params per image/run when persistence is disabled.
+            self.info['synthetic_amplitude'] = 0.0
+            self.info['synthetic_sigma_x'] = 0.0
+            self.info['synthetic_sigma_y'] = 0.0
 
         # In-memory caches invalidated when the resolved ROI changes.
         new_roi = (self.info.get('roi_w'), self.info.get('roi_h'))
@@ -1276,11 +1285,25 @@ class QuadrantFolder:
     def _build_bg_search_kwargs(self):
         raw_metrics_cache = self._prepare_bg_raw_metrics_cache()
         folded_image = makeFullImage(self.imgCache['avg_fold'])
+        persist_manual = bool(self.info.get('persist_evaluation_baseline', False))
+        if not persist_manual:
+            # Keep optimizer loss aligned with evaluateResult() when baseline
+            # persistence is disabled: derive a per-image baseline from stack.
+            eval_baseline = get_radial_average_rmax(
+                folded_image, self.info['rmax'], band_width=30
+            ) * 0.2
+        else:
+            eval_baseline = self.info.get('evaluation_baseline', None)
+            if eval_baseline is None or float(eval_baseline) <= 0.0:
+                eval_baseline = get_radial_average_rmax(
+                    folded_image, self.info['rmax'], band_width=30
+                ) * 0.2
+        eval_baseline = max(float(eval_baseline), qf_defaults.MIN_EVAL_BASELINE)
         return {
             'steps': self.info['steps'],
             'early_stop': self.info['early_stop'],
             'max_iterations': self.info['max_iterations'],
-            'evaluation_baseline': self.info['evaluation_baseline'],
+            'evaluation_baseline': eval_baseline,
             'tmp_avg_fold': self.imgCache['_avg_fold'],
             'avg_fold': self.imgCache['avg_fold'],
             'tmp_rmin': self.imgCache['_rmin'],

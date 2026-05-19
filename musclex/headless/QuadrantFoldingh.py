@@ -378,6 +378,10 @@ class QuadrantFoldingh:
             "Mean_SHARE_NON_BASELINE": mean_metric_values.get("SHARE_NON_BASELINE_MEAN", None) if isinstance(mean_metric_values, dict) else None,
             "Mean_SHARE_NEG_CON": mean_metric_values.get("SHARE_NEG_CON_MEAN", None) if isinstance(mean_metric_values, dict) else None,
             "Mean_SMOOTH": mean_metric_values.get("SMOOTH_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Evaluation_Baseline_Value": info.get("evaluation_baseline", None) if isinstance(info, dict) else None,
+            "Synthetic_Amplitude_Value": info.get("synthetic_amplitude", None) if isinstance(info, dict) else None,
+            "Synthetic_Sigma_X_Value": info.get("synthetic_sigma_x", None) if isinstance(info, dict) else None,
+            "Synthetic_Sigma_Y_Value": info.get("synthetic_sigma_y", None) if isinstance(info, dict) else None,
         }
         ordered_columns = list(row_data.keys())
 
