@@ -470,42 +470,45 @@ class BackgroundSubtractionDialog(QDialog):
         # ===== Normalization Means (Used in table) =====
         self.meanMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
         self.meanMSESpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e9, 
-                                                        value=qf_defaults.DEFAULT_MEAN_MSE, decimals=2)
+                                                        value=qf_defaults.DEFAULT_MEAN_MSE, decimals=3)
 
         self.meanNegSynLabel = self._create_label("Fraction of Synthetic Oversubtraction, %", "small")
         self.meanNegSynSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
-                                                           value=qf_defaults.DEFAULT_MEAN_NEG_SYN, 
-                                                           decimals=2, suffix=" %")
+                                                           value=_fraction_to_percent_for_ui(qf_defaults.DEFAULT_MEAN_NEG_SYN), 
+                                                           decimals=3, suffix=" %")
 
         self.meanNonBaselineLabel = self._create_label("Fraction of Non Near-Zero Baseline Pixels, %", "small")
         self.meanNonBaselineSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
-                                                                value=qf_defaults.DEFAULT_MEAN_BASELINE, 
-                                                                decimals=2, suffix=" %")
+                                                                value=_fraction_to_percent_for_ui(qf_defaults.DEFAULT_MEAN_BASELINE), 
+                                                                decimals=3, suffix=" %")
 
         self.meanNegConLabel = self._create_label("Fraction of Negative Connected Pixels, %", "small")
         self.meanNegConSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=100.0, 
-                                                           value=qf_defaults.DEFAULT_MEAN_NEG_CON, 
-                                                           decimals=2, suffix=" %")
+                                                           value=_fraction_to_percent_for_ui(qf_defaults.DEFAULT_MEAN_NEG_CON), 
+                                                           decimals=3, suffix=" %")
 
         self.meanSmoothLabel = self._create_label("Smoothness Metric", "small")
         self.meanSmoothSpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e6, 
-                                                           value=qf_defaults.DEFAULT_MEAN_SMOOTH, decimals=2)
+                                                           value=qf_defaults.DEFAULT_MEAN_SMOOTH, decimals=3)
 
         # ===== Evaluation Metrics Settings =====
         self.evaluationBaselineLabel = self._create_label("Evaluation Baseline:", "small")
         self.evaluationBaselineSpnBx = self._create_double_spinbox(min_val=qf_defaults.MIN_EVAL_BASELINE, max_val=1e9, 
                                                                    value=qf_defaults.DEFAULT_EVAL_BASELINE,
-            decimals=2, step=0.01,
+            decimals=3, step=0.01,
             tooltip="Baseline value for near-zero pixel evaluation.")
-        self.persistEvaluationBaselineChkBx = QCheckBox("Persist Evaluation Baseline")
-        self.persistEvaluationBaselineChkBx.setToolTip(
-            "Reuse one evaluation baseline across images while this UI stays open. "
-            "When baseline is 0, the first computed baseline is reused."
-        )
-
         self.persistEvaluationBaselineChkBx = QCheckBox("Persist evaluation baseline")
         self.persistEvaluationBaselineChkBx.setToolTip(
-            "When checked, the evaluation baseline value is carried over when you switch images (same as the spinbox)."
+            "When checked, the evaluation baseline value is carried over when you switch images "
+            "(same as the spinbox). When unchecked, the baseline is recomputed for each image."
+        )
+
+        self.persistSyntheticDataChkBx = QCheckBox("Persist synthetic data")
+        self.persistSyntheticDataChkBx.setToolTip(
+            "When checked, synthetic Gaussian parameters (amplitude, sigma X, sigma Y) "
+            "are carried over when you switch images. "
+            "When unchecked, they are recomputed per image from the equator / meridian "
+            "profile and shown on the UI."
         )
 
         self.amplitudeLabel = self._create_label("Synthetic Amplitude:", "small")
@@ -976,6 +979,7 @@ class BackgroundSubtractionDialog(QDialog):
         additional_layout.addWidget(self.sigmaXSpnBx, 2, 1, 1, 1)
         additional_layout.addWidget(self.sigmaYLabel, 2, 2, 1, 1)
         additional_layout.addWidget(self.sigmaYSpnBx, 2, 3, 1, 1)
+        additional_layout.addWidget(self.persistSyntheticDataChkBx, 3, 0, 1, 4)
 
         self.additionalSettingsGroup.setLayout(additional_layout)
         metric_layout.addWidget(self.additionalSettingsGroup, 2, 0, 1, 4)
@@ -1405,8 +1409,8 @@ class BackgroundSubtractionDialog(QDialog):
         additional_info = {
             'methods': flags.get('methods', []),
             'steps': flags.get('steps', []),
-            'early_stop': flags.get('early_stop', 0.01),
-            'max_iterations': flags.get('max_iterations', 15),
+            'early_stop': flags.get('early_stop', 0.005),
+            'max_iterations': flags.get('max_iterations', 20),
             'mean_metric_values': flags.get('mean_metric_values', None),
             'evaluation_baseline': flags.get('evaluation_baseline', None),
             'metric_weights': flags.get('metric_weights', None),
