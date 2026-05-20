@@ -27,12 +27,12 @@ method_bounds = {
         "cirmax": [5, 40], # in %
     },
     "Smoothed-Gaussian": {
-        "fwhm": [1, 150], # in pixels
+        "fwhm": [5, 150], # in pixels
         "cycles": [5, 2000],
     },
     "Smoothed-BoxCar": {
-        "boxcar_x": [1, 150],
-        "boxcar_y": [1, 150],
+        "boxcar_x": [5, 150],
+        "boxcar_y": [5, 150],
         "cycles": [5, 2000],
     },
 }
@@ -41,11 +41,11 @@ method_order = {
     "None": [],
     "Average": [],
     "2D Convexhull": [0],
-    "Circularly-symmetric": [2,3,4,0,1],
+    "Circularly-symmetric": [2,4,3,0,1, 2,4],
     "White-top-hats": [0],
-    "Roving Window": [1, 2, 3, 4, 6, 7, 5, 0],
-    "Smoothed-Gaussian": [0,1],
-    "Smoothed-BoxCar": [0,1,2],
+    "Roving Window": [1, 2, 3, 4, 7, 5, 0, 6,  1, 2, 3, 4, 7, 5],
+    "Smoothed-Gaussian": [0,1, 0,1],
+    "Smoothed-BoxCar": [2,0,1 ,2,0,1],
 }
 
 

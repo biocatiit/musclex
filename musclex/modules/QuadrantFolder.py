@@ -971,6 +971,7 @@ class QuadrantFolder:
             mask *= m
         
         self.imgCache['mask'] = mask.astype(int)
+        self.imgCache['equator_mask'] = masks['equator']
 
     def _create_rminrmax_mask(self, h, w):
         """Create radial min/max mask."""
@@ -1899,6 +1900,7 @@ class QuadrantFolder:
         syn_fold = self.imgCache.get('BgSubFold_syn', None)
         syn_fold_base = self.imgCache.get('BgSubFold', None)
         gen_mask = self.imgCache.get('mask', None)
+        equator_mask = self.imgCache.get('equator_mask', None)
         syn_img, syn_srt, syn_mask = prepare_synthetic_eval_pair(
             syn_fold, syn_fold_base, syn_srt, syn_mask
         )
@@ -1911,6 +1913,7 @@ class QuadrantFolder:
             'syn_srt': syn_srt,
             'syn_mask': syn_mask,
             'gen_mask': gen_mask,
+            'equator_mask': equator_mask,
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
         }
@@ -1918,6 +1921,8 @@ class QuadrantFolder:
         self.info['result_bg']['loss'] = eval_result.get('loss', None)
         self.info['result_bg']['metrics_normalized'] = eval_result.get('metrics_normalized', {})
         self.info['result_bg']['metrics_raw'] = eval_result.get('metrics_raw', {})
+        self.info['result_bg']['metrics_equator_normalized'] = eval_result.get('metrics_equator_normalized', {})
+        self.info['result_bg']['metrics_equator_raw'] = eval_result.get('metrics_equator_raw', {})
         self.info['result_bg']['mean_metric_values'] = self.info.get('mean_metric_values', None)
         self.info['result_bg']['metric_weights'] = eval_result.get('metric_weights', None)
         self.info['result_bg']['intensity'] = np.sum(bg)
