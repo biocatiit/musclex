@@ -559,7 +559,7 @@ def smoothness(dimg, dbg, mask_equator):
     return float(smoothness_value)
 
 
-def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mean_metric_values=None, metric_weights=None, return_details=False):
+def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask, baseline, mean_metric_values=None, metric_weights=None, return_details=False):
 
     normalized_metrics = full_eval_metrics(
         dimg,
@@ -585,6 +585,34 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mea
         mean_metric_values=mean_metric_values,
         metric_weights=metric_weights,
     )
+
+    equator_mask_reverse = 1 - equator_mask
+
+    normal_equator_metrics = full_eval_metrics(
+        dimg,
+        dbg,
+        syn_img=syn_img,
+        syn_str=syn_srt,
+        syn_mask=syn_mask,
+        gen_mask=equator_mask_reverse,
+        baseline_value=baseline,
+        mean_metric_values=mean_metric_values,
+        metric_weights=metric_weights,
+    )
+
+    raw_equator_metrics = full_eval_metrics(
+        dimg,
+        dbg,
+        syn_img=syn_img,
+        syn_str=syn_srt,
+        syn_mask=syn_mask,
+        normalize_metrics=False,
+        gen_mask=equator_mask_reverse,
+        baseline_value=baseline,
+        mean_metric_values=mean_metric_values,
+        metric_weights=metric_weights,
+    )
+    
     
     print("Evaluation Metrics (raw):")
     for key, value in raw_metrics.items():
@@ -594,11 +622,17 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline, mea
     for key, value in normalized_metrics.items():
         print(f"{key}: {value:.4f}")
 
+    print("Equator Metrics (raw):")
+    for key, value in raw_equator_metrics.items():
+        print(f"{key}: {value:.4f}")
+
     if return_details:
         return {
             "loss": normalized_metrics["Loss"],
             "metrics_normalized": normalized_metrics,
             "metrics_raw": raw_metrics,
+            "metrics_equator_raw": raw_equator_metrics,
+            "metrics_equator_normalized": normal_equator_metrics,
             "metric_weights": metric_weights if metric_weights is not None else dict(WEIGHTS),
         }
 
@@ -672,8 +706,8 @@ def _to_serializable(value):
 def _build_method_params(method, values):
     params = {}
     keys = list(method_params[method].keys())
-    for key in keys:
-        params[key] = values[method_order[method].index(keys.index(key))]
+    for i, key in enumerate(keys):
+        params[key] = values[i]
     return params
 
 
