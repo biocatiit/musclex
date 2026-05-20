@@ -4597,6 +4597,9 @@ class QuadrantFoldingGUI(BaseGUI):
         metric_weights = info.get("metric_weights", {})
 
         mean_metric_values = info.get("mean_metric_values", {})
+        equator_raw_metrics = info.get("metrics_equator_raw", {}) or {}
+        equator_norm_metrics = info.get("metrics_equator_normalized", {}) or {}
+
         row_data = {
             "Method": str(method),
             "BgParameters": params_text,
@@ -4625,6 +4628,16 @@ class QuadrantFoldingGUI(BaseGUI):
             "Synthetic_Amplitude_Value": info.get("synthetic_amplitude", None) if isinstance(info, dict) else None,
             "Synthetic_Sigma_X_Value": info.get("synthetic_sigma_x", None) if isinstance(info, dict) else None,
             "Synthetic_Sigma_Y_Value": info.get("synthetic_sigma_y", None) if isinstance(info, dict) else None,
+            "Equator_Raw_MSE": info.get("metrics_equator_raw", {}).get("MSE", None),
+            "Equator_Raw_Share_Neg_Synthetic": info.get("metrics_equator_raw", {}).get("Share_Neg_Synthetic", None),
+            "Equator_Raw_Share_Non_Baseline": info.get("metrics_equator_raw", {}).get("Share_Non_Baseline", None),
+            "Equator_Raw_Share_Neg_Connected": info.get("metrics_equator_raw", {}).get("Share_Neg_Connected", None),
+            "Equator_Raw_Smoothness": info.get("metrics_equator_raw", {}).get("Smoothness", None),
+            "Equator_Norm_MSE": info.get("metrics_equator_normalized", {}).get("MSE", None),
+            "Equator_Norm_Share_Neg_Synthetic": info.get("metrics_equator_normalized", {}).get("Share_Neg_Synthetic", None),
+            "Equator_Norm_Share_Non_Baseline": info.get("metrics_equator_normalized", {}).get("Share_Non_Baseline", None),
+            "Equator_Norm_Share_Neg_Connected": info.get("metrics_equator_normalized", {}).get("Share_Neg_Connected", None),
+            "Equator_Norm_Smoothness": info.get("metrics_equator_normalized", {}).get("Smoothness", None),
         }
         ordered_columns = list(row_data.keys())
 
