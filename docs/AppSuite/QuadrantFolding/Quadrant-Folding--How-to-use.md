@@ -217,6 +217,67 @@ You can change the parameters and click `Apply` to make the program re-process t
 For the merging settings, they will be under the black line in the Background Subtraction section. There is the ability to select another background subtraction method for the outer part of the image and set transition radius and transition delta.
 
 
+## Output Files
+
+After processing, QF writes results into a `qf_results/` directory inside the output directory.
+
+### `qf_results/summary.csv`
+
+One row per processed image. Columns include:
+
+| Column | Description |
+|--------|-------------|
+| `Filename` | Image file name |
+| `centerX`, `centerY` | Detected (or manually set) beam centre in original image coordinates |
+| `rotationAngle` | Rotation angle used during folding |
+| `backgroundMethod` | Background subtraction method that was applied (e.g. `Circularly-symmetric`) |
+| `backgroundConfigName` | Name of the saved optimisation configuration that was selected, if any |
+| `parameters` | Parameters passed to the background subtraction method |
+| `downsampled` | Downsampling factor used during processing |
+| `loss` | Weighted loss score computed by `evaluateResult()` — lower is better |
+| `bgSum` | **Total background intensity** (see below) |
+| `symmetry` | Normalised fold-symmetry score — lower means the four quadrants are more consistent |
+
+#### `bgSum` — Total Background Intensity
+
+`bgSum` is the sum of all pixel values in the estimated background image for one frame:
+
+```
+bgSum = Σ background_image
+```
+
+where `background_image = avg_fold − BgSubFold` (the average-folded image minus the background-subtracted fold), expanded from a quarter-image to the full detector frame.
+
+This value is computed in `QuadrantFolder.evaluateResult()` and is written to `summary.csv` automatically after each image is processed.
+
+**Typical uses:**
+
+- **Batch consistency check**: a sudden jump in `bgSum` across frames signals a change in background level (e.g. beam decay, sample exposure).
+- **Normalisation reference**: divide per-peak intensities by `bgSum` to make them comparable across different exposure times or beam currents.
+- **Method comparison**: when running background-subtraction optimisation over several methods, the combination of low `loss` and a physically reasonable `bgSum` helps select the best method.
+
+When `backgroundMethod` is `None`, no background subtraction is applied and `bgSum` is 0.
+
+### `qf_results/bg/`
+
+This sub-directory contains two outputs for every image where a background subtraction method other than `None` is active:
+
+| File | Description |
+|------|-------------|
+| `<name>.bg.tif` | The background image as a 32-bit float TIFF (same frame size as the result image). Useful for visual inspection or for applying a custom subtraction in an external tool. |
+| `background_sum.csv` | CSV with columns `Name` and `Sum`. `Sum` is `np.sum` of the corresponding `.bg.tif` — equivalent to `bgSum` in `summary.csv`. |
+
+```eval_rst
+.. note::
+   In batch / headless mode the per-image ``background_sum.csv`` rows are collected by the main process and written as one aggregated file after all images finish.  In interactive mode the file is updated after each image is saved.
+```
+
+### `qf_results/bg/background_metrics.csv`
+
+Written only when **Save metrics to CSV** is enabled in the Background Subtraction settings. Contains per-image raw and normalised evaluation metrics (MSE, share of negative pixels, smoothness, etc.) together with their weights and the running mean values used for normalisation. This file is intended for advanced diagnostics of the background optimisation process.
+
+---
+
 ## Headless Mode  
 Image processing performed in the terminal.
 In the terminal, if the user types `musclex eq|qf|di|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
