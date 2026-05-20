@@ -39,11 +39,9 @@ from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.XRayViewer import XRayViewer
 from ..csv_manager.XV_CSVManager import XV_CSVManager
-from ..CalibrationSettings import CalibrationSettings
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
-from .widgets.image_navigator_widget import ImageNavigatorWidget
-from .widgets import output_dir_dialog
+from .widgets import ProcessingWorkspace
 
 
 class XRayViewerGUI(QMainWindow):
@@ -75,7 +73,8 @@ class XRayViewerGUI(QMainWindow):
         self.first_box = False
         self.saved_slice = None
         self.stop_process = False
-        self.calSettingsDialog = None
+        # Calibration dialog is managed by ProcessingWorkspace; the workspace
+        # caches its own dialog instance internally.
         # Box Intensity Stats popup state (multi-shot ROI tool with per-row
         # Edit/Done buttons). At most one entry is the "editable" one — its
         # button shows "Done"; everyone else shows "Edit".
@@ -96,36 +95,39 @@ class XRayViewerGUI(QMainWindow):
         # always recomputed against the right-side widgets.
         self._statusPathMessage = None
         
-        # Create ImageNavigatorWidget (handles file management, display, navigation)
-        self.navigator = ImageNavigatorWidget(
-            parent=self,
-            show_display_panel=True,
-            show_double_zoom=True,
-            auto_display=True,  # Navigator displays images automatically
-            navigation_process_folder_text="Play Current Folder",
-            navigation_process_h5_text="Play Current H5 File"
+        # Create ProcessingWorkspace (handles file management, display, navigation,
+        # output-dir resolution, center settings panel with chords/perpendiculars/
+        # manual/calibration tools, and SettingsManager persistence).
+        # XV doesn't transform images and has no rotation concept, so no
+        # coord_transform_func / get_display_center_func is needed.
+        self.workspace = ProcessingWorkspace(
+            settings_dir="",
+            coord_transform_func=None,
+            get_display_center_func=None,
         )
-        
-        # Expose components for compatibility
-        self.file_manager = self.navigator.file_manager
-        self.imageAxes = self.navigator.image_viewer.axes
-        self.imageCanvas = self.navigator.image_viewer.canvas
-        self.imageFigure = self.navigator.image_viewer.figure
-        self.navControls = self.navigator.nav_controls
-        
-        self.dir_context = None
+
+        # Expose components for backward compatibility with existing XV code
+        self.navigator = self.workspace.navigator
+        self.file_manager = self.workspace.file_manager
+        self.imageAxes = self.workspace.image_viewer.axes
+        self.imageCanvas = self.workspace.image_viewer.canvas
+        self.imageFigure = self.workspace.image_viewer.figure
+        self.navControls = self.workspace.navigator.nav_controls
+
+        # XV-specific batch button labels
+        self.navControls.processFolderButton.setText("Play Current Folder")
+        self.navControls.processH5Button.setText("Play Current H5 File")
+
+        # Track current ImageData for reprocessing (inpaint toggle, settings change)
+        self._current_image_data = None
         self.csv_manager = None
 
-        # Connect navigator's signals
-        self.navigator.fileLoaded.connect(self._on_file_loaded)
-        self.navigator.imageChanged.connect(self._on_image_changed)
-        
         # Connect ImageViewer's interaction signals (high-level, cleaner than matplotlib events)
         # Display chain: coordinatesChanged (x/y/value) -> status bar update only
-        self.navigator.image_viewer.coordinatesChanged.connect(self._on_coordinates_changed)
+        self.workspace.image_viewer.coordinatesChanged.connect(self._on_coordinates_changed)
         # Interaction chain: mouseMoved (raw event) -> tool preview drawing (slice/dist/slice_box)
-        self.navigator.image_viewer.mouseMoved.connect(self._on_mouse_moved_for_preview)
-        self.navigator.image_viewer.canvasClicked.connect(self._on_canvas_clicked)
+        self.workspace.image_viewer.mouseMoved.connect(self._on_mouse_moved_for_preview)
+        self.workspace.image_viewer.canvasClicked.connect(self._on_canvas_clicked)
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
@@ -162,14 +164,15 @@ class XRayViewerGUI(QMainWindow):
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
         self.mainLayout.addWidget(self.tabWidget)
 
-        ##### Image Tab - Use Navigator #####
+        ##### Image Tab - Use ProcessingWorkspace #####
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
         self.tabWidget.addTab(self.imageTab, "Image")
-        
-        # Add navigator (includes image viewer + right panel with display options + nav controls)
-        self.imageTabLayout.addWidget(self.navigator, 1)
+
+        # Add workspace (includes navigator + right panel with display options + nav controls
+        # + center settings panel + calibration button)
+        self.imageTabLayout.addWidget(self.workspace, 1)
 
         # Center checkbox - shown alongside the other display toggles in the
         # display options panel (mirrors the Projection Traces UI).
@@ -178,26 +181,28 @@ class XRayViewerGUI(QMainWindow):
         self.centerChkBx.setToolTip(
             "Show a marker at the detected (or calibrated) beam center."
         )
-        self.navigator.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
+        self.workspace.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
 
-        # Quadrant Folded checkbox - placed directly under the display options panel.
-        # Auto-detected from filename/TIFF metadata; user can override.
-        self.qfChkBx = QCheckBox("Quadrant Folded?")
-        self.qfChkBx.setToolTip(
-            "Check if this image is a quadrant-folded image.\n"
-            "Folded images are symmetric around the geometric center, so the\n"
-            "geometric center is used directly instead of auto-detecting it."
-        )
-        self.navigator.right_panel.add_widget(self.qfChkBx)
+        # Quadrant Folded checkbox - managed by the workspace so the QF state is
+        # synced into ImageData (which drives geometric-center selection).
+        self.qfChkBx = self.workspace.create_qf_checkbox()
+        self.workspace.right_panel.add_widget(self.qfChkBx)
+
+        # Center settings panel (chords / perpendiculars / manual / calibration +
+        # Apply / Restore Auto + Auto/Manual mode indicator). XV has no rotation
+        # concept, so the combined "Quick Center and Rotation" button is hidden.
+        # Rotation and Blank/Mask widgets are deliberately NOT added.
+        self.workspace._center_widget.setCenterRotationButton.hide()
+        self.workspace.right_panel.add_widget(self.workspace._center_widget)
 
         # Create custom settings group for XRayViewer features
+        # Note: Calibration is now launched from the center settings panel above
+        # (workspace._center_widget.calibrationButton). This group only hosts
+        # XV-specific tools (cursor unit selector, traces, slice / box, etc.).
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.settingsLayout = QGridLayout()
         self.settingsGroup.setLayout(self.settingsLayout)
-
-        self.calibrationButton = QPushButton("Calibration Settings")
-        self.calibrationButton.setToolTip("Open calibration settings to set detector parameters\nand calculate q-values from pixel distances.")
 
         # Unit radio buttons — only visible when calibration is active
         unit_tooltip = (
@@ -251,19 +256,18 @@ class XRayViewerGUI(QMainWindow):
         self.inpaintChkBx.setToolTip("Fill in masked/dead pixels using surrounding pixel values.\nUseful for removing detector artifacts.")
         
         self.checkableButtons.extend([self.measureDist, self.setSlice, self.setSliceBox, self.boxStats])
-        
-        self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.unitRadioWidget, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.openTrace, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.measureDist, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSlice, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSliceBox, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.boxStats, 6, 0, 1, 2)
-        self.settingsLayout.addWidget(self.saveGraphSlice, 7, 0, 1, 2)
-        self.settingsLayout.addWidget(self.inpaintChkBx, 8, 0, 1, 2)
-        
-        # Add settings to navigator's right panel
-        self.navigator.right_panel.add_widget(self.settingsGroup)
+
+        self.settingsLayout.addWidget(self.unitRadioWidget, 0, 0, 1, 2)
+        self.settingsLayout.addWidget(self.openTrace, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.measureDist, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSlice, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSliceBox, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.boxStats, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.saveGraphSlice, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.inpaintChkBx, 7, 0, 1, 2)
+
+        # Add settings to workspace's right panel
+        self.workspace.right_panel.add_widget(self.settingsGroup)
         
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
@@ -350,7 +354,8 @@ class XRayViewerGUI(QMainWindow):
         exportGraphDataAction.triggered.connect(self.exportGraphDataToTextFile)
 
         changeOutputDirAction = QAction('Change Output Directory...', self)
-        changeOutputDirAction.triggered.connect(self._change_output_directory)
+        changeOutputDirAction.setToolTip("Choose a different folder to write CSV / export output")
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
@@ -374,19 +379,32 @@ class XRayViewerGUI(QMainWindow):
         """
         self.tabWidget.currentChanged.connect(self.onTabChanged)
 
-        ##### Navigation & Display - Handled by Navigator #####
+        ##### Navigation & Display - Handled by Workspace / Navigator #####
         # Image interaction signals already connected in __init__:
-        # - navigator.imageChanged -> _on_image_changed
-        # - navigator.image_viewer.coordinatesChanged -> _on_coordinates_changed (status bar)
-        # - navigator.image_viewer.mouseMoved -> _on_mouse_moved_for_preview (tool drawing)
-        # - navigator.image_viewer.canvasClicked -> _on_canvas_clicked
+        # - workspace.image_viewer.coordinatesChanged -> _on_coordinates_changed (status bar)
+        # - workspace.image_viewer.mouseMoved -> _on_mouse_moved_for_preview (tool drawing)
+        # - workspace.image_viewer.canvasClicked -> _on_canvas_clicked
         # Display options (zoom, intensity, etc.) handled internally by ImageViewer
         # Navigation buttons handled internally by Navigator
-        
+
+        ##### Workspace signals (replaces direct navigator signal wiring) #####
+        # fileLoaded: folder-level XV setup (csv reset) — fires AFTER the
+        # workspace's own on_file_loaded which resolves output dir + reloads
+        # settings_manager, so dir_context is already populated.
+        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
+        # imageDataReady: replaces imageChanged. Workspace creates ImageData
+        # (with manual / auto center, quadrant_folded auto-detection, etc.)
+        # and emits it for the GUI to render.
+        self.workspace.imageDataReady.connect(self._on_image_data_ready)
+        # needsReprocess: center / calibration / QF changed -> reprocess current image
+        self.workspace.needsReprocess.connect(self._on_needs_reprocess)
+        # outputDirChanged: emitted by workspace.change_output_directory
+        self.workspace.outputDirChanged.connect(self._on_output_dir_changed)
+
         ##### Batch processing #####
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
-        
+
         ##### Interactive tools (registered with the image viewer's ToolManager) #####
         # Two tools live in the ToolManager:
         #   - 'box_stats'   : real BoxStatsTool used by the Box Intensity Stats button
@@ -395,10 +413,13 @@ class XRayViewerGUI(QMainWindow):
         #                     graph box). Mutual exclusion is automatic — activating
         #                     any tool deactivates the previous one, which fires our
         #                     on_deactivated callbacks for clean state sync.
+        # NOTE: chords / perpendiculars / rotation / center_rotate tools are
+        # registered by the ProcessingWorkspace itself.
         self._register_tools()
 
         ##### Custom XRayViewer features #####
-        self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
+        # Calibration is launched from workspace._center_widget.calibrationButton.
+        # Quadrant Folded checkbox is wired by workspace.create_qf_checkbox().
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
         self.setSlice.clicked.connect(self.setSliceChecked)
@@ -406,7 +427,6 @@ class XRayViewerGUI(QMainWindow):
         self.boxStats.clicked.connect(self._on_box_stats_clicked)
         self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
         self.inpaintChkBx.stateChanged.connect(self._reprocess_with_inpaint)
-        self.qfChkBx.stateChanged.connect(self._on_qf_toggled)
         self.unitRadioNm.toggled.connect(self._on_unit_changed)
         self.unitRadioQ.toggled.connect(self._on_unit_changed)
         self.centerChkBx.stateChanged.connect(self._draw_center_overlay)
@@ -443,47 +463,57 @@ class XRayViewerGUI(QMainWindow):
             on_deactivated=self._on_xv_legacy_deactivated,
         )
 
-    # ========== Navigator Signal Handlers ==========
+    # ========== Workspace Signal Handlers ==========
 
-    def _on_file_loaded(self, dir_path):
+    def _on_folder_loaded(self, dir_path):
         """
-        Called when a new folder is loaded. Resolves the output directory.
+        Called when a new folder is loaded. The workspace has already resolved
+        the output directory (via OutputDirDialog if needed) and updated
+        SettingsManager, so we only do XV-specific folder-level work here.
         """
-        ctx = output_dir_dialog.resolve_output_directory(dir_path, parent=self)
-        if ctx is None:
-            return
-        self.dir_context = ctx
-        self.csv_manager = None  # reset so it's recreated with the new output dir
+        # XV has no rotation concept; the workspace's first-image notification
+        # popup talks about both center AND rotation status, which is confusing
+        # for XV users. Suppress it.
+        self.workspace._first_image_in_folder = False
 
-    def _change_output_directory(self):
-        """Let the user pick a new output directory."""
-        from PySide6.QtWidgets import QDialog, QMessageBox
-        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
-        from ..utils.directory_context import DirectoryContext
+        # Reset csv_manager — recreated lazily on next image with the new output dir.
+        self.csv_manager = None
 
-        if not self.dir_context:
-            QMessageBox.information(
-                self, "No folder loaded",
-                "Please load a folder before changing the output directory.")
-            return
+    def _on_output_dir_changed(self, new_output_dir):
+        """Reset csv_manager when the output directory changes via the menu."""
+        self.csv_manager = None
 
-        input_dir = self.dir_context.input_dir
-        dlg = OutputDirDialog(input_dir, self.dir_context.output_dir, parent=self)
-        if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
-            return
-
-        new_output = dlg.chosen_output
-        _persist_association(input_dir, new_output)
-        self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
-        self.csv_manager = None  # recreated on next image
-
-    def _on_image_changed(self, img, filename, dir_path):
+    def _on_needs_reprocess(self):
         """
-        Called when navigator loads a new image.
-        This is the ONLY entry point for image changes.
+        Workspace setting changed (center via chords / perpendiculars / manual /
+        calibration; quadrant-folded toggle; etc.). Sync XV-specific state
+        (calSettings from calibration cache) and re-render the current image.
+        """
+        if self._current_image_data is None:
+            return
+
+        # Pull the full calibration dict (lambda, sdd, scale, ...) from the
+        # workspace's settings cache so the status-bar d / q readout works.
+        new_cal = self.workspace.calibration_settings
+        if new_cal is not None:
+            self.calSettings = dict(new_cal)
+            cal_active = bool('scale' in self.calSettings)
+            self.unitRadioWidget.setVisible(cal_active)
+
+        # Re-run our render pipeline with the (possibly updated) image_data.
+        self._on_image_data_ready(self._current_image_data)
+
+    def _on_image_data_ready(self, image_data):
+        """
+        Main processing entry point. Replaces the old _on_image_changed handler.
+
+        The workspace has constructed an ImageData carrying the authoritative
+        center (manual / calibrated / geometric / auto). We build an XRayViewer
+        around that center, optionally inpaint, display the image, refresh the
+        center-marker overlay, and update the center settings panel state.
         """
         # Drop any in-flight interactive tool (Box Intensity Stats, legacy
-        # measure/slice operations) before swapping the image. Each tool's
+        # measure / slice operations) before swapping the image. Each tool's
         # _on_deactivate callback handles its own cleanup so the new image
         # starts from a known-clean state.
         if hasattr(self, 'navigator'):
@@ -491,44 +521,88 @@ class XRayViewerGUI(QMainWindow):
             if tm.has_active_tool():
                 tm.deactivate_current_tool()
 
-        # Initialize CSV manager if needed (write to output dir)
-        if not hasattr(self, 'csv_manager') or self.csv_manager is None:
-            csv_dir = self.dir_context.output_dir if self.dir_context else dir_path
+        # Track for reprocessing (inpaint toggle, settings changes)
+        self._current_image_data = image_data
+
+        # XV has no rotation concept. The workspace's internal _update_widgets_display
+        # (invoked by e.g. set_center_from_source from the calibration / Apply
+        # Center flows) reads image_data.rotation to update the hidden rotation
+        # widget, which would otherwise trigger an expensive auto-rotation
+        # calculation. Pre-seed the cache so that access is a cheap no-op.
+        if image_data._computed_rotation is None and not image_data.has_manual_rotation:
+            image_data._computed_rotation = 0.0
+
+        img = image_data.img
+        filename = image_data.img_name
+        input_dir = None
+        if self.workspace.dir_context is not None:
+            input_dir = str(self.workspace.dir_context.input_dir)
+
+        # Lazy CSV manager init — write to output dir if known, else input dir
+        if self.csv_manager is None:
+            if self.workspace.dir_context is not None:
+                csv_dir = str(self.workspace.dir_context.output_dir)
+            else:
+                csv_dir = input_dir or ""
             self.csv_manager = XV_CSVManager(csv_dir)
-        
-        # Create XRayViewer (pass img name so it can auto-detect quadrant-folded)
-        img_name = os.path.basename(filename) if filename else None
+
+        # Build XRayViewer with the actual *input* directory so it can read
+        # TIFF metadata for QF auto-detection. (image_data.img_path points at
+        # the settings/output directory, which may differ.)
         try:
-            self.xrayViewer = XRayViewer(img, img_path=dir_path, img_name=img_name)
+            self.xrayViewer = XRayViewer(img, img_path=input_dir, img_name=filename)
         except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error Opening File: " + str(filename))
-            infMsg.setInformativeText(f"The file is likely corrupted or missing.\nError: {str(e)}")
+            infMsg.setInformativeText(
+                f"The file is likely corrupted or missing.\nError: {str(e)}")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
             return
-        
-        # Apply inpainting if enabled
+
+        # Mirror QF state from ImageData (workspace's QF checkbox already set it)
+        self.xrayViewer.is_folded = image_data.is_quadrant_folded
+
+        # Choose the center / image pairing:
+        # - Manual center or folded image -> use as-is (no integer alignment)
+        # - Pure auto-detect -> apply processImageForIntCenter to translate the
+        #   image so the center lands on an integer pixel (legacy XV behavior).
+        if image_data.has_manual_center or image_data.is_quadrant_folded:
+            self.xrayViewer.orig_image_center = image_data.center
+        else:
+            self.xrayViewer.orig_img, self.xrayViewer.orig_image_center = (
+                processImageForIntCenter(self.xrayViewer.orig_img, image_data.center)
+            )
+
+        # Apply inpainting if enabled (XV-specific; ImageData.inpaint is not
+        # used because XV does not go through ImageData's preprocessing pipeline).
         if self.inpaintChkBx.isChecked():
             self.statusPrint("Inpainting...")
             self.xrayViewer.orig_img = inpaint_img(self.xrayViewer.orig_img)
             self.statusPrint("")
 
-        # Sync Quadrant Folded checkbox to auto-detected state, then compute center
-        self._sync_qf_checkbox()
-        self.xrayViewer.findCenter()
-
-        # Always display the (possibly inpainted) image
-        self.navigator.image_viewer.display_image(self.xrayViewer.orig_img)
+        # Display the image (workspace uses auto_display=False so the GUI owns rendering)
+        self.workspace.image_viewer.display_image(self.xrayViewer.orig_img)
         # Re-add the center marker after display_image's cla() wipes the axes
         self._draw_center_overlay()
-        
+
         # Update status bar with image info
         original_image = self.xrayViewer.orig_img
         self._setStatusDetail(
             f"{original_image.shape[0]}x{original_image.shape[1]} : {original_image.dtype}")
-        
+
+        # Update the workspace's center panel state. We bypass
+        # workspace.update_display() to avoid triggering an auto-rotation
+        # calculation (XV never needs rotation), but we still set the same
+        # internal fields it would so the calibration button etc. work.
+        self.workspace._current_filename = filename
+        self.workspace._current_image_data = image_data
+        is_manual = filename in self.workspace._center_settings
+        self.workspace._center_widget.update_mode_indicator(is_manual=is_manual)
+        self.workspace._center_widget.update_current_center(self.xrayViewer.orig_image_center)
+        self.workspace.update_mode_statistics()
+
         # Handle tab-specific updates
         if self.tabWidget.currentIndex() == 1 or self.saveGraphSlice.isChecked():
             if self.first_slice:
@@ -539,7 +613,7 @@ class XRayViewerGUI(QMainWindow):
                 self.csv_manager.writeNewData(self.xrayViewer)
         else:
             self.refreshAllTabs()
-        
+
         self.send_signal()
         self.resetStatusbar()
     
@@ -815,44 +889,17 @@ class XRayViewerGUI(QMainWindow):
     
     def _reprocess_with_inpaint(self):
         """Reprocess current image with inpainting toggled."""
-        if self.file_manager.current_image is not None:
-            self._on_image_changed(
-                self.file_manager.current_image,
-                self.file_manager.current_image_name,
-                self.file_manager.dir_path
-            )
+        if self._current_image_data is not None:
+            self._on_image_data_ready(self._current_image_data)
 
     def _on_unit_changed(self, _checked):
         """The unit radio changed — the status bar will update on the next mouse move."""
         pass  # _on_coordinates_changed reads unitRadioNm.isChecked() live
 
-    def _on_qf_toggled(self, _state):
-        """Handle Quadrant Folded checkbox toggle.
-
-        Updates the XRayViewer's folded state and recomputes the center so the
-        d-spacing display in the status bar reflects the new center immediately.
-        """
-        if self.xrayViewer is None:
-            return
-        is_checked = self.qfChkBx.isChecked()
-        self.xrayViewer.set_folded(is_checked)
-        # Recompute center now (uses geometric center if folded, else getCenter)
-        self.xrayViewer.findCenter()
-        # If calibration is active, also override the calibration-supplied center
-        # so the status bar d-spacing uses the same point.
-        if self.calSettings is not None and is_checked:
-            # Folded image: prefer geometric center over any stale calibration center
-            self.calSettings.pop('center', None)
-        # Refresh the on-image center marker (if shown) so it reflects the new center
-        self._draw_center_overlay()
-
-    def _sync_qf_checkbox(self):
-        """Sync the QF checkbox to xrayViewer.is_folded without triggering the toggle handler."""
-        if self.xrayViewer is None:
-            return
-        self.qfChkBx.blockSignals(True)
-        self.qfChkBx.setChecked(self.xrayViewer.is_folded)
-        self.qfChkBx.blockSignals(False)
+    # Quadrant-folded handling and calibration are now managed by the
+    # ProcessingWorkspace (workspace.create_qf_checkbox() and
+    # workspace._center_widget.calibrationButton). _on_needs_reprocess() picks
+    # up the resulting state changes and re-renders.
 
     # Label used to identify our center-marker patch so other tool drawings
     # (slice/dist preview) can leave it untouched when they clear their own
@@ -880,44 +927,14 @@ class XRayViewerGUI(QMainWindow):
             ax.add_patch(circle)
         self.imageCanvas.draw_idle()
 
-    # ========== End Navigator Signal Handlers ==========
+    # ========== End Workspace Signal Handlers ==========
 
-    def launchCalibrationSettings(self, force=False):
-        """
-        Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
-        :param force: force to popup the window
-        :return: True if calibration set, False otherwise
-        """
-
-        if self.calSettingsDialog is None:
-            from ..utils.settings_manager import SettingsManager
-            dir_path = getattr(self.file_manager, 'dir_path', None)
-            sm = SettingsManager(dir_path) if dir_path else SettingsManager()
-            self.calSettingsDialog = CalibrationSettings(
-                dir_path,
-                center=self.xrayViewer.orig_image_center,
-                settings_manager=sm,
-            )
-        self.calSettings = None
-        cal_setting = self.calSettingsDialog.calSettings
-        if cal_setting is not None or force:
-            result = self.calSettingsDialog.exec_()
-            if result == 1:
-                self.calSettings = self.calSettingsDialog.getValues()
-                # 'scale' is only present after a real calibration fit (image mode)
-                # or when param mode fills it in.  'silverB' alone (without 'scale')
-                # means the image-mode checkbox is on but the image was unset.
-                cal_active = bool(self.calSettings and 'scale' in self.calSettings)
-                self.unitRadioWidget.setVisible(cal_active)
-                if not cal_active:
-                    return False
-                # Always save calibrated center if available
-                # Whether to USE it is controlled by Persistent Center in main GUI
-                if 'center' in self.calSettings:
-                    self.xrayViewer.orig_image_center = self.calSettings['center']
-                self.xrayViewer.findCenter()
-                return True
-        return False
+    # NOTE: launchCalibrationSettings() has been removed. Calibration is now
+    # launched from the center settings panel
+    # (workspace._center_widget.calibrationButton -> workspace._on_calibration_button_clicked).
+    # After calibration the workspace emits needsReprocess, and our
+    # _on_needs_reprocess() picks up the new calSettings (scale / lambda / sdd
+    # / center) from workspace.calibration_settings.
 
     def keyPressEvent(self, event):
         """
@@ -2127,11 +2144,12 @@ class XRayViewerGUI(QMainWindow):
 
 
     def _navigate_to(self, idx):
-        """Switch to image at idx and display it."""
-        self.file_manager.switch_image_by_index(idx)
-        img = self.file_manager.current_image
-        if img is not None:
-            self._on_image_changed(img, self.file_manager.current_image_name, self.file_manager.dir_path)
+        """
+        Switch to image at idx via the navigator. Triggers
+        navigator.imageChanged -> workspace.on_image_changed ->
+        workspace.imageDataReady -> _on_image_data_ready.
+        """
+        self.workspace.navigator.switch_to_image_by_index(idx)
 
     def _process_image_list(self, img_ids):
         self.stop_process = False
@@ -2144,14 +2162,14 @@ class XRayViewerGUI(QMainWindow):
                 break
             self.progressBar.setValue(progress)
             QApplication.processEvents()
-            
-            # Switch to image by index and load it
-            self.file_manager.switch_image_by_index(img_idx)
-            img = self.file_manager.current_image
-            if img is not None:
-                # Manually trigger image processing for batch mode
-                self._on_image_changed(img, self.file_manager.current_image_name, self.file_manager.dir_path)
-        
+
+            # Switch via navigator — fires imageChanged synchronously, then the
+            # workspace schedules imageDataReady on a 30ms QTimer. The
+            # processEvents() below lets that timer fire so our handler
+            # actually runs before the next iteration.
+            self.workspace.navigator.switch_to_image_by_index(img_idx)
+            QApplication.processEvents()
+
         self.progressBar.setVisible(False)
         self.resetStatusbar()
 
