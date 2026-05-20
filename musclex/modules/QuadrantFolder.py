@@ -960,7 +960,8 @@ class QuadrantFolder:
 
     def _create_equator_mask(self, h, w, fullImg):
         meridian = get_projection(fullImg, orientation=1, gap=2, offset=200)
-        eq_fwhm = int(find_fwhm(meridian, rel_height=0.5))
+        fwhm_val = find_fwhm(meridian, rel_height=0.5)
+        eq_fwhm = int(fwhm_val) if fwhm_val is not None else 0
 
         m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info['rmin'])
         auto_y_height = ((m1_peak * 2) +  eq_fwhm) //2
