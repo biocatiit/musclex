@@ -43,6 +43,8 @@ def get_projection(img, gap, orientation=0, avg=False, half=False, offset=0, cen
 def find_m3_peak(meridian_half, rmin=10):
     peaks, properties = find_peaks(meridian_half[rmin:], prominence=1)
     peaks = [p+rmin for p in peaks]
+    if len(peaks) < 2:
+        return None
     prominences = properties['prominences']
     sorted_indices = np.argsort(prominences)[::-1]
     top_2nd_peak_index = peaks[sorted_indices[1]]
@@ -53,6 +55,8 @@ def find_m3_peak(meridian_half, rmin=10):
 def find_m_peak_auto(img, m=1, rmin=10, intensity=False):
     meridian_half = get_projection(img, gap=2, orientation=1, avg=True, half=True)
     m3 = find_m3_peak(meridian_half, rmin=rmin)
+    if m3 is None:
+        return 0
     m1 = int(m3/3)
     if intensity:
         if m == 3:
@@ -137,6 +141,9 @@ def find_i0_i1_peaks_auto(img, rmin=10, intensity=False):
 def find_i0_i1_peaks(equator_half, rmin=10):
     peaks, properties = find_peaks(equator_half[rmin:], prominence=1)
     peaks = [p+rmin for p in peaks]  # adjust indices
+    if len(peaks) < 2:
+        fallback = rmin
+        return (peaks[0] if peaks else fallback), fallback
     prominences = properties['prominences']
     sorted_indices = np.argsort(prominences)[::-1]
     i0 = peaks[sorted_indices[0]]

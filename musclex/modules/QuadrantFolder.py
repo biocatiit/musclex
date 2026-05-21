@@ -510,6 +510,11 @@ class QuadrantFolder:
         # ==========================================
         self.transformImage()
         self.calculateAvgFold()
+        if self.imgCache['avg_fold'].max() <= 0:
+            raise ValueError(
+                "Image has no valid signal (all pixels are zero or negative). "
+                "Please check the input file."
+            )
         self.getRminmax()
         self.createMask()
         self.createArtificialData()

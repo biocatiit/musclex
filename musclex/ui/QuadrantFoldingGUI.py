@@ -3724,23 +3724,35 @@ class QuadrantFoldingGUI(BaseGUI):
             self._restoreOptimizeCheckboxAfterProcess = False
             self.optimizeFlag = False
 
-        errMsg = QMessageBox(self)
-        errMsg.setText('Unexpected error')
-        msg = 'Please report the problem with error message below and the input image\n\n'
         image_name = ''
         tb = ''
+        error_str = ''
         if isinstance(error_payload, dict):
             image_name = str(error_payload.get('image_name', '') or '')
             tb = str(error_payload.get('traceback', '') or '')
+            error_str = str(error_payload.get('error', '') or '')
         else:
             tb = str(error_payload)
+            error_str = tb
 
-        msg += "Image : " + image_name
-        msg += "\n\n" + tb
-        errMsg.setInformativeText(msg)
+        errMsg = QMessageBox(self)
         errMsg.setStandardButtons(QMessageBox.Ok)
-        errMsg.setIcon(QMessageBox.Warning)
         errMsg.setFixedWidth(500)
+
+        if error_str.startswith('Image has no valid signal'):
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.setText('Invalid image')
+            errMsg.setInformativeText(
+                f"Image : {image_name}\n\n{error_str}"
+            )
+        else:
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.setText('Unexpected error')
+            msg = 'Please report the problem with error message below and the input image\n\n'
+            msg += "Image : " + image_name
+            msg += "\n\n" + tb
+            errMsg.setInformativeText(msg)
+
         errMsg.exec_()
 
     @Slot()
