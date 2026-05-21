@@ -240,7 +240,9 @@ class EquatorWindow(QMainWindow):
         
         # Update Image tab preview if visible
         if self.tabWidget.currentIndex() == 0:  # Image tab
-            if task.result and not task.error:
+            # Guard with 'image' in task.result rather than `not task.error`
+            # because str(CancelledError()) == "" which is falsy even on error.
+            if task.result and 'image' in task.result:
                 self.bioImg.info = task.result['info']
                 self.bioImg.image = task.result['image']
                 self.updateImageTab()
@@ -3374,17 +3376,24 @@ class EquatorWindow(QMainWindow):
                 error = result.get('error')
             except Exception as fut_exc:
                 # Worker process terminated abruptly (BrokenProcessPool, etc.)
-                error = str(fut_exc)
+                # NOTE: str(CancelledError()) == "" which is falsy — use the
+                # exception object itself as the sentinel so the error branch
+                # is always taken for any exception, including CancelledError.
+                error = str(fut_exc) or repr(fut_exc)
                 result = {'filename': None, 'info': None, 'error': error}
-            
+
             # Organize result via task manager
             task = self.taskManager.complete_task(future, result, error)
             
             if not task:
                 return
             
-            if error:
-                print(f"Error processing {task.filename}: {error}")
+            # Check for error — treat any falsy-but-non-None error (e.g. "")
+            # the same as a real error: 'image' key will be absent from result.
+            has_error = error is not None or 'image' not in result
+            if has_error:
+                if error:
+                    print(f"Error processing {task.filename}: {error}")
             else:
                 # Save results to disk (main thread only)
                 self._organizeAndSaveResult(task)
