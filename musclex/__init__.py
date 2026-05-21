@@ -31,6 +31,8 @@ import os as _os
 import sys as _sys
 import subprocess as _subprocess
 
+_DEV_SUFFIX = '.dev1'
+
 def _get_version():
     _base = '1.30.0-beta.1'
     try:
@@ -40,13 +42,13 @@ def _get_version():
         ).decode().strip()
     except Exception:
         _branch = ''
-    return f'{_base}.dev0' if _branch == 'dev' else _base
+    return f'{_base}{_DEV_SUFFIX}' if _branch == 'dev' else _base
 
 __version__ = _get_version()
 
 
 def _is_dev_build() -> bool:
-    return __version__.endswith('.dev0')
+    return __version__.endswith(_DEV_SUFFIX)
 
 
 def _looks_like_test_runner() -> bool:
