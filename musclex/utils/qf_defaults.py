@@ -85,7 +85,7 @@ BG_METHODS = [
     "Roving Window",
 ]
 OPTIMIZATION_METHODS = BG_METHODS[2:]  # Exclude 'None' from optimization options
-DEFAULT_OPTIMIZATION_METHODS = ["Circularly-symmetric", "White-top-hats", "Smoothed-Gaussian"]
+DEFAULT_OPTIMIZATION_METHODS = ["White-top-hats", "Smoothed-Gaussian"]
 DEFAULT_OPTIMIZATION_STEPS = "100, 50, 25, 10, 5, 3, 1"
 
 
