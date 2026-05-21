@@ -190,31 +190,25 @@ You can set and fix the value of the region of interest in order to propagate th
 
 ##### Background Subtraction
 
-For the background subtraction section, by default, the program will not apply any background subtraction. To apply background subtraction, you can choose a method by method drop-down list. There are currently 6 options, [Circularly Symmetric](#circularly-symmetric), [2D Convex hull](#2d-convex-hull), [Roving Window](#roving-window), [White-top-hat](#white-top-hat), [Smoothed-Gaussian](#smoothed-gaussian), and [Smoothed-Boxcar](#smoothed-boxcar) all of which may be applied to the inner or the outter part of the image. 
+```eval_rst
+.. note:: **Updated workflow**: Background subtraction is now configured from the **Background Subtraction** panel on the Results tab and the **Advanced Configuration** dialog. See :doc:`Quadrant-Folding--Background-Subtraction` for the complete guide (modes, optimization, metrics, saved configurations, and batch processing).
+```
 
-For each method, users can select R-min manually by pressing the button `Set Manual R-min` and select R-min in the image as shown below
+Open the collapsible **Background Subtraction** section on the **Results** tab. By default, no background subtraction is applied until you choose a method and process the image.
+
+**Options** (dropdown):
+
+- **Manual Setting | One Method** — One algorithm on the full pattern; set **Subtraction Method** and parameters, then **Apply Selected Subtraction Settings**.
+- **Manual Setting | Transition** — Separate inner and outer methods merged at **Transition Radius** / **Transition Delta** (outer method cannot be 2D Convexhull).
+- **Automated Processing** — Use **Apply Default Optimization** or open **Advanced Configuration** to search parameters by compound loss, save configurations, and batch-process folders.
+
+**R-min / R-max**: Use **Manual R-min/max** in Advanced Configuration to set radii on the image (see figure below). **Show R-min/max** overlays the circles on the folded image.
 
 ![-](../../images/QF/rmin_rmax.png)
 
+**Advanced Configuration** (dialog) adds downsample/smooth image, automated method search (step sizes, iterations, early stop), evaluation masks, metric weights, the results metrics table, **Add Background Configuration**, and **Process Current Folder** with automatic or manual configuration assignment.
 
-
-###### Circularly Symmetric
-![-](../../images/QF/csym_set.png)
-###### 2D convex hull
-![-](../../images/QF/2dcon_set.png)
-###### Roving Window
-![-](../../images/QF/roving.png)
-###### White top hat
-![-](../../images/QF/tophat_set.png)
-###### Smoothed Gaussian
-![-](../../images/QF/smooth_g.png)
-###### Smoothed Boxcar
-![-](../../images/QF/smooth_b.png)
-
-You can change the parameters and click `Apply` to make the program re-process the background subtraction.
-
-###### Merging
-For the merging settings, they will be under the black line in the Background Subtraction section. There is the ability to select another background subtraction method for the outer part of the image and set transition radius and transition delta.
+Method screenshots and algorithm details: [How it works — Background Subtraction](Quadrant-Folding--How-it-works.html#apply-background-subtraction).
 
 
 ## Headless Mode  
@@ -243,61 +237,68 @@ In Headless mode, the user may directly set the parameters in a json format insi
 
 ```json
 {
-    # Image settigns
-    "mask_thres": 170, # 0 to 255
-    "fix_center": true, # true, false
-    "center_x": 1024, # 0 to 4096
-    "center_y": 1024, # 0 to 4096
-    "rotation": 0, # 0 to 360
+    // Image settigns
+    "mask_thres": 170, // 0 to 255
+    "fix_center": true, // true, false
+    "center_x": 1024, // 0 to 4096
+    "center_y": 1024, // 0 to 4096
+    "rotation": 0, // 0 to 360
     "roi_rad": 100,
 
-    # Inner background subtraction
-    "bgsub": "None", # None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
-    "fixed_rmin": 100, # in pixels
+    // Background mode: 0 = one method, 1 = inner/outer transition, 2 = automated
+    "bg_options": 0,
 
-    ## Convex hull settings (inner)
-    "degree": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
+    // Inner background subtraction
+    "bgsub": "None", // None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
+    "fixed_rmin": 100, // in pixels
+    "fixed_rmax": 800, // in pixels (optional)
+
+    // Convex hull settings (inner)
+    "degree": 1, // 0.5, 1, 2, 3, 5, 9, 10, 15, 18
     
-    ## Circularly symmetric settings (inner)
-    "radial_bin": 1, # in pixels
-    "cirmin": 10, # in pixels
-    "cirmax": 100, # in pixels
+    // Circularly symmetric settings (inner)
+    "radial_bin": 1, // in pixels
+    "cirmin": 10, // in pixels
+    "cirmax": 100, // in pixels
     "smooth": 1, 
 
-    ## Roving window settings (inner)
+   // Roving window settings (inner)
     "tension": 1,
-    "win_size_x": 11, # in pixels
-    "win_size_y": 11, # in pixels
+    "win_size_x": 11, // in pixels
+    "win_size_y": 11, // in pixels
+    "win_sep_x": 10, // in pixels
+    "win_sep_y": 10, // in pixels
 
-    ## Smoothed Gaussian / Smoothed Boxcar settings (inner)
-    "fwhm": 20, # in pixels
-    "boxcar_x": 20, # in pixels
-    "boxcar_y": 15, # in pixels
+    // Smoothed Gaussian / Smoothed Boxcar settings (inner)
+    "fwhm": 20, // in pixels
+    "boxcar_x": 20, // in pixels
+    "boxcar_y": 15, // in pixels
     "cycles": 1, 
 
-    # Outer background subtraction    
-    "bgsub2": "None", # None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
+    // Outer background subtraction    
+    "bgsub_out": "None", // None, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
 
-    ## Convex hull settings (outer)
-    "deg2": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
 
-    ## Circularly symmetric settings (outer)
-    "smooth2": 1,
 
-    ## Roving window settings (outer)
-    "tension2": 1,
-    "win_size_x2": 11, # in pixels
-    "win_size_y2": 11, # in pixels
+    // Circularly symmetric settings (outer)
+    "smooth_out": 1,
 
-    ## Smoothed Gaussian / Smoothed Boxcar settings (outer)
-    "fwhm2": 20, # in pixels
-    "boxcar_x2": 20, # in pixels
-    "boxcar_y2": 15, # in pixels
-    "cycles2": 1, 
-    
-    # Transition settings
-    "transition_radius": 730, # 1 to 4096
-    "transition_delta": 60, # 1 to 4096
+    // Roving window settings (outer)
+    "tension_out": 1,
+    "win_size_x_out": 11, // in pixels
+    "win_size_y_out": 11, // in pixels
+    "win_sep_x_out": 10, // in pixels
+    "win_sep_y_out": 10, // in pixels
+
+    // Smoothed Gaussian / Smoothed Boxcar settings (outer)
+    "fwhm_out": 20, // in pixels
+    "boxcar_x_out": 20, // in pixels
+    "boxcar_y_out": 15, // in pixels
+    "cycles_out": 1, 
+
+    // Transition settings
+    "transition_radius": 730, // 1 to 4096
+    "transition_delta": 60, // 1 to 4096
 }
 ```
 

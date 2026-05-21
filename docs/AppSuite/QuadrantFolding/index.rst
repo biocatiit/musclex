@@ -8,4 +8,5 @@ Quadrant Folding
    Quadrant-Folding-(qf)
    Quadrant-Folding--How-it-works
    Quadrant-Folding--How-to-use
+   Quadrant-Folding--Background-Subtraction
    Blank-Image-and-Mask
