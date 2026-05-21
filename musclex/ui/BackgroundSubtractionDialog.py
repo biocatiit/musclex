@@ -468,7 +468,7 @@ class BackgroundSubtractionDialog(QDialog):
     def _create_evaluation_metric_widgets(self):
         """Create normalization means, evaluation metrics, and metric weight widgets."""
         # ===== Normalization Means (Used in table) =====
-        self.meanMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
+        self.meanMSELabel = self._create_label("Normalized MSE of Synthetic Signal, intst. cnts.", "small")
         self.meanMSESpnBx = self._create_double_spinbox(min_val=1e-6, max_val=1e9, 
                                                         value=qf_defaults.DEFAULT_MEAN_MSE, decimals=3)
 
@@ -533,7 +533,7 @@ class BackgroundSubtractionDialog(QDialog):
 
         # ===== Metric Weights (Used in table) =====
         self.metricWeightsLabel = QLabel("Metric Weights:")
-        self.weightMSELabel = self._create_label("Mean Squared Error of Synthetic Signal, intst. cnts.", "small")
+        self.weightMSELabel = self._create_label("Normalized MSE of Synthetic Signal, intst. cnts.", "small")
         self.weightMSESpnBx = self._create_double_spinbox(min_val=0.0, max_val=1e6, 
                                                           value=qf_defaults.DEFAULT_WEIGHT_MSE, decimals=2)
 
@@ -565,7 +565,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.lossParamsTable = QTableWidget(5, 2)
         self.lossParamsTable.setHorizontalHeaderLabels(["Mean", "Weight"])
         self.lossParamsTable.setVerticalHeaderLabels([
-            "Mean Squared Error of Synthetic Signal, intst. cnts.",
+            "Normalized MSE of Synthetic Signal, intst. cnts.",
             "Fraction of Synthetic Oversubtraction, %",
             "Fraction of Non Near-Zero Baseline Pixels, %",
             "Fraction of Negative Connected Pixels, %",

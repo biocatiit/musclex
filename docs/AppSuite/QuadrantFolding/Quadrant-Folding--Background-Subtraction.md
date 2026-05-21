@@ -29,7 +29,7 @@ Manual controls are shown in the Results panel. **Apply Default Optimization** a
 
 ### Step 0: Apply Default Optimization
 
-Click **Apply Default Optimization** to run the optimization with the default settings. This will run the optimization with the default settings (Circularly-symmetric, White-top-hats, and Smoothed-Gaussian) and pick the best performing method and parameters based on the default loss weights, and add a **Default Optimization** entry to the configuration table. This is a good starting point for most datasets. If the results are satisfactory, you may review the next image which will be applied the same settings and run **Process Folder** to process the entire folder. If the results are not satisfactory, you can always tune the settings in the **Advanced Configuration** dialog.
+Click **Apply Default Optimization** to run the optimization with the default settings. This will run the optimization with the default settings (**White-top-hats** and **Smoothed-Gaussian**) and pick the best performing method and parameters based on the default loss weights, and add a **Default Optimization** entry to the configuration table. This is a good starting point for most datasets. If the results are satisfactory, you may review the next image which will be applied the same settings and run **Process Folder** to process the entire folder. If the results are not satisfactory, you can always tune the settings in the **Advanced Configuration** dialog.
 
 The **Background Subtraction Settings** dialog is organized in three steps:
 
@@ -43,11 +43,16 @@ The **Background Subtraction Settings** dialog is organized in three steps:
 - **Evaluation Masks** - Adjust the evaluation masks to restrict scoring to physically meaningful regions:
   - **Equator Height** and **Equator Center Radius** — mask the equator and central beam.
   - **Layer line spacing** and **Layer line width** — mask Bragg layer lines so they do not dominate the loss.
+
+.. warning:: Automatic detection of **Equator Height**, **Equator Center Radius**, **Layer line spacing**, and **Layer line width** is not implemented yet. Set these values manually in **Evaluation Masks** for each dataset.
+
 To view the evaluation masks, click **Show** in the Results tab to inspect **Subtracted**, **Background**, **Folded**, **Evaluation Mask**, **Synthetic Signal**, or **Synthetic Mask**.
 - **Metric Settings** - Adjust the relative importance of each metric and the normalization means. The weights should roughly add up to 1. The weights may depend on the dataset and are the most important settings to adjust to get the best results. Leave the default values for the first run and adjust after reviewing the results. The normalization means are hidden by default; double-click the metric table header to show/hide means. Usually, they don't need to be adjusted.
 - **Additional Settings** - 
   - **Evaluation Baseline** sets the near-zero threshold; **Persist evaluation baseline** keeps it when changing images. **Evaluation Baseline** allows to adjust the near-zero threshold for the calculation of **Fraction of Non Near-Zero Baseline Pixels**. This is the threshold below which pixels are considered to be part of the background. Change this value if the noise level doesn't match the calculated value.
   - **Synthetic** amplitude and sigmas (and **Sampling Frequency**) define the reference pattern used in MSE and oversubtraction metrics.
+
+![-](../../images/QF/qf_metric_setting.png)
 
 - Click **Apply Selected Subtraction Settings** (dialog or Results panel) to run on the current image. During automated optimization the button becomes **Stop Optimization** which will stop the optimization and return the previous best performing method and parameters. This is useful when you want to tune the settings and rerun the optimization.
 
@@ -67,6 +72,7 @@ After processing, the **Results** section shows **Loss** and a table of metrics:
 
 - **Save result metrics to csv** - Save the result metrics to a csv file. This is useful for further analysis. This will save the result metrics to a csv file in the `qf_results/bg` folder with name `background_metrics.csv`.
 
+![-](../../images/QF/qf_results_table.png)
 
 ### Step 3: Batch processing
 
@@ -114,7 +120,7 @@ Six methods are available (plus **None**). Visible parameters depend on the sele
 - **Box Car Size** (X, Y)
 - **Number of Cycles**
 
-Default optimization searches **Circularly-symmetric**, **White-top-hats**, and **Smoothed-Gaussian** unless you change the method list.
+Default optimization searches **White-top-hats** and **Smoothed-Gaussian** unless you change the method list.
 
 ## Inner / outer merge (transition mode)
 
@@ -136,9 +142,10 @@ Set the transition radius just outside the M3 meridional peak when possible.
 
 When **Automated Processing** is active and optimization runs:
 
-1. For each selected method, the program searches parameter space using the configured step schedule and iteration limit.
-2. Candidates are scored with the compound loss; search can stop early when loss drops below **Early Stop Loss Threshold**.
-3. The best method/parameter set is written to **Current Configuration** and used for the result image.
+1. For each selected method, the program searches parameter space using the configured step schedule and iteration limit. 
+2. The optimization processes tunes each parameter in the selected method one at a time in the order of their importance.
+3. Candidates are scored with the compound loss; search can stop early when loss drops below **Early Stop Loss Threshold**.
+4. The best method/parameter set is written to **Current Configuration** and used for the result image.
 
 **Apply Default Optimization** runs this search with default methods on the current image and can add a **Default Optimization** entry to the configuration table.
 
