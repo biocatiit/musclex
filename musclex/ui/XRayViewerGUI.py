@@ -94,6 +94,13 @@ class XRayViewerGUI(QMainWindow):
         # _setStatusPath() / resetStatusbar() so the elision width is
         # always recomputed against the right-side widgets.
         self._statusPathMessage = None
+        # Cached full (non-elided) text currently being shown on the path
+        # label. Updated by resetStatusbar() and consumed by
+        # _elideStatusPath() — which is also invoked by the eventFilter on
+        # the path label, so the label re-elides itself whenever Qt's
+        # layout pass reallocates its width (e.g. when a right-side widget
+        # grows / shrinks or the window is resized).
+        self._statusPathFullText = ""
         
         # Create ProcessingWorkspace (handles file management, display, navigation,
         # output-dir resolution, center settings panel with chords/perpendiculars/
@@ -322,13 +329,32 @@ class XRayViewerGUI(QMainWindow):
         self.imgCoordOnStatusBar = QLabel()
         self.imgCoordOnStatusBar.setMinimumWidth(700)  # Fixed width to prevent resize
         self.imgPathOnStatusBar = QLabel()
-        self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
+        # CRITICAL: Use Ignored horizontal size policy so the label's text
+        # width never propagates into the status bar's sizeHint. Without
+        # this, setting the elided text grows the label's sizeHint slightly
+        # (by QLabel's internal frame/margin), which would push the parent
+        # window wider, which would on the next resetStatusbar() compute a
+        # larger max_width and show more text, growing the window again — a
+        # runaway feedback loop especially visible during folder/H5 playback.
+        # With Ignored, the label just takes whatever horizontal space the
+        # status bar's layout gives it (via the QStatusBar's stretch on
+        # non-permanent widgets) and we re-elide based on that actual width
+        # in the eventFilter below.
+        self.imgPathOnStatusBar.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.imgPathOnStatusBar.setMinimumWidth(0)
+        self.imgPathOnStatusBar.installEventFilter(self)
+        # Seed `_statusPathFullText` together with the visible text so that
+        # when the eventFilter first fires on the label's initial layout
+        # resize, _elideStatusPath() finds a non-empty message to elide
+        # rather than blanking out the bootstrap prompt.
+        self._statusPathFullText = "  Please select an image or a folder to process"
+        self.imgPathOnStatusBar.setText(self._statusPathFullText)
         self.statusBar.addPermanentWidget(self.statusReport)
         self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
         self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addWidget(QLabel("    "))
-        self.statusBar.addWidget(self.imgPathOnStatusBar)
+        self.statusBar.addWidget(self.imgPathOnStatusBar, 1)  # stretch=1 so it fills remaining space
 
         #Second Status bar for when graph tab is selected
         self.scrollWheelStatusBar = QStatusBar()
@@ -2030,20 +2056,18 @@ class XRayViewerGUI(QMainWindow):
 
     def resetStatusbar(self):
         """
-        Re-render the status bar's path label.
+        Rebuild the *full* status bar path message from the current state
+        and trigger an elide pass.
 
-        The path label on the left is elided so it always fits in the
-        space NOT occupied by the right-side widgets (statusReport,
-        imgCoordOnStatusBar, imgDetailOnStatusBar, progressBar).
-        The available width is computed dynamically from the actual
-        size hints of the visible right-side widgets, so the path
-        adapts as the coordinate text grows / the progress bar shows.
+        The full message is determined by:
+          - `_statusPathMessage` if set (tool hint override), OR
+          - the current file path from `file_manager`.
 
-        If `_statusPathMessage` is set (via `_setStatusPath`) it is
-        shown verbatim (still elided to fit); otherwise the current
-        file path from `file_manager` is rendered.
+        The actual elision (fitting the text into the label's currently
+        allocated width) is delegated to `_elideStatusPath()`, which is
+        also invoked automatically whenever the path label is resized by
+        Qt's layout (see `eventFilter`).
         """
-        # Determine the full message to render.
         if self._statusPathMessage is not None:
             status_msg = self._statusPathMessage
         elif self.file_manager and getattr(self.file_manager, 'current_image_name', None):
@@ -2060,34 +2084,59 @@ class XRayViewerGUI(QMainWindow):
         else:
             return
 
+        self._statusPathFullText = status_msg
         self.imgPathOnStatusBar.setToolTip(status_msg)
+        self._elideStatusPath()
 
-        # Compute the actual width occupied by the right-side widgets.
-        right_widgets = (
-            self.statusReport,
-            self.imgCoordOnStatusBar,
-            self.imgDetailOnStatusBar,
-            self.progressBar,
-        )
-        # sizeHint() reflects the current text content; isVisible() handles
-        # the progress bar which is hidden outside batch mode.
-        right_w = sum(
-            max(w.sizeHint().width(), w.minimumWidth())
-            for w in right_widgets if w.isVisible()
-        )
-        # Account for inter-widget spacing + margins of the status bar.
-        spacing = self.statusBar.layout().spacing() if self.statusBar.layout() else 6
-        margins = self.statusBar.contentsMargins()
-        padding = spacing * (len(right_widgets) + 1) + margins.left() + margins.right()
+    def _elideStatusPath(self):
+        """
+        Render the cached full path message elided to the label's current
+        allocated width.
 
-        max_width = max(200, self.statusBar.width() - right_w - padding)
-
+        Because `imgPathOnStatusBar` has horizontal size policy `Ignored`,
+        the elided text never influences the status bar's sizeHint —
+        breaking the previous feedback loop where setting elided text
+        nudged the label's sizeHint up by QLabel's internal frame, which
+        pushed the parent window wider, which on the next call read a
+        wider `statusBar.width()` and rendered more text, growing the
+        window again. With `Ignored`, the label simply paints whatever
+        elided text fits in `self.imgPathOnStatusBar.width()`.
+        """
+        msg = self._statusPathFullText
+        if not msg:
+            self.imgPathOnStatusBar.setText("")
+            return
+        width = self.imgPathOnStatusBar.width()
+        if width <= 0:
+            # Not laid out yet — paint the full text; the eventFilter will
+            # re-elide as soon as Qt assigns a real width on first show.
+            self.imgPathOnStatusBar.setText(msg)
+            return
         metrics = self.imgPathOnStatusBar.fontMetrics()
-        elided = metrics.elidedText(status_msg, Qt.ElideMiddle, max_width)
+        elided = metrics.elidedText(msg, Qt.ElideMiddle, width)
         self.imgPathOnStatusBar.setText(elided)
+
+    def eventFilter(self, obj, event):
+        """
+        Catch resize events on the path label so we can re-elide the
+        cached full text whenever Qt's layout reallocates its width
+        (window resized, a right-side widget grew/shrank, progress bar
+        appeared/disappeared, etc.). This is the *only* place that needs
+        to drive elision; callers just update the full message via
+        `resetStatusbar()` / `_setStatusPath()` and let the label resize
+        re-elide itself.
+        """
+        if obj is self.imgPathOnStatusBar and event.type() == QEvent.Resize:
+            self._elideStatusPath()
+        return super().eventFilter(obj, event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        # Path label re-elision is driven by its own resizeEvent via the
+        # eventFilter above, but we still call resetStatusbar() here to
+        # rebuild the full message in case file_manager state changed
+        # since the last call (cheap; no feedback loop because the label
+        # has Ignored size policy).
         self.resetStatusbar()
 
     def batchProcBtnToggled(self):
