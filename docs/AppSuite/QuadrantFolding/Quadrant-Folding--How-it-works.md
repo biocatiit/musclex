@@ -54,6 +54,8 @@ A composite mask is built from five components, combined by element-wise multipl
 
 This mask is used by the background optimizer to evaluate subtraction quality on the diffraction features rather than on background regions.
 
+For GUI workflow (manual, transition, and automated modes), saved configurations, and batch processing, see [Background Subtraction](Quadrant-Folding--Background-Subtraction.md).
+
 ### 5. Create synthetic data
 
 A grid of 2D Gaussian blobs is generated and added to `avg_fold` to produce `avg_fold_with_syn`. The grid spacing and blob dimensions are derived from the I<sub>0</sub> and M1 peak positions detected in the pattern. Three density presets are available (sparse / medium / dense).

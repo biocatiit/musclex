@@ -186,8 +186,8 @@ class BackgroundSubtractionDialog(QDialog):
             "<span style='color:#2e7d32;'>"
             "For information on how to use these settings and interpret the metrics, "
             "please review: "
-            "<a href='https://musclex.readthedocs.io/en/latest/AppSuite/QuadrantFolding/index.html#id1'>"
-            "Quadrant Folding Documentation"
+            "<a href='https://musclex.readthedocs.io/en/latest/AppSuite/QuadrantFolding/Quadrant-Folding--Background-Subtraction.html'>"
+            "Background Subtraction documentation"
             "</a>."
             "</span>"
         )
