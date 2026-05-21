@@ -29,7 +29,6 @@ import time
 import sys
 import copy
 import os
-from os.path import split
 import shutil
 import json
 import math
@@ -156,62 +155,36 @@ class EquatorWindow(QMainWindow):
         self.uiUpdateTimer.timeout.connect(self.processUIUpdateQueue)
         self.uiUpdateTimer.setInterval(100)  # Check every 100ms
 
-        self._provisionalCount = False
-        self._scan_timer = QTimer(self)
-        self._scan_timer.setInterval(200)
-        self._scan_timer.timeout.connect(self._checkScanDone)
-        
         self.current_image_data = None  # Current ImageData object
         self.filePath = ""
         self.dir_path = ""
-        
+
+        # csvManager is initialised on the first file load (see
+        # _on_image_data_ready). It remains None until then.
+        self.csvManager = None
+        # Tracks whether onImageChanged has been called with first_run=True yet.
+        # The first imageDataReady signal after startup triggers the
+        # initProcessExecutor / show_calibration_dialog / setH5Mode one-shot
+        # setup; subsequent signals run the normal image-change pipeline.
+        self._first_load_done = False
+
         self.initUI()  # Initial all UI
 
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
 
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
-        self.show()
 
-        self.browseFile()
-        
-        if self.file_manager.names is None or len(self.file_manager.names) == 0:
-            self.inputerror()
-            return
-        csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
-        self.csvManager = EQ_CSVManager(csv_dir)
         self.setWindowTitle("Muscle X Equator v." + __version__)
-        self.onImageChanged(first_run=True)
-        
-        # Connect workspace signals AFTER initial load to prevent double-processing
+
+        # Connect workspace signals BEFORE the user can load a file. The
+        # navigator's select_panel is visible by default; once the user
+        # clicks "Click Here to Select an Image..." the navigator emits
+        # imageDataReady through the workspace and _on_image_data_ready
+        # drives the first-load setup.
         self._connectWorkspaceSignals()
 
-    def _checkScanDone(self):
-        """
-        Check if the scan is done
-        """
-        if not self.file_manager:
-            return
-        
-        # Show HDF5 processing progress
-        h5_done, h5_total = self.file_manager.get_h5_progress()
-        if h5_total > 0:
-            if not self.progressBar.isVisible():
-                self.progressBar.setVisible(True)
-                self.progressBar.setRange(0, h5_total)
-            self.progressBar.setValue(h5_done)
-            self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
-        
-        if not self.file_manager.is_scan_done():
-            return
-        
-        # Hide progress bar when done
-        self.progressBar.setVisible(False)
-        self.progressBar.setFormat("%p%")  # Reset format to default
-        
-        self._provisionalCount = False
-        self._scan_timer.stop()
-        self.refreshStatusbar()
+        self.show()
 
     def initProcessExecutor(self):
         """Initialize persistent process pool for parallel processing"""
@@ -285,19 +258,6 @@ class EquatorWindow(QMainWindow):
         
         QApplication.processEvents()
 
-    def inputerror(self):
-        """
-        Display input error to screen
-        """
-        errMsg = QMessageBox()
-        errMsg.setText('Invalid Input')
-        errMsg.setInformativeText("Please select non empty failedcases.txt or an image\n\n")
-        errMsg.setStandardButtons(QMessageBox.Ok)
-        errMsg.setIcon(QMessageBox.Warning)
-        errMsg.exec_()
-        # self.close()
-        self.browseFile()
-
     def mousePressEvent(self, event):
         """
         Clear focus when mouse pressed
@@ -346,6 +306,13 @@ class EquatorWindow(QMainWindow):
         self.image_viewer = self.workspace.image_viewer
         self.navControls = self.workspace.navigator.nav_controls
         self.right_panel = self.workspace.right_panel
+
+        # Expose the navigator's built-in select panel + button (matches QF / PT).
+        # The button is pre-wired to navigator.browse_file; users see the
+        # "Click Here to Select an Image..." button on startup and the
+        # navigator hides the panel itself once a file is loaded.
+        self.selectImageButton = self.workspace.navigator.select_image_btn
+        self.leftWidget = self.workspace.navigator.select_panel
         
         # Backward compatibility for axes/canvas/figure (used by custom drawing)
         self.displayImgFigure = self.image_viewer.figure
@@ -747,9 +714,11 @@ class EquatorWindow(QMainWindow):
         self.tabWidget.addTab(self.parameterEditorTab, "Parameter Editor")
 
         ### Menu Bar ###
+        # Menu still advertises failedcases.txt because FileManager.set_from_file
+        # accepts it; users just need to switch the dialog filter to "All Files (*)".
         selectImageAction = QAction('Select a File (or Failed Cases)...', self)
         selectImageAction.setShortcut('Ctrl+O')
-        selectImageAction.triggered.connect(self.browseFile)
+        selectImageAction.triggered.connect(self.workspace.navigator.browse_file)
 
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
@@ -1003,13 +972,34 @@ class EquatorWindow(QMainWindow):
     def _on_image_data_ready(self, image_data):
         """
         Handle new image from workspace (called when navigation changes image).
-        
+
+        The first signal after program start also performs the one-shot
+        setup that __init__ used to do synchronously after the forced
+        ``browseFile`` popup: initialising the CSV manager and running
+        ``onImageChanged(first_run=True)`` (which itself calls
+        ``initProcessExecutor`` and ``show_calibration_dialog``).
+
         Args:
             image_data: ImageData instance from workspace
         """
         self.current_image_data = image_data
-        # Trigger the existing processing pipeline
-        self.onImageChanged()
+
+        # Sync legacy path tracking variables (still referenced by save /
+        # status-bar code paths).
+        self.dir_path = self.file_manager.dir_path
+        self.filePath = self.dir_path
+
+        if not self._first_load_done:
+            self._first_load_done = True
+            csv_dir = (
+                self.workspace.dir_context.output_dir
+                if self.workspace.dir_context
+                else self.dir_path
+            )
+            self.csvManager = EQ_CSVManager(csv_dir)
+            self.onImageChanged(first_run=True)
+        else:
+            self.onImageChanged()
 
     
     def _on_status_text_requested(self, text):
@@ -1021,8 +1011,9 @@ class EquatorWindow(QMainWindow):
     
     def _on_scan_complete(self):
         """Handle scan completion from workspace."""
-        self._provisionalCount = False
-        self._scan_timer.stop()
+        # Hide the HDF5 progress bar that _on_scan_progress put up.
+        self.progressBar.setVisible(False)
+        self.progressBar.setFormat("%p%")
         self.refreshStatusbar()
     
     def _on_scan_progress(self, done, total):
@@ -1676,34 +1667,6 @@ class EquatorWindow(QMainWindow):
         
         self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-    def browseFile(self):
-        """
-        Popup an input file dialog. Users can select an image or .txt for failed cases list.
-        Now delegates to ProcessingWorkspace for file management.
-        """
-        file_name = getAFile(add_txt=True)
-        print("FILE: ", file_name)
-        _, ext = os.path.splitext(str(file_name))
-        _, name = split(str(file_name))
-        if file_name != "":
- 
-            if ext == ".txt" and not name == "failedcases.txt":
-                errMsg = QMessageBox()
-                errMsg.setText('Invalid Input')
-                errMsg.setInformativeText("Please select only failedcases.txt or an image\n\n")
-                errMsg.setStandardButtons(QMessageBox.Ok)
-                errMsg.setIcon(QMessageBox.Warning)
-                errMsg.exec_()
-
-        self.fileName = file_name
-        # Load file through workspace (handles FileManager, settings, navigation)
-        self.workspace.load_from_file(str(file_name))
-        self.dir_path = self.file_manager.dir_path
-        self.filePath = self.dir_path
-        self._provisionalCount = True
-        self._scan_timer.start()
-
 
     def saveSettings(self):
         """
@@ -2486,11 +2449,11 @@ class EquatorWindow(QMainWindow):
         elif key == Qt.Key_Q:
             self.close()
         elif key == Qt.Key_N:
-            self.browseFile()
+            self.workspace.navigator.browse_file()
         elif key == Qt.Key_F:
             self.processFolder()
         elif key == Qt.Key_O:
-            self.browseFile()
+            self.workspace.navigator.browse_file()
 
     def setRminClicked(self):
         """
@@ -3531,7 +3494,14 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None:
             return
-        total = str(len(self.file_manager.names)) + ('*' if self._provisionalCount else '')
+        # Append a '*' while the background HDF5 scan is still expanding the
+        # file list, matching the QF convention (see ImageNavigatorWidget).
+        scan_done = (
+            self.file_manager.is_scan_done()
+            if hasattr(self.file_manager, 'is_scan_done')
+            else True
+        )
+        total = str(len(self.file_manager.names)) + ('' if scan_done else '*')
         self.setLeftStatus(
             "(" + str(self.file_manager.current + 1) + "/" + total + ") " + fullPath(self.dir_path,
                                                                                             self.bioImg.filename))
