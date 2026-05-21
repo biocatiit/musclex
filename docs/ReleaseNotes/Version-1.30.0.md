@@ -60,10 +60,24 @@ Release Date : May 2026
 - `TotalDisplayIntensity.py` replaced by `TotalDiffractionIntensity.py`
 - Background subtraction functions removed from `QuadrantFoldingGUI` and centralized in `BackgroundSubtractionDialog` and `background_search.py`
 
+## Changes since v1.30.0-beta.1
+
+### Quadrant Folding – Batch Processing Overhaul
+- Batch processing rewritten to use `ProcessPoolExecutor` for true parallel execution; proxy classes handle lightweight data transfer between GUI and worker processes
+- New `process_one_qf_image` headless function in `mp_executor.py` for batch-mode processing without GUI dependencies
+- User-initiated stop: "Stop" button cleanly cancels in-flight tasks with an indeterminate progress dialog during wind-down; prevents retries on stopped tasks
+- Progress bar logic refactored to use `taskManager` statistics as the single source of truth
+- Error handling improved: invalid images (all-zero/negative average fold) raise a `ValueError` with a specific GUI warning
+- FWHM calculation fixed to handle `None` values gracefully
+
+### X-Ray Viewer – ProcessingWorkspace Integration
+- `XRayViewerGUI` now uses `ProcessingWorkspace` instead of raw `ImageNavigatorWidget`, gaining consistent file management, display options, navigation, and calibration dialog handling shared with other modules
+
+
 ---
 
 ```eval_rst
 .. note:: Version 1.30.0 is a major feature release. This version has been tested on Python 3.10 on Ubuntu 22.04.
 ```
 
-**Total Changes**: ~175 commits since v1.29.0
+**Total Changes**: ~185 commits since v1.29.0
