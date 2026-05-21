@@ -60,7 +60,7 @@ Release Date : May 2026
 - `TotalDisplayIntensity.py` replaced by `TotalDiffractionIntensity.py`
 - Background subtraction functions removed from `QuadrantFoldingGUI` and centralized in `BackgroundSubtractionDialog` and `background_search.py`
 
-## Changes since v1.30.0-beta.1
+## v1.30.0-beta.2 Changes
 
 ### Quadrant Folding – Batch Processing Overhaul
 - Batch processing rewritten to use `ProcessPoolExecutor` for true parallel execution; proxy classes handle lightweight data transfer between GUI and worker processes
@@ -74,10 +74,20 @@ Release Date : May 2026
 - `XRayViewerGUI` now uses `ProcessingWorkspace` instead of raw `ImageNavigatorWidget`, gaining consistent file management, display options, navigation, and calibration dialog handling shared with other modules
 
 
+### Equator Window – Initialization Refactor
+- Startup flow refactored: workspace signals are connected before user interaction; CSV manager and first-run processing are now triggered lazily on the first `imageDataReady` signal instead of a forced `browseFile()` call at startup
+- Removed `browseFile()` method and scan timer; file loading now fully delegated to `ProcessingWorkspace` / navigator
+- Error handling improved: `CancelledError` and empty error strings are treated as real errors (check for `'image'` key in task result instead of `not task.error`)
+- Status bar scan indicator (`*`) now derived from `file_manager.is_scan_done()` instead of a provisional flag
+
+### X-Ray Viewer – Status Bar Elision Fix
+- Status bar path label now uses `QSizePolicy.Ignored` horizontal policy, eliminating a runaway feedback loop where setting elided text would grow the label's size hint, widen the window, compute a larger available width, show more text, and grow the window again
+- Introduced `_statusPathFullText` cache and `_elideStatusPath()` method; elision is driven by an `eventFilter` on the path label that fires on every Qt layout resize — no manual `statusBar.width()` arithmetic needed
+
 ---
 
 ```eval_rst
 .. note:: Version 1.30.0 is a major feature release. This version has been tested on Python 3.10 on Ubuntu 22.04.
 ```
 
-**Total Changes**: ~185 commits since v1.29.0
+**Total Changes**: ~188 commits since v1.29.0
