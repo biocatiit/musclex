@@ -1,19 +1,42 @@
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, logger
+"""
+PyInstaller hook for pyFAI — full collect.
 
-datas = collect_data_files('pyFAI.resources')
+Why "collect everything":
 
-# Also bundle the pyFAI.resources subpackage code itself: drawmask.py loads its
-# Qt .ui descriptors via pkg_resources/importlib at runtime, and a few of its
-# helper modules (e.g. pyFAI.gui.utils, pyFAI.gui.matplotlib) are pulled in
-# transitively. The ``app.drawmask`` entry point is invoked indirectly via a
-# multiprocessing child in musclex/utils/drawmask_launcher.py, so PyInstaller's
-# static analyzer cannot see it from musclex/main.py and we must declare it
-# explicitly here.
-hiddenimports = [
+    pyFAI ships:
+        * Qt .ui descriptors loaded at runtime via pkg_resources
+          (``pyFAI/resources/gui/*.ui``)
+        * Calibrant data tables (``.D``, ``.json``)
+        * OpenCL kernels (``.cl``)
+        * Icons (``.png``, ``.svg``)
+        * Many compiled Cython extensions in ``pyFAI.ext``
+        * Several GUI subpackages that pull in silx widgets
+
+    These are reached indirectly — particularly through
+    ``pyFAI.app.drawmask``, which MuscleX launches as a child process
+    from ``musclex/utils/drawmask_launcher.py``. PyInstaller's static
+    analyzer starts from ``musclex/main.py`` and cannot see anything
+    behind that ``multiprocessing.spawn`` boundary, so without help it
+    aggressively prunes pyFAI down to what ``main.py`` directly imports
+    (which is essentially just the integrator). The drawmask GUI then
+    fails at runtime with import errors and missing-resource errors.
+
+    ``collect_all('pyFAI')`` instructs PyInstaller to pull in every
+    submodule, every data file, every compiled extension, and the
+    package metadata. The frozen bundle grows a little, but in return
+    we stop playing whack-a-mole every time someone exercises a pyFAI
+    code path that wasn't reachable from a top-level import.
+"""
+
+from PyInstaller.utils.hooks import collect_all
+
+datas, binaries, hiddenimports = collect_all('pyFAI')
+
+# pyFAI.ext.splitBBox_common / splitpixel_common are compiled extensions
+# that some pyFAI versions load lazily via getattr/importlib. They are
+# usually picked up by collect_all, but keep them explicit so a future
+# version that hides them behind even more indirection still loads.
+hiddenimports += [
     'pyFAI.ext.splitBBox_common',
     'pyFAI.ext.splitpixel_common',
-    'pyFAI.app',
-    'pyFAI.app.drawmask',
 ]
-hiddenimports += collect_submodules('pyFAI.gui')
-
