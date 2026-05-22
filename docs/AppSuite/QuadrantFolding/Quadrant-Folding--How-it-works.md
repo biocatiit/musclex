@@ -102,7 +102,7 @@ A 1D radial intensity profile is computed by integrating over each 1° angular b
 
 ![-](../../images/QF/roving_v2.png)
 
-Parameters: R-min, window size, pixel range (percentages), smoothing factor, tension factor.
+Parameters: R-min, window size, window separation, pixel range (percentages), smoothing factor, tension factor.
 
 A window of the specified size is moved across the data. Within each window position, pixels are sorted and those in the user-selected intensity range are averaged to estimate the background at the window center. A smoothing spline under tension fills the gaps between window centers.
 
@@ -126,6 +126,19 @@ Parameters: R-min, number of cycles, FWHM (Gaussian) or box size (Boxcar).
 ![-](../../images/QF/smooth_b_v2.png)
 
 Based on Ivanova and Makowski (Acta Cryst. A54, 626–631, 1998). The image is repeatedly smoothed (Gaussian or boxcar filter) and the smoothed version is subtracted as the background estimate. Multiple cycles progressively refine the estimate.
+
+#### Background Subtraction Modes
+
+There are three modes for background subtraction: **Manual Setting**, **Transition**, and **Automated Processing**.
+
+#### Manual Setting
+In this mode, the user can select one background subtraction method and set the parameters for the background subtraction manually.
+#### Transition
+In this mode, the user can select one background subtraction method for the inner radii and another background subtraction method for the outer radii, and set the parameters for the two methods. The two background images are then merged at the **transition radius** and **transition delta** as described in [section 9](#9-merge-images-transition-mode-only).
+#### Automated Processing
+In this mode, the program will search for the best parameters for the background subtraction using the automated processing. The search for the optimal method is performed using a compound **loss** built from metrics that reflect pattern features: NMSE of synthetic signal, oversubtraction of synthetic signal, baseline residuals, connected negative pixels, and background smoothness. Automated processing also includes the "Advanced Configuration" feature, which allows the user to set the parameters for the optimization target and create background configurations to be reused for subsequent images. Saved **configurations** let you apply the best parameter set per image when processing a folder. See [Background Subtraction (GUI)](Quadrant-Folding--Background-Subtraction.md) for the full interactive workflow.
+
+Generally speaking, the “White Top-Hat” and the “Smoothed-Gaussian” algorithms work well at large radii from the center and, at low radii, some other algorithm will work better than others, depending on the type of muscle generating the X-ray pattern.
 
 ### 9. Merge images (transition mode only)
 
