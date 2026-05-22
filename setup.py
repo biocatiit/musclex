@@ -78,6 +78,7 @@ setup(
         'opencv-contrib-python-headless==4.11.0.86',
         'PySide6==6.7.2',
         'pyfai<=2024.1.0',
+        'qtawesome',
         'distro<=1.8.0',
         'PyMca==5.9.3',
         'numba==0.60.0',
