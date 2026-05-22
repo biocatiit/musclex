@@ -4,6 +4,16 @@ Quadrant Folding estimates and removes diffuse background scattering from the qu
 
 For the algorithmic details of each method, see [How it works — Apply Background Subtraction](Quadrant-Folding--How-it-works.md#apply-background-subtraction). This page documents the **current GUI workflow** (Results tab and **Background Subtraction Settings** dialog).
 
+## Introduction
+
+Muscle diffraction patterns carry a diffuse background whose structure varies with radius and angle. The choice of subtraction method therefore depends on what you need from the analysis—display, peak fitting, or downstream normalization—and on which part of the pattern matters most.
+
+In principle, background should be removed consistently across the entire folded image. In practice, no single algorithm performs equally well at all radii: some methods preserve low-angle equatorial features while others handle the high-angle region more reliably. **2D Convexhull** is currently the strongest option for revealing equatorial structure near the beam. At larger radii, where meridional layer lines dominate, **White-top-hats** and **Smoothed-Gaussian** typically give cleaner results; **Automated Processing** can search among these methods and select parameters using the compound **loss** metric.
+
+To obtain plausible background removal over the full pattern today, use **Manual Setting | Transition**, which fits an inner method at small radii and an outer method at large radii, then merges the two estimates at a **Transition Radius**. A future release will add dedicated equator-streak fitting followed by general background removal on top of that estimate.
+
+For time-resolved (**TDI**) normalization, you may instead fix one method and parameter set and apply it uniformly to every frame in a sequence. The summary csv file will contain the integrated background sum between rmin and rmax for each frame.
+
 ## Where to find the controls
 
 Background subtraction is configured from two places in the **Results** tab:
@@ -150,6 +160,32 @@ When **Automated Processing** is active and optimization runs:
 **Apply Default Optimization** runs this search with default methods on the current image and can add a **Default Optimization** entry to the configuration table.
 
 For batch runs with **Choose best configuration for images automatically**, optimization is not repeated per image; each saved configuration is evaluated once and the lowest-loss configuration is applied.
+
+
+## Examples
+
+### Example 1: Intact Mouse Skeletal Muscle -- Faint pattern & faint background
+
+The default weights are used for the optimization. The results are shown below:
+
+![-](../../images/QF/example1.png)
+
+The results are satisfactory. The background is removed and the pattern is preserved.
+
+
+### Example 2: Skinned Pig Cardiac Muscle -- High intensity background
+
+This pattern requires adjustment of rmax mask to exclude the high intensit edge artifacts. The results are shown below:
+
+![-](../../images/QF/example2.png)
+
+The results are satisfactory. The background is removed and the pattern is preserved.
+
+
+### Example 3: Skinned Pig Cardiac Muscle Strong Pattern Shot in Air -- High intensity with less background
+
+
+
 
 ## Headless mode
 

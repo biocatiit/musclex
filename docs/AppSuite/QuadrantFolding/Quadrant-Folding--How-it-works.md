@@ -31,7 +31,7 @@ R-min (red line) is initialized as 10 pixels after the backstop. R-max is estima
 
 ![-](../../images/QF/rmin.png)
 
-### 6. Apply Background Subtraction {#apply-background-subtraction}
+### 6. Apply Background Subtraction
 Fiber diffraction patterns from muscle have a substantial diffuse background arising from non-crystalline parts of the muscle that do not diffract coherently including membranes and mitochondria as well as diffuse scattering from the myosin heads. Intact cardiac muscle, in particular has a very strong background. This background pattern has a complex structure making it hard to model and effectively remove.  Various algorithms exist that attempt to remove the background. No one technique so far can effectively remove background in all parts of the image without over subtraction in some parts of the pattern but some techniques work better than others depending on the muscle and specific preparation. Quadrant folding implements several different algorithms that can be used individually or in combination that can be used to background subtracted images for display or subsequent analysis.
 
 There are three modes for background subtraction: **Manual Setting**, **Transition**, and **Automated Processing**.
