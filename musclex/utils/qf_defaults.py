@@ -36,6 +36,8 @@ DEFAULT_TENSION = 1.0
 DEFAULT_TOPHAT_SIZE = 50
 DEFAULT_MAX_ITERATIONS = 20
 DEFAULT_EARLY_STOP = 0.005
+DEFAULT_OPTIMIZE_TIMEOUT = 20   # minutes; 0 = disabled
+OPTIMIZE_TIMEOUT_RANGE = (0, 300)  # minutes
 DEFAULT_MEAN_MSE = 0.0142451
 DEFAULT_MEAN_NEG_SYN = 0.513271
 DEFAULT_MEAN_BASELINE = 0.344556
@@ -148,6 +150,7 @@ def build_default_flags() -> Dict[str, Any]:
         "steps": parse_optimization_steps(DEFAULT_OPTIMIZATION_STEPS),
         "early_stop": DEFAULT_EARLY_STOP,
         "max_iterations": DEFAULT_MAX_ITERATIONS,
+        "optimize_timeout": DEFAULT_OPTIMIZE_TIMEOUT,
         "bgsub_out": "None",
         "cirmin_out": DEFAULT_PIXEL_MIN,
         "cirmax_out": DEFAULT_PIXEL_MAX,
