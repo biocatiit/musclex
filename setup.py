@@ -46,7 +46,6 @@ setup(
     author_email = 'biocatiit@gmail.com',
     url = 'https://github.com/biocatiit/musclex',
     keywords = ['musclex', 'biomuscle', 'diffraction', 'biocat'],
-    # python_requires='>=2.7.10, <=3.6',
     classifiers = ['Development Status :: 3 - Alpha',
                    'Environment :: X11 Applications :: Qt',
                    'Intended Audience :: Science/Research',
