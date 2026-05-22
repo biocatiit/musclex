@@ -734,7 +734,7 @@ class ImageMaskerWindow(QDialog):
         if self.showBlankImageChkbx.isChecked():
             # The old code for blanks just used pyFAI-drawmask "<blankImagePath>"
             # and final mask = <blankNoExt>-mask.edf
-            command = f'pyFAI-drawmask "{self.blankImagePath}"'
+            command = f'"{sys.executable}" -m pyFAI.app.drawmask "{self.blankImagePath}"'
 
 
             base_blank = self.blankImagePath.rsplit('.', 1)[0]
@@ -759,7 +759,7 @@ class ImageMaskerWindow(QDialog):
                 tif_img.write(bounded_file_name)
 
                 # Run pyFAI-drawmask on the bounded TIFF
-                command = f'pyFAI-drawmask "{bounded_file_name}"'
+                command = f'"{sys.executable}" -m pyFAI.app.drawmask "{bounded_file_name}"'
 
                 # pyFAI will produce something like <bounded_file_nameNoExt>-mask.edf
                 base_bounded = bounded_file_name.rsplit('.', 1)[0]  # e.g. "..._bounded"
@@ -793,7 +793,7 @@ class ImageMaskerWindow(QDialog):
                 fabio.tifimage.tifimage(data=data).write(bounded_file_name)
 
                 # Run pyFAI-drawmask on the bounded TIFF
-                command = f'pyFAI-drawmask "{bounded_file_name}"'
+                command = f'"{sys.executable}" -m pyFAI.app.drawmask "{bounded_file_name}"'
 
                 # pyFAI output file name
                 base_bounded = bounded_file_name.rsplit('.', 1)[0]
