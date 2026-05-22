@@ -1494,6 +1494,8 @@ class QuadrantFoldingGUI(BaseGUI):
             'stepsLineEdit',
             'maxIterationsSpnBx',
             'earlyStopSpnBx',
+            'optimizeTimeoutLabel',
+            'optimizeTimeoutSpnBx',
             'meanMSESpnBx',
             'meanNegSynSpnBx',
             'meanNonBaselineSpnBx',
@@ -3158,6 +3160,8 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.maxIterationsSpnBx.setValue(int(info['max_iterations']))
             if 'early_stop' in info:
                 self.earlyStopSpnBx.setValue(float(info['early_stop']))
+            if 'optimize_timeout' in info:
+                self.optimizeTimeoutSpnBx.setValue(int(info['optimize_timeout']))
             if 'methods' in info and isinstance(info['methods'], (list, tuple)):
                 self._set_selected_optimization_methods(info['methods'])
             if 'downsample' in info:
@@ -4839,6 +4843,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['steps'] = parse_optimization_steps(self.stepsLineEdit.text())
         flags['max_iterations'] = self.maxIterationsSpnBx.value()
         flags['early_stop'] = self.earlyStopSpnBx.value()
+        flags['optimize_timeout'] = self.optimizeTimeoutSpnBx.value()
         flags['mean_metric_values'] = {
             'MSE_SYN_MEAN': float(self.meanMSESpnBx.value()),
             'SHARE_NEG_SYN_MEAN': _percent_to_fraction_for_flags(self.meanNegSynSpnBx.value()),

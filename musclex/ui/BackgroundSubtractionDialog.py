@@ -462,8 +462,16 @@ class BackgroundSubtractionDialog(QDialog):
                                                           value=qf_defaults.DEFAULT_EARLY_STOP,
             decimals=4, step=0.005,
             tooltip="Threshold for early stopping during optimization per background subtraction parameter.")
-        
-        
+
+        self.optimizeTimeoutLabel = QLabel("Optimization Timeout (min):")
+        self.optimizeTimeoutSpnBx = self._create_spinbox(
+            min_val=qf_defaults.OPTIMIZE_TIMEOUT_RANGE[0],
+            max_val=qf_defaults.OPTIMIZE_TIMEOUT_RANGE[1],
+            value=qf_defaults.DEFAULT_OPTIMIZE_TIMEOUT,
+            tooltip="Maximum wall-clock time (minutes) for each method's optimization. Set to 0 to disable. When exceeded, the current best parameters are used."
+        )
+
+
 
     def _create_evaluation_metric_widgets(self):
         """Create normalization means, evaluation metrics, and metric weight widgets."""
@@ -974,6 +982,8 @@ class BackgroundSubtractionDialog(QDialog):
         layout.addWidget(self.maxIterationsSpnBx, 4, 1, 1, 1)
         layout.addWidget(self.earlyStopLabel, 4, 2, 1, 1)
         layout.addWidget(self.earlyStopSpnBx, 4, 3, 1, 1)
+        layout.addWidget(self.optimizeTimeoutLabel, 5, 0, 1, 1)
+        layout.addWidget(self.optimizeTimeoutSpnBx, 5, 1, 1, 1)
 
     def _setup_metrics_layout(self):
         """Setup evaluation metrics settings layout."""
