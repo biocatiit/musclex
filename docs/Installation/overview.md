@@ -11,7 +11,7 @@ MuscleX can be installed using several methods depending on your platform, techn
 | Pip        | Most users on Linux/Mac/Windows with Python      | Flexible, easy to update, virtualenv friendly | May require dev tools or compilers |
 | Conda      | Users with Anaconda/Miniconda                    | Simple dependency management                  | Larger install base                |
 | Docker     | Developers or reproducible research environments | Fully isolated and portable                   | Requires Docker; GUI setup needed  |
-| Installers | Non-technical users on Windows/macOS             | Easy setup                                    | Less control, not scriptable       |
+| Installers | Non-technical users on Windows/macOS/Linux       | Easy setup                                    | Less control, not scriptable       |
 
 
 
