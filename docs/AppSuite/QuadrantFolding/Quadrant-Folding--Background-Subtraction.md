@@ -14,6 +14,8 @@ To obtain plausible background removal over the full pattern today, use **Manual
 
 For time-resolved (**TDI**) normalization, you may instead fix one method and parameter set and apply it uniformly to every frame in a sequence. The summary csv file will contain the integrated background sum between rmin and rmax for each frame.
 
+See [Examples](Quadrant-Folding--Background-Subtraction.md#examples) for more details.
+
 ## Where to find the controls
 
 Background subtraction is configured from two places in the **Results** tab:
@@ -164,25 +166,32 @@ For batch runs with **Choose best configuration for images automatically**, opti
 
 ## Examples
 
-### Example 1: Intact Mouse Skeletal Muscle -- Faint pattern & faint background
+### Example 1: High Angle Features with Automated Processing - Intact Mouse Skeletal Muscle - Faint pattern & faint background
 
-The default weights are used for the optimization. The results are shown below:
+The default weights are used for the optimization.
 
 ![-](../../images/QF/example1.png)
 
-The results are satisfactory. The background is removed and the pattern is preserved.
 
+### Example 2: High Angle Features with Automated Processing - Skinned Pig Cardiac Muscle - High intensity background
 
-### Example 2: Skinned Pig Cardiac Muscle -- High intensity background
-
-This pattern requires adjustment of rmax mask to exclude the high intensit edge artifacts. The results are shown below:
+This pattern requires adjustment of rmax mask to exclude the high intensit edge artifacts.
 
 ![-](../../images/QF/example2.png)
 
-The results are satisfactory. The background is removed and the pattern is preserved.
+
+### Example 3: High Angle Features with Automated Processing - Skinned Pig Cardiac Muscle Strong Pattern Shot in Air -- High intensity and Short Camera Pattern
+
+This pattern requires adjustment of rmax to focus on the pattern in the center of the image. The evaluation mask depends on the rmin and rmax values. Focusing specifically on the pattern will ensure only relevant pixels are considered during the target evaluation. Additionally, the evaluation baseline value is asjusted to force the subtraction and more weight is given to the subtraction metric (**Fraction of Non Near-Zero Baseline Pixels**). Rmin and rmax are shown in green.
+
+![-](../../images/QF/example3.png)
 
 
-### Example 3: Skinned Pig Cardiac Muscle Strong Pattern Shot in Air -- High intensity with less background
+### Example 4: Whole Pattern Background Subtraction with Transition - 2D Convexhull for Inner and Smoothed Gaussian for Outer - Skinned Pig Cardiac Muscle - High intensity background
+
+This example shows the use of transition mode to remove background on the whole pattern. This is preferable for visualization of patterns where the equatorial features are important. The transition radius and delta are shown in yellow and red.
+
+![-](../../images/QF/example4.png)
 
 
 
