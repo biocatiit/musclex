@@ -731,16 +731,18 @@ class ImageMaskerWindow(QDialog):
         # Check if self.imageData is present
 
 
+        # Cross-environment launcher: handles venv (pyFAI-drawmask on PATH),
+        # standard pip installs (python -m pyFAI.app.drawmask), and the
+        # PyInstaller-frozen .deb (multiprocessing child) all transparently.
+        from ..utils.drawmask_launcher import run_pyfai_drawmask
+
         if self.showBlankImageChkbx.isChecked():
             # The old code for blanks just used pyFAI-drawmask "<blankImagePath>"
             # and final mask = <blankNoExt>-mask.edf
-            command = f'"{sys.executable}" -m pyFAI.app.drawmask "{self.blankImagePath}"'
-
-
             base_blank = self.blankImagePath.rsplit('.', 1)[0]
             self.maskPath = base_blank + '-mask.edf'
 
-            ret_val = os.system(command)
+            ret_val = run_pyfai_drawmask(self.blankImagePath)
 
         else:
             if self.isHDF5:
@@ -758,14 +760,11 @@ class ImageMaskerWindow(QDialog):
                 tif_img = fabio.pilatusimage.pilatusimage(data=data, header=fabio_img.getheader())
                 tif_img.write(bounded_file_name)
 
-                # Run pyFAI-drawmask on the bounded TIFF
-                command = f'"{sys.executable}" -m pyFAI.app.drawmask "{bounded_file_name}"'
-
                 # pyFAI will produce something like <bounded_file_nameNoExt>-mask.edf
                 base_bounded = bounded_file_name.rsplit('.', 1)[0]  # e.g. "..._bounded"
                 temp_mask_path = base_bounded + '-mask.edf'         # e.g. "..._bounded-mask.edf"
 
-                ret_val = os.system(command)
+                ret_val = run_pyfai_drawmask(bounded_file_name)
 
                 # The final mask name should be <originalFileNoExt>.h5-mask.edf or something
                 # but based on your old code, let's do:
@@ -792,14 +791,11 @@ class ImageMaskerWindow(QDialog):
 
                 fabio.tifimage.tifimage(data=data).write(bounded_file_name)
 
-                # Run pyFAI-drawmask on the bounded TIFF
-                command = f'"{sys.executable}" -m pyFAI.app.drawmask "{bounded_file_name}"'
-
                 # pyFAI output file name
                 base_bounded = bounded_file_name.rsplit('.', 1)[0]
                 temp_mask_path = base_bounded + '-mask.edf'
 
-                ret_val = os.system(command)
+                ret_val = run_pyfai_drawmask(bounded_file_name)
 
 
                 # The final mask name in your old code was <originalFileNoExt>-mask.edf

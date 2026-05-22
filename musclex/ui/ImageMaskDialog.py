@@ -586,14 +586,14 @@ class ImageMaskDialog(QDialog):
         temp_input_path = self.settings_dir_path / "temp_for_drawmask.tif"
         fabio.tifimage.tifimage(data=self.imageData).write(temp_input_path)
 
-        # Run pyFAI-drawmask on the temporary file using the current interpreter
-        # so it works regardless of whether pyFAI-drawmask is on PATH (e.g. .deb installs)
-        command = f'"{sys.executable}" -m pyFAI.app.drawmask "{temp_input_path}"'
-
         # pyFAI will produce: temp_for_drawmask-mask.edf
         generated_mask_path = self.settings_dir_path / "temp_for_drawmask-mask.edf"
 
-        ret_val = os.system(command)
+        # Use the cross-environment launcher: works in venv/pip installs and
+        # also in the PyInstaller-frozen .deb where pyFAI-drawmask is neither
+        # on PATH nor reachable via "python -m".
+        from ..utils.drawmask_launcher import run_pyfai_drawmask
+        ret_val = run_pyfai_drawmask(temp_input_path)
 
         # Move the generated mask to final location
         if generated_mask_path.exists():
