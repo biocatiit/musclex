@@ -1127,13 +1127,16 @@ def optimize_mp_wrapper(method, **kwargs):
 
 def optimize(method, **kwargs):
     
-    from musclex.utils.qf_defaults import DEFAULT_OPTIMIZATION_STEPS, parse_optimization_steps, DEFAULT_EARLY_STOP, DEFAULT_MAX_ITERATIONS
+    from musclex.utils.qf_defaults import DEFAULT_OPTIMIZATION_STEPS, parse_optimization_steps, DEFAULT_EARLY_STOP, DEFAULT_MAX_ITERATIONS, DEFAULT_OPTIMIZE_TIMEOUT
 
     steps = kwargs.get('steps', parse_optimization_steps(DEFAULT_OPTIMIZATION_STEPS))
     early_stop = kwargs.get('early_stop', DEFAULT_EARLY_STOP)
     print(f"Optimization parameters: steps={steps}, early_stop={early_stop}")
     max_iterations = kwargs.get('max_iterations', DEFAULT_MAX_ITERATIONS)
     refine_params = kwargs.get('refine_params', -1)
+    timeout_minutes = kwargs.get('optimize_timeout', DEFAULT_OPTIMIZE_TIMEOUT)
+    timeout_seconds = float(timeout_minutes) * 60.0 if timeout_minutes else 0.0
+    start_time = time.time()
 
     log(f">_ Optimizing with method: {method}")
 
@@ -1227,6 +1230,13 @@ def optimize(method, **kwargs):
                     history[tuple(test_params)] = loss
                     all_results.extend(result)
                 log(f"  Param {param_idx} = {v}, Loss = {loss:.6f}")
+                if timeout_seconds > 0 and time.time() - start_time >= timeout_seconds:
+                    log(f"Optimization timeout reached after {timeout_seconds/60:.1f} min. Using current best.")
+                    done = True
+                    if loss < best_loss:
+                        best_loss = loss
+                        best_value = v
+                    break
                 if loss < best_loss:
                     if  best_loss - loss < early_stop:
                         log(f"  Early stopping: improvement {best_loss - loss:.6f} is less than threshold {early_stop}. Stopping optimization for this parameter.")
@@ -1301,6 +1311,7 @@ def optimize(method, **kwargs):
 
 
 
+import time
 import signal
 
 class TimeoutException(Exception):
