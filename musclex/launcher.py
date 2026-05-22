@@ -244,7 +244,11 @@ class TestDialog(QDialog):
         self.progressBar.reset()
         self.detail.moveCursor(QTextCursor.End)
         self.detail.setFontWeight(100)
-        self.detail.insertPlainText("\nRunning environment tests of MuscleX modules.\nThis will take a few seconds...")
+        self.detail.insertPlainText(
+            "\nComparing this environment to the release reference "
+            "(Python and package versions logged in test.log).\n"
+            "This usually takes a few seconds..."
+        )
         QApplication.processEvents()
 
         suite = unittest.TestSuite()
@@ -265,22 +269,27 @@ class TestDialog(QDialog):
 
         self.detail.moveCursor(QTextCursor.End)
         self.detail.setFontWeight(100)
-        self.detail.insertPlainText("\nEnvironment tests complete.")
+        self.detail.insertPlainText("\nEnvironment check finished.")
         QApplication.processEvents()
 
         test_results = self.get_latest_test()
 
         if test_results.find('warning') != -1:
             self.detail.setTextColor(self.red)
-            self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
+            self.detail.insertPlainText(
+                "\nOne or more versions differ from the release reference (warnings below). "
+                "That does not necessarily mean MuscleX will not run.\n"
+            )
         else:
             self.detail.setTextColor(self.green)
-            self.detail.insertPlainText("\nAll tests passed -- see below for details.\n")
+            self.detail.insertPlainText(
+                "\nAll listed versions match the release reference -- see log excerpt below.\n"
+            )
         QApplication.processEvents()
 
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText(f"Test results:\n{'-'*80}{test_results}{'-'*80}")
+        self.detail.insertPlainText(f"Log excerpt:\n{'-'*80}{test_results}{'-'*80}")
         QApplication.processEvents()
         proc.join()
 

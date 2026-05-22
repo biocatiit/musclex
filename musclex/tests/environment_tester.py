@@ -38,7 +38,7 @@ pip_details = {
     "h5py" : "3.10.0",
     "scipy" : "1.11.4",
     "matplotlib" : "3.9.2",
-    "opencv-python-headless" : "4.10.0",
+    "opencv-python-headless" : "4.11.0",
     "pyFAI" : "2024.1.0",
     "distro" : "1.8.0",
     "hdf5plugin" : "4.4.0",
