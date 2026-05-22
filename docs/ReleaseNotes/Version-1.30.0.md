@@ -90,4 +90,13 @@ Release Date : May 2026
 .. note:: Version 1.30.0 is a major feature release. This version has been tested on Python 3.10 on Ubuntu 22.04.
 ```
 
-**Total Changes**: ~188 commits since v1.29.0
+## v1.30.0-beta.3 Changes
+
+### Bug Fixes
+- **Draw Mask**: fixed draw mask tool not working; added `qtawesome` as a missing dependency
+
+### Improvements
+- **Launcher – environment check**: version mismatch messages clarified—warnings no longer imply a hard failure; output label changed from "Test results" to "Log excerpt"
+- **Dependencies**: `requirements` file simplified; `setup.py` is now the single source of truth for package dependencies
+
+**Total Changes**: ~192 commits since v1.29.0

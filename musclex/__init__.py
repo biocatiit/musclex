@@ -34,7 +34,7 @@ import subprocess as _subprocess
 _DEV_SUFFIX = '.dev1'
 
 def _get_version():
-    _base = '1.30.0-beta.2'
+    _base = '1.30.0-beta.3'
     try:
         _branch = _subprocess.check_output(
             ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
