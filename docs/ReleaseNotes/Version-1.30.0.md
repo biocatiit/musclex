@@ -93,7 +93,11 @@ Release Date : May 2026
 ## v1.30.0-beta.3 Changes
 
 ### Bug Fixes
-- **Draw Mask**: fixed draw mask tool not working; added `qtawesome` as a missing dependency
+- **Draw Mask**: fixed draw mask tool not working in all installation environments
+  - New cross-environment launcher (`drawmask_launcher.py`): transparently handles venv, standard pip install, and PyInstaller-frozen `.deb` packages
+  - `ImageMaskDialog` and `ImageMaskTool` now use `run_pyfai_drawmask()` instead of calling `pyFAI-drawmask` via `os.system()`
+  - PyInstaller hooks for `pyFAI` and `silx` updated to collect all resources (OpenCL kernels, Qt descriptors, calibrant tables, icons) required by drawmask at runtime
+  - Added `qtawesome` as a missing dependency
 
 ### Improvements
 - **Launcher – environment check**: version mismatch messages clarified—warnings no longer imply a hard failure; output label changed from "Test results" to "Log excerpt"
