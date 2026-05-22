@@ -1305,6 +1305,7 @@ class QuadrantFolder:
             'early_stop': self.info['early_stop'],
             'max_iterations': self.info['max_iterations'],
             'optimize_timeout': self.info.get('optimize_timeout', qf_defaults.DEFAULT_OPTIMIZE_TIMEOUT),
+            'timeout': self.info.get('optimize_timeout_single_run', qf_defaults.DEFAULT_OPTIMIZE_TIMEOUT_SINGLE_RUN),
             'evaluation_baseline': eval_baseline,
             'tmp_avg_fold': self.imgCache['_avg_fold'],
             'avg_fold': self.imgCache['avg_fold'],
