@@ -950,6 +950,9 @@ def applyCircularlySymBGSub2(fold, rmin, radial_bin=10, smooth=5, pc1=0, pc2=25,
     ad = np.ravel(img)
     rmax = width+1
 
+    pc1 = pc1 / 100.0
+    pc2 = pc2 / 100.0
+
     # Call the new background subtraction function
     background = replicate_bgcsym2(
         AD=ad,
@@ -1329,7 +1332,10 @@ RAW_METRIC_KEYS = (
     "Smoothness",
 )
 
-def process_file_with_timeout(values, timeout=60000000, **kwargs):
+def process_file_with_timeout(values, timeout=None, **kwargs):
+    if timeout is None:
+        timeout = kwargs.get('timeout', 60*5) # 5 minutes
+    timeout = int(timeout)
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(timeout)
     try:

@@ -7,11 +7,11 @@ method_bounds = {
         "degree": [0.5, 2], # degree of polynomial fit
     },
     "Circularly-symmetric": {
-        "smooth": [1, 5], # any positive number (larger numbers means more smoothing)
+        "smooth": [1, 50], # any positive number (larger numbers means more smoothing)
         "tension": [1, 5], 
         "radial_bin": [2, 200], # in pixels
         "cirmin": [0, 5], # in pixels
-        "cirmax": [5, 40], # in pixels
+        "cirmax": [5, 50], # in pixels
     },
     "White-top-hats": {
         "tophat": [1, 200],
@@ -24,15 +24,15 @@ method_bounds = {
         "win_sep_y": [2, 50], # in pixels 
         "smooth": [0, 0],
         "cirmin": [0, 5],
-        "cirmax": [5, 40], # in %
+        "cirmax": [5, 50], # in %
     },
     "Smoothed-Gaussian": {
-        "fwhm": [5, 150], # in pixels
-        "cycles": [5, 2000],
+        "fwhm": [2, 150], # in pixels
+        "cycles": [2, 2000],
     },
     "Smoothed-BoxCar": {
-        "boxcar_x": [5, 150],
-        "boxcar_y": [5, 150],
+        "boxcar_x": [2, 150],
+        "boxcar_y": [2, 150],
         "cycles": [5, 2000],
     },
 }
@@ -41,7 +41,8 @@ method_order = {
     "None": [],
     "Average": [],
     "2D Convexhull": [0],
-    "Circularly-symmetric": [2,4,3,0,1, 2,4],
+    # "Circularly-symmetric": [2,4,3,0,1, 2,4],
+    "Circularly-symmetric": [0,2,4,3,0,1, 2,4],
     "White-top-hats": [0],
     "Roving Window": [1, 2, 3, 4, 7, 5, 0, 6,  1, 2, 3, 4, 7, 5],
     "Smoothed-Gaussian": [0,1, 0,1],
