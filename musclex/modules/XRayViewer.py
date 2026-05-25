@@ -48,6 +48,8 @@ class XRayViewer:
         :param img_name: image filename (used to detect folded images)
         """
         self.orig_img = np.asarray(img).astype("float32")
+        self.img_path = img_path
+        self.img_name = img_name
         self.orig_image_center = None
         self.hist = []
         self.dl, self.db = 0, 0

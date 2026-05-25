@@ -70,17 +70,19 @@ class XV_CSVManager:
         img_name = xrayViewer.img_name
         self.removeData(img_name)
         data = {}
+        hist = getattr(xrayViewer, 'hist', None)
+        has_hist = hist is not None and len(hist) > 0
 
         # If there is no result
-        if xrayViewer.hist == []:
+        if not has_hist:
             for k in self.dataframe.columns:
                 data[k] = '-'
             data['Filename'] = img_name
-            data['comment'] = "No slice or box selected"
+            data['Comment'] = "No slice or box selected"
         else:
             # Get all needed infos
             data['Filename'] = img_name
-            data['Histogram'] = xrayViewer.hist
+            data['Histogram'] = hist.tolist() if hasattr(hist, 'tolist') else hist
 
         self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([data])])
         # self.dataframe = self.dataframe.append(data, ignore_index=True) # Future warning deprecated
