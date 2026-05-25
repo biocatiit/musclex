@@ -64,7 +64,7 @@ If calibration settings are available, use the cursor readout selector to displa
 
 ## Center and calibration
 
-The center settings panel can display and adjust the beam center using the same workspace controls as other MuscleX modules. You can use automatic center detection, manual center entry, chord/perpendicular tools, calibration settings, and restore/apply controls from this panel. Enable the "Center" checkbox to display the center marker on the image.
+X-Ray Viewer uses the shared MuscleX center-setting workflow. For the center tools, manual center entry, calibration settings, and restore/apply controls, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation). Rotation-specific tools described there do not apply to X-Ray Viewer. Enable the "Center" checkbox to display the center marker on the image.
 
 For quadrant-folded images, X-Ray Viewer can use the geometric center instead of running the usual center detection. Use the "Quadrant Folded" checkbox when you need to override the automatic folded-image detection.
 

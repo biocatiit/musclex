@@ -2,7 +2,7 @@
 
 Several configuration settings are shared across multiple MuscleX modules. Rather than repeating them in each module's documentation, they are described here once.
 
-**Modules that use these settings:** Quadrant Folding (qf), Equator (eq), Projection Traces (pt).
+**Modules that use these settings:** Quadrant Folding (qf), Equator (eq), Projection Traces (pt), and X-Ray Viewer (xv, center tools only).
 
 ---
 
