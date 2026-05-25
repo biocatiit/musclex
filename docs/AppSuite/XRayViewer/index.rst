@@ -6,5 +6,4 @@ X-Ray Viewer
    :maxdepth: 2
 
    XRay-Viewer-(xv)
-   XRay-Viewer-How-it-works
    XRay-Viewer-How-to-use
