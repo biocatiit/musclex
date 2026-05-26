@@ -1,9 +1,9 @@
 # How it works
 
-When an image is selected, if there is an image in the same folder named “calibration.tif”, the calibration settings window will pop up (How to set calibration settings will be explained in the next section). If there’s no calibration image or it’s set already, the image will be processed automatically with the default parameters. However, if the image has ever been processed with the same version of the program, the cache will be downloaded, so the image won’t be processed again.
+When an image is selected, Equator loads it through the shared processing workspace, applies any configured calibration, center/rotation, empty cell image, and mask settings, and then processes it with the current Equator parameters. On the first load, the calibration dialog can be shown when calibration is available or needs confirmation. If the image has already been processed with the same MuscleX version and the same preprocessing settings, Equator loads the cache from `eq_cache` instead of recalculating the image.
 
 ## Image processing and fitting model
-The program will process an image by going through multiple processes in the order 
+The program will process an image by going through multiple processes in the order:
 ### 1. [Find Center](../Image-Processing-Functions.html#finding-center)
 ### 2. [Calculate Rotation Angle](../Image-Processing-Functions.html#calculate-rotation-angle)
 ### 3. [Calculate R-min](../Image-Processing-Functions.html#calculate-r-min)
@@ -26,7 +26,7 @@ The original histogram will be split into left and right sides. Then, the convex
 
 ![-](../../images/BM/convexhull.png)  
 
-Note: When producing the intensity histogram, we ignore colomns with values below the mask threshold. Make sure that when you sepecify the integration area, you exclude sensor gaps, otherwise, you will not get a projection histogram.  
+Note: When producing the intensity histogram, Equator identifies columns with values below the mask threshold as ignored columns. Masked detector gaps are protected during convex-hull background estimation and interpolated before fitting. More details are available in [Empty Cell Image and Mask](Blank-Image-and-Mask.html).
 
 ### 7. Find Diffraction Peaks
 The program will find peaks from left and right histograms which have had the convex hull background subtracted. This process will find all locations of the peaks. If the image is noisy, it is possible that the program will find too many peaks. ( In the image below, the program found only 2 peaks because the image was not noisy, so it worked very well )
