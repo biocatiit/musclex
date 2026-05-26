@@ -14,7 +14,7 @@ After an image is selected, the program will process it, and display all informa
 #### Image 
 ![-](../../images/CP/image_tab.png)
 
-There are several options on the right bar. In Settings section, you can do [Calibration Settings](../Calibration-Settings.html) and ring selections. Several methods of finding orientation based on **GMM** or **Herman Orientation Factor (HoF)** are provided. **Region of Interest (ROI)** is shown as a semitransparent red ring. It is used as the integration area for **HoF** method and only rings in it are considered when performing **GMM** fitting.
+There are several options on the right bar. In Settings section, you can do [Calibration Settings](../Common-Settings.html#calibration-settings) and ring selections. Several methods of finding orientation based on **GMM** or **Herman Orientation Factor (HoF)** are provided. **Region of Interest (ROI)** is shown as a semitransparent red ring. It is used as the integration area for **HoF** method and only rings in it are considered when performing **GMM** fitting.
 
 To do the ring selection, you have to click the button, pick rings on the image, and click Done. Setting ROI, R-min and R-max can be done in the same way.
 

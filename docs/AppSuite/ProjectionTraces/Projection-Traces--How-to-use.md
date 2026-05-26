@@ -8,7 +8,7 @@ Once the program is run, you will see the steps 1 to 4 that you have to do on th
 
 ![-](../../images/PT/left_tab.png)
 
-First, select an image to process. Second, configure calibration settings (optional). Third, add how many boxes you want. Finally, select peak locations in each box. For each folder, you just need to do it once on the first image. When another image in the same folder is processed, all these settings will be used.
+First, select an image to process. Second, configure [calibration settings](../Common-Settings.html#calibration-settings) (optional). Third, add how many boxes you want. Finally, select peak locations in each box. For each folder, you just need to do it once on the first image. When another image in the same folder is processed, all these settings will be used.
 
 In this page, you will know about ...
 1. [Display Options](#display-options)
@@ -36,7 +36,7 @@ In each box tab, you will see multiple check boxes in the section. You can check
 
 ### Calibration Options
 
-For all center and rotation calibration tools — Set Rotation and Center, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, and Double Zoom — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation).
+For calibration image / parameter setup, see [Common Settings — Calibration Settings](../Common-Settings.html#calibration-settings). For center and rotation tools — Set Rotation and Center, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, and Double Zoom — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation).
 
 #### Mask Threshold
 

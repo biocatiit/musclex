@@ -6,6 +6,77 @@ Several configuration settings are shared across multiple MuscleX modules. Rathe
 
 ---
 
+## Calibration Settings
+
+A calibration image is a shot of a membrane sample that gives a ring in the diffraction pattern at a known spacing in inverse nm. By fitting this ring to a circle, MuscleX can refine the diffraction center and use the fitted radius to convert spacings in pixels to spacings in nm.
+
+### Setting by Calibration Image
+
+When calibration by image is selected, choose a calibration image and the program will try to fit a circle to the ring. The center and radius are shown on the image if the circle can be fitted.
+
+![-](../images/calibration.png)
+
+If the circle cannot be fitted automatically, or if it is in the wrong position, click **Set manual calibration by point selections**. The manual calibration dialog shows the main image and a zoom view. To select a point on the ring, click once on the main image for the approximate location, then click in the zoom view for the precise location.
+
+![-](../images/manual_cali.png)
+
+Select at least 5 points on the ring, then click **Done**. After setting the appropriate calibrant ring d-spacing and clicking **OK**, the image is reprocessed with the new calibration settings, including center and d-spacing conversion.
+
+#### Advanced Manual Calibration
+
+```eval_rst
+.. note:: **New in version 1.27.0**: The manual calibration dialog includes advanced optimization methods for improved accuracy and robustness.
+```
+
+When you click **Set manual calibration by point selections**, the Manual Calibration Dialog opens with several advanced features:
+
+**Point Selection and Refinement**
+
+1. **Two-Step Selection Process**:
+   - First click: Approximate location on the main image
+   - Second click: Precise location on the zoomed view
+   - This two-step process improves sub-pixel accuracy
+2. **Point Refinement**: After selecting a point, the program analyzes the local intensity gradient, finds the best peak or edge location, and adjusts the point to the optimal position.
+3. **Visual Feedback**: Selected points are displayed on both the main image and zoom view with clear markers.
+
+**Optimization Methods**
+
+- **Differential Evolution**: Escapes local minima to find a globally strong fit.
+- **MAD-Based Outlier Rejection**: Identifies and removes outlier points using Median Absolute Deviation statistics.
+- **Multi-Start Optimization**: Runs optimization from multiple initial guesses and selects the best result.
+
+**Calibration Dialog Features**
+
+- **Results Display**: Shows refined center position, fitted radius, residuals, and optimization history.
+- **Export to CSV**: Saves the optimization history for analysis or troubleshooting.
+- **Interactive Adjustments**: Add more points, remove points, refit, or reset the selection.
+
+**Tips for Best Results**
+
+1. Select points evenly around the ring.
+2. Use at least 5 points; 8-12 points usually gives better robustness.
+3. Choose points on clear, well-defined parts of the ring.
+4. Adjust the zoom level before selecting precise points.
+5. Do not worry too much about one or two imperfect points; outlier rejection can often handle them.
+
+### Setting by Parameters
+
+You can also manually set the calibration parameters: wavelength λ, sample-to-detector distance SDD, and pixel size. These parameters are used to calculate d<sub>10</sub>:
+
+![-](../images/d10.png)
+
+### Fixed Center
+
+The center can also be fixed independently of the calibration image. When the fixed center option is checked, the specified center is used when moving to the next image or processing the current folder.
+
+### Manually Select Detector
+
+Selecting a detector corresponding to the images used may improve the results obtained with MuscleX.
+
+You can manually select the detector used for the experiment. If no detector is selected, the detector is selected automatically from the image size. The list is provided by pyFAI's detector registry. If the selected detector does not match the image, the program falls back to the default detector.
+
+---
+
 ## Diffraction Center and Rotation
 
 The diffraction center is the point of zero scattering vector — the point where the direct beam hits the detector. The rotation angle aligns the equatorial axis of the diffraction pattern with the horizontal axis used by the processing algorithms.

@@ -12,7 +12,6 @@ Application Suite
    DDFProcessor/index
    TotalDiffractedIntensity/index
    AddIntensitiesSME/index
-   Calibration-Settings
    Common-Settings
    Image-Processing-Functions
    WorkingWithHdf5Images/index

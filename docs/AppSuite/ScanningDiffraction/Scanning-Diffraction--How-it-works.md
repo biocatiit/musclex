@@ -5,7 +5,7 @@ There are 2 modes for Scanning Diffraction
 2. [Folder Mode / Batch Mode](#folder-mode)
 
 ## Individual Image Mode
-When an image is selected, if there is an image in the same folder named “calibration.tif”, the [calibration settings](../Calibration-Settings.html) the calibration settings window will pop up. If there’s no calibration image or it’s set already, the image will be processed automatically. However, if the image has ever been processed with the same version of the program, the cache will be downloaded, so the image won’t be processed again. Using a  calibration image or inputting the calibration information directly allows conversion of distance in pixels to d-spacings in nm. If calibration information is not provided, distances to diffraction rings are left in numbers of pixels.
+When an image is selected, if there is an image in the same folder named “calibration.tif”, the [calibration settings](../Common-Settings.html#calibration-settings) window will pop up. If there’s no calibration image or it’s set already, the image will be processed automatically. However, if the image has ever been processed with the same version of the program, the cache will be downloaded, so the image won’t be processed again. Using a calibration image or inputting the calibration information directly allows conversion of distance in pixels to d-spacings in nm. If calibration information is not provided, distances to diffraction rings are left in numbers of pixels.
 
 To process an image, the program will go through multiple processes in the order:
 #### 1. [Find Center](../Image-Processing-Functions.html#finding-center)
