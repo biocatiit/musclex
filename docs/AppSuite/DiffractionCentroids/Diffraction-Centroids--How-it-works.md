@@ -4,9 +4,9 @@ This program requires you to specify a range of axial distances containing a  me
 
 ## Meridian
 Required parameters : all peak ranges and names
-### 1. [Find Center](../Image-Processing-Functions.html#finding-center)
-### 2. [Calculate Rotation Angle](../Image-Processing-Functions.html#calculate-rotation-angle)
-### 3. [Calculate R-min](../Image-Processing-Functions.html#calculate-r-min)
+### 1. [Find Center](../Common-Settings.html#finding-the-diffraction-center)
+### 2. [Calculate Rotation Angle](../Common-Settings.html#calculating-the-rotation-angle)
+### 3. [Calculate R-min](../Common-Settings.html#r-min)
 ### 4. Calculate Integrated Area
 To calculate the integrated intensity trace, the program will perform similar algorithm for [Equator's box width calculation](../Equator/Equator--How-it-works.html#4-calculate-box-width), but it will sum the intensity along the meridian instead of the equator, so the box will be vertical box. This histogram will be split into 2 histograms (Top and bottom)
 ### 5. Calculate start and end point for convex hull

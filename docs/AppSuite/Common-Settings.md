@@ -1,285 +1,399 @@
-# Common Settings
+# Shared Settings and Image Processing
 
-Several configuration settings are shared across multiple MuscleX modules. Rather than repeating them in each module's documentation, they are described here once.
+Several configuration settings and image-processing algorithms are shared across multiple MuscleX modules. Rather than repeating them in each module's documentation, they are described here once.
 
 **Modules that use these settings:** Quadrant Folding (qf), Equator (eq), Projection Traces (pt), and X-Ray Viewer (xv, center tools only).
 
 ---
 
-## Calibration Settings
+## Table of Contents
 
-A calibration image is a shot of a membrane sample that gives a ring in the diffraction pattern at a known spacing in inverse nm. By fitting this ring to a circle, MuscleX can refine the diffraction center and use the fitted radius to convert spacings in pixels to spacings in nm.
-
-### Setting by Calibration Image
-
-When calibration by image is selected, choose a calibration image and the program will try to fit a circle to the ring. The center and radius are shown on the image if the circle can be fitted.
-
-![-](../images/calibration.png)
-
-If the circle cannot be fitted automatically, or if it is in the wrong position, click **Set manual calibration by point selections**. The manual calibration dialog shows the main image and a zoom view. To select a point on the ring, click once on the main image for the approximate location, then click in the zoom view for the precise location.
-
-![-](../images/manual_cali.png)
-
-Select at least 5 points on the ring, then click **Done**. After setting the appropriate calibrant ring d-spacing and clicking **OK**, the image is reprocessed with the new calibration settings, including center and d-spacing conversion.
-
-#### Advanced Manual Calibration
-
-```eval_rst
-.. note:: **New in version 1.27.0**: The manual calibration dialog includes advanced optimization methods for improved accuracy and robustness.
-```
-
-When you click **Set manual calibration by point selections**, the Manual Calibration Dialog opens with several advanced features:
-
-**Point Selection and Refinement**
-
-1. **Two-Step Selection Process**:
-   - First click: Approximate location on the main image
-   - Second click: Precise location on the zoomed view
-   - This two-step process improves sub-pixel accuracy
-2. **Point Refinement**: After selecting a point, the program analyzes the local intensity gradient, finds the best peak or edge location, and adjusts the point to the optimal position.
-3. **Visual Feedback**: Selected points are displayed on both the main image and zoom view with clear markers.
-
-**Optimization Methods**
-
-- **Differential Evolution**: Escapes local minima to find a globally strong fit.
-- **MAD-Based Outlier Rejection**: Identifies and removes outlier points using Median Absolute Deviation statistics.
-- **Multi-Start Optimization**: Runs optimization from multiple initial guesses and selects the best result.
-
-**Calibration Dialog Features**
-
-- **Results Display**: Shows refined center position, fitted radius, residuals, and optimization history.
-- **Export to CSV**: Saves the optimization history for analysis or troubleshooting.
-- **Interactive Adjustments**: Add more points, remove points, refit, or reset the selection.
-
-**Tips for Best Results**
-
-1. Select points evenly around the ring.
-2. Use at least 5 points; 8-12 points usually gives better robustness.
-3. Choose points on clear, well-defined parts of the ring.
-4. Adjust the zoom level before selecting precise points.
-5. Do not worry too much about one or two imperfect points; outlier rejection can often handle them.
-
-### Setting by Parameters
-
-You can also manually set the calibration parameters: wavelength λ, sample-to-detector distance SDD, and pixel size. These parameters are used to calculate d<sub>10</sub>:
-
-![-](../images/d10.png)
-
-### Fixed Center
-
-The center can also be fixed independently of the calibration image. When the fixed center option is checked, the specified center is used when moving to the next image or processing the current folder.
-
-### Manually Select Detector
-
-Selecting a detector corresponding to the images used may improve the results obtained with MuscleX.
-
-You can manually select the detector used for the experiment. If no detector is selected, the detector is selected automatically from the image size. The list is provided by pyFAI's detector registry. If the selected detector does not match the image, the program falls back to the default detector.
+- [Calibration Settings](#calibration-settings)
+  - [Implementation Details](#calibration-implementation)
+  - [How to Use](#calibration-how-to-use)
+- [Diffraction Center and Rotation](#diffraction-center-and-rotation)
+  - [Implementation Details](#center-rotation-implementation)
+  - [How to Use](#center-rotation-how-to-use)
+- [R-min](#r-min)
+  - [Implementation Details](#r-min-implementation)
+- [Herman Orientation Factor](#herman-orientation-factor)
+  - [Implementation Details](#hof-implementation)
+- [Empty Cell Image and Mask](#empty-cell-image-and-mask)
+  - [Implementation Details](#mask-implementation)
+  - [How to Use](#mask-how-to-use)
 
 ---
 
-## Diffraction Center and Rotation
+(calibration-settings)=
+## Calibration Settings
 
-The diffraction center is the point of zero scattering vector — the point where the direct beam hits the detector. The rotation angle aligns the equatorial axis of the diffraction pattern with the horizontal axis used by the processing algorithms.
+A calibration image is a shot of a membrane sample that gives a ring in the diffraction pattern at a known spacing in inverse nm. By fitting this ring to a circle, MuscleX can refine the diffraction center and use the fitted radius to convert spacings from pixels to nm.
 
-Each module provides several tools for setting these values manually. All tools can be combined with [Double Zoom](#double-zoom) for sub-pixel accuracy.
+(calibration-implementation)=
+### Implementation Details
 
-### Quick Center and Rotation Angle
+The calibration circle is fitted numerically to a set of user-selected or automatically detected points on the calibrant ring. The fitting minimises the residuals between the selected points and a geometric circle model. When advanced optimisation is enabled, a **Differential Evolution** global search is used to escape local minima, followed by **MAD-based outlier rejection** (Median Absolute Deviation statistics) to discard poorly placed points, and a **multi-start** refinement to select the best result from several initial guesses.
 
-```eval_rst
-.. note:: **New in version 1.27.0**: The "Quick Center and Rotation Angle" tool (formerly "Set Rotation and Center") provides a streamlined way to set both center and rotation simultaneously.
+The fitted circle radius, together with the known d-spacing of the calibrant ring and the wavelength λ, determines the sample-to-detector distance (SDD). From SDD, λ, and the pixel size, MuscleX computes d<sub>10</sub> using Bragg's law:
+
+```{figure} ../images/d10.png
+:name: fig-d10
+:alt: d10 formula derived from calibration parameters
+d<sub>10</sub> formula relating wavelength, sample-to-detector distance, S<sub>10</sub>, and pixel size.
 ```
 
-Before setting manual rotation and center, it is better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.
+(calibration-how-to-use)=
+### How to Use
 
-**Center and Rotation Mode Indicators**: The interface displays whether you are using automatic or manual center/rotation settings, making it easier to track your calibration state.
+#### Set by Calibration Image
 
-![-](../images/QF/center.png)
+1. **Select a calibration image** using the calibration panel in the processing workspace.
+2. **Inspect the fitted circle** — the center and radius are overlaid on the image if the ring is found automatically (see {numref}`fig-calibration`).
 
-### Set Center By Chords
+```{figure} ../images/calibration.png
+:name: fig-calibration
+:alt: Calibration dialog with an automatically fitted ring shown on the calibration image
+Calibration dialog showing the automatically fitted circle overlaid on a calibrant ring image.
+```
 
-Before setting center by chords, it is better to zoom the image to the area of the diffraction. This method uses the fact that "All perpendiculars to the chords in a circle intersect at the center". On clicking this button, you will be prompted to select points along the circumference of the diffraction pattern. As you select these points, perpendicular lines to the chords formed using these points start to appear on the image in blue color. Once you finish selecting the points, click the same button again to start processing. The diffraction center will then be calculated by taking the average of the intersection points of the perpendicular lines (blue lines in the figure).
+3. **If the fit is wrong or missing**, click **Set manual calibration by point selections** to open the Manual Calibration Dialog (see {numref}`fig-manual-cali`).
 
-![-](../images/QF/chords.png)
+```{figure} ../images/manual_cali.png
+:name: fig-manual-cali
+:alt: Manual calibration dialog with main image and zoom view
+Manual Calibration Dialog showing the main image (left) and zoom view (right) for precise point selection.
+```
 
-### Set Center By Perpendiculars
+4. **Select points on the ring** using the two-step process: click once on the main image for the approximate location, then click in the zoom view for the precise location. Select at least 5 points, ideally 8–12 spread evenly around the ring.
+5. **Enter the calibrant ring d-spacing** and click **Done**, then **OK**. The image is reprocessed with the new calibration.
 
-Before setting center by perpendiculars, it is better to zoom the image to the area of the diffraction. This method finds the center of diffraction using intersection of perpendicular lines. On clicking this button, you are prompted to select multiple positions in the image. You can start by clicking the first reflection peak on one side of the equator and the second will be the corresponding (opposite) reflection peak on the other side of the equator. This forms one horizontal line. You can continue drawing as many horizontal lines using this process. Next, you can click the reflection peak vertically above the equator and the following point symmetrically below the equator. Again, you can draw multiple such lines. Once you finish selecting the points, click the same button (Set Center By Perpendiculars) again to start processing. The diffraction center will then be calculated by taking the average of the intersection points obtained by the horizontal and vertical lines plotted.
+```{eval_rst}
+.. note::
 
-![-](../images/QF/perpendiculars.png)
+   **Advanced manual calibration (new in version 1.27.0):** After selecting points, the program refines each point by analysing the local intensity gradient to find the best peak or edge location. The Results Display shows the refined center position, fitted radius, residuals, and optimisation history. Use **Export to CSV** to save the optimisation history for analysis or troubleshooting. You can also add or remove points and refit interactively.
 
-### Set Rotation Angle
+   **Tips for best results:**
 
-This assumes that the center of diffraction is correct. After the button is clicked, the program will allow users to select an angle by moving a line. Clicking on the image when the line is on the equator of the diffraction will set the manual rotation angle.
+   - Select points evenly around the ring.
+   - Use at least 5 points; 8–12 gives better robustness.
+   - Choose points on clear, well-defined parts of the ring.
+   - Adjust the zoom level before selecting precise points.
+   - Do not worry about one or two imperfect points — outlier rejection handles them.
+```
 
-```eval_rst
+#### Set by Parameters
+
+1. **Enter the calibration parameters manually**: wavelength λ, sample-to-detector distance SDD, and pixel size. These are used directly to calculate d<sub>10</sub> (see {numref}`fig-d10`), bypassing automatic ring fitting.
+
+#### Fixed Center
+
+1. **Check the Fixed Center option** to pin the beam center to a user-supplied coordinate, independently of the calibration image.
+2. **Enter the x and y coordinates** of the beam center. The image reprocesses when these values change.
+3. **Leave the box checked** to carry the fixed center forward when navigating to the next image or processing the folder.
+
+#### Manually Select Detector
+
+1. **Choose a detector** from the drop-down list to improve MuscleX results for your specific hardware. The list is provided by pyFAI's detector registry.
+2. **Leave unset** to let MuscleX select the detector automatically from the image dimensions. If the selected detector does not match the image, the program falls back to the default.
+
+---
+
+(diffraction-center-and-rotation)=
+## Diffraction Center and Rotation
+
+The diffraction center is the point of zero scattering vector — where the direct beam hits the detector. The rotation angle aligns the equatorial axis of the diffraction pattern with the horizontal axis used by the processing algorithms.
+
+(center-rotation-implementation)=
+### Implementation Details
+
+#### Finding the Diffraction Center
+
+To find the center automatically, the image is first converted to 8-bit and a Gaussian filter is applied to reduce noise. Thresholding is then applied, and the center is estimated by fitting an ellipse to the largest contour of the thresholded image (see {numref}`fig-thresh` and {numref}`fig-center2`).
+
+```{figure} ../images/img_proc/thresh.png
+:name: fig-thresh
+:alt: Thresholded diffraction image used to locate the diffraction ring contour
+Thresholded diffraction image. The largest contour is used to estimate the diffraction center.
+```
+
+```{figure} ../images/img_proc/center2.png
+:name: fig-center2
+:alt: Diffraction image with the automatically detected center marked
+Diffraction image after automatic center detection. The detected center is marked on the pattern.
+```
+
+If the fitted center is at a fractional pixel position, the image is translated so that the center falls on the nearest integer coordinate. If no ellipse can be fitted, the center is computed using the [moments method](http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=moments#moments) from OpenCV.
+
+#### Calculating the Rotation Angle
+
+The program first estimates a rotation angle by fitting an ellipse to the diffraction pattern. It then refines the angle using pyFAI's azimuthal integrator in two passes: an initial pass over 360 values (one per degree) to locate the highest-intensity peak, followed by a second pass at 0.1-degree resolution around that peak for precision (see {numref}`fig-azimuthal`). If the refined angle is close to the ellipse-fit estimate, the refined value is used; otherwise the ellipse estimate is returned. The angle returned is always the closest acute angle.
+
+```{figure} ../images/img_proc/azimuthal.png
+:name: fig-azimuthal
+:alt: Azimuthal integration histogram used to determine the pattern rotation angle
+Azimuthal integration histogram. The dominant peak identifies the rotation angle of the diffraction pattern.
+```
+
+(center-rotation-how-to-use)=
+### How to Use
+
+All center and rotation tools can be combined with [Double Zoom](#double-zoom) for sub-pixel accuracy.
+
+#### Quick Center and Rotation Angle
+
+```{eval_rst}
+.. note:: **New in version 1.27.0**: Formerly "Set Rotation and Center". Provides a streamlined way to set both center and rotation simultaneously.
+```
+
+1. **Zoom in** to the region of the diffraction pattern for easier placement.
+2. **Click Quick Center and Rotation Angle**.
+3. **Click the first reflection peak** on one side of the equator.
+4. **Click the corresponding opposite peak** on the other side of the equator. The center and rotation are computed from the midpoint and angle of the two clicks (see {numref}`fig-center-tool`).
+5. Press **ESC** to cancel.
+
+```{figure} ../images/QF/center.png
+:name: fig-center-tool
+:alt: Quick Center and Rotation Angle tool showing two selected peak positions
+Quick Center and Rotation Angle tool. Two opposite reflection peaks are selected; the program derives the center and rotation from their midpoint and connecting angle.
+```
+
+**Center and Rotation Mode Indicators**: The interface shows whether automatic or manual center/rotation is active.
+
+#### Set Center By Chords
+
+1. **Zoom in** to the diffraction region.
+2. **Click Set Center By Chords**.
+3. **Click multiple points along the circumference** of the diffraction ring. Perpendicular bisectors (blue lines) appear as you select points (see {numref}`fig-chords`).
+4. **Click the button again** when done. The center is the average of the perpendicular bisector intersections.
+
+```{figure} ../images/QF/chords.png
+:name: fig-chords
+:alt: Set Center By Chords tool showing selected circumference points and perpendicular bisectors
+Set Center By Chords. Blue perpendicular bisectors to the chords intersect near the diffraction center.
+```
+
+#### Set Center By Perpendiculars
+
+1. **Zoom in** to the diffraction region.
+2. **Click Set Center By Perpendiculars**.
+3. **Click pairs of reflection peaks**: first a peak on one side of the equator, then its opposite on the other side (horizontal pair). Repeat for vertical pairs (above/below equator). Each pair defines a line through the center (see {numref}`fig-perpendiculars`).
+4. **Click the button again** when done. The center is the average of all line intersections.
+
+```{figure} ../images/QF/perpendiculars.png
+:name: fig-perpendiculars
+:alt: Set Center By Perpendiculars showing horizontal and vertical lines through the diffraction center
+Set Center By Perpendiculars. Pairs of opposite peaks define horizontal and vertical lines whose intersections locate the center.
+```
+
+#### Set Rotation Angle
+
+1. **Click Set Rotation Angle** (assumes the center is already correctly placed).
+2. **Move the line** until it aligns with the equatorial axis of the diffraction pattern (see {numref}`fig-rotation`).
+3. **Click** to accept the rotation angle. Press **ESC** to cancel.
+
+```{eval_rst}
 .. note:: **New in version 1.27.0**: Negative rotation angles are now supported. The rotation angle dialog has been enhanced with improved visual feedback.
 ```
 
-To cancel, press ESC.
-
-![-](../images/QF/rotation.png)
-
-### Fix Center
-
-To fix the center position to a user-supplied value, check the **Fix Center** checkbox and specify the coordinates of the beam center (before rotation). The image will be reprocessed when x or y is changed. This setting will affect subsequent images if the box remains checked.
-
-### Double Zoom
-
-```eval_rst
-.. note:: **Enhanced in version 1.27.0**: Double Zoom now features improved intensity normalization and dynamic crop radius adjustment for better visualization.
+```{figure} ../images/QF/rotation.png
+:name: fig-rotation
+:alt: Set Rotation Angle tool with a moveable line aligned to the diffraction equator
+Set Rotation Angle tool. The interactive line is dragged to align with the equatorial axis.
 ```
 
-This feature provides sub-pixel accuracy when placing center/rotation control points. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, a 20×20 pixel region centered at the cursor is cropped from the image and scaled up 10× in the subplot.
+#### Fix Center
 
-To use Double Zoom with any calibration tool:
+1. **Check the Fix Center checkbox**.
+2. **Enter the x and y coordinates** of the beam center (before rotation). The image reprocesses immediately.
+3. **Leave the box checked** to apply the fixed center to subsequent images in the folder.
 
-1. Enable the **Double Zoom** checkbox — the subplot appears.
-2. Click a calibration button (e.g. Quick Center and Rotation Angle).
-3. Move the mouse to the approximate position of the first point and click to freeze the subplot.
-4. Click the exact location in the subplot; an equivalent point is placed on the main image.
-5. Repeat for the second point.
-6. Uncheck **Double Zoom** to hide the subplot.
+#### Double Zoom
 
-![-](../images/QF/DoubleZoom.png)
-
-### Restoring Automatic Settings
-
-```eval_rst
-.. note:: **New in version 1.27.0**: You can now restore automatic center and rotation detection with granular control.
+```{eval_rst}
+.. note:: **Enhanced in version 1.27.0**: Improved intensity normalisation and dynamic crop radius adjustment.
 ```
 
-If you have manually set the center or rotation angle and want to return to automatic detection:
+Double Zoom provides sub-pixel accuracy when placing center or rotation control points. A 20×20 pixel region around the cursor is cropped and scaled up 10× in a subplot (see {numref}`fig-double-zoom`).
 
-1. **Restore Auto Center**: Click this button to return to automatic center detection.
-   - Choose to apply to **current image only** or **all subsequent images**.
-2. **Restore Auto Rotation**: Click this button to return to automatic rotation detection.
-   - The program will automatically detect the optimal rotation angle.
-3. **Apply Current Settings**: Once you have set a center or rotation manually, you can apply it to only the current image or to all subsequent images in the folder.
+```{figure} ../images/QF/DoubleZoom.png
+:name: fig-double-zoom
+:alt: Double Zoom panel showing the magnified sub-pixel crop alongside the main diffraction image
+Double Zoom panel (top right). The 20×20 pixel region around the cursor is shown at 10× magnification for sub-pixel point placement.
+```
 
-### Center and Rotation Management
+1. **Check the Double Zoom checkbox** — the subplot appears.
+2. **Click a calibration button** (e.g. Quick Center and Rotation Angle).
+3. **Move the mouse** to the approximate position and **click** to freeze the subplot.
+4. **Click the exact location in the subplot** — the corresponding point is placed on the main image.
+5. **Repeat** for the second point.
+6. **Uncheck Double Zoom** to hide the subplot.
 
-**Configuration Fingerprinting**: The program uses configuration fingerprinting to validate cached results. When you change center or rotation settings, the cache is automatically invalidated, ensuring consistency across your processing workflow.
+#### Restoring Automatic Settings
 
-**Manual Settings Preservation**: Your manual center and rotation settings are preserved during cache operations, so you do not lose your calibration when the cache is updated.
+```{eval_rst}
+.. note:: **New in version 1.27.0**: Granular restore controls for center and rotation independently.
+```
+
+1. **Click Restore Auto Center** to return to automatic center detection. Choose whether to apply to the **current image only** or **all subsequent images**.
+2. **Click Restore Auto Rotation** to return to automatic rotation detection.
+3. **Click Apply Current Settings** to propagate a manually set center or rotation to all subsequent images in the folder.
+
+#### Center and Rotation Management
+
+- **Configuration Fingerprinting**: When center or rotation settings change, the result cache is automatically invalidated to keep results consistent.
+- **Manual Settings Preservation**: Manual center and rotation values are preserved during cache operations.
 
 ---
 
+(r-min)=
+## R-min
+
+R-min is the minimum radius from the diffraction center that is included in the analysis. Pixels closer to the center than R-min — typically dominated by the beamstop shadow — are excluded from histogram projection, peak fitting, and all downstream calculations.
+
+(r-min-implementation)=
+### Implementation Details
+
+The program builds a radial intensity histogram (x-axis: radius in pixels, y-axis: summed intensity). R-min is set to the radius at which the histogram first falls to 50% of its maximum value (see {numref}`fig-rmin`). To prevent over-removal, this radius is constrained to be no more than 150% of the radius of the maximum. For example, if the maximum is at radius 35, R-min is searched in the range 36–59 (35 × 1.5 ≈ 53, but the hard limit is 59 = 35 × 1.5 rounded up with a small margin). If the 50% threshold is not found within this range, R-min defaults to the upper bound.
+
+```{figure} ../images/img_proc/rmin.png
+:name: fig-rmin
+:alt: Radial intensity histogram with R-min marked at the 50% maximum threshold
+Radial intensity histogram used to determine R-min. The dashed line marks the 50% maximum threshold; R-min is set at the crossing point.
+```
+
+---
+
+(herman-orientation-factor)=
+## Herman Orientation Factor
+
+The Herman Orientation Factor (HoF) quantifies the degree of orientational order in the diffraction pattern. It is used by Scanning Diffraction and related modules.
+
+(hof-implementation)=
+### Implementation Details
+
+After azimuthal integration produces a circular intensity histogram (see {numref}`fig-azimuthal`), the Herman Orientation Factor is calculated for each degree using:
+
+```{eval_rst}
+:math:`\mathrm{HoF} = \dfrac{3\langle\cos^2\phi\rangle - 1}{2}`, where 
+:math:`\langle\cos^2\phi\rangle = \dfrac{\displaystyle\sum_{i=0}^{x} I_i \cos^2\phi_i \sin\phi_i}{\displaystyle\sum_{i=0}^{x} I_i \sin\phi_i}`
+```
+
+*x* is either 180° or 90°, yielding one HoF value per degree in the histogram. See [Page 7 of this reference](http://www.personal.psu.edu/irh1/PDF/Orientation.pdf) for properties of the Herman Factor.
+
+The figures below show the HoF concept and representative results from integration over 90° and 180°.
+
+```{figure} ../images/orientation/hof00.png
+:name: fig-hof-concept
+:alt: Schematic illustrating the azimuthal angle phi used in the Herman Orientation Factor calculation
+Schematic of the azimuthal angle φ used in the Herman Orientation Factor formula.
+```
+
+```{figure} ../images/orientation/hof01.png
+:name: fig-hof-formula
+:alt: Visual representation of the Herman Orientation Factor formula applied to an azimuthal histogram
+Azimuthal intensity histogram with the Herman Orientation Factor integration illustrated.
+```
+
+```{figure} ../images/orientation/hof02.png
+:name: fig-hof-90
+:alt: Herman Orientation Factor result from 90-degree azimuthal integration
+Herman Orientation Factor results from azimuthal integration over 90°.
+```
+
+```{figure} ../images/orientation/hof03.png
+:name: fig-hof-180
+:alt: Herman Orientation Factor result from 180-degree azimuthal integration
+Herman Orientation Factor results from azimuthal integration over 180°.
+```
+
+```{eval_rst}
+.. note:: In *Scanning Diffraction*, the azimuthal integration area is set by the ROI. In all other programs, the inner radius is fixed at 0 and the outer radius is fixed at one-third of the maximum radial length.
+```
+
+---
+
+(empty-cell-image-and-mask)=
 ## Empty Cell Image and Mask
 
-This dialog provides two independent settings: **Empty Cell Image** (formerly called "blank image") and **Mask**. Both are configured through the **Apply Empty Cell Image and Mask** panel in the processing workspace. Each has its own button to open its respective dialog, and each can be independently enabled or disabled via a checkbox once its settings have been saved.
+These two independent settings — **Empty Cell Image** and **Mask** — are configured through the **Apply Empty Cell Image and Mask** panel in the processing workspace. Each has its own button to open its dialog, and each can be independently enabled or disabled via a checkbox once its settings have been saved.
 
-## Empty Cell Image
+(mask-implementation)=
+### Implementation Details
 
-An empty cell image (also called a blank image) is a diffraction pattern recorded without a sample — only the sample holder, solvent, or beam path. A diffraction pattern from a muscle is the sum of the muscle signal and this empty cell background. Subtracting the empty cell image isolates the muscle diffraction alone, which is important for accurate peak fitting and intensity ratios.
+#### Empty Cell Subtraction
 
-### Opening the Dialog
+A diffraction pattern from a muscle sample is the sum of the true muscle signal and a background contribution from the sample holder, solvent, and beam path. Subtracting an **empty cell image** — a pattern recorded without a sample — isolates the muscle diffraction signal, which is important for accurate peak fitting and intensity ratios.
 
-Click **Set Empty Cell Image** in the processing workspace panel. This opens the Empty Cell Subtraction dialog.
+When **Apply Empty Cell Image** is checked, the program scales the empty cell image by the configured scale factor and subtracts it from the working image before any analysis. Pixel values that become slightly negative after subtraction (due to noise) are clipped to zero.
 
-### Selecting an Image
+#### Masking
 
-Click **Select Empty Cell Image** to browse and select a single empty cell image file. Any format supported by `fabio` is accepted (e.g., `.tif`, `.edf`, `.cbf`). Once loaded, a status indicator turns green confirming the image has been loaded.
+A mask is a binary image marking which pixels should be ignored during processing. When **Apply Mask** is checked, the program loads `mask.tif` before analysis begins. Each pixel where `mask == 0` is overwritten with a sentinel value of **−1.0** in the working array. The raw file on disk is never modified. If empty cell subtraction is also enabled, it runs first; the mask sentinel assignment follows.
 
-> **Note:** Earlier versions of the software supported selecting multiple images that were averaged together. The current version accepts a single empty cell image file.
+Masked pixels are excluded from histogram projection, peak fitting, and all downstream calculations. In modules such as Equator, ignored columns are interpolated over to preserve a continuous diffraction profile for fitting. See each module's documentation for details on how masking interacts with its specific analysis pipeline.
 
-### Scale Factor
+(mask-how-to-use)=
+### How to Use
 
-The **Empty Cell Image Scale** spin box (range 0–1000, default 1.0) scales the empty cell image before subtraction. Because the empty cell exposure may differ from the sample exposure in terms of beam intensity or collection time, you can use this factor to match the two. Setting it below 1.0 reduces the subtraction amount; above 1.0 increases it.
+#### Empty Cell Image
 
-The difference image updates live as you change the scale.
+1. **Click Set Empty Cell Image** in the processing workspace panel to open the Empty Cell Subtraction dialog.
+2. **Click Select Empty Cell Image** to browse and select a single empty cell image file (any format supported by `fabio`, e.g. `.tif`, `.edf`, `.cbf`). A status indicator turns green when the image is loaded.
+3. **Adjust the Empty Cell Image Scale** spin box (range 0–1000, default 1.0) to match the empty cell exposure to the sample exposure. The difference image updates live as you change the scale.
+4. **Compare the images** using the radio buttons:
 
-### Compare Panel
+   | Option | Description |
+   |---|---|
+   | **Difference Image (Original − Empty Cell)** | Shows the subtraction result at the current scale. This is the image that will be processed. |
+   | **Original Image** | Shows the raw sample image with no subtraction. |
+   | **Empty Cell Image** | Shows the empty cell image scaled by the current factor. |
 
-Three radio buttons let you switch what is displayed in the viewer:
+5. **Click Save**. The configuration is written to `blank_image_settings.json` in the settings folder, and the **Apply Empty Cell Image** checkbox in the main panel becomes enabled. Uncheck it at any time to temporarily disable subtraction without deleting the configuration.
 
-| Option | Description |
-|---|---|
-| **Difference Image (Original − Empty Cell)** | Shows the result of the subtraction at the current scale factor. This is the image that will actually be processed. |
-| **Original Image** | Shows the raw sample image with no subtraction. |
-| **Empty Cell Image** | Shows the empty cell image scaled by the current factor. |
+```{eval_rst}
+.. note:: Earlier versions supported selecting multiple empty cell images that were averaged together. The current version accepts a single empty cell image file.
+```
 
-The viewer also provides full intensity and display controls (vmin/vmax, log scale, colormap) via the Display Options panel on the right.
+When you reopen the same image directory, the saved empty cell image path and scale factor are loaded automatically, and the checkbox is restored to its last saved state.
 
-### Saving
+#### Mask
 
-Click **Save** to write the configuration to `blank_image_settings.json` in the settings folder. The **Apply Empty Cell Image** checkbox in the main panel will become enabled. Uncheck it at any time to temporarily disable subtraction without deleting the configuration.
+1. **Click Set Mask** in the processing workspace panel to open the Set Image Mask dialog.
+2. **Configure one or more mask methods** in the Mask Options group. Their combined result is previewed as a color overlay in real time:
 
----
+   **Drawn Mask**
+   - Click **Draw Mask** to launch the `pyFAI-drawmask` tool. Paint arbitrary regions using geometric tools (polygon, rectangle, brush, etc.).
+   - After closing the tool, the mask is loaded automatically. Enable the **Drawn Mask** checkbox to include it.
+   - Drawn regions are shown as a **red** overlay.
 
-## Mask
+   **Low Mask Threshold**
+   - Enable the **Low Mask Threshold** checkbox to mask all pixels **below** the specified value (default −0.01). This targets detector gaps or dead pixels assigned a negative sentinel value.
+   - Optionally enable **Enable Mask Dilation** with a 3×3, 5×5, or 7×7 kernel to expand the low-threshold mask outward — useful for border pixels adjacent to sensor gaps.
+   - Low-threshold regions are shown as a **green** overlay.
 
-A mask is a binary image that marks which pixels should be ignored during processing. Masked pixels are excluded from histogram projection, peak fitting, and all downstream calculations. The mask dialog offers three complementary masking methods that can be combined.
+   **High Mask Threshold**
+   - Enable the **High Mask Threshold** checkbox to mask all pixels **above** the specified value (default 64,000). This targets saturated pixels on 16-bit detectors.
+   - The same optional dilation controls are available.
+   - High-threshold regions are shown as a **blue** overlay.
 
-### Opening the Dialog
+3. **Review the color legend**:
 
-Click **Set Mask** in the processing workspace panel. This opens the Set Image Mask dialog.
+   | Color | Meaning |
+   |---|---|
+   | Green | Low Mask Threshold |
+   | Blue | High Mask Threshold |
+   | Red | Drawn Mask |
+   | Purple | Rmin / Rmax mask (applied by the main processing window) |
 
-### Mask Options
+4. **Click Save**. The following files are written to the settings folder:
+   - `mask_config.json` — threshold values and dilation kernel sizes.
+   - `drawn-mask.edf` — the raw `pyFAI-drawmask` output (if a drawn mask was created).
+   - `mask.tif` — the final combined binary mask applied during processing.
 
-All three methods live in the **Mask Options** group. Their combined result is previewed as a color overlay on the image in real time.
+   If all three methods are disabled when you click Save, all mask files are removed and the mask is cleared entirely. The **Apply Mask** checkbox in the main panel becomes enabled once `mask.tif` exists. Uncheck it to temporarily disable the mask without deleting the saved settings.
 
-#### 1. Drawn Mask
+When you reopen the same image directory, the saved mask configuration is loaded automatically and the checkbox is restored to its last saved state.
 
-Click **Draw Mask** to launch the `pyFAI-drawmask` tool. This opens an interactive drawing window where you can paint arbitrary regions to mask using geometric tools (polygon, rectangle, brush, etc.).
-
-After closing `pyFAI-drawmask`, the mask is loaded automatically. The status line below the checkbox confirms whether a drawn mask file is available. Enable the **Drawn Mask** checkbox to include it in the combined mask.
-
-> Drawn mask regions are shown as a **red** overlay.
-
-#### 2. Low Mask Threshold
-
-Enable the **Low Mask Threshold** checkbox to mask all pixels whose intensity is **below** the specified value. The default threshold is −0.01, which is appropriate for masking detector gaps or dead pixels that have been assigned a negative sentinel value.
-
-The threshold spin box range is −50 to 10 000.
-
-Optionally enable **Enable Mask Dilation** and choose a kernel size (3×3, 5×5, or 7×7) to expand the low-threshold mask outward by one pass of morphological erosion. This is useful for catching border pixels adjacent to sensor gaps that may be partially affected.
-
-> Low-threshold masked regions are shown as a **green** overlay.
-
-#### 3. High Mask Threshold
-
-Enable the **High Mask Threshold** checkbox to mask all pixels whose intensity is **above** the specified value. The default is 64 000, which targets saturated pixels on typical 16-bit detectors.
-
-The same optional dilation controls (3×3 / 5×5 / 7×7 kernel) are available.
-
-> High-threshold masked regions are shown as a **blue** overlay.
-
-### Color Legend
-
-| Color | Meaning |
-|---|---|
-| Green | Low Mask Threshold |
-| Blue | High Mask Threshold |
-| Red | Drawn Mask |
-| Purple | Rmin / Rmax mask (applied by the main processing window) |
-
-### Saving
-
-Click **Save** to write the mask configuration. The following files are created in the settings folder:
-
-- `mask_config.json` — stores the threshold values and dilation kernel sizes.
-- `drawn-mask.edf` — the raw output from `pyFAI-drawmask` (if a drawn mask was created).
-- `mask.tif` — the final combined binary mask (all active methods merged). This is the file that is actually applied during processing.
-
-If all three mask methods are disabled when you click Save, all mask files are removed and the mask is cleared entirely.
-
-The **Apply Mask** checkbox in the main panel will become enabled once a `mask.tif` exists. Uncheck it to temporarily disable the mask without deleting the saved settings.
-
----
-
-## Applying Settings During Processing
-
-In the processing workspace, the **Apply Empty Cell Image and Mask** panel shows both checkboxes:
-
-- **Apply Empty Cell Image** — enabled when `blank_image_settings.json` exists.
-- **Apply Mask** — enabled when `mask.tif` exists.
-
-Either or both can be checked/unchecked independently at any time. The program re-processes the current image immediately when a checkbox state changes.
-
-## Persistent Storage
-
-All files are saved under the `settings/` subdirectory that the program creates next to the image directory being processed. When you reopen the same directory, the saved empty cell image path, scale factor, and mask configuration are loaded automatically and the checkboxes are restored to their last saved state.
-
-```eval_rst
+```{eval_rst}
 .. note:: For module-specific details on how masked pixels affect the analysis pipeline (e.g. convex-hull background estimation in Equator), refer to each module's own documentation.
 ```

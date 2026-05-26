@@ -10,7 +10,7 @@ Equator then processes the image in this order:
 ### 1. Calculate R-min
 ### 2. Calculate Box Width
 
-For details on the shared R-min algorithm, see [Image Processing Functions — Calculate R-min](../Image-Processing-Functions.html#calculate-r-min).
+For details on the shared R-min algorithm, see [Shared Settings — R-min](../Common-Settings.html#r-min).
 
 The working image is rotated using the resolved rotation angle, and the area inside R-min is removed as in this image. If R-max is set, the area outside R-max will also be removed. The image's box width will be initially set by using R-min x 1.5. While rotating the image, it is ensured that the image is expanded appropriately so that it is not cropped. Rotation of both squared and non-squared images is handled.
  

@@ -37,6 +37,7 @@ source_suffix = {
 
 master_doc = 'index'
 language = 'en'
+numfig = True
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'README.md']
 pygments_style = 'sphinx'
 
