@@ -8,7 +8,7 @@ There are currently two versions of the program: a standalone program and the co
 
 ## Standalone program
 
-The standalone program can be run in Interactive mode or in Headless mode. As its name suggests, this program is NOT part of MuscleX, and can be found on the [Utilities page](../../utilities.md).
+The standalone program can be run in Interactive mode or in Headless mode. As its name suggests, this program is NOT part of MuscleX, and can be found on the [Utilities page](../Overview.md).
 
 ### Interactive mode
 

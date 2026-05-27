@@ -11,12 +11,8 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Quadrant Folding (qf) <Quadrant Folding>`
 - :ref:`Projection Traces (pt) <Projection Traces>`
 - :ref:`Scanning Diffraction (di) <Scanning Diffraction>`
-- :ref:`DDF Processor (ddf) <DDF Processor>`
 - :ref:`Total Diffracted Intensity (tdi) <Total Diffracted Intensity>`
 - :ref:`Add Intensities Single/Multiple Experiment (aisme) <Add Intensities Single/Multiple Experiment>`
-- :ref:`Working with hdf5 images <Working with hdf5 images>`  
-- :ref:`Compress/decompress TIFF images <Compress-Decompress TIFF Images>`  
-- :ref:`Convert rectangle images to square images <Convert rectangle images to squared images>`
 - :ref:`Deprecated: Diffraction Centroids (dc) <Diffraction Centroids>`
 
 
@@ -99,6 +95,6 @@ The project is licensed under the IIT License.
 
    Installation/index
    AppSuite/index
-   utilities
+   Utilities/index
    ReleaseNotes/index
    credits

@@ -26,7 +26,7 @@ Simple program to convert HDF5 files to TIFF images.
 
 * Windows installer and AppImage: [HDF5 to TIFF Converter on SourceForge](https://sourceforge.net/projects/hdf5-to-tiff-converter/)
 
-Click [here](AppSuite/WorkingWithHdf5Images/Working-with-hdf5-images.md) to learn more about the program and how it works.
+Click [here](WorkingWithHdf5Images/Working-with-hdf5-images.md) to learn more about the program and how it works.
 
 ## TIFF Compressor-Decompressor
 
@@ -38,7 +38,7 @@ Simple program to compress or decompress TIFF images. Uses tiff_lzw format (loss
 
 * Windows installer and AppImage: [TIFF Compressor-Decompressor on SourceForge](https://sourceforge.net/projects/tiff-compressor-decompressor/)
 
-Click [here](AppSuite/CompressDecompressTif/Compress-decompress-tif-images.md) to learn more about the program and how it works.
+Click [here](CompressDecompressTif/Compress-decompress-tif-images.md) to learn more about the program and how it works.
 
 ## Strong image creator 
 
