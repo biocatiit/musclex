@@ -1,45 +1,57 @@
 # How it works
 
-When an image is selected, Equator loads it through the shared processing workspace, applies any configured calibration, center/rotation, empty cell image, and mask settings, and then processes it with the current Equator parameters. On the first load, the calibration dialog can be shown when calibration is available or needs confirmation. If the image has already been processed with the same MuscleX version and the same preprocessing settings, Equator loads the cache from `eq_cache` instead of recalculating the image.
+When an image is selected, Equator applies any configured calibration, center/rotation, empty cell image, and mask settings, then runs the processing pipeline described below. If the image has already been processed with the same MuscleX version and the same preprocessing settings, Equator loads cached results from `eq_cache` and skips recalculation.
 
-## Image processing and fitting model
-Before Equator-specific processing begins, the shared workspace resolves the diffraction center and rotation angle from automatic detection, calibration, manual overrides, or cached settings. For how those shared settings are configured, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation).
+Before Equator-specific processing begins, the shared workspace resolves the diffraction center and rotation angle from automatic detection, calibration, manual overrides, or cached settings. See [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation) for details.
 
-Equator then processes the image in this order:
+## Processing pipeline
+
+Equator processes the image in the following steps:
 
 ### 1. Calculate R-min
+
+R-min is calculated using the shared algorithm. See [Common Settings — R-min](../Common-Settings.html#r-min) for details.
+
 ### 2. Calculate Box Width
 
-For details on the shared R-min algorithm, see [Shared Settings — R-min](../Common-Settings.html#r-min).
+The working image is rotated using the resolved rotation angle, and the area inside R-min is removed. If R-max is set, the area outside R-max is also removed. During rotation the image is expanded as needed so it is not cropped; both square and non-square images are handled.
 
-The working image is rotated using the resolved rotation angle, and the area inside R-min is removed as in this image. If R-max is set, the area outside R-max will also be removed. The image's box width will be initially set by using R-min x 1.5. While rotating the image, it is ensured that the image is expanded appropriately so that it is not cropped. Rotation of both squared and non-squared images is handled.
- 
 ![-](../../images/BM/boxwidth_1.png)
 
-Then, the program will find the horizontal histogram from this image, calculate the background assuming a convex hull function to the histogram, and the integrated area will be selected as between the start and end point of the histogram. From the image above, the horizontal histogram was
- 
+The box width is initially set to R-min × 1.5. To refine this, the program computes a horizontal histogram of the rotated image, fits a convex hull to estimate the background, and selects the integrated area as the span between the start and end points of the histogram.
+
 ![-](../../images/BM/boxwidth_2.png)
 
 ### 3. Get Intensity Histogram
-When integrated area is calculated, the program will produce a histogram from the rotated image inside the integrated area. (If the blank image and mask is set, the original image will be subtracted by the blank image before rotation)
+
+With the integrated area determined, the program produces a 1-D intensity histogram by summing columns of the rotated image within that area. If a blank image and mask are configured, the original image is subtracted by the blank image before rotation.
 
 ![-](../../images/BM/hist.png)
-### 4. Apply Convex hull to intensity histogram
-The original histogram will be split into left and right sides. Then, the convex hull to each half pattern will be calculated in order to remove the background by using R-min as a starting point.
 
-![-](../../images/BM/convexhull.png)  
+### 4. Apply Convex Hull to Intensity Histogram
 
-Note: When producing the intensity histogram, Equator identifies columns with values below the mask threshold as ignored columns. Masked detector gaps are protected during convex-hull background estimation and interpolated before fitting. More details are available in [Empty Cell Image and Mask](Blank-Image-and-Mask.html).
+The histogram is split into left and right halves. A convex hull background is estimated independently for each half, using R-min as the starting point, and subtracted to yield a background-free pattern.
+
+![-](../../images/BM/convexhull.png)
+
+During histogram production, columns with values below the mask threshold are treated as ignored. Masked detector gaps are protected during convex-hull background estimation and interpolated before fitting. See [Empty Cell Image and Mask](Blank-Image-and-Mask.html) for details.
 
 ### 5. Find Diffraction Peaks
-The program will find peaks from left and right histograms which have had the convex hull background subtracted. This process will find all locations of the peaks. If the image is noisy, it is possible that the program will find too many peaks. ( In the image below, the program found only 2 peaks because the image was not noisy, so it worked very well )
+
+Local maxima are located in both the left and right background-subtracted histograms. All candidate peak positions are recorded. Noisy images may produce more candidates than true diffraction peaks; these are filtered in the next step.
 
 ![-](../../images/BM/find_peaks.png)
 
-### 6. Managing Diffraction Peaks
-This process prepares and corrects the background-subtracted, intensity histogram before fitting a model. It is possible that the program found peaks from noise, misplaced peaks, or both false positive peaks and false negative peaks. Therefore, these peaks need to be re-positioned in case this process fails. The algorithm  will try to find first symmetric peaks, and find S<sub>10</sub> which is the distance from center to the first peak on the equator. After that, all peak locations will be calculated by using S<sub>10</sub> and theta(h,k). The number of peaks on each side to be fit needs to be specified by the user (default and minimum is 2)
+### 6. Manage Diffraction Peaks
+
+The candidate peak list is validated and corrected before fitting. False positives (peaks from noise) and false negatives (missed reflections) are resolved by searching for the first pair of symmetric peaks to establish S<sub>10</sub> — the center-to-first-peak distance on the equator. All remaining peak positions are then calculated from S<sub>10</sub> and the lattice angles θ(h,k). The user specifies how many peaks per side to fit (default and minimum is 2).
 
 ### 7. Fit Model
-The program will fit the model to the histogram by using the specified model (currently Gaussian and Voigtian models are supported), initial S<sub>10</sub>,and the area of the reflection peaks. Finally, we will obtain the new parameters we want from the fitting results. This will include the area of each peak, S10, sigma D, sigma S, gamma, and  I<sub>11</sub>/I<sub>10</sub>. However, if you see only 4 reflection from the pattern (Only I<sub>11</sub> and I<sub>10</sub> on each side), it will be overdetermined if you use Voigt as a fitting model. To solve this problem, sigma S or gamma should be fixed.
 
-If there are some parameters that need to be configured manually to obtain good fits, the program will run these processes again, but it will not start from the beginning. Instead, it will start from the process after the manual one. For example, if the Box Width is set manually, the program will run processes from Get Intensity Histogram to Fit Model because the center, rotation angle and R-min do not need to be recalculated.
+The background-subtracted histogram is fit using the selected model (Gaussian or Voigtian) with initial parameters derived from S<sub>10</sub> and the integrated reflection areas. The fit returns the area of each peak, S<sub>10</sub>, σ<sub>D</sub>, σ<sub>S</sub>, γ, and I<sub>11</sub>/I<sub>10</sub>.
+
+When only 4 reflections are visible (I<sub>11</sub> and I<sub>10</sub> on each side), the Voigt model is overdetermined. In this case, σ<sub>S</sub> or γ should be fixed to avoid degenerate fits.
+
+## Partial re-runs on manual parameter changes
+
+When a parameter is changed manually, the pipeline does not restart from step 1. Instead, it resumes from the first step that depends on the changed parameter. For example, if Box Width is set manually, the pipeline re-runs from step 3 (Get Intensity Histogram) onward, since the center, rotation angle, and R-min are unaffected.

@@ -1,6 +1,6 @@
 # Image Processing Functions
 
-The image processing algorithms described in this page have been merged into [Shared Settings and Image Processing](Common-Settings.html). Please refer to that page for the full documentation.
+The image processing algorithms described in this page have been merged into [Common Settings](Common-Settings.html). Please refer to that page for the full documentation.
 
 | Topic | New location |
 |---|---|

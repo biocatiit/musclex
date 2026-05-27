@@ -1,4 +1,4 @@
-# Shared Settings and Image Processing
+# Common Settings
 
 Several configuration settings and image-processing algorithms are shared across multiple MuscleX modules. Rather than repeating them in each module's documentation, they are described here once.
 
