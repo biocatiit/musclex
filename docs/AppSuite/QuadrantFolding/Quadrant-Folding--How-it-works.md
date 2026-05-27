@@ -1,10 +1,17 @@
-# How it works
+# Implementation Details
 
-When an image is selected, the program will immediately process the image automatically. The resulting image will be saved as [image_name].result.tif in the qf_results folder that is created as a subdirectory of the folder containing the selected file. The program will process an image by going through a series of processes in the order described below.
+When an image is selected, the program immediately processes it automatically. The resulting image is saved as `[image_name].result.tif` in the `qf_results` folder created as a subdirectory of the folder containing the selected file. The pipeline steps are described below.
 
-## Processes
-### 1. [Find Center](../Common-Settings.md#finding-the-diffraction-center)
-### 2. [Calculate Rotation Angle](../Common-Settings.md#calculating-the-rotation-angle)
+## Processing pipeline
+
+### 1. Find Center
+
+The diffraction center is resolved from automatic detection, calibration, manual overrides, or cached settings. See [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation) for details.
+
+### 2. Calculate Rotation Angle
+
+The rotation angle of the pattern is determined so that the equatorial axis is correctly aligned before folding. See [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation) for details.
+
 ### 3. Centerize image (Image size increases)
 The diffraction center is not always at the center of the image. Therefore, when we fold about the diffraction center, the four quadrants generated may not be of equal size which results in the quadrant folded image being cropped. The image below illustrates the same.
 
@@ -40,20 +47,6 @@ At present, there are several options for background subtraction in the first (l
 
 Since some algorithms perform better on lower intensities and vice versa, the program is able to first two background images and then merge them together at the user-specified transition radius and transition delta.
 
-<!---
-#### 5.1 Angular Background Subtraction
-[[/images/QF/angular.png]]
-
-The necessary parameters for this scheme for background subtraction are the pixel range in percentages, and the angular bin size for integration in degrees. In this method, the program will:
-
-1. Obtain the 2D azimuthal integration from the average folded image. The x-axis represents radius, and y-axis represents angle. In this case, we need to do this integration for only one quadrant, so the angle range is from 0 to 90 °. 
-
-2. obtain the estimated background line for each bin. For example, if the degree bin size is 30. There will be 3 background estimates lines for each of the degree ranges 0-30, 30-60, and 60-90. Each background estimate line is produced by going to  each radial position in the angular  bin range, sort all pixels at that radius by intensities, and the background value is chosen as the mean value of intensities between specified pixel ranges from the minimum value to the maximum value. The background  value for each radius is used to generate a 1d background estimate for the chosen angular bin range. Each line will have a 1d convex hull applied to define a surface and the pchip algorithm is used to interpolate between points in the convex hull in order to generate a smooth curve.
-
-3. a two D background image is formed from the individual lines by assuming the same profile throughout the angular bin range that generated it. This 2D image can then be subtracted from the original image to generate a background-subtracted image
-
-[[/images/QF/angular_img.png]]
--->
 
 #### 6.1 Circularly Symmetric Background Subtraction
 ![-](../../images/QF/csym_set_v2.png)

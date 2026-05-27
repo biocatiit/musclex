@@ -68,35 +68,6 @@ The Mask Threshold is used for excluding certain pixel values when calculating t
 #### Fold Image
 This function is used to tell the program to fold the image. By default, it is checked so the program folds the image during processing. If this options is unchecked, the program will reprocess the image without folding it. This is useful during cases when the images being processed have already been folded.
 
-### UI Improvements in Version 1.27.0
-
-```eval_rst
-.. note:: **New in version 1.27.0**: The Quadrant Folding interface has been significantly enhanced with better organization and user experience improvements.
-```
-
-#### Collapsible Panels
-The right-side panel now features collapsible group boxes, allowing you to:
-- Expand/collapse sections to focus on relevant options
-- Save screen space when working with multiple settings
-- Better organize the various processing options
-
-#### Enhanced Display Options
-- **Persist Intensity Values**: The intensity range settings now persist across images when enabled
-- **Improved Zoom Handling**: Zoom levels are maintained when navigating between images
-- **Better Visual Feedback**: Group boxes now use bold fonts for better visual hierarchy
-- **Green Labels**: Important information is highlighted with green labels for improved visibility
-
-#### Improved Status Bar
-The status bar now displays:
-- Current file index and total file count
-- Processing status information
-- HDF5 processing progress (when applicable)
-
-#### Better Navigation
-- Clearer button text: "Process Current Folder" vs "Process Current H5 File"
-- Confirmation dialog when closing with running tasks
-- Improved progress tracking for batch operations
-
 ### Results
 In this tab, the resulting image will be displayed along with options on the right. 
 
