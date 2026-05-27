@@ -1,270 +1,316 @@
 # How to use
 
-Quadrant Folder (QF) provides two modes for users: [Interactive mode](#interactive-mode) and [Headless mode](#headless-mode).
-
-## Interactive Mode 
-
-After the program is opened, users will be able to select a file or a folder to process by pressing the button or select an option on the menu bar. 
-
-![-](../../images/QF/start.png)
-
-## Navigation
-
-To navigate through a folder of TIF images or through an H5 file containing multiple images, you can use the simple arrows "<" and ">". 
-Depending on if you are looking at an H5 file or not, another set of button will be displayed: the arrows "<<<" and ">>>" allow you to go to the previous/next H5 file in the same folder. The "Process Current H5 File" button will process only the opened H5 file, whereas the "Process All H5 Files" button will process all the H5 files available in the folder.
-In the case of a simple TIF image, those buttons will be replaced by a simple "Process Current Folder" button that will process all the TIF images in the current folder.
-
-![-](../../images/QF/navigation_qf.png)
-
-### Original Image
-In this tab, the original image will be shown along with various options displayed on the right, Display Options, Image Processing, and Fix Center.
-
-If it is the first time processing the images, the Next image button will process the following image using the current parameters (in the Image tab AND the Results tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on 'Process Current Folder', or delete the file named 'qf_cache' before launching Quadrant Folder.
-
-#### Display Options
-
-![-](../../images/QF/disp_options1.png)
-
-All options in Display Options will not affect any processing. These options allow users to see more detail in the image by setting minimal intensity, maximum intensity, and zooming. You can also choose whether or not to see the meridional and equatorial axes. To zoom in, the user needs to simply press the Zoom in button, and select the zoom region by drawing a rectangle as shown below. Once 'Zoom in' or 'Full' button is clicked, the current zoom level is persisted when moved to the next image. The check box 'Persist intensities' is used to persist the max and the min intensities when we move to the next image.
-
-![-](../../images/QF/image_tab.png)
-
-#### Empty Cell Image and Mask
-
-```eval_rst
-.. note:: **Terminology Update in version 1.27.0**: "Blank Image" has been renamed to "Empty Cell Image" for better clarity. This refers to an image of the empty sample cell (without sample) used for background subtraction.
-```
-
-See [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask) for more information on how to use this option.
-
-![-](../../images/QF/blank_img_mask.png)
-
-#### Image Processing
-![-](../../images/QF/image_processing.png)
-
-##### Mode Orientation Checkbox
-This checkox uses the mode of the orientation angles calculated from all the images in the folder as the rotation angle for fitting the images. All the images in the folder must be processed first before using this checkbox. Once processed, by checking this box, the program will gather all the angles in the folder and use the angle with the biggest number of occurrences as the new rotation angle.
-
-##### Save Compressed Image Checkbox
-Images can sometimes take a lot of storage, especially when doing time resolved experiments.
-By selecting this option, the resulting quadrant folded image (which is saved in qf_results) is compressed using the tiff_lzw method in order to recude the storage used.
-
-```eval_rst
-.. note:: This compression format might create errors when you open the resulting Quadrant folded images through another software than MuscleX.
-```
-
-##### Center, Rotation, and Double Zoom
-
-For all center and rotation calibration tools — Quick Center and Rotation Angle, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, Fix Center, Double Zoom, Restoring Automatic Settings, and configuration fingerprinting — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
-
-##### Mask Threshold
-
-The Mask Threshold is used for excluding certain pixel values when calculating the folded image. The program will ignore pixels with intensity below the mask threshold. This can be used to remove the dark gaps in images resulting from the gaps between detector elements in Pilatus detectors, as well as other detector abnormalities.
-
-```eval_rst
-.. note:: **Changed in version 1.27.0**: The mask threshold is now fixed at -1 for invalid pixels. Previous versions allowed user-adjustable thresholds, but this has been standardized for consistency.
-```
-
-#### Fold Image
-This function is used to tell the program to fold the image. By default, it is checked so the program folds the image during processing. If this options is unchecked, the program will reprocess the image without folding it. This is useful during cases when the images being processed have already been folded.
-
-### Results
-In this tab, the resulting image will be displayed along with options on the right. 
-
-If it is the first time processing the images, the Next image button will process the following image using the current parameters (both, in the `Image` tab **and** the `Results` tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. 
-
-The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on `Process Current Folder`, or delete the file named 'qf_cache' before launching Quadrant Folder.
-
-![-](../../images/QF/results_v2.png)
-
-#### Display Options
-
-Display Options will provide the same options as in Original Image tab. Users can specify min and max display intensity, and zooming.
-
-#### Result Processing
-##### Set Region of Interest (ROI)
-This feature is used to select a part of the Quadrant folded image. For example, we would want to ignore the artefacts on the edges of the image. On clicking this button, a square appears around the center of diffraction. As you move the mouse pointer into the image area, the edges of the square move to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current size of the region. Once the size is set, the resultant image will be cropped to the region selected by the square. Therefore, any artefacts present outside the selected region are ignored while quadrant folding. One can only select the region of interest about the center of diffraction.
-![-](../../images/QF/SetRegionOfInterest.png)
-
-##### Unset ROI
-
-Use this button to remove the current region of interest and unfix it if the "Fixed ROI Radius" was set. The image will go back to its original shape.
-
-##### Fixed ROI Radius
-
-You can set and fix the value of the region of interest in order to propagate the results to the following images when you process a folder. This can also be useful when you want to crop images using the headless version as it is a parameter that will be saved in "qfsettings.json".
-
-##### Background Subtraction
-
-For the background subtraction section, by default, the program will not apply any background subtraction. To apply background subtraction, you can choose a method by method drop-down list. There are currently 6 options, [Circularly Symmetric](#circularly-symmetric), [2D Convex hull](#2d-convex-hull), [Roving Window](#roving-window), [White-top-hat](#white-top-hat), [Smoothed-Gaussian](#smoothed-gaussian), and [Smoothed-Boxcar](#smoothed-boxcar) all of which may be applied to the inner or the outter part of the image. 
-
-For each method, users can select R-min manually by pressing the button `Set Manual R-min` and select R-min in the image as shown below
-
-![-](../../images/QF/rmin_rmax.png)
-
-
-
-###### Circularly Symmetric
-![-](../../images/QF/csym_set.png)
-###### 2D convex hull
-![-](../../images/QF/2dcon_set.png)
-###### Roving Window
-![-](../../images/QF/roving.png)
-###### White top hat
-![-](../../images/QF/tophat_set.png)
-###### Smoothed Gaussian
-![-](../../images/QF/smooth_g.png)
-###### Smoothed Boxcar
-![-](../../images/QF/smooth_b.png)
-
-You can change the parameters and click `Apply` to make the program re-process the background subtraction.
-
-###### Merging
-For the merging settings, they will be under the black line in the Background Subtraction section. There is the ability to select another background subtraction method for the outer part of the image and set transition radius and transition delta.
-
-
-## Output Files
-
-After processing, QF writes results into a `qf_results/` directory inside the output directory.
-
-### `qf_results/summary.csv`
-
-One row per processed image. Columns include:
-
-| Column | Description |
-|--------|-------------|
-| `Filename` | Image file name |
-| `centerX`, `centerY` | Detected (or manually set) beam centre in original image coordinates |
-| `rotationAngle` | Rotation angle used during folding |
-| `backgroundMethod` | Background subtraction method that was applied (e.g. `Circularly-symmetric`) |
-| `backgroundConfigName` | Name of the saved optimisation configuration that was selected, if any |
-| `parameters` | Parameters passed to the background subtraction method |
-| `downsampled` | Downsampling factor used during processing |
-| `loss` | Weighted loss score computed by `evaluateResult()` — lower is better |
-| `bgSum` | **Total background intensity** (see below) |
-| `symmetry` | Normalised fold-symmetry score — lower means the four quadrants are more consistent |
-
-#### `bgSum` — Total Background Intensity
-
-`bgSum` is the sum of all pixel values in the estimated background image for one frame:
-
-```
-bgSum = Σ background_image
-```
-
-where `background_image = avg_fold − BgSubFold` (the average-folded image minus the background-subtracted fold), expanded from a quarter-image to the full detector frame.
-
-This value is computed in `QuadrantFolder.evaluateResult()` and is written to `summary.csv` automatically after each image is processed.
-
-**Typical uses:**
-
-- **Batch consistency check**: a sudden jump in `bgSum` across frames signals a change in background level (e.g. beam decay, sample exposure).
-- **Normalisation reference**: divide per-peak intensities by `bgSum` to make them comparable across different exposure times or beam currents.
-- **Method comparison**: when running background-subtraction optimisation over several methods, the combination of low `loss` and a physically reasonable `bgSum` helps select the best method.
-
-When `backgroundMethod` is `None`, no background subtraction is applied and `bgSum` is 0.
-
-### `qf_results/bg/`
-
-This sub-directory contains two outputs for every image where a background subtraction method other than `None` is active:
-
-| File | Description |
-|------|-------------|
-| `<name>.bg.tif` | The background image as a 32-bit float TIFF (same frame size as the result image). Useful for visual inspection or for applying a custom subtraction in an external tool. |
-| `background_sum.csv` | CSV with columns `Name` and `Sum`. `Sum` is `np.sum` of the corresponding `.bg.tif` — equivalent to `bgSum` in `summary.csv`. |
-
-```eval_rst
-.. note::
-   In batch / headless mode the per-image ``background_sum.csv`` rows are collected by the main process and written as one aggregated file after all images finish.  In interactive mode the file is updated after each image is saved.
-```
-
-### `qf_results/bg/background_metrics.csv`
-
-Written only when **Save metrics to CSV** is enabled in the Background Subtraction settings. Contains per-image raw and normalised evaluation metrics (MSE, share of negative pixels, smoothness, etc.) together with their weights and the running mean values used for normalisation. This file is intended for advanced diagnostics of the background optimisation process.
+This page walks through the recommended workflow for processing a folder of images with Quadrant Folding (QF), then describes the secondary features and the headless mode.
+
+## Workflow at a glance
+
+1. [Open an image (or folder)](#step-1-open-an-image-or-folder)
+2. [Choose an output directory](#step-2-choose-an-output-directory)
+3. [Set center and rotation on a reference image](#step-3-set-center-and-rotation-on-a-reference-image)
+4. [Detect alignment across the folder](#step-4-detect-alignment-across-the-folder)
+5. [Fix individual misaligned images](#step-5-fix-individual-misaligned-images)
+6. [Inspect the result and switch display modes](#step-6-inspect-the-result-and-switch-display-modes)
+7. [Configure background subtraction (optional)](#step-7-configure-background-subtraction-optional)
+8. [Process the whole folder and collect output files](#step-8-process-the-whole-folder-and-collect-output-files)
 
 ---
 
-## Headless Mode  
-Image processing performed in the terminal.
-In the terminal, if the user types `musclex eq|qf|di|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
-For example: `musclex qf -h -i test.tif -s config.json`.
+## Step 1 — Open an image or folder
+
+Use **File > Select an Image...** (`Ctrl+I`) and pick any TIF/CBF/HDF5 file. QF loads the file, discovers all sibling images in that directory, and immediately processes the selected image with the default settings.
+
+Once a folder is loaded, use the navigation arrows on the bottom strip to move through images:
+
+- **<** / **>** — previous / next image
+- **<<<** / **>>>** — previous / next HDF5 file (only for HDF5 input)
+- **Process Current Folder** — reprocess every image in the folder with the current settings
+- **Process Current H5 File** / **Process All H5 Files** — same for HDF5 frames
+
+Already-processed images are reloaded from the cache rather than reprocessed, so navigation is fast. To force reprocessing, click **Process Current Folder** or delete the `qf_cache` folder under the output directory.
+
+## Step 2 — Choose an output directory
+
+By default QF writes `qf_results/`, `qf_cache/`, and CSV files into the **same folder as the input images**. If the input directory is read-only, or you want to keep input and output separate, use **File > Change Output Directory...** before processing.
+
+The output directory applies to:
+- `qf_results/<name>_folded.tif` — the folded image
+- `qf_results/bg/<name>.bg.tif` — the estimated background (when subtraction is on)
+- `summary.csv`, `summary2.csv`, `failedcases.txt` — batch summaries
+- `qf_cache/` — processing fingerprints used for fast reload
+
+## Step 3 — Set center and rotation on a reference image
+
+Pick a clean, well-aligned frame as your reference. The right-hand panel **Center** and **Set Rotation Angle** groups contain everything needed.
+
+### Center tools
+
+| Button | When to use |
+|---|---|
+| **Quick Center and Rotation Angle** | Auto-detect both center and rotation from the diffraction pattern. Good first attempt. |
+| **Set Center by Chords** | Click 3 points on a strong ring; the center is fitted from the perpendicular bisectors of the chords. |
+| **Set Center by Perpendiculars** | Draw two perpendicular lines through pairs of symmetric reflections. |
+| **Set Center by Calibration** | Use a calibrant ring to derive both center and pixel-to-nm scale. |
+| **Set Center Manually** | Click a single pixel to use as the center. Fast but least accurate. |
+| **Apply Center** | Copy the current center to a chosen scope (this image / next N / whole folder). |
+| **Restore Auto Center** | Discard the manual center and revert to auto-detection. |
+
+### Rotation tools
+
+| Button | When to use |
+|---|---|
+| **Set Auto Orientation** | Open a dialog to pick the rotation-detection algorithm and whether to use **Mode Orientation** (use the most common angle across the folder). |
+| **Set Angle Interactively** | Click two points to define the meridional axis. |
+| **Set Angle Manually** | Type the angle in degrees. |
+| **Apply Rotation** | Copy the current angle to a chosen scope. |
+| **Restore Auto Rotation** | Revert to auto-detected angle. |
+
+For full details on all shared tools (Double Zoom, fingerprinting, calibration dialog), see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
+
+Once the reference image looks right, use **Apply Center** and **Apply Rotation** (scope = whole folder) to propagate the values to every image.
+
+## Step 4 — Detect alignment across the folder
+
+After propagating, most images will be correctly aligned, but some may have shifted center or rotation and need individual correction. Open **Tools > Detect Image Alignment...** (`Ctrl+D`) to identify outliers.
+
+![-](../../images/QF/navigation_qf.png)
+
+The dialog shows one row per image with columns for:
+
+- **Original Center** and **Auto Center** (with the distance between them)
+- **Rotation** and **Auto Rotation** (with the difference)
+- **Center Mode** / **Rotation Mode** — whether the values were set manually or auto-detected
+- **Dist from Base** / **Rot Diff from Base** — how far each image is from the chosen *base* image
+- **Size** and **Image Difference** — pixel-difference between this image and the base
+- **Fold Std (sum)** and **Fold Std (norm)** — fold-symmetry scores when **Run symmetry test on detection** is enabled (lower = more symmetric)
+
+Click **Run Detection** to populate the columns. Sort by any column to surface outliers — for example, sort by **Auto Center Difference** to find images where the auto-detected center disagrees with the manually-applied one, or by **Fold Std (norm)** to find images that fold poorly.
+
+The dialog is **non-modal**: leave it open and switch between it and the main window freely. Changes you make in the main window update the table automatically.
+
+## Step 5 — Fix individual misaligned images
+
+For each outlier in the alignment table:
+
+1. **Click the row** — the main window navigates to that image.
+2. **Adjust center / rotation** using the Step 3 tools on the main window.
+3. The table row updates as soon as you change the values.
+
+Right-clicking a row offers:
+
+- **Set Center and Rotation** — switches focus to the main window with a hint dialog.
+- **Set Global Base** — promote this image as the reference for the `Dist from Base` columns.
+- **Ignore** — exclude this image from subsequent batch operations.
+
+Repeat until all images are within an acceptable tolerance.
+
+## Step 6 — Inspect the result and switch display modes
+
+Switch to the **Results** tab to see the folded, background-subtracted output. The display panel on the right has a **Show** dropdown that switches between several views without reprocessing:
+
+| Mode | What it shows |
+|---|---|
+| **Subtracted** | Final result: average fold with background removed, mirrored to full 2D pattern. This is the default. |
+| **Background** | The estimated background image. Useful for sanity-checking the subtraction. |
+| **Folded** | The plain average fold *without* background subtraction. |
+| **Evaluation Mask** | The composite mask used by the background optimizer (R-min/R-max annulus, equator band, peak/beam exclusions, layer lines). |
+| **Synthetic Signal** | The synthetic Gaussian-blob grid added to the fold during optimizer scoring. |
+| **Synthetic Mask** | The mask region of the synthetic data. |
+
+Other Results-tab controls:
+
+- **Rotate 90 degree** — rotate the displayed result by 90° (also rotates the saved tif).
+- **Show Quadrant Separator** — draw the horizontal/vertical lines separating the four mirrored quadrants.
+- **Set Region Of Interest (ROI)** — drag a rectangle on the result to crop the output. The ROI is symmetric about the center.
+- **Unset ROI** — remove the ROI.
+- **Persist ROI size** — keep the same W/H ROI when moving to the next image.
+- **Persist intensity** — keep the min/max intensity range across images.
+
+## Step 7 — Configure background subtraction (optional)
+
+Background subtraction is not required for quadrant folding itself. If you only need the folded image (higher signal-to-noise, no diffuse background removed), leave the method as **None** and skip to Step 8. Use this step when you want to remove the diffuse muscle background before saving or downstream analysis.
+
+The **Background Subtraction** group on the right panel is the central control. It has two entry points:
+
+### Quick path — Apply Default Optimization
+
+Click the blue **Apply Default Optimization** button. QF runs the automated optimizer on the current image using the default method set and writes the chosen method and parameters back to the Current Configuration display. This is the recommended first step on a new dataset.
+
+### Custom path — Advanced Configuration
+
+Click **Advanced Configuration** to open the full Background Subtraction dialog. The dialog is organised as three steps:
+
+**Step 1 — Adjust Image Setting and Process**
+
+- **R-min/R-max** group — see and override the automatic values; **Manual R-min/max** lets you click on the image; **Persist R-min/max** keeps the same values across images.
+- **Image Processing** group — **Downsample** (speeds up the optimizer) and **Smooth Image** (guided-filter pre-smoothing).
+- **Subtraction** group — pick **Processing Mode**:
+  - **Manual** — choose one of the six methods (`2D Convexhull`, `Circularly-symmetric`, `White-top-hats`, `Roving Window`, `Smoothed-Gaussian`, `Smoothed-BoxCar`) and tune its parameters by hand. See the [Methods Reference](#methods-reference) below.
+  - **Automated** — pick which methods to try, the step schedule, max iterations, and an early-stop loss threshold.
+- **Optimization Target and Evaluation Settings** group — configure the [evaluation mask](#step-6-inspect-the-result-and-switch-display-modes) (equator height, equator centre radius, layer-line spacing, layer-line width), the loss metric weights, and the synthetic-signal parameters.
+- **Apply Selected Subtraction Settings** — run the subtraction with these settings.
+
+**Step 2 — Review Results**
+
+After applying, the **Results** panel inside the dialog shows the Loss value and a per-metric breakdown table (MSE, oversubtraction share, non-baseline share, negative-connected share, smoothness — each shown as raw, normalized, and weighted contribution). Tick **Save result metrics to csv** to also write these into `qf_results/bg/background_metrics.csv`.
+
+**Step 3 — Adjust Batch Processing Settings and Launch**
+
+- **Configurations** table — save the current method+parameters as a named configuration. You can build up several configurations (e.g. one for low-angle, one for high-angle) and apply them to different images.
+- **Choose best configuration for images automatically** — for each image, pick whichever saved configuration scores the lowest loss.
+- **Automatically create new configurations for outlier images** — when an image scores poorly with all existing configurations, derive a new one for it.
+- **Manually assign configurations to images** — open a per-image picker.
+- **Process Current Folder** — run the batch with these settings.
+
+### Transition mode
+
+If a single method does not work well across all radii, switch the right-panel **Options** dropdown to `Manual Setting | Transition`. Two method choices and parameter sets appear; configure each independently and set:
+
+- **Transition radius** — where the two backgrounds are blended (typical guideline: just outside the M3 meridional peak).
+- **Transition delta** — width of the linear blend region.
+
+See [How it works — Step 9](Quadrant-Folding--How-it-works.md#9-merge-images-transition-mode-only) for the algorithmic detail.
+
+## Step 8 — Process the whole folder and collect output files
+
+When the settings look right on representative images, click **Process Current Folder** (either the navigation button or the one inside the Background Subtraction dialog). QF writes the following under the output directory:
+
+### `qf_results/`
+
+| File | Description |
+|---|---|
+| `<name>_folded.tif` | The folded, background-subtracted result image (32-bit float TIFF). When **Save Compressed Image** is checked, written as `<name>_folded_compressed.tif` with LZW compression — smaller files but may not load in non-MuscleX software. |
+| `summary.csv` | One row per processed image. Key columns: `Filename`, `centerX`/`centerY`, `rotationAngle`, `backgroundMethod`, `backgroundConfigName`, `parameters`, `downsampled`, `loss`, `bgSum` (total background intensity), `symmetry` (lower = more symmetric). |
+| `summary2.csv` | Same data, transposed for easier spreadsheet analysis. |
+| `failedcases.txt` | Images that could not be processed automatically (no peaks, fitting failed, high error, or manually rejected). |
+
+### `qf_results/bg/`
+
+Written when a background-subtraction method other than `None` is active.
+
+| File | Description |
+|---|---|
+| `<name>.bg.tif` | The estimated background image (32-bit float TIFF). |
+| `background_sum.csv` | `Name`, `Sum` per image. `Sum` equals `bgSum` in `summary.csv`. In batch/headless mode this file is aggregated after all images finish; in interactive mode it is updated incrementally. |
+| `background_metrics.csv` | Per-image raw and normalized evaluation metrics with their weights and running means. Written only when **Save result metrics to csv** is enabled. |
+
+For the meaning of `loss`, `bgSum`, and `symmetry`, see [How it works — Step 11](Quadrant-Folding--How-it-works.md#11-evaluate-result).
+
+---
+
+## Methods Reference
+
+These six methods are available in the Background Subtraction dialog. The algorithms are described in detail in [How it works — Step 8](Quadrant-Folding--How-it-works.md#8-search-and-apply-background-subtraction). Here is the parameter cheat-sheet:
+
+| Method | Key parameters |
+|---|---|
+| **Circularly-symmetric** | Pixel range %, radial bin size, smoothing factor |
+| **2D Convexhull** | R-min, angle bin (default 1°) |
+| **Roving Window** | R-min, window size (X/Y), pixel range %, smoothing, tension |
+| **White-top-hats** | Top-hat disk size |
+| **Smoothed-Gaussian** | R-min, number of cycles, Gaussian FWHM |
+| **Smoothed-BoxCar** | R-min, number of cycles, box car size (X/Y) |
+
+In **Transition** mode each method has a separate outer-parameter set (suffix `_out` in the JSON).
+
+---
+
+## Other features
+
+### Right-click — Ignore a quadrant
+
+Right-click on any quadrant in the Original Image tab and choose **Ignore This Quadrant**. The selected quadrant is excluded from the averaging step (useful when one quadrant has a detector defect or shadow). Use **Unignore This Quadrant** to re-include it.
+
+### Save and load settings
+
+- **File > Save Current Settings** (`Ctrl+S`) — write current parameters to `qfsettings.json`. Per-image state (center, rotation, ROI per image) is **not** included.
+- **File > Load Settings...** (`Ctrl+Shift+S`) — load a settings file and reprocess.
+
+### Fold Image checkbox
+
+Unchecking **Fold Image** processes the original (unfolded) image as if it were already folded. Useful when the input is already a quadrant-folded result from a previous run.
+
+---
+
+## Headless Mode
+
+For batch processing without a GUI, run from the terminal:
+
+```bash
+musclex qf -h -i <file.tif> [-s qfsettings.json] [-d]
+musclex qf -h -f <folder>   [-s qfsettings.json] [-d]
+```
 
 Arguments:
-* -f \<foldername> or -i \<filename>
-* -d (optional) delete existing cache
-* -s (optional) \<input setting file>
+
+- `-i <file>` — process a single file.
+- `-f <folder>` — process every image in the folder.
+- `-s <settings.json>` — load a settings file (generated by **File > Save Current Settings** in the GUI). Without this, defaults are used.
+- `-d` — delete the existing cache before processing.
 
 ```eval_rst
-.. note:: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
+.. note:: On Windows, replace ``musclex`` with ``musclex-main.exe`` (typically under ``C:\Program Files\BioCAT\MuscleX\musclex``).
 ```
 
-```eval_rst
-.. note:: You can run the headless version in Windows using a CMD prompt by replacing `musclex` in the headless command by `musclex-main.exe` in `C:\Users\Program Files\BioCAT\MuscleX\musclex`.
-```
-### Multiprocessing on Folders
-In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
+### Multiprocessing
 
-### Customization of Parameters
-In Headless mode, the user may directly set the parameters in a json format inside the `qfsettings.json` file. Some of the parameters are shown in the list below. You might need to look at the code and especially 'modules/QuadrantFolder.py' to know exactly which parameters to set and how to set them. 
+The headless runner processes one image per CPU core. Output for each worker is prefixed with the process index so interleaved log lines can be untangled.
 
+### `qfsettings.json` reference
+
+A representative settings file. Names ending in `_out` are the outer-radius counterparts used in Transition mode. For the full set of accepted keys, see `musclex/modules/QuadrantFolder.py`.
 
 ```json
 {
-    # Image settigns
-    "mask_thres": 170, # 0 to 255
-    "fix_center": true, # true, false
-    "center_x": 1024, # 0 to 4096
-    "center_y": 1024, # 0 to 4096
-    "rotation": 0, # 0 to 360
-    "roi_rad": 100,
+    "fix_center": true,
+    "center_x": 1024,
+    "center_y": 1024,
+    "rotation": 0,
+    "roi_w": 2048, "roi_h": 2048,
 
-    # Inner background subtraction
-    "bgsub": "None", # None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
-    "fixed_rmin": 100, # in pixels
+    "downsample": 2,
+    "smooth_image": true,
 
-    ## Convex hull settings (inner)
-    "degree": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
-    
-    ## Circularly symmetric settings (inner)
-    "radial_bin": 1, # in pixels
-    "cirmin": 10, # in pixels
-    "cirmax": 100, # in pixels
-    "smooth": 1, 
+    "bg_options": 0,
+    "bgsub": "Circularly-symmetric",
+    "fixed_rmin": 100,
+    "fixed_rmax": 900,
 
-    ## Roving window settings (inner)
+    "degree": 1,
+    "radial_bin": 1,
+    "cirmin": 10, "cirmax": 100,
+    "smooth": 1,
     "tension": 1,
-    "win_size_x": 11, # in pixels
-    "win_size_y": 11, # in pixels
+    "win_size_x": 11, "win_size_y": 11,
+    "fwhm": 20,
+    "boxcar_x": 20, "boxcar_y": 15,
+    "cycles": 1,
 
-    ## Smoothed Gaussian / Smoothed Boxcar settings (inner)
-    "fwhm": 20, # in pixels
-    "boxcar_x": 20, # in pixels
-    "boxcar_y": 15, # in pixels
-    "cycles": 1, 
-
-    # Outer background subtraction    
-    "bgsub2": "None", # None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
-
-    ## Convex hull settings (outer)
-    "deg2": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
-
-    ## Circularly symmetric settings (outer)
+    "bgsub_out": "None",
+    "deg2": 1,
     "smooth2": 1,
-
-    ## Roving window settings (outer)
     "tension2": 1,
-    "win_size_x2": 11, # in pixels
-    "win_size_y2": 11, # in pixels
+    "win_size_x_out": 11, "win_size_y_out": 11,
+    "fwhm_out": 20,
+    "boxcar_x_out": 20, "boxcar_y_out": 15,
+    "cycles_out": 1,
 
-    ## Smoothed Gaussian / Smoothed Boxcar settings (outer)
-    "fwhm2": 20, # in pixels
-    "boxcar_x2": 20, # in pixels
-    "boxcar_y2": 15, # in pixels
-    "cycles2": 1, 
-    
-    # Transition settings
-    "transition_radius": 730, # 1 to 4096
-    "transition_delta": 60, # 1 to 4096
+    "transition_radius": 730,
+    "transition_delta": 60,
+
+    "optimize": false,
+    "methods": ["Circularly-symmetric", "2D Convexhull"],
+    "max_iterations": 200,
+    "early_stop": 0.005,
+
+    "equator_mask_height": 60,
+    "equator_center_beam_width": 20,
+    "m1": 50,
+    "layer_line_width": 8,
+
+    "freq": "medium"
 }
 ```
 
+- `bg_options`: `0` = single method, `1` = Transition (uses `bgsub_out` outside `transition_radius`).
+- `optimize`: when true, ignores `bgsub` and runs the automated optimizer over `methods`.
+- `mask_thres` is no longer user-configurable; invalid pixels are detected at the value −1 set by the empty-cell-and-mask preprocessing stage.
