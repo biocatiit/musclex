@@ -14,7 +14,7 @@ After an image is selected, the program will process it, and display all informa
 #### Image 
 ![-](../../images/CP/image_tab.png)
 
-There are several options on the right bar. In Settings section, you can do [Calibration Settings](../Common-Settings.html#calibration-settings) and ring selections. Several methods of finding orientation based on **GMM** or **Herman Orientation Factor (HoF)** are provided. **Region of Interest (ROI)** is shown as a semitransparent red ring. It is used as the integration area for **HoF** method and only rings in it are considered when performing **GMM** fitting.
+There are several options on the right bar. In Settings section, you can do [Calibration Settings](../Common-Settings.md#calibration-settings) and ring selections. Several methods of finding orientation based on **GMM** or **Herman Orientation Factor (HoF)** are provided. **Region of Interest (ROI)** is shown as a semitransparent red ring. It is used as the integration area for **HoF** method and only rings in it are considered when performing **GMM** fitting.
 
 To do the ring selection, you have to click the button, pick rings on the image, and click Done. Setting ROI, R-min and R-max can be done in the same way.
 
@@ -23,7 +23,7 @@ To do the ring selection, you have to click the button, pick rings on the image,
 Another section is Display Options. You can set max intensity and min intensity to see the rings clearly. Also, there are some check boxes that allow you to see ring locations and their properties.
 
 #### Method 1
-This method is the first method of finding rings process. [Click Here](Scanning-Diffraction--How-it-works.html#3-find-rings-by-partial-integration-method) to see how it works
+This method is the first method of finding rings process. [Click Here](Scanning-Diffraction--How-it-works.md#3-find-rings-by-partial-integration-method) to see how it works
 
 ![-](../../images/CP/method1_tab.png)
 
@@ -36,7 +36,7 @@ The partial radial integrations are displayed in the graph on the top. This repr
 The 1D radial integration for all 360 degrees will be display at the bottom with final peaks as its title
 
 #### Method 2
-This method is the second method of finding rings process. [Click Here](Scanning-Diffraction--How-it-works.html#4-find-rings-by-log-central-differences-method) to see how it works
+This method is the second method of finding rings process. [Click Here](Scanning-Diffraction--How-it-works.md#4-find-rings-by-log-central-differences-method) to see how it works
 
 ![-](../../images/CP/method2_tab.png)
 

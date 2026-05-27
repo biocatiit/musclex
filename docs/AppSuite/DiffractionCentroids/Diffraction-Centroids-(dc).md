@@ -7,5 +7,5 @@ Diffraction Centroids is designed to rapidly and accurately measure the spacings
 ![-](../../images/DC/ss.png)
 
 ### More Details
-* [How it works](Diffraction-Centroids--How-it-works.html)
-* [How to use](Diffraction-Centroids--How-to-use.html)
+* [How it works](Diffraction-Centroids--How-it-works.md)
+* [How to use](Diffraction-Centroids--How-to-use.md)

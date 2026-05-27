@@ -1,6 +1,6 @@
 # Empty Cell Image and Mask
 
-For information on configuring the empty cell image and mask dialog (selecting an image, scale factor, threshold masking, drawn mask, saving), see [Common Settings — Empty Cell Image and Mask](../Common-Settings.html#empty-cell-image-and-mask).
+For information on configuring the empty cell image and mask dialog (selecting an image, scale factor, threshold masking, drawn mask, saving), see [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask).
 
 ---
 

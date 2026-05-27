@@ -8,7 +8,7 @@ Once the program is run, you will see the steps 1 to 4 that you have to do on th
 
 ![-](../../images/PT/left_tab.png)
 
-First, select an image to process. Second, configure [calibration settings](../Common-Settings.html#calibration-settings) (optional). Third, add how many boxes you want. Finally, select peak locations in each box. For each folder, you just need to do it once on the first image. When another image in the same folder is processed, all these settings will be used.
+First, select an image to process. Second, configure [calibration settings](../Common-Settings.md#calibration-settings) (optional). Third, add how many boxes you want. Finally, select peak locations in each box. For each folder, you just need to do it once on the first image. When another image in the same folder is processed, all these settings will be used.
 
 In this page, you will know about ...
 1. [Display Options](#display-options)
@@ -36,7 +36,7 @@ In each box tab, you will see multiple check boxes in the section. You can check
 
 ### Calibration Options
 
-For calibration image / parameter setup, see [Common Settings — Calibration Settings](../Common-Settings.html#calibration-settings). For center and rotation tools — Set Rotation and Center, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, and Double Zoom — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation).
+For calibration image / parameter setup, see [Common Settings — Calibration Settings](../Common-Settings.md#calibration-settings). For center and rotation tools — Set Rotation and Center, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, and Double Zoom — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
 
 #### Mask Threshold
 
@@ -68,10 +68,10 @@ To select the approximate peak locations, you can just click on the button, sele
 
 If there are multiple boxes, it's better to [select the peak locations in the box tab](#select-peaks).
 
-When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.html) to get the results.
+When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.md) to get the results.
 
 ### Blank Image and Mask
-See [Common Settings — Empty Cell Image and Mask](../Common-Settings.html#empty-cell-image-and-mask) for more information on how to use this option.
+See [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask) for more information on how to use this option.
 
 ![-](../../images/PT/blank_img_mask.png)
 
@@ -109,7 +109,7 @@ To select peaks in the box tab, you can press the "Select Peaks" button, then se
 
 ![-](../../images/PT/box_select_peak.png)
 
-When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.html) to get the results.
+When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.md) to get the results.
 
 #### Modify Centroid Baseline Value
 Inside the Other Results table on the bottom right of your screen, you can modify the baseline value of a peak. You can do so by double clicking on that value, modifying it, then pressing enter.

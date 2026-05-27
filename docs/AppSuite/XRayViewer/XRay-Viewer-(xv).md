@@ -13,4 +13,4 @@ When "Save Graph Profile" is enabled, graph profiles are saved automatically to 
 ![-](../../images/XV/xv_image.png)
 
 ### More Details
-* [How to use](XRay-Viewer-How-to-use.html)
+* [How to use](XRay-Viewer-How-to-use.md)

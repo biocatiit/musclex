@@ -5,10 +5,10 @@ There are 2 modes for Scanning Diffraction
 2. [Folder Mode / Batch Mode](#folder-mode)
 
 ## Individual Image Mode
-When an image is selected, if there is an image in the same folder named “calibration.tif”, the [calibration settings](../Common-Settings.html#calibration-settings) window will pop up. If there’s no calibration image or it’s set already, the image will be processed automatically. However, if the image has ever been processed with the same version of the program, the cache will be downloaded, so the image won’t be processed again. Using a calibration image or inputting the calibration information directly allows conversion of distance in pixels to d-spacings in nm. If calibration information is not provided, distances to diffraction rings are left in numbers of pixels.
+When an image is selected, if there is an image in the same folder named “calibration.tif”, the [calibration settings](../Common-Settings.md#calibration-settings) window will pop up. If there’s no calibration image or it’s set already, the image will be processed automatically. However, if the image has ever been processed with the same version of the program, the cache will be downloaded, so the image won’t be processed again. Using a calibration image or inputting the calibration information directly allows conversion of distance in pixels to d-spacings in nm. If calibration information is not provided, distances to diffraction rings are left in numbers of pixels.
 
 To process an image, the program will go through multiple processes in the order:
-#### 1. [Find Center](../Common-Settings.html#finding-the-diffraction-center)
+#### 1. [Find Center](../Common-Settings.md#finding-the-diffraction-center)
 #### 2. Obtain 2D integrated intensities  and 1D Radial Integration
 In this process, the program will obtain 2D and 1D radial integrated intensities  of the entire diffraction image  using the previously determined center. The program will use functions from the [pyFAI](http://pyfai.readthedocs.io/en/latest/) library to produce the integrated intensity using FPGA hardware acceleration if available.  The 2D integrated intensity will be used for [Finding Rings by Log Central Differences Method](#4-find-rings-by-log-central-differences-method) and 1D integrated intensity (after Convex Hull background subtraction is applied) will be used for [Finding Rings by Partial Integration Method](#3-find-rings-by-partial-integration-method) and [Fitting Model](#6-fit-gaussian-models-to-1d-radial-integration). 
 For example, if the image is<br/>

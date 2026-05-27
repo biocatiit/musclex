@@ -7,4 +7,4 @@ Add Intensities Multiple Experiments (AIME) is designed for experiments where co
 The program provides a table-driven workflow for inspecting and aligning images across experiments before processing. Each image's diffraction center and rotation can be detected automatically or set manually, and individual images can be excluded from summation.
 
 ### More Details
-* [How to use](Add-Intensities-ME-How-to-use.html)
+* [How to use](Add-Intensities-ME-How-to-use.md)

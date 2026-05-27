@@ -16,9 +16,9 @@ Use **File > Save Current Settings** (`Ctrl+S`) to export the current Equator pr
 
 The Image tab shows the processed image and overlays. Display options let you adjust intensity limits, log scaling, colormap, zoom, and overlay visibility for center, R-min, R-max, histogram, integrated area, and detected peaks. **Fitting Error Threshold** (shown in the display options area) sets the maximum acceptable normalized fit error; images whose fit exceeds this threshold are flagged in the results. Display options do not modify the raw image data.
 
-For shared center, rotation, calibration, restore/apply, and Double Zoom tools, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation).
+For shared center, rotation, calibration, restore/apply, and Double Zoom tools, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
 
-For empty cell subtraction and mask configuration, see [Common Settings — Empty Cell Image and Mask](../Common-Settings.html#empty-cell-image-and-mask). Equator-specific mask behavior is described in [Empty Cell Image and Mask](Blank-Image-and-Mask.html).
+For empty cell subtraction and mask configuration, see [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask). Equator-specific mask behavior is described in [Empty Cell Image and Mask](Blank-Image-and-Mask.md).
 
 The Image Processing panel contains Equator-specific controls:
 

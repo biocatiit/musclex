@@ -7,4 +7,4 @@ Add Intensities Single Experiment (AISE) is designed for time-resolved experimen
 The program provides a table-driven workflow for inspecting, aligning, and grouping images before processing. Each image's diffraction center and rotation can be detected automatically or set manually, and misaligned images can be excluded from summation.
 
 ### More Details
-* [How to use](Add-Intensities-SE-How-to-use.html)
+* [How to use](Add-Intensities-SE-How-to-use.md)

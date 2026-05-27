@@ -35,7 +35,7 @@ All options in Display Options will not affect any processing. These options all
 .. note:: **Terminology Update in version 1.27.0**: "Blank Image" has been renamed to "Empty Cell Image" for better clarity. This refers to an image of the empty sample cell (without sample) used for background subtraction.
 ```
 
-See [Common Settings — Empty Cell Image and Mask](../Common-Settings.html#empty-cell-image-and-mask) for more information on how to use this option.
+See [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask) for more information on how to use this option.
 
 ![-](../../images/QF/blank_img_mask.png)
 
@@ -55,7 +55,7 @@ By selecting this option, the resulting quadrant folded image (which is saved in
 
 ##### Center, Rotation, and Double Zoom
 
-For all center and rotation calibration tools — Quick Center and Rotation Angle, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, Fix Center, Double Zoom, Restoring Automatic Settings, and configuration fingerprinting — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation).
+For all center and rotation calibration tools — Quick Center and Rotation Angle, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, Fix Center, Double Zoom, Restoring Automatic Settings, and configuration fingerprinting — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
 
 ##### Mask Threshold
 

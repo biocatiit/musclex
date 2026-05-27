@@ -4,15 +4,15 @@ This program requires you to specify a range of axial distances containing a  me
 
 ## Meridian
 Required parameters : all peak ranges and names
-### 1. [Find Center](../Common-Settings.html#finding-the-diffraction-center)
-### 2. [Calculate Rotation Angle](../Common-Settings.html#calculating-the-rotation-angle)
-### 3. [Calculate R-min](../Common-Settings.html#r-min)
+### 1. [Find Center](../Common-Settings.md#finding-the-diffraction-center)
+### 2. [Calculate Rotation Angle](../Common-Settings.md#calculating-the-rotation-angle)
+### 3. [Calculate R-min](../Common-Settings.md#r-min)
 ### 4. Calculate Integrated Area
-To calculate the integrated intensity trace, the program will perform similar algorithm for [Equator's box width calculation](../Equator/Equator--How-it-works.html#4-calculate-box-width), but it will sum the intensity along the meridian instead of the equator, so the box will be vertical box. This histogram will be split into 2 histograms (Top and bottom)
+To calculate the integrated intensity trace, the program will perform similar algorithm for [Equator's box width calculation](../Equator/Equator--How-it-works.md#4-calculate-box-width), but it will sum the intensity along the meridian instead of the equator, so the box will be vertical box. This histogram will be split into 2 histograms (Top and bottom)
 ### 5. Calculate start and end point for convex hull
 The start point for applying convex hull will be R-min while the end point is 0.7\*the minimum distance from center to image bound
 ### 6. Obtain the Meridional Intensity Histograms
-This process is also similar to [Equator's get intensity histogram process](../Equator/Equator--How-it-works.html#5-get-intensity-histogram), but it will integrate the intensity inside the integrated area which is, int his case,  a vertical box (along the meridian)
+This process is also similar to [Equator's get intensity histogram process](../Equator/Equator--How-it-works.md#5-get-intensity-histogram), but it will integrate the intensity inside the integrated area which is, int his case,  a vertical box (along the meridian)
 ### 7. Get Peaks
 Because the peak ranges are provided by the user, in this process, the program will just find the maximum point in each range
 ### 8. Calculate Baselines

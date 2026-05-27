@@ -14,5 +14,5 @@ This information includes ...
 ![-](../../images/CP/batch_vec_s.png)
 
 ### More Details
-* [How it works](Scanning-Diffraction--How-it-works.html)
-* [How to use](Scanning-Diffraction--How-to-use.html)
+* [How it works](Scanning-Diffraction--How-it-works.md)
+* [How to use](Scanning-Diffraction--How-to-use.md)

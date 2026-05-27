@@ -2,7 +2,7 @@
 
 When an image is selected, Equator applies any configured calibration, center/rotation, empty cell image, and mask settings, then runs the processing pipeline described below. If the image has already been processed with the same MuscleX version and the same preprocessing settings, Equator loads cached results from `eq_cache` and skips recalculation.
 
-Before Equator-specific processing begins, the shared workspace resolves the diffraction center and rotation angle from automatic detection, calibration, manual overrides, or cached settings. See [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation) for details.
+Before Equator-specific processing begins, the shared workspace resolves the diffraction center and rotation angle from automatic detection, calibration, manual overrides, or cached settings. See [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation) for details.
 
 ## Processing pipeline
 
@@ -10,7 +10,7 @@ Equator processes the image in the following steps:
 
 ### 1. Calculate R-min
 
-R-min is calculated using the shared algorithm. See [Common Settings — R-min](../Common-Settings.html#r-min) for details.
+R-min is calculated using the shared algorithm. See [Common Settings — R-min](../Common-Settings.md#r-min) for details.
 
 ### 2. Calculate Box Width
 
@@ -34,7 +34,7 @@ The histogram is split into left and right halves. A convex hull background is e
 
 ![-](../../images/BM/convexhull.png)
 
-During histogram production, columns with values below the mask threshold are treated as ignored. Masked detector gaps are protected during convex-hull background estimation and interpolated before fitting. See [Empty Cell Image and Mask](Blank-Image-and-Mask.html) for details.
+During histogram production, columns with values below the mask threshold are treated as ignored. Masked detector gaps are protected during convex-hull background estimation and interpolated before fitting. See [Empty Cell Image and Mask](Blank-Image-and-Mask.md) for details.
 
 ### 5. Find Diffraction Peaks
 

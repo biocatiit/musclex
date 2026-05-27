@@ -11,5 +11,5 @@ Once set up, the program can process an entire directory of images without user 
 ![-](../../images/QF/image_tab.png)
 
 ### More Details
-* [How it works](Quadrant-Folding--How-it-works.html)
-* [How to use](Quadrant-Folding--How-to-use.html)
+* [How it works](Quadrant-Folding--How-it-works.md)
+* [How to use](Quadrant-Folding--How-to-use.md)

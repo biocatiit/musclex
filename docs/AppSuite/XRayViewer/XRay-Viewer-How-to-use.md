@@ -60,11 +60,11 @@ Display Options do not affect the original data. These options allow users to se
 
 To zoom in, press the "Zoom in" button and select the zoom region by drawing a rectangle. Once "Zoom in" or "Full" is clicked, the current zoom level is persisted when moving to the next image. The "Persist intensities" checkbox keeps the current minimum and maximum intensity values when moving between images.
 
-If [calibration settings](../Common-Settings.html#calibration-settings) are available, use the cursor readout selector to display calibrated values as `d (nm)` or `q (nm^-1)`.
+If [calibration settings](../Common-Settings.md#calibration-settings) are available, use the cursor readout selector to display calibrated values as `d (nm)` or `q (nm^-1)`.
 
 ## Center and calibration
 
-X-Ray Viewer uses the shared MuscleX center-setting workflow. For the center tools, manual center entry, calibration-derived center, and restore/apply controls, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.html#diffraction-center-and-rotation). Rotation-specific tools described there do not apply to X-Ray Viewer. Enable the "Center" checkbox to display the center marker on the image.
+X-Ray Viewer uses the shared MuscleX center-setting workflow. For the center tools, manual center entry, calibration-derived center, and restore/apply controls, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation). Rotation-specific tools described there do not apply to X-Ray Viewer. Enable the "Center" checkbox to display the center marker on the image.
 
 For quadrant-folded images, X-Ray Viewer can use the geometric center instead of running the usual center detection. Use the "Quadrant Folded" checkbox when you need to override the automatic folded-image detection.
 
