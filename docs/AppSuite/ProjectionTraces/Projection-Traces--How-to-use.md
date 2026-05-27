@@ -1,256 +1,257 @@
 # How to use
 
-Projection Traces (PT) provides two modes for users: [Interactive mode](#interactive-mode) and [Headless mode](#headless-mode).
+This page walks through the recommended workflow for processing a folder of images with Projection Traces (PT), then describes secondary features and the headless mode.
 
-## Interactive Mode
+## Workflow at a glance
 
-Once the program is run, you will see the steps 1 to 4 that you have to do on the left menu bar.
+1. [Open an image or folder](#step-1-open-an-image-or-folder)
+2. [Center, rotation, and Quadrant Folded mode](#step-2-center-rotation-and-quadrant-folded-mode)
+3. [Add and edit boxes](#step-3-add-and-edit-boxes)
+4. [Select hull range (convex-hull boxes only)](#step-4-select-hull-range-convex-hull-boxes-only)
+5. [Peak selection and fitting](#step-5-peak-selection-and-fitting)
+6. [Parameter Editor](#step-6-parameter-editor)
+7. [Navigate to the next image](#step-7-navigate-to-the-next-image)
 
-![-](../../images/PT/left_tab.png)
+For algorithmic detail, see [How it works](Projection-Traces--How-it-works.md).
 
-First, select an image to process. Second, configure [calibration settings](../Common-Settings.md#calibration-settings) (optional). Third, add how many boxes you want. Finally, select peak locations in each box. For each folder, you just need to do it once on the first image. When another image in the same folder is processed, all these settings will be used.
+---
 
-In this page, you will know about ...
-1. [Display Options](#display-options)
-2. [Calibration Options](#calibration-options)
-3. [Adding and removing boxes](#adding-boxes)
-4. [Select Peaks](#select-approximate-peak-locations)
-5. [Blank Image and Mask](#blank-image-and-mask)
-6. [Navigation](#navigation)
-7. [Other Options](#other-options)
-8. [Box Tab](#box-tab)
-9. [GMM Fitting Mode (Advanced)](#gmm-fitting-mode-advanced)
+## Step 1 — Open an image or folder
 
-### Display options
-In the image tab, there are display options shown on the right. These options will not affect any processing. You can check "Boxes", "Center" or "Peaks" to be displayed on the image. You can zoom-in by pressing "Zoom in" and select the zoom in area on the image by drawing a rectangle. (You can zoom-in or zoom-out by mouse wheeling too). Also, you can select min/max intensity to see the image clearly.
+Use **File > Select an Image...** (`Ctrl+I`) and pick any TIF/CBF/HDF5 file. PT loads the file, discovers all sibling images in the directory, and shows the image in the **Image** tab.
 
-As of version 1.14.11, you can specify a rotation angle and center manually. This is done by specifying two reflection peaks in the diffraction. The image will be rotated according to the new angle.
+By default PT writes results into the same folder as the input. Use **File > Change Output Directory...** if the input is read-only or you want results in a separate location.
 
-The `Quadrant Folded?` option determines whether the center is assumed to be the half width and height of the image if it's been quadrant folded. If this box is unchecked, the center will be determined automatically. All peaks will be reflected over this center in any drawn boxes. Use the `Center` checkbox to see which center is used by Projection Traces.
+PT will **not produce results yet** — you still need at least one box and one peak selection. The remaining steps configure those.
 
-![-](../../images/PT/image_disp_opt.png)
+The bottom-bar arrows (`<` / `>`) walk image by image; `<<<` / `>>>` walk by HDF5 file. **Process Current Folder** reprocesses every image in the folder with the current boxes and peaks.
 
-In each box tab, you will see multiple check boxes in the section. You can check or uncheck whether you want to see it in the plot
+## Step 2 — Center, rotation, and Quadrant Folded mode
 
-![-](../../images/PT/box_disp_opt.png)
+Set the center and rotation on the **first** image; the same values are then propagated to every other image in the folder.
 
-### Calibration Options
+**Quadrant Folded** checkbox (top of the right panel) — check this if the input is already quadrant-folded. PT will then take the diffraction center to be `(width/2, height/2)`. If unchecked, the center is taken from auto-detection or the manual tools below.
 
-For calibration image / parameter setup, see [Common Settings — Calibration Settings](../Common-Settings.md#calibration-settings). For center and rotation tools — Set Rotation and Center, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle, and Double Zoom — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
+**Center group** — Quick Center and Rotation Angle, Set Center by Chords, Set Center by Perpendiculars, Set Center by Calibration, Set Center Manually. Use **Apply Center** to propagate to other images in the folder.
 
-#### Mask Threshold
+**Set Rotation Angle group** — Set Auto Orientation (algorithm choice + Mode Orientation), Set Angle Interactively (click two points to define the meridional axis), Set Angle Manually (type the angle).
 
-The mask threshold allows you to ignore pixels for processing the image. For example if you set-up a threshold of 0, every part of the histogram where the value is less than 0 will be ignored.
+For full details on these shared tools, see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation). For calibration, see [Common Settings — Calibration Settings](../Common-Settings.md#calibration-settings).
 
-### Adding Boxes
+The **Pattern Settings (Optional)** group has one PT-specific value:
 
-There are three options for box selection: axis aligned, oriented, and center oriented boxes.
+- **Mask Threshold** — pixels at or below this value are excluded from convex-hull background estimation. Default is −999 (effectively off). Lower this only if your image has invalid pixels that should be ignored during background fitting.
 
-To add a box, you have to click on one of the box selection buttons, and draw the box on the image. Axis aligned boxes are drawn by selecting a corner and dragging to from a box. The axis of projection can be selected as either horizontal or vertical. Oriented boxes are drawn by select a box center, then the length of the axis of projection, and finally the width of the box. Center oriented boxes are equivalent to oriented boxes, but the pivot is fixed at the center of the image (either the diffraction center, image center (if quadrant folded), or a manually chosen center).
+## Step 3 — Add and edit boxes
 
-![-](../../images/PT/preselection.png)
+Boxes define the rectangular regions whose contents will be projected to 1-D. The **Add Boxes** group on the right panel has three buttons:
 
-After a box is drawn, a box detail dialog will pop up. You need to specify box's name and background subtraction method along with the axis of projection for axis aligned boxes. This background subtraction will apply to the projection after peaks are selected. The axis of projection is assumed to be along the length of the box.
+| Button | Drawing | Use when |
+|---|---|---|
+| **Add Axis Aligned Box** | Drag a corner and release. A dialog asks for a name, the projection axis (horizontal or vertical), and a background-subtraction mode. | The features you want to integrate run along the equator or the meridian. |
+| **Add Oriented Box** | *Currently disabled in the UI.* | — |
+| **Add Centered Oriented Box** | Click to define the long-axis end-point, then the width. The pivot is fixed at the diffraction center. | The features lie along a layer line at an angle to the equator/meridian. |
 
-![-](../../images/PT/axis_options.png)
+Each box becomes its own tab at the top of the window. The box's projection axis is its long axis; the projection is the sum of intensities along the short axis.
 
-Once a box is added, there's a new tab created. You can add how many boxes you need by repeatedly adding a box. The box name will be written on the image and its information will be displayed in its tab.
+When the box detail dialog opens, you choose one of three **Background Subtraction** modes per box:
 
-![-](../../images/PT/box_select.png)
+- **Fit model (default)** — PT fits a per-peak Gaussian *plus* up to three central Gaussians (overall background, meridional background, meridional peak) that act as the background.
+- **Convex hull** — PT removes a convex-hull background before fitting; the central Gaussians are not used.
+- **None** — no background subtraction.
 
-#### Remove A Box
-To remove a box, you can just close its tab.
+The mode determines which controls show up in the box tab (e.g. the hull range controls only appear for Convex hull boxes; the **Meridional Peak** checkbox only appears for Fit-model boxes).
 
-### Select Approximate peak locations
-To select the approximate peak locations, you can just click on the button, select them in the box and click "Done". When you select a peak, the program will automatically select the corresponding peak on the opposite site.
+**Other controls in the Add Boxes group:**
 
-![-](../../images/PT/peak_select.png)
+- **Edit Boxes** — open a dialog to resize a selected box (separate height/width with center/top/bottom anchoring).
+- **Clear All Boxes** — remove every box and its fit results.
+- Closing a box's tab also removes that box.
 
-If there are multiple boxes, it's better to [select the peak locations in the box tab](#select-peaks).
+## Step 4 — Select hull range (convex-hull boxes only)
 
-When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.md) to get the results.
+For boxes that use **Convex hull** background subtraction, the hull range determines where the convex hull is computed on the 1-D projection. PT initializes it automatically from your peak selections (`[min(peaks) − 15, max(peaks) + 15]`), but you can override it:
 
-### Blank Image and Mask
-See [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask) for more information on how to use this option.
+- In the box tab, click **Set Manual Convex Hull Range** and then click two points on the projection plot (start and end). The clicks define the hull range symmetrically about the box center; both halves of the projection use the same range.
+- Alternatively, type values directly into the **Start** / **End** spinboxes in the same group.
 
-![-](../../images/PT/blank_img_mask.png)
+The active hull range is also a constraint on where peaks can land during fitting (see Step 5), so it doubles as a way to focus the fit on a specific region of the projection.
 
-### Navigation
+## Step 5 — Peak selection and fitting
 
-To navigate through a folder of TIF images or through an H5 file containing multiple images, you can use the simple arrows "<" and ">". 
-Depending on if you are looking at an H5 file or not, another set of button will be displayed: the arrows "<<<" and ">>>" allow you to go to the previous/next H5 file in the same folder. The "Process Current H5 File" button will process only the opened H5 file, whereas the "Process All H5 Files" button will process all the H5 files available in the folder.
-In the case of a simple TIF image, those buttons will be replaced by a simple "Process Current Folder" button that will process all the TIF images in the current folder.
+Each box needs at least one peak before fitting can happen. There are two paths:
 
-![-](../../images/PT/navigation_pt.png)
+### Single peak — one Gaussian per peak
 
-### Other Options
-There're several options on the bottom left in image tab.
+In the box tab, click **Select Single Peak** and click one approximate peak position on the projection plot. PT adds the peak and **automatically mirrors it across the box center** to create a symmetric pair. Repeat for every reflection you want to fit. Click the button again (or press Done) to exit selection mode.
 
-![-](../../images/PT/image_bottom.png)
+Each peak gets its own independent Gaussian (independent center, sigma, amplitude).
 
-* Export All 1-D Projections<br/>
-If this checkbox is checked, and boxes are added, the program will save the original 1-D projection to a text file in 1d_projections folder under pt_results which is created under the image directory. If peaks are also specified, background subtracted projection will be saved in the same folder too.
-* Process Current Folder<br/>
-This will process the whole images in current directory with current settings (boxes and peaks)
-* Previous and Next Buttons<br/>
-This will make the program go to process the next or previous image with current settings
+### Peak cluster — shared sigma (GMM)
 
-### Box Tab
+Click **Select Peak Cluster (GMM)** and click *two* points to define a range. PT detects the prominent peaks inside that range and fits them as a Gaussian Mixture Model with a single shared `common_sigma`. This is useful when several closely-spaced reflections should have the same width.
 
-For each box you created on the image, a tab will be added to the top of the window. Inside this tab, you will be able to visualize the integrated graph corresonding to the box. Depending on the type of box you created, you will have access to different options.
+### Fit bounds
 
-#### Select Convex Hull Range
-If you select Convex Hull as background subtraction method for a box, and peaks are selected. The program will automatically select start and end points for Convex Hull. If you want to change this range, you can click "Set Manual Convex Hull Range" and select start and end points on the plot.
+Two spinboxes control how tightly the fit is constrained around the seed values:
 
-![-](../../images/PT/convex2.png)
+- **Peak Tolerance** (default 2 pixels) — peak centers can move at most this many pixels from their selected positions.
+- **Sigma Tolerance (%)** (default 100%) — initial sigma bounds are `5 × (1 ± tolerance%)`. Lower this to force narrow peaks; raise it to allow broad peaks.
 
-#### Select peaks
-To select peaks in the box tab, you can press the "Select Peaks" button, then select them on the 1-D projection on the left and press "Done". The peaks are going to be created symmetrically around the defined center.
+### Per-box options
 
-![-](../../images/PT/box_select_peak.png)
+- **Meridional Peak** checkbox (Fit-model boxes only) — when checked, the fit includes a dedicated narrow Gaussian for the meridional peak; when unchecked, only the wider background Gaussian remains.
+- **Edit Meridional Peak** — opens a dialog to fix or constrain the meridional peak's center, sigma, or amplitude.
+- **Refit** — re-runs the fit with the current parameters and constraints (useful after editing Peak/Sigma Tolerance or fixing parameters).
+- **Clear Peaks** — removes all peaks and resets the fit.
 
-When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.md) to get the results.
+After fitting, two tables on the right side of the box tab show the results:
 
-#### Modify Centroid Baseline Value
-Inside the Other Results table on the bottom right of your screen, you can modify the baseline value of a peak. You can do so by double clicking on that value, modifying it, then pressing enter.
+- **Model Peak Information** — per peak: Peak Location, Gauss Center, Gauss Sigma, Gauss Area.
+- **Centroid Peak Information** — per peak: Baseline, Centroid, Width, Area.
 
-If the baseline value is higher than the height of the maximum peak, the program will roll back to the previous value entered.
+You can **edit a peak's baseline** by double-clicking its Baseline cell — this regenerates the centroid, width, and area for that peak from the new baseline.
 
-#### Modify Gaussian Sigma Value
-Inside the Fitting Results table on the bottom right of your screen, you can fix the Gaussian Sigma of a peak. You can do so by double clicking on that value, modifying it, then pressing enter.
+The plot canvases above the tables show, from top to bottom, the original projection with the fitted model overlaid, and the background-subtracted projection with the detected peaks. The Display Options group lets you toggle every overlay (original projection, fit model, background, hull range, model peaks, max peaks, baselines, centroids, subtracted projection).
 
-### GMM Fitting Mode (Advanced)
+## Step 6 — Parameter Editor
 
-```eval_rst
-.. note:: **New in version 1.27.0**: Gaussian Mixture Model (GMM) fitting provides advanced peak fitting capabilities for complex diffraction patterns with multiple overlapping peaks.
-```
+For complete control over the fit, click **Open Parameter Editor** in the box tab. The dialog shows every fit parameter (`p_i`, `sigma_i`, `amplitude_i`, `common_sigma` in GMM mode) with:
 
-#### What is GMM Fitting?
+- **Value** — current best-fit value (editable).
+- **Min / Max** — bounds (editable, persisted per box).
+- **Fixed** — checkbox to lock the parameter during refitting (`vary=False`).
 
-GMM (Gaussian Mixture Model) fitting is an advanced peak fitting method that allows you to fit multiple Gaussian peaks simultaneously. This is particularly useful when you have:
-- Overlapping peaks that are difficult to separate
-- Multiple peaks that should share the same width (sigma)
-- Complex peak patterns requiring precise parameter control
+Additional controls at the top:
 
-#### Enabling GMM Mode
+- **Equal Variance (Common Sigma)** — toggle GMM mode for this box (forces all peaks to share one sigma, or restores per-peak sigmas).
+- **Hull Range — Start / End** — change the convex-hull range live (only enabled for Convex-hull boxes).
 
-In the **Other Options** section at the bottom of the Image tab, you'll find GMM mode settings:
+The dialog runs in **preview mode**: edits are reflected on the plot in real time, but they are not committed until you click **Refit & Save**. **Close** discards any unsaved edits (already-saved edits from prior Refit & Save are kept).
 
-1. **Common Sigma**: Check this box to force all peaks in a box to share the same sigma (width) value. This is useful when you expect all peaks to have similar widths.
+Typical use cases:
 
-#### Using the Parameter Editor
+- Fix the meridional reflection's position when you know it shouldn't move between images.
+- Tighten the sigma bounds for a poorly resolved peak.
+- Switch a single box between Single-peak (per-peak sigma) and GMM (common sigma) without leaving the dialog.
 
-Once you have selected peaks in a box, you can fine-tune the fitting parameters using the **Parameter Editor** button in the box tab.
+## Step 7 — Navigate to the next image
 
-##### Opening the Parameter Editor
+Once one image is fully configured (center, rotation, boxes, peaks, optional Parameter Editor edits), PT uses image *N*'s **fit output** as image *N+1*'s **input** instead of the original user clicks:
 
-1. Select peaks in your box (as described in [Select Peaks](#select-peaks))
-2. Click the **"Parameter Editor"** button in the box tab
-3. The GMM Parameter Editor dialog will open, showing:
-   - Current histogram and fitted peaks
-   - Parameter table with all peak parameters
-   - Control options for fitting
+- **>** / **<** — go to the next/previous image and process it immediately.
+- **Process Current Folder** — process every image in the folder.
+- **Process Current H5 File** / **Process All H5 Files** — same for HDF5 input.
 
-##### Parameter Editor Features
+### What carries forward to the next image
 
-**Parameter Table:**
-- **Peak Position (μ)**: Center location of each peak
-- **Peak Height (A)**: Amplitude/height of each peak  
-- **Peak Width (σ)**: Standard deviation (width) of each peak
-- **Fixed**: Check to lock a parameter during fitting
-- **Min/Max Bounds**: Set constraints for each parameter
+After each successful fit, PT writes the following back into a folder-level template (`pt_cache/boxes_config.json`):
 
-**Peak Management:**
-- **Add Peak**: Manually add a new peak to the fit
-- **Remove Peak**: Delete a selected peak
-- **Edit Peak Details**: Double-click a row to edit individual peak parameters with tolerance settings
+- **Refined peak positions** — the lmfit-converged centers (`p_i`) replace the user-clicked seeds. The next image starts its fit from these refined positions, so peaks track gradual drifts across a series.
+- **Box geometry** — coordinates and type (axis-aligned / oriented / centered).
+- **Per-box settings** — background mode (`bgsub`), meridional-peak flag, hull range, GMM mode (`use_common_sigma`), Peak/Sigma Tolerance.
+- **Center, rotation, calibration, mask threshold** — global settings.
 
-**Tolerance Settings:**
-- **Peak Tolerance**: Maximum allowed movement of peak positions during fitting (in pixels or percentage)
-- **Sigma Tolerance**: Maximum allowed change in peak width during fitting (percentage)
+### What does *not* carry forward
 
-**Hull Range:**
-- Adjust the convex hull range by dragging the vertical lines on the histogram
-- Use **"Set Hull Range"** to manually specify start and end points
-- The fitting will only consider data within this range
+- **Fit parameter bounds** (`param_bounds`) — reset to empty for each new image, so per-image Parameter Editor edits (Min/Max/Fixed) do not contaminate later frames.
+- **Per-image fit results** (sigmas, amplitudes, errors) — re-fit from scratch using the inherited peak positions as initial values.
+- **Rejection flag and comments** — these are per-image.
 
-**Fitting Controls:**
-- **Refit**: Run the fitting algorithm with current parameters
-- **Apply**: Save the current fit results and close the dialog
-- **Cancel**: Discard changes and revert to previous fit
-- **Reset**: Restore parameters to their initial values
+### Caching
 
-##### Workflow Tips
+Per-image cached results from previous sessions are reloaded automatically when revisiting an image; the fit is not re-run unless a setting changes. To force a fresh run, delete the `pt_cache` folder under the output directory, or use the `-d` flag in headless mode.
 
-1. **Initial Peak Selection**: Start by selecting approximate peak locations using the standard peak selection tool
-2. **Open Parameter Editor**: Fine-tune the fit using the Parameter Editor
-3. **Set Bounds**: Define reasonable min/max bounds for each parameter to guide the fitting
-4. **Fix Parameters**: Lock parameters that you know should not change (e.g., peak positions for known reflections)
-5. **Adjust Tolerance**: Set appropriate tolerances to prevent peaks from drifting too far
-6. **Refit Iteratively**: Click "Refit" multiple times to refine the fit
-7. **Visual Inspection**: Check the overlay plot to ensure the fit matches your data
-8. **Apply Changes**: Once satisfied, click "Apply" to save the results
+---
 
-##### Common Sigma Mode
+## Output files
 
-When **Common Sigma** is enabled:
-- All peaks in the box will share the same width (σ) value
-- The parameter table will show the sigma value only once
-- This constraint often improves fitting stability for similar peaks
-- Useful for meridional reflections that should have the same width
+After processing, PT writes the following under the chosen output directory:
 
-##### Advanced Features
+### `pt_results/summary.csv`
 
-**Transactional Editing**: The Parameter Editor uses a transactional approach - changes are only saved when you click "Apply". You can experiment freely and use "Cancel" to discard unwanted changes.
+One row per image. Columns are auto-generated based on the configured boxes; for each box and each peak the table records both **Gaussian fit** outputs and **centroid-based** outputs, in pixels and (when calibration is set) in nm. Representative column names:
 
-**Snapshot Refresh**: The editor maintains a snapshot of the current fit. When you change hull range or other parameters, you can refresh the snapshot to see updated results.
+- `Filename`
+- `Box <name> Maximum Point <i> right/left (Pixel | nm)`
+- `Box <name> Gaussian Peak <i> right/left (Pixel | nm)`
+- `Box <name> Gaussian Sigma <i> right/left`
+- `Box <name> Gaussian Area <i> right/left`
+- `Box <name> Centroid <i> right/left (Pixel | nm)`
+- `Box <name> Centroid Area <i> right/left`
+- `Box <name> Average Centroid Area <i>` — mean of left/right centroid areas.
+- `Box <name> Average Gaussian Area <i>` — mean of left/right Gaussian areas.
+- `Box <name> Background Sigma`, `Background Amplitude` — overall background Gaussian.
+- `Box <name> Meridian Background Sigma`, `Meridian Background Amplitude` — meridional background Gaussian.
+- `Box <name> Meridian Sigma`, `Meridian Amplitude` — meridional peak Gaussian.
+- `Box <name> error` — normalized fit residual.
+- `Box <name> comments` — auto-populated with `"High fitting error"` when `error > 0.15`, otherwise `-`.
+- `reject` — `rejected` if the image was rejected (see below), otherwise `-`.
+- `comments` — per-image user comments.
 
-**Auto-Zoom**: When you adjust the hull range, the plot automatically zooms to show the relevant region.
+### `pt_results/center_log.csv`
 
-**Peak Bounds Synchronization**: When you edit peak positions or widths, the bounds are automatically updated to maintain consistency.
+One row per image with the diffraction center used (`center_x`, `center_y`) and the per-box `centerX` (the center coordinate translated into each box's local frame). Useful for spotting outliers in center detection across a batch.
 
-#### Editing Peak Details
+### `pt_results/1d_projections/` (optional)
 
-For fine-grained control over individual peaks:
+Written only when **Export All 1-D Projections** is checked. For each image and each box, two tab-separated text files are produced:
 
-1. In the Parameter Editor, double-click on a peak row
-2. The **Edit Peak Details** dialog opens
-3. Adjust:
-   - Peak position with tolerance (how far the peak can move)
-   - Peak sigma with tolerance (how much the width can change)
-   - Whether to fix the position or sigma during fitting
-4. Click **OK** to apply changes
+- `<name>_box_<box>_original.txt` — the raw 1-D projection.
+- `<name>_box_<box>_subtracted.txt` — the background-subtracted projection.
 
-#### Viewing Results
+### `pt_cache/`
 
-After fitting, the box tab will display:
-- **Fitted Peaks**: Overlaid on the histogram in the left plot
-- **Fitting Results Table**: Shows final peak parameters (position, height, sigma, area)
-- **Other Results Table**: Shows additional metrics (centroid, FWHM, etc.)
-- **Peak Labels**: Visual labels on the plot for easy identification
+Pickled processing state used to skip recomputation when the same image is re-opened with the same settings. Delete this folder (or use `-d` in headless mode) to force reprocessing.
 
-The results are automatically saved and will be used for subsequent images in the folder.
+---
+
+## Other features
+
+### Reject image and comments
+
+Each image has a **Reject this image** checkbox and a **Comments** editor on the right panel:
+
+- **Reject this image** — sets the `reject` column to `rejected` for that file.
+- **Comments / Edit / Clear / Submit / Cancel** — write a free-text note that ends up in the `comments` column.
+
+Useful for flagging frames that failed to process correctly or recording notes about specific measurements during a long batch.
+
+### Display options on the Image tab
+
+The top-right of the Image tab has three PT-specific checkboxes: **Center**, **Boxes**, **Peaks**. These toggle the corresponding overlays on the displayed image. All other display controls (intensity range, log scale, colormap, zoom, persistence) are shared with other MuscleX modules.
+
+### Save and load settings
+
+- **File > Save Current Settings** (`Ctrl+S`) — write the current calibration, boxes, peaks, and per-box parameters to `ptsettings.json`. Use this on a representative configuration and reuse it via headless mode or **File > Load Settings** (`Ctrl+L`) in a future session.
+- **File > Load Settings** — load a settings file.
+
+---
 
 ## Headless Mode
-Image processing performed in the terminal.
-In the terminal, if the user types `musclex eq|qf|di|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
-For example: `musclex pt -h -i test.tif -s config.json`.
+
+For batch processing without a GUI:
+
+```bash
+musclex pt -h -i <file.tif> [-s ptsettings.json] [-d]
+musclex pt -h -f <folder>   [-s ptsettings.json] [-d]
+```
 
 Arguments:
-* -f \<foldername> or -i \<filename>
-* -d (optional) delete existing cache
-* -s (optional) \<input setting file>
+
+- `-i <file>` — process a single file.
+- `-f <folder>` — process every image in the folder.
+- `-s <settings.json>` — load a settings file generated by **File > Save Current Settings** in the GUI. Without this, PT has no boxes to integrate and will exit without producing results.
+- `-d` — delete the existing `pt_cache` before processing.
 
 ```eval_rst
-.. note:: To generate the settings file (containing both the calibration settings and the boxes and peaks saved), use the interactive musclex, set parameters in it, then select "Save current settings" in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, the program will not do anything as it needs boxes to produce results.
+.. note:: On Windows, replace ``musclex`` with ``musclex-main.exe`` (typically under ``C:\Program Files\BioCAT\MuscleX\musclex``).
 ```
 
-```eval_rst
-.. note:: You can run the headless version in Windows using a CMD prompt by replacing `musclex` in the headless command by `musclex-main.exe` in `C:\Users\Program Files\BioCAT\MuscleX\musclex`.
-```
 ### Multiprocessing on folders
-In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
 
-### Customization of the parameters
-Since Headless mode is limited in terms of interactions and parameters to change, you can directly set your parameters in a json format inside `ptsettings.json`. You might need to look at the code and especially 'modules/ProjectionProcessor.py' and 'ui/ProjectionTracesh.py' to know exactly which parameters to set and how to set them. You can also generate the json using the GUI version and look at the parameters for each box/type of box.
+The headless runner processes one image per CPU core. Output for each worker is prefixed with the process index so interleaved log lines can be untangled.
 
+### `ptsettings.json`
+
+The recommended way to produce this file is to configure one image fully in the GUI and use **File > Save Current Settings**. The exact key names depend on the boxes you have created; inspect a generated file and `musclex/modules/ProjectionProcessor.py` / `musclex/headless/ProjectionTracesh.py` if you need to hand-edit values for headless runs.
