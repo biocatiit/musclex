@@ -127,6 +127,15 @@ Additional controls at the top:
 - **Equal Variance (Common Sigma)** — toggle GMM mode for this box (forces all peaks to share one sigma, or restores per-peak sigmas).
 - **Hull Range — Start / End** — change the convex-hull range live (only enabled for Convex-hull boxes).
 
+### Interactive hull range editing on the graph
+
+While the Parameter Editor is open, the hull range is drawn as a highlighted band on both projection plots (top and bottom). You can adjust it directly with the mouse:
+
+- **Drag an edge** (left-outer, left-inner, right-inner, or right-outer boundary of the band) to move *only that bound*. The opposite side stays put. Hover near an edge and the cursor changes to a horizontal resize arrow.
+- **Drag inside the band** (away from any edge) to shift the *whole region together with all the peaks* by the same offset. Useful when the diffraction pattern has drifted but the relative spacing of the peaks is unchanged.
+
+All drag edits update the Parameter Editor's spinboxes (Hull Range Start/End) and peak rows in real time, but — like the rest of the dialog — they remain in preview until you click **Refit & Save**.
+
 The dialog runs in **preview mode**: edits are reflected on the plot in real time, but they are not committed until you click **Refit & Save**. **Close** discards any unsaved edits (already-saved edits from prior Refit & Save are kept).
 
 Typical use cases:
@@ -142,6 +151,10 @@ Once one image is fully configured (center, rotation, boxes, peaks, optional Par
 - **>** / **<** — go to the next/previous image and process it immediately.
 - **Process Current Folder** — process every image in the folder.
 - **Process Current H5 File** / **Process All H5 Files** — same for HDF5 input.
+
+```eval_rst
+.. tip:: For batch QA, it's convenient to leave the Parameter Editor open while navigating between images. PT remembers each editor's position and size, automatically closes it on image switch, and reopens it after the new image finishes processing — so the table always shows the current image's freshly-fit parameters in the same place on screen.
+```
 
 ### What carries forward to the next image
 
