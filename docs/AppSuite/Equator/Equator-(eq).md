@@ -15,7 +15,7 @@ The program does this with as little user intervention as possible in order to i
 ### More Details
 * [How it works](Equator--How-it-works.md)
 * [How to use](Equator--How-to-use.md)
-* [Results file](Equator--Summary.md)
+* [How to use — Output files](Equator--How-to-use.md#output-files)
 
 ---
 

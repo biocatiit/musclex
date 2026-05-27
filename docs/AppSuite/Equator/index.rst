@@ -8,4 +8,3 @@ Equator
    Equator-(eq)
    Equator--How-it-works
    Equator--How-to-use
-   Equator--Summary

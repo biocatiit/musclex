@@ -81,3 +81,15 @@ The extra peak has the same four fixed-parameter controls as the Z-line group (F
 The Results tab summarizes the current image's fitting output, including peak areas, S<sub>10</sub>, d<sub>10</sub> when calibration is available, I<sub>11</sub>/I<sub>10</sub>, fitting error, and related model parameters (σ<sub>D</sub>, σ<sub>S</sub>, γ).
 
 The Parameter Editor tab exposes the current lmfit parameter set for advanced manual refitting. You can directly edit parameter values, bounds, and whether each parameter is fixed or free. These edits are intended for the current refit session; use **File > Save Current Settings** to persist fitting settings across sessions.
+
+## Output files
+
+Equator writes results to an `eq_results` folder under the selected output directory. If no separate output directory is selected, `eq_results` is created inside the folder containing the selected image.
+
+![-](../../images/BM/summary.png)
+
+**`summary.csv`** — one row per reflection peak per image. Multiple rows are written for a single image when more than one peak is fitted.
+
+**`summary2.csv`** — the same results in a transposed layout: one row per image, with all peak values for that image laid out as columns. This format is more convenient for spreadsheet analysis.
+
+**`failedcases.txt`** — a list of images that could not be processed automatically. An image is added to this list when it has no effective peaks, the model fitting fails, the fitting error exceeds the threshold, or the image is manually rejected. You can reload this file with **File > Select a File (or Failed Cases)...** to step through and manually fix each case.
