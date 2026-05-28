@@ -29,6 +29,7 @@ from os import makedirs
 from os.path import exists
 # import hashlib
 import pandas as pd
+from datetime import datetime
 try:
     from ..utils.file_manager import fullPath
 except: # for coverage
@@ -38,10 +39,12 @@ class QF_CSVManager:
     """
     A class taking care of writing results including csv file and failedcases file
     """
-    def __init__(self, dir_path):
+    def __init__(self, dir_path, extra_colnames=None, version=None):
         """
         init with directory path
         :param dir_path:
+        :param extra_colnames:
+        :param version:
         """
         self.dataframe = None
         result_path = fullPath(dir_path, "qf_results")
@@ -49,11 +52,17 @@ class QF_CSVManager:
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
         self.colnames = [
-            'Filename', 'centerX', 'centerY', 'rotationAngle',
+            'Filename', 'version', 'date', 'centerX', 'centerY', 'rotationAngle',
             'backgroundMethod', 'backgroundConfigName',
             'parameters', 'downsampled',
             'loss', 'bgSum', 'symmetry'#, 'hash', 'comment'
         ]
+        self.version = version if version is not None else 'unknown'
+
+        if extra_colnames:
+            self.colnames.extend(extra_colnames)
+        
+        print(f"extra_colnames: {extra_colnames}, total colnames: {self.colnames}")
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
@@ -96,6 +105,9 @@ class QF_CSVManager:
         self.removeData(img_name)
         data = {}
 
+        processed_flags = quadFold.processing_flags
+        print(f"DEBUG: Processing flags for {img_name}: {processed_flags}")
+
         # If there is no result
         if "resultImg" not in cache:
             for k in self.dataframe.columns:
@@ -116,6 +128,8 @@ class QF_CSVManager:
                 center = (0, 0)
             # Get all needed infos
             data['Filename'] = img_name
+            data['version'] = self.version
+            data['date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             data['centerX'] = center[0]
             data['centerY'] = center[1]
             data['rotationAngle'] = quadFold.rotation if quadFold.rotation is not None else 0.0
@@ -132,6 +146,7 @@ class QF_CSVManager:
             data['loss'] = quadFold.info['result_bg'].get('loss', '-')
             data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
             data['symmetry'] = quadFold.info['result_bg'].get('symmetry', '-')
+            data = data | processed_flags 
 
 
             if failed:
@@ -142,6 +157,7 @@ class QF_CSVManager:
         self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([data])])
         # self.dataframe = self.dataframe.append(data, ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
+        print(f"DEBUG: Writing data to {self.filename} to CSV with data: {self.dataframe}")
         self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
 
     def removeData(self, img_name):

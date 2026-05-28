@@ -82,6 +82,7 @@ from ..utils.background_search import makeFullImage, get_projection, find_i0_i1_
 from ..utils.qf_defaults import parse_optimization_steps
 import time
 import random
+from musclex import __version__
 
 class QuadFoldParams:
     def __init__(self, flags, index, file_manager, parent):
@@ -521,7 +522,7 @@ class QuadrantFoldingGUI(BaseGUI):
     def _on_output_dir_changed(self, new_output_dir):
         """Reset CSV manager when the output directory changes."""
         if self.csvManager is not None:
-            self.csvManager = QF_CSVManager(new_output_dir)
+            self.csvManager = QF_CSVManager(new_output_dir, extra_colnames=self.getFlags().keys(), version=__version__)
 
     # ------------------------------------------------------------------
     # Alignment / image-difference detection dialog (Tools -> Detect Image Alignment...)
@@ -4961,7 +4962,7 @@ class QuadrantFoldingGUI(BaseGUI):
             if self.file_manager.dir_path and self.file_manager.names:
                 try:
                     csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.filePath
-                    self.csvManager = QF_CSVManager(csv_dir)
+                    self.csvManager = QF_CSVManager(csv_dir, extra_colnames=self.getFlags().keys(), version=__version__)
                     self.ignoreFolds = set()
                     self.resetWidgets()
                     if hasattr(self, "bgSubDialog"):
