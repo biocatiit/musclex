@@ -380,7 +380,7 @@ def _coerce_fraction_mean(value, default):
     return numeric
 
 
-def prepare_synthetic_eval_pair(syn_fold_syn, syn_fold_base, synthetic_data, synthetic_mask):
+def prepare_synthetic_eval_pair(syn_fold_syn, syn_fold_base, synthetic_data, synthetic_mask, gen_mask=None):
     """
     Build fold-sized arrays for synthetic-preservation metrics.
 
@@ -395,6 +395,7 @@ def prepare_synthetic_eval_pair(syn_fold_syn, syn_fold_base, synthetic_data, syn
     h, w = syn_fold_syn.shape[:2]
     syn_str = np.asarray(synthetic_data, dtype=np.float64)[:h, :w]
     syn_mask = np.asarray(synthetic_mask)[:h, :w]
+    gen_mask = np.asarray(gen_mask)[:h, :w]
 
     if syn_fold_base is not None:
         syn_fold_base = np.asarray(syn_fold_base, dtype=np.float64)[:h, :w]
@@ -402,34 +403,36 @@ def prepare_synthetic_eval_pair(syn_fold_syn, syn_fold_base, synthetic_data, syn
     else:
         syn_img = syn_fold_syn[:h, :w].copy()
 
-    return syn_img, syn_str, syn_mask
+    return syn_img, syn_str, syn_mask, gen_mask
 
 
 MEAN_METRIC_VALUES = {
-    "SHARE_NON_BASELINE_MEAN": 0.35,
-    "MSE_SYN_MEAN": 1.0,
-    "SMOOTH_MEAN": 1.0,
-    "SHARE_NEG_SYN_MEAN": 0.20,
-    "SHARE_NEG_CON_MEAN": 0.07,
+    "SHARE_NON_BASELINE_MEAN": 0.34,
+    "MSE_SYN_MEAN": 0.0142451,
+    "SMOOTH_MEAN": 0.00148682,
+    "SHARE_NEG_SYN_MEAN": 0.188804,
+    "SHARE_NEG_CON_MEAN": 0.513271,
     }
 
 WEIGHTS  = {
-    "MSE": .1,
-    "Share_Neg_Synthetic": 0.1,
-    "Share_Non_Baseline": 0.1,
-    "Share_Neg_Connected": 0.3,
-    "Smoothness": 0.4
+    "MSE": 0.01,
+    "Share_Neg_Synthetic": 0.05,
+    "Share_Non_Baseline": 0.8,
+    "Share_Neg_Connected": 0.05,
+    "Smoothness": 0.1
 }
 
 
-def full_eval_metrics(dimg, dbg, syn_img, syn_str, syn_mask, gen_mask, baseline_value, min_neg_con_pixels=9, \
+
+
+def full_eval_metrics(dimg, dbg, syn_img, syn_str, syn_mask, gen_mask, gen_mask_fold, baseline_value, min_neg_con_pixels=9, \
                       normalize_metrics=True, mean_metric_values=None, metric_weights=None):
     if syn_str is None or syn_mask is None:
         mse = 0
         share_neg_synthetic = 0
     else:
-        mse = artificial_data_mse(syn_img, syn_str, syn_mask, gen_mask, normalize=True)
-        share_neg_synthetic = share_neg_syn(syn_img, syn_mask)
+        mse = artificial_data_offset_mse(syn_img, syn_str, syn_mask, gen_mask_fold, normalize=True)
+        share_neg_synthetic = share_neg_syn(syn_img, syn_mask, gen_mask_fold)
     
     share_non_baseline_pixels = share_non_baseline(dimg, baseline_value, gen_mask)
     share_neg_connected = share_neg_con(dimg, gen_mask, min_pixels=min_neg_con_pixels)
@@ -483,8 +486,9 @@ def artificial_data_mse(dimg, syn_str, syn_mask, gen_mask=None, normalize=True, 
     scores positive-pattern recovery only; oversubtraction uses share_neg_syn.
     ``normalize`` is kept for API compatibility.
     """
-    del gen_mask  # unused; calibration uses MSE_SYN_MEAN in full_eval_metrics
-    m = syn_mask.astype(bool)
+    # del gen_mask  # unused; calibration uses MSE_SYN_MEAN in full_eval_metrics
+    mask = gen_mask * syn_mask
+    m = mask.astype(bool)
     if not np.any(m):
         return 0.0
     a = np.maximum(dimg[m].astype(np.float64), 0.0)
@@ -500,9 +504,45 @@ def artificial_data_mse(dimg, syn_str, syn_mask, gen_mask=None, normalize=True, 
     return float(nmse)
 
 
-def share_neg_syn(syn_img, syn_mask):
+def artificial_data_offset_mse(dimg, syn_str, syn_mask, gen_mask=None, normalize=True, eps=1e-12):
+    """
+    Offset-invariant (additive-invariant) NMSE on masked pixels.
+
+    Fits a constant offset c that minimizes ||(a - c) - b||^2 on masked pixels,
+    then reports ||(a - c) - b||^2 / ||b||^2. Negative values are clipped to
+    zero so this scores positive-pattern recovery only.
+    """
+    # Keep mask semantics consistent with artificial_data_mse
+    if gen_mask is None:
+        mask = syn_mask
+    else:
+        mask = gen_mask * syn_mask
+
+    m = np.asarray(mask).astype(bool)
+    if not np.any(m):
+        return 0.0
+
+    a = np.maximum(np.asarray(dimg)[m].astype(np.float64), 0.0)
+    b = np.maximum(np.asarray(syn_str)[m].astype(np.float64), 0.0)
+
+    # Best constant offset in least squares: c = mean(a - b)
+    c = float(np.mean(a - b)) if a.size else 0.0
+    residual = (a - c) - b
+
+    denom_ref = float(np.dot(b, b) + eps)
+    if denom_ref <= eps:
+        return 0.0
+
+    nmse = float(np.sum(residual ** 2) / denom_ref)
+    if not normalize:
+        return float(np.sum(residual ** 2) / max(np.sum(m), 1))
+    return nmse
+
+
+def share_neg_syn(syn_img, syn_mask, gen_mask=None):
     """Fraction of synthetic-mask pixels with negative recovered signal."""
-    m = syn_mask.astype(bool)
+    mask = gen_mask * syn_mask
+    m = mask.astype(bool)
     if not np.any(m):
         return 0.0
     a = syn_img[m].astype(np.float64)
@@ -559,7 +599,7 @@ def smoothness(dimg, dbg, mask_equator):
     return float(smoothness_value)
 
 
-def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask, baseline, mean_metric_values=None, metric_weights=None, return_details=False):
+def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, gen_mask_fold, equator_mask, baseline, mean_metric_values=None, metric_weights=None, return_details=False):
 
     normalized_metrics = full_eval_metrics(
         dimg,
@@ -568,6 +608,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask,
         syn_str=syn_srt,
         syn_mask=syn_mask,
         gen_mask=gen_mask,
+        gen_mask_fold=gen_mask_fold,
         baseline_value=baseline,
         mean_metric_values=mean_metric_values,
         metric_weights=metric_weights,
@@ -580,6 +621,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask,
         syn_str=syn_srt,
         syn_mask=syn_mask,
         gen_mask=gen_mask,
+        gen_mask_fold=gen_mask_fold,
         baseline_value=baseline,
         normalize_metrics=False,
         mean_metric_values=mean_metric_values,
@@ -587,6 +629,8 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask,
     )
 
     equator_mask_reverse = 1 - equator_mask
+    h, w = syn_mask.shape[:2]
+    equator_mask_reverse_fold = equator_mask_reverse[:h, :w]
 
     normal_equator_metrics = full_eval_metrics(
         dimg,
@@ -594,6 +638,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask,
         syn_img=syn_img,
         syn_str=syn_srt,
         syn_mask=syn_mask,
+        gen_mask_fold=equator_mask_reverse_fold,
         gen_mask=equator_mask_reverse,
         baseline_value=baseline,
         mean_metric_values=mean_metric_values,
@@ -608,6 +653,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, equator_mask,
         syn_mask=syn_mask,
         normalize_metrics=False,
         gen_mask=equator_mask_reverse,
+        gen_mask_fold=equator_mask_reverse_fold,
         baseline_value=baseline,
         mean_metric_values=mean_metric_values,
         metric_weights=metric_weights,
@@ -668,25 +714,6 @@ def compute_loss_from_raw(raw_metrics, mean_metric_values=None, metric_weights=N
             share_neg_connected * weights["Share_Neg_Connected"] +
             smoothness_value * weights["Smoothness"])
 
-    # print("MEAN VALUES:")
-    # print(f"MSE_SYN_MEAN: {mean_values['MSE_SYN_MEAN']}")
-    # print(f"SHARE_NEG_SYN_MEAN: {mean_values['SHARE_NEG_SYN_MEAN']}")
-    # print(f"SHARE_NON_BASELINE_MEAN: {mean_values['SHARE_NON_BASELINE_MEAN']}")
-    # print(f"SHARE_NEG_CON_MEAN: {mean_values['SHARE_NEG_CON_MEAN']}")
-    # print(f"SMOOTH_MEAN: {mean_values['SMOOTH_MEAN']}")
-    # print("CALCULATED METRICS:")
-    # print(f"MSE: {mse}")
-    # print(f"Share_Neg_Synthetic: {share_neg_synthetic}")
-    # print(f"Share_Non_Baseline: {share_non_baseline}")
-    # print(f"Share_Neg_Connected: {share_neg_connected}")
-    # print(f"Smoothness: {smoothness_value}")
-    # print(f"Loss: {loss}")
-    # print("WEIGHTS:")
-    # print(f"MSE: {weights['MSE']}")
-    # print(f"Share_Neg_Synthetic: {weights['Share_Neg_Synthetic']}")
-    # print(f"Share_Non_Baseline: {weights['Share_Non_Baseline']}")
-    # print(f"Share_Neg_Connected: {weights['Share_Neg_Connected']}")
-    # print(f"Smoothness: {weights['Smoothness']}")
 
     return loss
 
@@ -1394,8 +1421,8 @@ def process_file(values=None, **kwargs):
     syn_srt = kwargs.get('synthetic_data', None)
     syn_mask = kwargs.get('synthetic_mask', None)
     gen_mask = kwargs.get('mask', None)
-    syn_img, syn_srt, syn_mask = prepare_synthetic_eval_pair(
-        dimg_fold_syn, dimg_fold, syn_srt, syn_mask
+    syn_img, syn_srt, syn_mask, gen_mask_fold = prepare_synthetic_eval_pair(
+        dimg_fold_syn, dimg_fold, syn_srt, syn_mask, gen_mask
     )
 
     raw_eval = full_eval_metrics(
@@ -1405,6 +1432,7 @@ def process_file(values=None, **kwargs):
         syn_str=syn_srt,
         syn_mask=syn_mask,
         gen_mask=gen_mask,
+        gen_mask_fold=gen_mask_fold,
         baseline_value=baseline,
         normalize_metrics=False,
         mean_metric_values=kwargs.get('mean_metric_values', None),

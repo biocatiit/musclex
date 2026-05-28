@@ -1914,8 +1914,8 @@ class QuadrantFolder:
         syn_fold_base = self.imgCache.get('BgSubFold', None)
         gen_mask = self.imgCache.get('mask', None)
         equator_mask = self.imgCache.get('equator_mask', None)
-        syn_img, syn_srt, syn_mask = prepare_synthetic_eval_pair(
-            syn_fold, syn_fold_base, syn_srt, syn_mask
+        syn_img, syn_srt, syn_mask, gen_mask_fold = prepare_synthetic_eval_pair(
+            syn_fold, syn_fold_base, syn_srt, syn_mask, gen_mask
         )
 
         kwargs = {
@@ -1926,6 +1926,7 @@ class QuadrantFolder:
             'syn_srt': syn_srt,
             'syn_mask': syn_mask,
             'gen_mask': gen_mask,
+            'gen_mask_fold': gen_mask_fold,
             'equator_mask': equator_mask,
             'mean_metric_values': self.info.get('mean_metric_values', None),
             'metric_weights': self.info.get('metric_weights', None),
