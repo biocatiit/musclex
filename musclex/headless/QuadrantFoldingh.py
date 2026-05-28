@@ -243,7 +243,7 @@ class QuadrantFoldingh:
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
-            self.csvManager = QF_CSVManager(self.output_dir)
+            self.csvManager = QF_CSVManager(self.output_dir, extra_colnames=self.getFlags().keys(), version=self.version)
             self.csvManager.writeNewData(self.quadFold)
             # release the lock
             if self.lock is not None:

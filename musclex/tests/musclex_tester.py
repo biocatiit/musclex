@@ -1094,10 +1094,15 @@ def custom_round(x):
     else:
         return x
     
-def compare_csv_files(file1, file2, ignore_columns=None, sort_key=None, rtol=1e-03, atol=1e-05):
+def compare_csv_files(file1, file2, ignore_columns=None, sort_key=None, rtol=1e-03, atol=1e-05, ignore_keys=["date", "version"]):
     # Read the CSV files into DataFrames
     df1 = pd.read_csv(file1)
     df2 = pd.read_csv(file2)
+
+    if ignore_keys is not None:
+        df1 = df1.drop(columns=[col for col in ignore_keys if col in df1.columns], errors='ignore')
+        df2 = df2.drop(columns=[col for col in ignore_keys if col in df2.columns], errors='ignore')
+
 
     # Ensure both DataFrames have the same shape
     if df1.shape != df2.shape:
