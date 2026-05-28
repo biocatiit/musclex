@@ -68,9 +68,7 @@ The display panel (right side, above the settings) controls how the image is ren
 - **Persist Intensities** — keep the current min/max when moving to the next image.
 - **Original Center** checkbox — overlays a green circle at the image's current center.
 - **Global Base Center** checkbox — overlays a red crosshair at the global base center.
-
-##### Double Zoom
-Checking the **Double Zoom** box creates a 10× magnified inset in the top-right corner of the viewer, centred on the mouse pointer (20 × 20 pixels). This is useful for placing calibration points at sub-pixel accuracy. Click the image to freeze the inset, then click the exact point inside the inset to register it in the main image. Uncheck the box to hide the inset.
+- **Double Zoom** — see [Common Settings — Double Zoom](../Common-Settings.md#double-zoom).
 
 ## Image Operations
 
@@ -115,37 +113,21 @@ Pairwise *Image Difference* scores are computed automatically in the background 
 
 #### Set Center and Rotation Dialog
 
-Opened via right-click → *Set Center and Rotation* or the panel button. The dialog contains the image viewer and the following calibration tools:
+Opened via right-click → *Set Center and Rotation* or the panel button. The dialog reparents the image viewer, the **Center** group and the **Rotation Angle** group into a side-by-side layout for focused calibration of a single image. The tools inside are the same shared center/rotation controls used by Quadrant Folding, Equator, and Projection Traces — see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation) for the full description of:
 
-##### Set Rotation and Center
-Click two corresponding reflection peaks on opposite sides of the equator to define both the center and the rotation angle simultaneously. Press ESC to cancel.
+- Quick Center and Rotation Angle, Set Center By Chords / Perpendiculars / Calibration, Set Center Manually
+- Set Rotation Angle (interactive and manual)
+- Compute Center / Compute Orientation, Fix Center, Restoring Automatic Settings
+- Double Zoom for sub-pixel accuracy
 
-##### Set Center By Chords
-Click points along the circumference of the diffraction ring. Perpendicular bisectors of the chords are drawn in blue; their average intersection is taken as the center. Click the button again to confirm.
+Closing the dialog re-parents the viewer and the two groups back to the main window.
 
-##### Set Center By Perpendiculars
-Click pairs of symmetric reflection peaks (horizontal pairs first, then vertical pairs) to draw perpendicular lines. The average intersection is taken as the center. Click the button again to confirm.
-
-##### Set Rotation Angle
-Assumes the center is already correct. Move a line over the equator of the diffraction pattern and click to set the rotation. Press ESC to cancel.
-
-##### Compute Center / Compute Orientation
-The program can automatically compute the center or orientation without user input. The *Compute Center* and *Set Calibration Center* checkboxes are mutually exclusive, as are *Compute Orientation* and *Set Orientation*.
-
-##### Apply to Subsequent Images
-Propagates the center and/or rotation of the current image to all images that follow it in the table.
+##### Apply to Subsequent Images (context-menu action)
+Right-click → *Apply to Subsequent Images* propagates the **selected row's** current center and rotation to every row below it in the table. Use it after correcting an image whose center/rotation drifted from the prior images.
 
 ## Blank / Mask Settings
 
-The **Blank & Mask** widget (below the display options) allows specifying an empty-cell image to subtract and/or a mask to apply before summation.
-
-- **Select Empty Cell Image(s)** — choose a blank-cell image file.
-- **Blank Image Weight** — multiplier applied to the blank image before subtraction.
-- **Subtract Empty Cell Image** — enables subtraction during processing.
-- **Draw Mask** — opens a pyFAI mask-drawing dialog.
-- **Mask Threshold** — automatically masks pixels at or below the specified value (default −1).
-- **Show Empty Cell Image / Show Mask** — toggles the viewer to display the blank or mask image.
-- **Clamp Negative Values to 0** — replaces negative pixel values with 0 after blank subtraction (enabled only when negative values are detected).
+AIME uses the standard **Apply Empty Cell Image and Mask** panel — see [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask) for the dialogs and behaviour. In AIME this panel is rendered just above the *Image Operations* group on the right side of the main window.
 
 ## Summing Images
 
