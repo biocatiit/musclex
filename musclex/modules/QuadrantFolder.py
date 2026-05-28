@@ -152,6 +152,8 @@ class QuadrantFolder:
         self._bg_raw_metrics_cache = {}
         self._bg_raw_metrics_cache_image_id = self._get_bg_cache_image_id()
 
+        self.processing_flags = None # For saving flags before processing, and later for saving to csv.
+
     def _get_bg_cache_image_id(self):
         return f"{self.img_path}/{self.img_name}"
 
@@ -614,6 +616,9 @@ class QuadrantFolder:
         :param flags: flags
         :return: -
         """
+        # Update the flags frist
+        self.processing_flags = flags.copy()
+
         # Get fresh image from ImageData (reflects latest blank/mask settings)
         # This ensures checkbox changes take effect without recreating QuadrantFolder
         self.orig_img = self._image_data.get_working_image()
