@@ -1,6 +1,6 @@
 # How to use
 
-When the program opens, a selection panel is shown. Load images by clicking **Select Folder** (for a directory of image files) or **Select an H5 file** (for an HDF5 file). Once loaded, the program switches to the main table view.
+When the program opens, a large **Click Here to Select an Image...** button is shown in the centre of the window. Click it and pick any image inside the folder you want to process (TIFF, CBF, HDF5, PNG, JPEG). AISE loads the whole folder (or the entire HDF5 file) and switches to the main table view. The output folder can be changed at any time via **File > Change Output Directory…**.
 
 ## Workflow Overview
 
@@ -9,12 +9,12 @@ A **Workflow Guide** dialog is shown on first launch (and can be reopened at any
 1. **Set the global (reference) image** — by default the first image is the reference. Right-click a row and choose *Set as Global Base* to change it.
 2. **Correct the center of the global image** — adjust its diffraction center in the viewer. Right-click → *Apply to Subsequent Images* to propagate the correction.
 3. **Correct the orientation (rotation) if needed** — adjust the rotation of the global image and propagate as above.
-4. **Detect misalignment** — click *Detect Centers & Rotations* in the alignment panel. The table highlights rows whose center distance or rotation difference exceeds the configured thresholds. Use *Compute Image Difference* to add pixel-level comparison scores.
+4. **Detect misalignment** — click *Detect Centers & Rotations* in the alignment panel. The table highlights rows whose center distance or rotation difference exceeds the configured thresholds. Pairwise pixel-level *Image Difference* scores are filled in automatically as a side effect (see [Alignment thresholds](#alignment-thresholds)).
 5. **Correct misaligned images** — select a misaligned row and adjust its center/rotation. Right-click → *Apply to Subsequent Images* for progressive drift, or *Ignore* to exclude an image entirely.
 6. **Repeat detection and correction** as needed.
 7. **Define bins** — choose a grouping mode in the *Image Operations* panel:
-   - **Bin Images**: set the binning factor and click *Auto Group* to create fixed-size sequential bins.
-   - **Select Group Graphically**: highlight rows in the table, then right-click → *Group Selected* to create a bin manually.
+   - **Bin Images**: pick a *Binning factor*. AISE creates sequential bins of that size automatically; changing the factor updates the bins immediately.
+   - **Select Group Graphically**: highlight rows in the table, then right-click → *Group* to create a bin manually (≥ 2 rows required).
 8. **Sum Images** — choose *Average* or *Sum* in *Image Operations*, then click the **Sum Images** button.
 9. **Inspect results** — switch to the **Result** tab to browse and preview the output images.
 
@@ -47,7 +47,7 @@ Right-clicking a row (or a selection of rows) provides:
 
 - **Set Center and Rotation** — opens a dialog to interactively set the center and rotation for the selected image.
 - **Set as Global Base** — designates the selected image as the reference for all distance/rotation comparisons.
-- **Group** — creates a bin from the selected rows (requires ≥ 2 rows selected).
+- **Group** — creates a bin from the selected rows (requires ≥ 2 rows selected). Multi-row labels show the count, e.g. *Group (3 images)*.
 - **Ignore / Cancel Ignore** — excludes or re-includes the selected image(s) from summation and alignment detection.
 - **Apply to Subsequent Images** — propagates the current image's center/rotation to all following images.
 
@@ -72,8 +72,8 @@ The **Image Operations** collapsible panel controls grouping and processing opti
 
 #### Grouping Mode
 
-- **Select Group Graphically** — bins are defined manually by selecting rows in the table and right-clicking → *Group Selected*.
-- **Bin Images** — reveals a **Binning factor** spinbox. Setting the factor to *N* automatically creates sequential bins of *N* images each. Changing the factor updates the bins immediately.
+- **Select Group Graphically** — bins are defined manually by selecting rows in the table and right-clicking → *Group*.
+- **Bin Images** — reveals a **Binning factor** spinbox (range 2–256, default 2). Setting the factor to *N* automatically creates sequential bins of *N* images each; changing the factor updates the bins immediately. No extra confirmation button is needed.
 
 #### Compute Average Instead of Sum
 
@@ -96,11 +96,21 @@ The alignment panel (below the image viewer settings) provides tools for detecti
 
 #### Detect Centers & Rotations
 
-Automatically computes the diffraction center and rotation for every image. Results are written to the *Auto Center* and *Auto Rotation* columns. Rows where the detected values differ from the global base by more than the configured thresholds are highlighted.
+Click this button (collapsible group **Detect Misaligned Images**) to start a batch detection of the diffraction center and rotation angle for every loaded image. Results are written to the *Auto Center* and *Auto Rotation* columns. The button changes to *Stop* during the run; clicking it again cancels the remaining jobs.
 
-#### Compute Image Difference
+Rows whose detected values differ from the global base by more than the configured thresholds (see below) are highlighted.
 
-Computes a pixel-level similarity score between each image and the global base. Results appear in the *Image Difference* column.
+### Alignment thresholds
+
+Three thresholds live inside the *Detect Misaligned Images* group. Each has a checkbox (to enable/disable the highlight) and a spinbox (the value):
+
+| Threshold | Unit | Default | Highlights rows whose… |
+|---|---|---|---|
+| **Auto Diff threshold** | px | 5 px | center deviates from the global base by more than this. |
+| **Auto-Rot Diff threshold** | ° | 2° | auto-detected rotation differs from the global base by more than this. |
+| **Image diff threshold** | (counts) | 80th percentile of all diff scores | pairwise pixel-diff score exceeds this. The default is recomputed automatically every time a new diff is available. |
+
+Pairwise *Image Difference* scores are computed automatically in the background whenever a row's effective center or rotation changes (e.g. after Detect, or after manually setting center/rotation). There is no separate "Compute Image Difference" button — just wait for the column to fill in.
 
 #### Set Center and Rotation Dialog
 
@@ -138,6 +148,11 @@ The **Blank & Mask** widget (below the display options) allows specifying an emp
 
 ## Result Tab
 
-Switch to the **Result** tab (top tab bar) after processing to inspect output images. The tab shows a table listing each result file with its filename, number of source images, total intensity, and processing date. Selecting a row displays the corresponding image in the viewer with the same display options as the main view.
+Switch to the **Result** tab (top tab bar) after processing to inspect output images. The tab shows a table with four columns — *Filename*, *N Images*, *Total Intensity*, *Date* — listing each result file. Selecting a row displays the corresponding image in the viewer with the same display options as the main view.
 
-Results are saved to `aise_results/` inside the input folder. An `intensities.csv` file is also written there with per-file statistics (total intensity, number of pixels not masked, blank image weight, etc.).
+## Output files
+
+Results are written to `aise_results/` inside the output directory (the input folder by default; change via **File > Change Output Directory…**):
+
+- `<group>_xxx.tif` — one TIFF per bin. The `_compressed` suffix is appended when **Compress the Resulting Images** is checked.
+- `intensities.csv` — per-file statistics, appended on each batch. Columns: `Filename`, `Date`, `Original Image Intensity (Total)`, `Masked Image Intensity (Total)`, `Number of Pixels Not Masked`, `Masked Image Intensity (Average)`, `Blank Image Weight`, `Binning Factor`, `Drawn Mask`, `Computed Mask`.

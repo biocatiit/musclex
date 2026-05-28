@@ -2,31 +2,31 @@
 
 When the program opens, a **Select Experiments** panel is shown. Use it to choose the experiments to load:
 
-1. Click **Browse Folder…** to pick a parent directory containing your experiment subdirectories and/or HDF5 files.
+1. Click **Add Folder…** to pick a parent directory containing your experiment subdirectories and/or HDF5 files. You can click this button multiple times to accumulate experiments from several different parent directories; **Clear List** removes everything from the available list and lets you start over.
 2. The list of available experiments (subdirectories and `.h5`/`.hdf5` files found in the parent folder) is populated automatically. System folders such as `aime_results`, `aise_results`, and `calibration` are excluded.
 3. Select the experiments to include using Ctrl/Shift-click, or use **Select All** / **Select None**.
 4. Click **Load** to build the alignment table.
 
-Once loaded, the program switches to the main table view.
+Once loaded, the program switches to the main table view. The output folder can be changed at any time via **File > Change Output Directory…**.
 
 ## Workflow Overview
 
 A **Workflow Guide** dialog is shown on first launch (and can be reopened at any time via the **Workflow Guide** button in the top bar). The recommended steps are:
 
-1. **Browse and select experiments** — click *Browse Folder…* to choose a parent directory, select one or more experiments from the list, then click *Load*.
+1. **Browse and select experiments** — click *Add Folder…* to choose a parent directory, select one or more experiments from the list, then click *Load*. Repeat *Add Folder…* if you want experiments from more than one parent directory.
 2. **Set the global (reference) image** — by default the first image is the reference. Right-click a row and choose *Set as Global Base* to change it.
-3. **Detect misalignment** — click *Detect Centers & Rotations* in the alignment panel. The table highlights rows whose center distance or rotation difference exceeds the configured thresholds. Use *Compute Image Difference* to add pixel-level comparison scores.
+3. **Detect misalignment** — click *Detect Centers & Rotations* in the alignment panel. The table highlights rows whose center distance or rotation difference exceeds the configured thresholds. Pairwise pixel-level *Image Difference* scores are filled in automatically as a side effect (see [Alignment thresholds](#alignment-thresholds)).
 4. **Correct misaligned images** — select a misaligned row and adjust its center/rotation. Right-click → *Apply to Subsequent Images* for progressive drift, or *Ignore* to exclude an image entirely.
-5. **Choose a grouping mode** — switch between **Group by Index** and **Group by Exp** using the top tab bar. Summing always produces one output file per frame index.
+5. **Choose a table view** — switch between **Group by Index** and **Group by Exp** using the top tab bar. This is purely a re-ordering of rows in the table; summing always produces one output file per frame index regardless of the view.
 6. **Sum Images** — choose *Average* or *Sum* in *Image Operations*, then click **Sum Images by Index**.
 7. **Inspect results** — switch to the **Result** tab to browse and preview the output images.
 
 ## Table View
 
-The alignment table lists every image across all loaded experiments. Each row corresponds to one image from one experiment. The table has two view modes, selectable via the top tab bar:
+The alignment table lists every image across all loaded experiments. Each row corresponds to one image from one experiment. The table has two view modes, selectable via the top tab bar. **The two views only change how rows are sorted in the table**; the underlying summation always groups frames by index (frame *i* from every experiment goes into output file *i*).
 
-- **Group by Index** — rows are sorted and grouped by frame index (one group per frame number, containing one row per experiment). This is the primary view for summing corresponding frames.
-- **Group by Exp** — rows are sorted and grouped by experiment, showing all frames within each experiment together.
+- **Group by Index** — rows are sorted by frame index (one group per frame number, containing one row per experiment). Best for spot-checking that the same index across experiments is aligned.
+- **Group by Exp** — rows are sorted by experiment, showing all frames within each experiment contiguously. Best for following drift within a single experiment.
 
 Each row shows:
 
@@ -97,11 +97,21 @@ The alignment panel (below the image viewer settings) provides tools for detecti
 
 #### Detect Centers & Rotations
 
-Automatically computes the diffraction center and rotation for every image. Results are written to the *Auto Center* and *Auto Rotation* columns. Rows where the detected values differ from the global base by more than the configured thresholds are highlighted.
+Click this button (collapsible group **Detect Misaligned Images**) to start a batch detection of the diffraction center and rotation angle for every loaded image. Results are written to the *Auto Center* and *Auto Rotation* columns. The button changes to *Stop* during the run; clicking it again cancels the remaining jobs.
 
-#### Compute Image Difference
+Rows whose detected values differ from the global base by more than the configured thresholds (see below) are highlighted.
 
-Computes a pixel-level similarity score between each image and the global base. Results appear in the *Image Difference* column.
+### Alignment thresholds
+
+Three thresholds live inside the *Detect Misaligned Images* group. Each has a checkbox (to enable/disable the highlight) and a spinbox (the value):
+
+| Threshold | Unit | Default | Highlights rows whose… |
+|---|---|---|---|
+| **Auto Diff threshold** | px | 5 px | center deviates from the global base by more than this. |
+| **Auto-Rot Diff threshold** | ° | 2° | auto-detected rotation differs from the global base by more than this. |
+| **Image diff threshold** | (counts) | 80th percentile of all diff scores | pairwise pixel-diff score exceeds this. The default is recomputed automatically every time a new diff is available. |
+
+Pairwise *Image Difference* scores are computed automatically in the background whenever a row's effective center or rotation changes (e.g. after Detect, or after manually setting center/rotation). There is no separate "Compute Image Difference" button — just wait for the column to fill in.
 
 #### Set Center and Rotation Dialog
 
@@ -151,6 +161,11 @@ For folders containing TIFF images, the last underscore-separated number in the 
 
 ## Result Tab
 
-Switch to the **Result** tab (top tab bar) after processing to inspect output images. The tab shows a table listing each result file with its filename, number of source images, total intensity, and processing date. Selecting a row displays the corresponding image in the viewer with the same display options as the main view.
+Switch to the **Result** tab (top tab bar) after processing to inspect output images. The tab shows a table with four columns — *Filename*, *N Images*, *Total Intensity*, *Date* — listing each result file. Selecting a row displays the corresponding image in the viewer with the same display options as the main view.
 
-Results are saved to `aime_results/` inside the parent directory. An `intensities.csv` file is also written there with per-file statistics (total intensity, number of pixels not masked, blank image weight, etc.).
+## Output files
+
+Results are written to `aime_results/` inside the output directory (the first parent directory by default; change via **File > Change Output Directory…**):
+
+- `<base>_xxxxx.tif` — one TIFF per frame index group. The `_compressed` suffix is appended when **Compress the Resulting Images** is checked.
+- `intensities.csv` — per-file statistics, appended on each batch. Columns: `Filename`, `Date`, `Original Image Intensity (Total)`, `Masked Image Intensity (Total)`, `Number of Pixels Not Masked`, `Masked Image Intensity (Average)`, `Blank Image Weight`, `Binning Factor`, `Drawn Mask`, `Computed Mask`.

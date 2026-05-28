@@ -67,7 +67,7 @@ _AIME_WORKFLOW_HTML = """
     <span class="step-title">Set the global (reference) image</span><br/>
     <span class="hint">
       By default the first image is the global image.
-      Right-click a row in the table and choose <i>Set as Global Image</i> to change it.
+      Right-click a row in the table and choose <i>Set as Global Base</i> to change it.
     </span>
   </li>
   <li>
@@ -76,7 +76,8 @@ _AIME_WORKFLOW_HTML = """
       Click <i>Detect Centers &amp; Rotations</i>.
       The table highlights rows whose center distance or rotation difference
       exceeds the configured thresholds.
-      Use <i>Compute Image Difference</i> to add pixel-level comparison scores.
+      Pairwise pixel-level <i>Image Difference</i> scores fill in automatically
+      as detection progresses &mdash; no extra button is needed.
     </span>
   </li>
   <li>
@@ -84,23 +85,26 @@ _AIME_WORKFLOW_HTML = """
     <span class="hint">
       Select a misaligned row and adjust its center / rotation.
       Right-click &rarr; <i>Apply to Subsequent Images</i> for progressive drift.
-      Right-click &rarr; <i>Ignore Image</i> to exclude an image from summation.
+      Right-click &rarr; <i>Ignore</i> to exclude an image from summation.
     </span>
   </li>
   <li>
-    <span class="step-title">Choose a grouping mode</span><br/>
+    <span class="step-title">Choose a table view</span><br/>
     <span class="hint">
-      <b>Group by Index:</b> frames are grouped and summed by their index across experiments
-      &mdash; frame&nbsp;1 from all experiments is summed together, frame&nbsp;2 from all experiments, and so on.<br/>
-      <b>Group by Exp:</b> reorders the table to group rows by experiment for easier visual inspection;
-      summing still produces one output file per frame index.
+      <b>Group by Index:</b> rows are sorted by frame index, one group per
+      frame number across experiments &mdash; useful for spot-checking that
+      each index is aligned across experiments.<br/>
+      <b>Group by Exp:</b> rows are sorted by experiment, showing all frames
+      within each experiment contiguously.<br/>
+      Switching the view only re-orders the table; summing always groups by
+      frame index regardless of the view.
     </span>
   </li>
   <li>
     <span class="step-title">Apply operation and inspect results</span><br/>
     <span class="hint">
       Choose <i>Average</i> or <i>Sum</i> in the <i>Image Operations</i> panel,
-      then click <i>Sum Images</i>.
+      then click <i>Sum Images by Index</i>.
       Switch to the <b>Result</b> tab to browse and inspect the output images.
     </span>
   </li>

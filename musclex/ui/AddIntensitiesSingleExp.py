@@ -55,7 +55,7 @@ _WORKFLOW_HTML = """
     <span class="step-title">Set the global (reference) image</span><br/>
     <span class="hint">
       By default the first image is the global image.
-      Right-click a row in the table and choose <i>Set as Global Image</i> to change it.
+      Right-click a row in the table and choose <i>Set as Global Base</i> to change it.
     </span>
   </li>
   <li>
@@ -78,7 +78,8 @@ _WORKFLOW_HTML = """
       Click <i>Detect Centers &amp; Rotations</i>.
       The table highlights rows whose center distance or rotation difference
       exceeds the configured thresholds.
-      Use <i>Compute Image Difference</i> to add pixel-level comparison scores.
+      Pairwise pixel-level <i>Image Difference</i> scores fill in automatically
+      as detection progresses &mdash; no extra button is needed.
     </span>
   </li>
   <li>
@@ -86,7 +87,7 @@ _WORKFLOW_HTML = """
     <span class="hint">
       Select a misaligned row and adjust its center / rotation.
       Right-click &rarr; <i>Apply to Subsequent Images</i> if the drift is progressive.
-      Right-click &rarr; <i>Ignore Image</i> to exclude an image from summation and misalignment detection.
+      Right-click &rarr; <i>Ignore</i> to exclude an image from summation and misalignment detection.
     </span>
   </li>
   <li>
@@ -105,10 +106,11 @@ _WORKFLOW_HTML = """
   <li>
     <span class="step-title">Define bins</span><br/>
     <span class="hint">
-      <b>Fixed-size bins:</b> set the bin size in the <i>Image Operations</i> panel
-      and click <i>Auto Group</i>.<br/>
+      <b>Fixed-size bins:</b> in the <i>Image Operations</i> panel choose
+      <i>Bin Images</i> and set the <i>Binning factor</i> &mdash; bins are
+      created and updated automatically.<br/>
       <b>Manual bins:</b> highlight the desired rows in the table,
-      then right-click &rarr; <i>Group Selected</i>.
+      then right-click &rarr; <i>Group</i> (requires &ge; 2 rows).
     </span>
   </li>
   <li>
