@@ -1,4 +1,4 @@
-# Utilities
+# Overview
 
 This section regroups the programs maintained by BioCAT and useful for X-ray images users.
 
