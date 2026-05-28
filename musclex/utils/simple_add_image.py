@@ -95,7 +95,7 @@ class SumFramesGUI(QWidget):
         end_frame = int(self.endFrameInput.text())
         output_folder = os.path.join(os.path.dirname(file_path), "summed_files")
         
-        create_strong_image_from_frames(file_path, start_frame, end_frame)
+        add_frames(file_path, start_frame, end_frame)
         
         print(
             f"Summing frames {start_frame} to {end_frame} in {file_path}, saving to {output_folder}"
@@ -145,7 +145,7 @@ class SumImagesGUI(QWidget):
         layout.addWidget(self.excludeInput)
 
         # Submit button
-        self.submitButton = QPushButton("Create Strong Image", self)
+        self.submitButton = QPushButton("Add Images", self)
         self.submitButton.clicked.connect(self.onSubmit)
         layout.addWidget(self.submitButton)
 
@@ -187,11 +187,11 @@ class SumImagesGUI(QWidget):
             end_image_name = os.path.basename(end_image_path)
             
             print(f"Summing images from {start_image_name} to {end_image_name} in {folder_path}")
-            create_strong_image(
+            add_images(
                 folder_path, start_image_name, end_image_name, str_to_exclude
             )
             QMessageBox.information(
-                self, "Success", "The strong image has been successfully created."
+                self, "Success", "The summed image has been successfully created."
             )
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
@@ -238,36 +238,36 @@ def sum_images(folder_path, files):
         return
 
     first_image_path = os.path.join(folder_path, files[0])
-    strong_image = np.zeros_like(fabio.open(first_image_path).data, dtype=np.float32)
+    summed_image = np.zeros_like(fabio.open(first_image_path).data, dtype=np.float32)
     for file in files:
         image_path = os.path.join(folder_path, file)
         image = fabio.open(image_path).data
-        if image.shape != strong_image.shape:
+        if image.shape != summed_image.shape:
             print(f"Excluding {file}: size differs from the first image.")
             continue
         image = image.astype(np.int32)
         image[image == 4294967295] = -1
-        strong_image += image
-        strong_image[strong_image < 0] = -1
+        summed_image += image
+        summed_image[summed_image < 0] = -1
 
-    return strong_image
+    return summed_image
 
 
-def save_strong_image(folder_path, start_image_name, end_image_name, strong_image):
-    """Save the summed strong image."""
+def save_summed_image(folder_path, start_image_name, end_image_name, summed_image):
+    """Save the summed image."""
     output_folder = os.path.join(folder_path, "summed_files")
     os.makedirs(output_folder, exist_ok=True)
     start_image_name = start_image_name.split(".")[0]
     end_image_name = end_image_name.split(".")[0]
-    output_file_name = f"strong_image_{start_image_name}_{end_image_name}.tif"
+    output_file_name = f"summed_image_{start_image_name}_{end_image_name}.tif"
     output_file_path = os.path.join(output_folder, output_file_name)
-    fabio.pilatusimage.pilatusimage(data=strong_image, header=fabio.open(os.path.join(folder_path, start_image_name + ".tif")).getheader()).write(output_file_path)
+    fabio.pilatusimage.pilatusimage(data=summed_image, header=fabio.open(os.path.join(folder_path, start_image_name + ".tif")).getheader()).write(output_file_path)
 
 
-def create_strong_image(
+def add_images(
     folder_path, start_image_name, end_image_name, str_to_exclude=None
 ):
-    """Create a strong image from TIFF or H5 files between start and end image names, excluding specified strings."""
+    """Create a summed image from TIFF or H5 files between start and end image names, excluding specified strings."""
     try:
         file_extension = ".tif" if start_image_name.endswith(".tif") else ".h5"
         files, new_start_img, new_end_img = filter_and_sort_files(
@@ -282,15 +282,15 @@ def create_strong_image(
             raise ValueError("No images to process.")
 
         print("Including the following files in the summed image:", files)
-        strong_image = sum_images(folder_path, files)
-        if strong_image is not None:
-            save_strong_image(folder_path, new_start_img, new_end_img, strong_image)
-            print(f"Strong image saved to {os.path.join(folder_path, 'summed_files')}")
+        summed_image = sum_images(folder_path, files)
+        if summed_image is not None:
+            save_summed_image(folder_path, new_start_img, new_end_img, summed_image)
+            print(f"Summed image saved to {os.path.join(folder_path, 'summed_files')}")
     except Exception as e:
         raise e  
 
 
-def create_strong_image_from_frames(file_path, start_frame=1, end_frame=None):
+def add_frames(file_path, start_frame=1, end_frame=None):
     """Sum frames in a file from start_frame to end_frame."""
     try:
         with fabio.open(file_path) as fabio_img:
@@ -324,11 +324,11 @@ def create_strong_image_from_frames(file_path, start_frame=1, end_frame=None):
         output_file = os.path.join(
             output_folder,
             os.path.splitext(os.path.basename(file_path))[0]
-            + f"_strong_{start_frame}-{end_frame}.tif",
+            + f"_summed_{start_frame}-{end_frame}.tif",
         )
         os.makedirs(output_folder, exist_ok=True)
         fabio.pilatusimage.pilatusimage(data=sum_image, header=fabio_img.getheader()).write(output_file)
-        print(f"Strong image saved to {output_file}")
+        print(f"Summed image saved to {output_file}")
 
     except Exception as e:
         raise e
@@ -389,7 +389,7 @@ def main_cli():
             f"Summing images from {start_image_name} to {end_image_name} in {folder_path_start}"
         )
         excluded = args.exclude if args.exclude else []
-        create_strong_image(
+        add_images(
             folder_path_start, start_image_name, end_image_name, excluded
         )
 
@@ -397,7 +397,7 @@ def main_cli():
         file_path = args.file
         file_name = os.path.basename(file_path)
         print(f"Summing frames {args.start_frame} to {args.end_frame} in {file_name}")
-        create_strong_image_from_frames(
+        add_frames(
             file_path, args.start_frame, args.end_frame
         )
     else:

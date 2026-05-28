@@ -40,14 +40,14 @@ Simple program to compress or decompress TIFF images. Uses tiff_lzw format (loss
 
 Click [here](CompressDecompressTif/Compress-decompress-tif-images.md) to learn more about the program and how it works.
 
-## Strong image creator 
+## Simple Add Image
 
-Simple program to create strong images from a set of TIFF images, or from h5 files containing single images.
+Simple program to add (sum) a set of TIFF images, or to sum the frames inside an HDF5 file, into a single output image.
 
 * Available inside the MuscleX code: [Github code](
-    https://github.com/biocatiit/musclex/blob/master/musclex/utils/strong_image_creation.py)
+    https://github.com/biocatiit/musclex/blob/master/musclex/utils/simple_add_image.py)
 
-* [Pip version](https://pypi.org/project/strong-image-creation): `pip install strong-image-creation`
+* [Pip version](https://pypi.org/project/simple-add-image): `pip install simple-add-image`
 
 
 A more advanced version of this program is available under the name "AISE".
