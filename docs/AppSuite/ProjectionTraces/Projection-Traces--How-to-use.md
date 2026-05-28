@@ -18,7 +18,16 @@ For algorithmic detail, see [How it works](Projection-Traces--How-it-works.md).
 
 ## Step 1 — Open an image or folder
 
-Use **File > Select an Image...** (`Ctrl+I`) and pick any TIF/CBF/HDF5 file. PT loads the file, discovers all sibling images in the directory, and shows the image in the **Image** tab.
+Use **File > Select an Image...** (`Ctrl+I`) and pick any TIF/CBF/HDF5 file. PT loads the file, discovers all sibling images in the directory, and shows the image in the **Image** tab ({numref}`fig-pt-start-screen`).
+
+```{figure} ../../images/PT/placeholder_pt_start_screen.png
+:name: fig-pt-start-screen
+:width: 720px
+:align: center
+:alt: Projection Traces main window after loading an image, showing the Image tab
+
+Projection Traces main window after an image is loaded. The Image tab shows the diffraction pattern; the right panel holds the center/rotation and box controls.
+```
 
 By default PT writes results into the same folder as the input. Use **File > Change Output Directory...** if the input is read-only or you want results in a separate location.
 
@@ -28,7 +37,7 @@ The bottom-bar arrows (`<` / `>`) walk image by image; `<<<` / `>>>` walk by HDF
 
 ## Step 2 — Center, rotation, and Quadrant Folded mode
 
-Set the center and rotation on the **first** image; the same values are then propagated to every other image in the folder.
+Getting an **accurate diffraction center and rotation angle is critical** — every box, peak mirror, and projection is computed relative to them, so a center or angle that is even slightly off will bias every result downstream. Set them carefully on the **first** image; the same values are then propagated to every other image in the folder.
 
 **Quadrant Folded** checkbox (top of the right panel) — check this if the input is already quadrant-folded. PT will then take the diffraction center to be `(width/2, height/2)`. If unchecked, the center is taken from auto-detection or the manual tools below.
 
@@ -44,7 +53,7 @@ The **Pattern Settings (Optional)** group has one PT-specific value:
 
 ## Step 3 — Add and edit boxes
 
-Boxes define the rectangular regions whose contents will be projected to 1-D. The **Add Boxes** group on the right panel has three buttons:
+Boxes define the rectangular regions whose contents will be projected to 1-D. After you drag out a box, a detail dialog asks for its name, projection axis, and background-subtraction mode ({numref}`fig-pt-add-box-dialog`). The **Add Boxes** group on the right panel has three buttons:
 
 | Button | Drawing | Use when |
 |---|---|---|
@@ -52,7 +61,25 @@ Boxes define the rectangular regions whose contents will be projected to 1-D. Th
 | **Add Oriented Box** | *Currently disabled in the UI.* | — |
 | **Add Centered Oriented Box** | Click to define the long-axis end-point, then the width. The pivot is fixed at the diffraction center. | The features lie along a layer line at an angle to the equator/meridian. |
 
-Each box becomes its own tab at the top of the window. The box's projection axis is its long axis; the projection is the sum of intensities along the short axis.
+```{figure} ../../images/PT/placeholder_pt_add_box_dialog.png
+:name: fig-pt-add-box-dialog
+:width: 500px
+:align: center
+:alt: Add Box detail dialog asking for box name, projection axis, and background-subtraction mode
+
+The box detail dialog that opens after drawing a box: set the name, projection axis, and background-subtraction mode before accepting.
+```
+
+Each box becomes its own tab at the top of the window ({numref}`fig-pt-box-tab`). The box's projection axis is its long axis; the projection is the sum of intensities along the short axis.
+
+```{figure} ../../images/PT/placeholder_pt_box_tab.png
+:name: fig-pt-box-tab
+:width: 720px
+:align: center
+:alt: A box tab showing the 1-D projection plot and the per-box controls
+
+A box tab. Each box has its own tab with the 1-D projection plot and the per-box background, peak-selection, and fit controls.
+```
 
 When the box detail dialog opens, you choose one of three **Background Subtraction** modes per box:
 
@@ -70,7 +97,16 @@ The mode determines which controls show up in the box tab (e.g. the hull range c
 
 ## Step 4 — Select hull range (convex-hull boxes only)
 
-For boxes that use **Convex hull** background subtraction, the hull range determines where the convex hull is computed on the 1-D projection. PT initializes it automatically from your peak selections (`[min(peaks) − 15, max(peaks) + 15]`), but you can override it:
+For boxes that use **Convex hull** background subtraction, the hull range determines where the convex hull is computed on the 1-D projection ({numref}`fig-pt-hull-range`). PT initializes it automatically from your peak selections (`[min(peaks) − 15, max(peaks) + 15]`), but you can override it:
+
+```{figure} ../../images/PT/placeholder_pt_hull_range.png
+:name: fig-pt-hull-range
+:width: 720px
+:align: center
+:alt: 1-D projection plot with the convex-hull range marked on both sides of the box center
+
+The convex-hull range marked on the 1-D projection. The hull is computed independently on each half of the projection within this range.
+```
 
 - In the box tab, click **Set Manual Convex Hull Range** and then click two points on the projection plot (start and end). The clicks define the hull range symmetrically about the box center; both halves of the projection use the same range.
 - Alternatively, type values directly into the **Start** / **End** spinboxes in the same group.
@@ -79,7 +115,16 @@ The active hull range is also a constraint on where peaks can land during fittin
 
 ## Step 5 — Peak selection and fitting
 
-Each box needs at least one peak before fitting can happen. There are two paths:
+Each box needs at least one peak before fitting can happen. Once peaks are placed and the fit runs, the box tab shows the fitted model over the projection plus the result tables ({numref}`fig-pt-peak-fit`). There are two paths:
+
+```{figure} ../../images/PT/placeholder_pt_peak_fit.png
+:name: fig-pt-peak-fit
+:width: 720px
+:align: center
+:alt: Box tab after fitting, showing the projection with the fitted model and the peak result tables
+
+A box tab after fitting: the projection with the fitted model overlaid (top), the background-subtracted projection with detected peaks (middle), and the Model/Centroid Peak Information tables (right).
+```
 
 ### Single peak — one Gaussian per peak
 
@@ -116,7 +161,16 @@ The plot canvases above the tables show, from top to bottom, the original projec
 
 ## Step 6 — Parameter Editor
 
-For complete control over the fit, click **Open Parameter Editor** in the box tab. The dialog shows every fit parameter (`p_i`, `sigma_i`, `amplitude_i`, `common_sigma` in GMM mode) with:
+For complete control over the fit, click **Open Parameter Editor** in the box tab ({numref}`fig-pt-param-editor`). The dialog shows every fit parameter (`p_i`, `sigma_i`, `amplitude_i`, `common_sigma` in GMM mode) with:
+
+```{figure} ../../images/PT/placeholder_pt_param_editor.png
+:name: fig-pt-param-editor
+:width: 600px
+:align: center
+:alt: Parameter Editor dialog listing every fit parameter with Value, Min, Max, and Fixed columns
+
+The Parameter Editor dialog. Each parameter row has Value, Min/Max bounds, and a Fixed checkbox; the top controls toggle Equal Variance (Common Sigma) and the hull range.
+```
 
 - **Value** — current best-fit value (editable).
 - **Min / Max** — bounds (editable, persisted per box).
@@ -129,7 +183,16 @@ Additional controls at the top:
 
 ### Interactive hull range editing on the graph
 
-While the Parameter Editor is open, the hull range is drawn as a highlighted band on both projection plots (top and bottom). You can adjust it directly with the mouse:
+While the Parameter Editor is open, the hull range is drawn as a highlighted band on both projection plots (top and bottom). You can adjust it directly with the mouse ({numref}`fig-pt-hull-drag`):
+
+```{figure} ../../images/PT/placeholder_pt_hull_drag.png
+:name: fig-pt-hull-drag
+:width: 720px
+:align: center
+:alt: Projection plot with the hull-range band being dragged by the mouse while the Parameter Editor is open
+
+Interactive hull-range editing. Drag an edge of the highlighted band to move one bound, or drag inside the band to shift the whole region and its peaks together.
+```
 
 - **Drag an edge** (left-outer, left-inner, right-inner, or right-outer boundary of the band) to move *only that bound*. The opposite side stays put. Hover near an edge and the cursor changes to a horizontal resize arrow.
 - **Drag inside the band** (away from any edge) to shift the *whole region together with all the peaks* by the same offset. Useful when the diffraction pattern has drifted but the relative spacing of the peaks is unchanged.
@@ -146,11 +209,20 @@ Typical use cases:
 
 ## Step 7 — Navigate to the next image
 
-Once one image is fully configured (center, rotation, boxes, peaks, optional Parameter Editor edits), PT uses image *N*'s **fit output** as image *N+1*'s **input** instead of the original user clicks:
+Once one image is fully configured (center, rotation, boxes, peaks, optional Parameter Editor edits), PT uses image *N*'s **fit output** as image *N+1*'s **input** instead of the original user clicks. Navigation and batch processing are driven from the bottom bar ({numref}`fig-pt-navigation`):
 
 - **>** / **<** — go to the next/previous image and process it immediately.
 - **Process Current Folder** — process every image in the folder.
 - **Process Current H5 File** / **Process All H5 Files** — same for HDF5 input.
+
+```{figure} ../../images/PT/placeholder_pt_navigation.png
+:name: fig-pt-navigation
+:width: 720px
+:align: center
+:alt: Bottom navigation bar with image and HDF5 navigation arrows and the batch-processing buttons
+
+The bottom navigation bar: single-step arrows (`<` / `>`), HDF5 file arrows (`<<<` / `>>>`), and the batch-processing buttons.
+```
 
 ```eval_rst
 .. tip:: For batch QA, it's convenient to leave the Parameter Editor open while navigating between images. PT remembers each editor's position and size, automatically closes it on image switch, and reopens it after the new image finishes processing — so the table always shows the current image's freshly-fit parameters in the same place on screen.
