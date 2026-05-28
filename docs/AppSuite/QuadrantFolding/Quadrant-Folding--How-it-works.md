@@ -18,11 +18,11 @@ Before the pipeline runs, two things are resolved:
 
 The diffraction center is generally not at the pixel center of the image. If folding were done directly, the four quadrants would have unequal sizes and the folded image would be cropped.
 
-![-](../../images/QF/incorrect_centerize.png)
+![-](../../images/QF/incorrect_centerize3.png)
 
 To fix this, the program applies a single composite affine transform that translates the diffraction center to the image center and rotates the image by the resolved rotation angle, both in one `warpAffine` call. After the transform the center is at `(width/2, height/2)` and the equatorial axis is horizontal.
 
-![-](../../images/QF/centerizing_image.png)
+![-](../../images/QF/centerize3.png)
 
 ### 2. Calculate average quadrant fold
 
@@ -58,7 +58,7 @@ For GUI workflow (manual, transition, and automated modes), saved configurations
 
 ### 5. Create synthetic data
 
-A grid of 2D Gaussian blobs is generated and added to `avg_fold` to produce `avg_fold_with_syn`. The grid spacing and blob dimensions are derived from the I<sub>0</sub> and M1 peak positions detected in the pattern. Three density presets are available (sparse / medium / dense).
+A grid of 2D Gaussian blobs is generated and added to `avg_fold` to produce `avg_fold_with_syn`. The grid spacing and blob dimensions are derived from the I<sub>1,0</sub> and M1 peak positions detected in the pattern. Three density presets are available (sparse / medium / dense).
 
 This synthetic data gives the background optimizer a known signal to protect: a good background subtraction should preserve the synthetic peaks while removing diffuse background.
 
@@ -80,7 +80,7 @@ Six algorithms are available:
 
 #### Circularly Symmetric
 
-![-](../../images/QF/csym_set_v2.png)
+![-](../../images/QF/cs.png)
 
 Parameters: pixel range (percentages), radial bin size (pixels), spline smoothing factor.
 
@@ -90,7 +90,7 @@ From [CCP13 FibreFix](http://www.diamond.ac.uk/Beamlines/Soft-Condensed-Matter/s
 
 #### 2D Convex Hull
 
-![-](../../images/QF/2dcon_set_v2.png)
+![-](../../images/QF/ch.png)
 
 Parameters: R-min, angle bin size (default 1°).
 
@@ -100,7 +100,7 @@ A 1D radial intensity profile is computed by integrating over each 1° angular b
 
 #### Roving Window
 
-![-](../../images/QF/roving_v2.png)
+![-](../../images/QF/rw.png)
 
 Parameters: R-min, window size, window separation, pixel range (percentages), smoothing factor, tension factor.
 
@@ -110,7 +110,7 @@ From [CCP13 FibreFix](http://www.diamond.ac.uk/Beamlines/Soft-Condensed-Matter/s
 
 #### White Top-Hat
 
-![-](../../images/QF/tophat_set_v2.png)
+![-](../../images/QF/wth.png)
 
 Parameter: kernel size.
 
@@ -122,8 +122,9 @@ The white top-hat transform `f − f∘b` extracts features smaller than the str
 
 Parameters: R-min, number of cycles, FWHM (Gaussian) or box size (Boxcar).
 
-![-](../../images/QF/smooth_g_v2.png)
-![-](../../images/QF/smooth_b_v2.png)
+![-](../../images/QF/sg.png)
+
+![-](../../images/QF/sb.png)
 
 Based on Ivanova and Makowski (Acta Cryst. A54, 626–631, 1998). The image is repeatedly smoothed (Gaussian or boxcar filter) and the smoothed version is subtracted as the background estimate. Multiple cycles progressively refine the estimate.
 
@@ -146,7 +147,7 @@ If **Transition** mode is active, a second background subtraction method is appl
 
 The two **background images** are then linearly blended into a single merged background using `transition_radius` and `transition_delta`: the inner background dominates near the center, the outer dominates at large radii, and a linear ramp interpolates between them over a band of width `transition_delta` centered on `transition_radius`. The merged background is then subtracted from `avg_fold` to produce the final `BgSubFold`.
 
-![-](../../images/QF/merge_v2.png)
+![-](../../images/QF/transition.png)
 
 The guideline is to set the transition radius just outside the M3 meridional peak.
 
