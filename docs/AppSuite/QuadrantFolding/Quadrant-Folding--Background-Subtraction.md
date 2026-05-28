@@ -200,7 +200,7 @@ This pattern requires adjustment of rmax to focus on the pattern in the center o
 
 This example shows the use of transition mode to remove background on the whole pattern. This is preferable for visualization of patterns where the equatorial features are important. The transition radius and delta are shown in yellow and red.
 
-![-](../../images/QF/example4.png)
+![-](../../images/QF/transition.png)
 
 
 
