@@ -37,6 +37,26 @@ Use the **Options** dropdown in the Results tab to choose how background is appl
 
 Manual controls are shown in the Results panel. **Apply Default Optimization** and **Advanced Configuration** are shown only when **Automated Processing** is selected.
 
+## Manual Setting \| One Method
+1. **Subtraction Method** — Select the background subtraction method to use.
+2. **Method-specific parameters** — Set the method-specific parameters.
+3. **Apply Selected Subtraction Settings** — Click to apply the selected subtraction settings.
+
+Set the method and parameters to use for the background subtraction.
+
+## Manual Setting \| Transition
+1. **Inner background** — Method and parameters for radii inside the transition region (e.g. 2D Convexhull).
+2. **Outer background** — Separate method and parameters for larger radii (e.g. Smoothed-Gaussian).
+3. **Transition Radius** — Radius where inner and outer estimates are blended.
+4. **Transition Delta** — Width of the linear blend zone.
+5. **Show Transition Radius and Delta** — Overlay transition circles on the folded image.
+
+Set the transition radius just outside the M3 meridional peak when possible.
+
+## Automated Processing
+**Apply Default Optimization** runs this search with default methods on the current image and can add a **Default Optimization** entry to the configuration table to be applied to subsequent images.
+**Advanced Configuration** allows to adjust the settings for the optimization and add additional configurations to the configuration table.
+
 ## Recommended workflow using Automated Processing
 
 ### Step 0: Apply Default Optimization
@@ -134,17 +154,6 @@ Six methods are available (plus **None**). Visible parameters depend on the sele
 
 Default optimization searches **White-top-hats** and **Smoothed-Gaussian** unless you change the method list.
 
-## Inner / outer merge (transition mode)
-
-When **Manual Setting \| Transition** is selected:
-
-1. **Inner background** — Method and parameters for radii inside the transition region.
-2. **Outer background** — Separate method and parameters for larger radii (no 2D Convexhull).
-3. **Transition Radius** — Radius where inner and outer estimates are blended.
-4. **Transition Delta** — Width of the linear blend zone.
-5. **Show Transition Radius and Delta** — Overlay transition circles on the folded image.
-
-Set the transition radius just outside the M3 meridional peak when possible.
 
 <!-- ## Region of interest (ROI)
 
