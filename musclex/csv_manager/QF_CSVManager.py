@@ -62,7 +62,6 @@ class QF_CSVManager:
         if extra_colnames:
             self.colnames.extend(extra_colnames)
         
-        print(f"extra_colnames: {extra_colnames}, total colnames: {self.colnames}")
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
@@ -106,7 +105,6 @@ class QF_CSVManager:
         data = {}
 
         processed_flags = quadFold.processing_flags
-        print(f"DEBUG: Processing flags for {img_name}: {processed_flags}")
 
         # If there is no result
         if "resultImg" not in cache:
@@ -157,7 +155,6 @@ class QF_CSVManager:
         self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([data])])
         # self.dataframe = self.dataframe.append(data, ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
-        print(f"DEBUG: Writing data to {self.filename} to CSV with data: {self.dataframe}")
         self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
 
     def removeData(self, img_name):
