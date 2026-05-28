@@ -80,11 +80,14 @@ The **Background Subtraction Settings** dialog is organized in three steps:
 
 To view the evaluation masks, click **Show** in the Results tab to inspect **Subtracted**, **Background**, **Folded**, **Evaluation Mask**, **Synthetic Signal**, or **Synthetic Mask**.
 - **Metric Settings** - Adjust the relative importance of each metric and the normalization means. The weights should roughly add up to 1. The weights may depend on the dataset and are the most important settings to adjust to get the best results. Leave the default values for the first run and adjust after reviewing the results. The normalization means are hidden by default; double-click the metric table header to show/hide means. Usually, they don't need to be adjusted.
+![-](../../images/QF/metric_setting.png)
+
 - **Additional Settings** - 
   - **Evaluation Baseline** sets the near-zero threshold; **Persist evaluation baseline** keeps it when changing images. **Evaluation Baseline** allows to adjust the near-zero threshold for the calculation of **Fraction of Non Near-Zero Baseline Pixels**. This is the threshold below which pixels are considered to be part of the background. Change this value if the noise level doesn't match the calculated value.
   - **Synthetic** amplitude and sigmas (and **Sampling Frequency**) define the reference pattern used in MSE and oversubtraction metrics.
 
-![-](../../images/QF/qf_metric_setting.png)
+![-](../../images/QF/additional_setting.png)
+
 
 - Click **Apply Selected Subtraction Settings** (dialog or Results panel) to run on the current image. During automated optimization the button becomes **Stop Optimization** which will stop the optimization and return the previous best performing method and parameters. This is useful when you want to tune the settings and rerun the optimization.
 
@@ -104,7 +107,7 @@ After processing, the **Results** section shows **Loss** and a table of metrics:
 
 - **Save result metrics to csv** - Save the result metrics to a csv file. This is useful for further analysis. This will save the result metrics to a csv file in the `qf_results/bg` folder with name `background_metrics.csv`.
 
-![-](../../images/QF/qf_results_table.png)
+![-](../../images/QF/results_table_2.png)
 
 ### Step 3: Batch processing
 
@@ -179,29 +182,14 @@ For batch runs with **Choose best configuration for images automatically**, opti
 
 The default weights are used for the optimization.
 
-![-](../../images/QF/example1.png)
+![-](../../images/QF/example1_2.png)
 
 
-### Example 2: High Angle Features with Automated Processing - Skinned Pig Cardiac Muscle - High intensity background
-
-This pattern requires adjustment of rmax mask to exclude the high intensit edge artifacts.
-
-![-](../../images/QF/example2.png)
-
-
-### Example 3: High Angle Features with Automated Processing - Skinned Pig Cardiac Muscle Strong Pattern Shot in Air -- High intensity and Short Camera Pattern
-
-This pattern requires adjustment of rmax to focus on the pattern in the center of the image. The evaluation mask depends on the rmin and rmax values. Focusing specifically on the pattern will ensure only relevant pixels are considered during the target evaluation. Additionally, the evaluation baseline value is asjusted to force the subtraction and more weight is given to the subtraction metric (**Fraction of Non Near-Zero Baseline Pixels**). Rmin and rmax are shown in green.
-
-![-](../../images/QF/example3.png)
-
-
-### Example 4: Whole Pattern Background Subtraction with Transition - 2D Convexhull for Inner and Smoothed Gaussian for Outer - Skinned Pig Cardiac Muscle - High intensity background
+### Example 2: Whole Pattern Background Subtraction with Transition - 2D Convexhull for Inner and Smoothed Gaussian for Outer - Skinned Pig Cardiac Muscle - High intensity background
 
 This example shows the use of transition mode to remove background on the whole pattern. This is preferable for visualization of patterns where the equatorial features are important. The transition radius and delta are shown in yellow and red.
 
 ![-](../../images/QF/transition.png)
-
 
 
 
