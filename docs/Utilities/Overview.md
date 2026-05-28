@@ -12,6 +12,16 @@ Chiplot-analyze is a utility program designed to take as input 1D traces of the 
 
 * Pip install: `pip install chiplot-analyze`
 
+## DDF Processor
+
+DDF Processor averages successive data points inside a DDF file, helping to combine repeated measurements stored in a single DDF dataset into a single, less-noisy trace. The user picks which columns to keep and how many points to average per bin, then exports the result as CSV, HTML, or XLSX.
+
+* Launch from the MuscleX CLI: `musclex ddf`
+
+* Available inside the MuscleX code: [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/ui/ddf_processor.py)
+
+Click [here](DDFProcessor/DDF-Processor-(ddf).md) to learn more about the program and how it works.
+
 ## HDF5 to TIFF Converter
 
 ```eval_rst
@@ -40,16 +50,21 @@ Simple program to compress or decompress TIFF images. Uses tiff_lzw format (loss
 
 Click [here](CompressDecompressTif/Compress-decompress-tif-images.md) to learn more about the program and how it works.
 
+## Convert Rectangle Image to Square Images
+
+Script that pads rectangular detector images so they become square. This helps MuscleX find the diffraction center more accurately when the center is close to the edge of the detector. Input and output file paths are provided on the command line.
+
+* Available inside the MuscleX code: [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/utils/rec2sq.py)
+
+Click [here](ConvertRectangleImagetoSquareImages/Convert-rect-to-square.md) to learn more about the program and how it works.
+
 ## Simple Add Image
 
 Simple program to add (sum) a set of TIFF images, or to sum the frames inside an HDF5 file, into a single output image.
 
-* Available inside the MuscleX code: [Github code](
-    https://github.com/biocatiit/musclex/blob/master/musclex/utils/simple_add_image.py)
+* Available inside the MuscleX code: [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/utils/simple_add_image.py)
 
-* [Pip version](https://pypi.org/project/simple-add-image): `pip install simple-add-image`
+* [Pip version](https://pypi.org/project/strong-image-creation): `pip install strong-image-creation` (legacy package name; will be renamed in a future release)
 
 
 A more advanced version of this program is available under the name "AISE".
-
-
