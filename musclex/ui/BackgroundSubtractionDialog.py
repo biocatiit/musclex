@@ -1399,8 +1399,6 @@ class BackgroundSubtractionDialog(QDialog):
             loss_text=loss_text,
         )
 
-        _, _, additional_info = self._get_optimization_cache_file_and_key()
-
         config_entry = {
             'name': name,
             'method': str(method),
@@ -1408,7 +1406,6 @@ class BackgroundSubtractionDialog(QDialog):
             'loss': loss_value,
             'downsample': config_context.get('downsample', 1),
             'smooth_image': config_context.get('smooth_image', False),
-            'additional_info': additional_info or {},
         }
         existing_idx = next((i for i, c in enumerate(self.backgroundConfigurations) if c.get('name') == name), -1)
         if existing_idx >= 0:
@@ -1422,26 +1419,14 @@ class BackgroundSubtractionDialog(QDialog):
         """Build shared optimization cache path/key matching QuadrantFolder."""
         parent = self._get_parent_gui()
         if parent is None or not getattr(parent, "filePath", None):
-            return None, None, None
+            return None, None
 
         cache_dir = fullPath(parent.filePath, "qf_cache")
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, "background_cache.json")
 
-        flags = parent.getFlags() if parent is not None else {}
         dataset_key = Path(parent.filePath).resolve().name
-        additional_info = {
-            'methods': flags.get('methods', []),
-            'steps': flags.get('steps', []),
-            'early_stop': flags.get('early_stop', 0.005),
-            'max_iterations': flags.get('max_iterations', 20),
-            'mean_metric_values': flags.get('mean_metric_values', None),
-            'evaluation_baseline': flags.get('evaluation_baseline', None),
-            'metric_weights': flags.get('metric_weights', None),
-            'detector': flags.get('detector', None),
-            'orientation_model': flags.get('orientation_model', None),
-        }
-        return cache_file, dataset_key, additional_info
+        return cache_file, dataset_key
 
     def _get_background_configuration_context(self):
         parent = self._get_parent_gui()
@@ -1524,7 +1509,7 @@ class BackgroundSubtractionDialog(QDialog):
             print(f"Failed to persist image processing settings to image cache: {e}")
     
     def _save_background_configurations_to_cache(self):
-        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        cache_file, cache_key = self._get_optimization_cache_file_and_key()
         if not cache_file or cache_key is None:
             return
 
@@ -1533,13 +1518,12 @@ class BackgroundSubtractionDialog(QDialog):
                 cache_file,
                 cache_key,
                 self.backgroundConfigurations,
-                additional_info=additional_info,
             )
         except Exception as e:
             print(f"Failed to save background configurations to cache: {e}")
 
     def _load_background_configurations_from_cache(self):
-        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        cache_file, cache_key = self._get_optimization_cache_file_and_key()
         if not cache_file or cache_key is None:
             return
 
@@ -1563,7 +1547,6 @@ class BackgroundSubtractionDialog(QDialog):
             loss_value = config.get('loss', None)
             downsample = int(config.get('downsample', 1) or 1)
             smooth_image = bool(config.get('smooth_image', False))
-            row_additional_info = config.get('additional_info', additional_info)
             params_text = self._format_bg_params_text(params)
             loss_text = "—" if loss_value is None else _to_metric_text(loss_value, decimal_places=4)
 
@@ -1584,7 +1567,6 @@ class BackgroundSubtractionDialog(QDialog):
                 'loss': loss_value,
                 'downsample': downsample,
                 'smooth_image': smooth_image,
-                'additional_info': row_additional_info,
             })
 
         self._on_background_config_selection_changed()
@@ -1594,7 +1576,7 @@ class BackgroundSubtractionDialog(QDialog):
         Read saved user background configurations from cache for the current folder context.
         Returns only minimally valid rows (method + params dict).
         """
-        cache_file, cache_key, additional_info = self._get_optimization_cache_file_and_key()
+        cache_file, cache_key = self._get_optimization_cache_file_and_key()
         if not cache_file or cache_key is None:
             return []
 

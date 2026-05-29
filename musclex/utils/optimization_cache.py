@@ -115,7 +115,6 @@ def _sanitize_user_configuration(item):
         "loss": loss_val,
         "downsample": item.get("downsample", params_downsample),
         "smooth_image": item.get("smooth_image", params_smooth_image),
-        "additional_info": item.get("additional_info", {}),
     }
 
     return cleaned
@@ -167,18 +166,13 @@ def get_user_background_configurations(file_path, cache_key):
 
 
 
-def set_user_background_configurations(file_path, cache_key, configurations, additional_info=None):
+def set_user_background_configurations(file_path, cache_key, configurations):
     """Set user background configurations, deduplicating by name."""
     cache = load_optimization_cache(file_path)
     entries = cache.setdefault("entries", {})
 
     dataset_key = _normalize_dataset_key(cache_key)
     entry = _ensure_entry_defaults(entries.get(dataset_key, {}))
-
-    # Convert additional_info once if provided
-    additional_info_str = ""
-    if isinstance(additional_info, dict) and additional_info:
-        additional_info_str = json.dumps(_to_jsonable(additional_info), sort_keys=True)
 
     cleaned_rows = []
     seen_names = set()
@@ -195,9 +189,6 @@ def set_user_background_configurations(file_path, cache_key, configurations, add
             continue
         if name_key:
             seen_names.add(name_key)
-
-        if additional_info_str:
-            clean_item["additional_info"] = additional_info_str
 
         cleaned_rows.append(clean_item)
 
