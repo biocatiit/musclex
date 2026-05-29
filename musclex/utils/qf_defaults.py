@@ -36,6 +36,10 @@ DEFAULT_TENSION = 1.0
 DEFAULT_TOPHAT_SIZE = 50
 DEFAULT_MAX_ITERATIONS = 20
 DEFAULT_EARLY_STOP = 0.005
+# Transition-mode merge radius/delta (GUI spinbox defaults, see
+# BackgroundSubtractionDialog.tranRSpnBx / tranDeltaSpnBx)
+DEFAULT_TRANSITION_RADIUS = 400
+DEFAULT_TRANSITION_DELTA = 60
 DEFAULT_OPTIMIZE_TIMEOUT = 20   # minutes; 0 = disabled
 OPTIMIZE_TIMEOUT_RANGE = (0, 300)  # minutes
 DEFAULT_OPTIMIZE_TIMEOUT_SINGLE_RUN = 2*60 # 2 minutes
@@ -147,11 +151,19 @@ def build_default_flags() -> Dict[str, Any]:
         "downsample": default_downsample,
         "smooth_image": False,
         "optimize": False,
+        "optimize_each_image": False,
+        "save_metrics_to_csv": False,
         "methods": list(DEFAULT_OPTIMIZATION_METHODS),
         "steps": parse_optimization_steps(DEFAULT_OPTIMIZATION_STEPS),
         "early_stop": DEFAULT_EARLY_STOP,
         "max_iterations": DEFAULT_MAX_ITERATIONS,
         "optimize_timeout": DEFAULT_OPTIMIZE_TIMEOUT,
+        # Transition-mode (bg_options==1) radius/delta. Mirror the GUI
+        # spinbox defaults so headless emits the same flags the GUI does
+        # even when qfsettings.json omits them; only consumed in
+        # transition mode, so harmless for other bg_options.
+        "transition_radius": DEFAULT_TRANSITION_RADIUS,
+        "transition_delta": DEFAULT_TRANSITION_DELTA,
         "bgsub_out": "None",
         "cirmin_out": DEFAULT_PIXEL_MIN,
         "cirmax_out": DEFAULT_PIXEL_MAX,

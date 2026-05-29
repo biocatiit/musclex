@@ -4852,15 +4852,23 @@ class QuadrantFoldingGUI(BaseGUI):
             'SHARE_NEG_CON_MEAN': _percent_to_fraction_for_flags(self.meanNegConSpnBx.value()),
             'SMOOTH_MEAN': float(self.meanSmoothSpnBx.value()),
         }
-        flags['evaluation_baseline'] = max(
-            qf_defaults.MIN_EVAL_BASELINE,
-            float(self.evaluationBaselineSpnBx.value()),
-        )
-        flags['persist_evaluation_baseline'] = bool(
+        persist_eval_baseline = bool(
             hasattr(self, "persistEvaluationBaselineChkBx")
             and self.persistEvaluationBaselineChkBx is not None
             and self.persistEvaluationBaselineChkBx.isChecked()
         )
+        flags['persist_evaluation_baseline'] = persist_eval_baseline
+        # When persistence is OFF the baseline is recomputed per image
+        # (QuadrantFolder.updateInfo overwrites info['evaluation_baseline']
+        # to 0.0/parent), so the UI spinbox value is meaningless. Emit 0.0
+        # to match the headless path and the value actually used.
+        if persist_eval_baseline:
+            flags['evaluation_baseline'] = max(
+                qf_defaults.MIN_EVAL_BASELINE,
+                float(self.evaluationBaselineSpnBx.value()),
+            )
+        else:
+            flags['evaluation_baseline'] = 0.0
         # Synthetic Gaussian params: when persistence is OFF we send 0 so
         # QuadrantFolder._ensure_synthetic_gaussian_params recomputes them
         # from the current image; when ON we send either the persisted
@@ -4902,6 +4910,14 @@ class QuadrantFoldingGUI(BaseGUI):
             hasattr(self, "saveMetricsToCsvChkBx")
             and self.saveMetricsToCsvChkBx is not None
             and self.saveMetricsToCsvChkBx.isChecked()
+        )
+        # Output compression flag. Mirrors what saveSettings() persists so
+        # the flag is present in getFlags() (and therefore in summary.csv),
+        # matching the headless path which reads it from qfsettings.json.
+        flags['compressed'] = bool(
+            hasattr(self, "compressFoldedImageChkBx")
+            and self.compressFoldedImageChkBx is not None
+            and self.compressFoldedImageChkBx.isChecked()
         )
 
         # Auto-select from saved user background configurations (used mainly in batch processing)

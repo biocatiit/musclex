@@ -485,6 +485,29 @@ class QuadrantFoldingh:
             flags['roi_w'] = fixed_w
             flags['roi_h'] = fixed_h
 
+        # Normalize the share-based mean metric values to fractions, mirroring
+        # the GUI net transform (loadSettings _fraction_to_percent_for_ui is
+        # guarded to [0,1], getFlags _percent_to_fraction_for_flags divides by
+        # 100 -> values >1 become /100, values <=1 stay). qfsettings.json may
+        # store these as legacy percentages (e.g. 20.0) or GUI-saved fractions
+        # (e.g. 0.2); this rule handles both and keeps headless == GUI input.
+        means = flags.get('mean_metric_values')
+        if isinstance(means, dict):
+            for k in ('SHARE_NEG_SYN_MEAN', 'SHARE_NON_BASELINE_MEAN',
+                      'SHARE_NEG_CON_MEAN'):
+                try:
+                    v = float(means[k])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if v > 1.0:
+                    means[k] = v / 100.0
+
+        # When evaluation-baseline persistence is off, the value is recomputed
+        # per image, so emit 0.0 to match the GUI getFlags path and the value
+        # QuadrantFolder.updateInfo actually uses.
+        if not bool(flags.get('persist_evaluation_baseline', False)):
+            flags['evaluation_baseline'] = 0.0
+
         return flags
 
     def statusPrint(self, text):
