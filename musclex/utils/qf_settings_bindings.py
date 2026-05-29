@@ -136,6 +136,29 @@ QF_SKIP_KEYS = frozenset({
 })
 
 
+def qf_setting_keys():
+    """Canonical ordered list of QF *user-setting* keys for CSV export.
+
+    This is the union of the three binding tables and ``QF_SPECIAL_KEYS``
+    -- i.e. every key that represents a persisted user setting -- and
+    deliberately EXCLUDES ``QF_SKIP_KEYS`` (runtime / per-image state and
+    calibration metadata that must not be treated as a QF setting).
+
+    Both QuadrantFoldingGUI and the headless QuadrantFoldingh feed this
+    list to QF_CSVManager as the settings-column whitelist, so the two
+    runtimes emit an identical, stable set of columns regardless of the
+    incidental keys their respective getFlags() happen to produce.
+
+    Ordering is stable (spinbox, combo, checkbox, then sorted special)
+    so summary.csv column order does not churn between runs.
+    """
+    keys = [k for k, *_ in QF_SPINBOX_BINDINGS]
+    keys += [k for k, *_ in QF_COMBO_TEXT_BINDINGS]
+    keys += [k for k, *_ in QF_CHECKBOX_BINDINGS]
+    keys += sorted(QF_SPECIAL_KEYS)
+    return tuple(keys)
+
+
 def classify_qf_setting_key(key):
     """Return one of 'spinbox', 'combo', 'checkbox', 'special', 'skip',
     'unknown' describing how loadSettings() will treat ``key``.
