@@ -285,9 +285,9 @@ class _BatchQuadFoldProxy:
     provides exactly those fields and nothing else.
     """
     __slots__ = ('img_name', 'info', 'rotation', 'imgCache',
-                 '_image_data', 'orig_image_center')
+                 '_image_data', 'orig_image_center', 'processing_flags')
 
-    def __init__(self, img_name, info, center, rotation, has_result):
+    def __init__(self, img_name, info, center, rotation, has_result, processing_flags=None):
         self.img_name = img_name
         self.info = info if isinstance(info, dict) else {}
         self.rotation = rotation if rotation is not None else 0.0
@@ -296,6 +296,8 @@ class _BatchQuadFoldProxy:
         self.imgCache = {'resultImg': True} if has_result else {}
         self._image_data = _BatchImageDataProxy(center) if center is not None else None
         self.orig_image_center = center
+        # csvManager.writeNewData merges these into the row (data | processed_flags).
+        self.processing_flags = processing_flags if isinstance(processing_flags, dict) else {}
 
 
 class EventEmitter(QObject):
@@ -4244,6 +4246,7 @@ class QuadrantFoldingGUI(BaseGUI):
         rotation = result.get('rotation') if isinstance(result, dict) else None
         has_result = bool(result.get('has_result')) if isinstance(result, dict) else False
         bg_sum = result.get('bg_sum') if isinstance(result, dict) else None
+        processing_flags = result.get('processing_flags') if isinstance(result, dict) else None
 
         out = (self.workspace.dir_context.output_dir
                if self.workspace and self.workspace.dir_context
@@ -4260,7 +4263,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # shim mirroring the fields csvManager.writeNewData() reads.
         try:
             if info is not None and self.csvManager is not None:
-                self.csvManager.writeNewData(_BatchQuadFoldProxy(filename, info, center, rotation, has_result))
+                self.csvManager.writeNewData(_BatchQuadFoldProxy(filename, info, center, rotation, has_result, processing_flags))
         except Exception as e:
             print(f"Failed to write CSV for {filename}: {e}")
 
