@@ -30,6 +30,64 @@
 11. Test release on each distribution.
 
 ## Prepare a Release
+
+### GUI Baseline Testing
+
+Before running the automated test suite, GUI baselines must be regenerated whenever the processing logic or CSV output changes. The test suite compares headless output to these baselines to verify that GUI and headless modes produce identical results.
+
+The test image directories and their settings files are located at:
+```
+musclex/tests/testImages/
+├── EIGERimages/          # QF + EQ + DI test images (qfsettings.json, eqsettings.json, disettings.json)
+├── MARimages/            # QF + EQ + DI test images
+├── PILATUSimages/        # QF + EQ + DI test images
+├── EIGER_PT_Convex_Hull_Vertical/   # PT test images (ptsettings.json)
+├── MAR_PT_Convex_Hull_Vertical/     # PT test images
+└── PT_FittingGaussians_Horizontal/  # PT test images
+```
+
+GUI baselines are stored as `summary.csv` inside the `*_results_gui/` subdirectory of each dataset folder:
+- `qf_results_gui/summary.csv` — compared by QF headless tests
+- `pt_results_gui/summary.csv` — compared by PT headless tests
+
+#### Steps to regenerate GUI baselines
+
+For each module and each dataset directory:
+
+1. Launch the corresponding MuscleX GUI application (e.g. Quadrant Folding, Projection Traces).
+2. Open the test image directory (e.g. `musclex/tests/testImages/EIGERimages/`).
+3. **Load Settings**: use the module's "Load Settings" button/menu to load the settings file already present in the directory (e.g. `qfsettings.json`, `ptsettings.json`). This ensures the GUI uses the same parameters as headless mode.
+4. Process all images in the directory (use "Process All" or equivalent).
+5. The GUI writes results to `*_results/` by default (e.g. `qf_results/`). Rename that folder to `*_results_gui/` (e.g. `qf_results_gui/`) so the test suite can find it as the GUI baseline.
+6. Confirm that `*_results_gui/summary.csv` now exists.
+7. Repeat for every dataset directory listed above.
+
+**Modules and their baseline directories:**
+
+| Module | GUI App | Settings file | Baseline dir |
+|---|---|---|---|
+| Quadrant Folding (QF) | Quadrant Folding | `qfsettings.json` | `qf_results_gui/` |
+| Projection Traces (PT) | Projection Traces | `ptsettings.json` | `pt_results_gui/` |
+
+> EQ and DI do not currently maintain GUI baselines; their tests compare against committed headless baselines only.
+
+#### Run the full automated test suite
+
+After regenerating all GUI baselines, run:
+
+```bash
+python -m unittest musclex.tests.musclex_tester.MuscleXGlobalTester -v
+```
+
+All 18 tests should pass. Key checks performed:
+- **Headless vs. committed baseline** — verifies no regression against the last accepted run.
+- **Headless vs. GUI baseline** — verifies that GUI and headless produce identical `summary.csv` output.
+- **Schema tests** — verifies that `qfsettings.json` / `eqsettings.json` keys match the declared bindings.
+
+If tests fail after a code change, update the committed headless baselines in `musclex/tests/testResults/` by copying the newly generated headless `summary.csv` files and committing them together with the code change.
+
+---
+
 ### Generate pickle testing files (deprecated)
 Generate the testing files with the right version number (if you release 1.15.7, change the version number in `__init__.py` first).
 Go to the `test_utils.py` directory in the `tests` folder and run:
