@@ -1216,7 +1216,7 @@ class BackgroundSubtractionDialog(QDialog):
             self.bgMetricsTableTitle.setText(f"Loss = {loss_text}")
 
         metric_rows = [
-            ("MSE of Synthetic Signal, intst. cnt.", "MSE"),
+            ("Normalized MSE of Synthetic Signal, intst. cnt.", "MSE"),
             ("Fraction of Synthetic Oversubtraction, %", "Share_Neg_Synthetic"),
             ("Fraction of Non Near Baseline Pixels, %", "Share_Non_Baseline"),
             ("Fraction of Negative Connected Pixels, %", "Share_Neg_Connected"),
