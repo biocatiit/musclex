@@ -156,8 +156,17 @@ class QF_CSVManager:
             # source in GUI and headless, so the values stay consistent.
             data.update(self._blankMaskCalibrationColumns(quadFold))
 
-            data = data | processed_flags 
+            data = data | processed_flags
 
+            # fixed_roi_w/h is the persisted ROI preference, but the
+            # pipeline consumes it under roi_w/roi_h (headless getFlags
+            # renames fixed_roi_* -> roi_* before processing). Map the
+            # value back so the persisted setting is recorded under its
+            # canonical fixed_roi_* column instead of being dropped.
+            if 'roi_w' in processed_flags:
+                data['fixed_roi_w'] = processed_flags['roi_w']
+            if 'roi_h' in processed_flags:
+                data['fixed_roi_h'] = processed_flags['roi_h']
 
             if failed:
                 self.failedcases.add(img_name)
