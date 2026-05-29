@@ -1262,7 +1262,9 @@ class QuadrantFolder:
 
         kwargs = self._build_bg_search_kwargs()
 
-        def _apply_selected_configuration(method, params, loss_value, downsample_factor, config_name='-'):
+        def _apply_selected_configuration(method, params, loss_value, downsample_factor=None, config_name='-'):
+            if downsample_factor is None:
+                downsample_factor = self.info.get('downsample')
             for key, value in params.items():
                 self.info[f"{key}"] = value
             self.info['result_bg']['final_params'] = params
@@ -1414,6 +1416,7 @@ class QuadrantFolder:
                         assigned_method,
                         eval_params,
                         loss,
+                        kwargs.get('downsample_factor'),
                         config_name=assigned_name if assigned_name else '-'
                     )
                     best_method = assigned_method
@@ -1458,6 +1461,7 @@ class QuadrantFolder:
                     best_method,
                     best_params,
                     best_loss,
+                    kwargs.get('downsample_factor'),
                     config_name=best_name if best_name else '-'
                 )
             else:
@@ -1547,6 +1551,7 @@ class QuadrantFolder:
         self.info['result_bg']['optimized'] = True
         self.info['result_bg']['method'] = best_method
         self.info['result_bg']['loss'] = best_loss
+        self.info['result_bg']['downsampled'] = kwargs.get('downsample_factor')
         self.info['result_bg']['selected_configuration_name'] = '-'
 
         # resuse the best params for further processing
