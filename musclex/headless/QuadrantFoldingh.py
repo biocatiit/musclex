@@ -40,6 +40,7 @@ try:
     from ..utils.background_search import makeFullImage
     from ..utils.image_processor import *
     from ..utils.qf_defaults import build_default_flags
+    from ..utils.qf_settings_bindings import qf_setting_keys
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..csv_manager.QF_CSVManager import QF_CSVManager
 except: # for coverage
@@ -47,6 +48,7 @@ except: # for coverage
     from utils.background_search import makeFullImage
     from utils.image_processor import *
     from utils.qf_defaults import build_default_flags
+    from utils.qf_settings_bindings import qf_setting_keys
     from modules.QuadrantFolder import QuadrantFolder
     from csv_manager.QF_CSVManager import QF_CSVManager
 
@@ -251,7 +253,7 @@ class QuadrantFoldingh:
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
-            self.csvManager = QF_CSVManager(self.output_dir, extra_colnames=self.getFlags().keys(), version=self.version)
+            self.csvManager = QF_CSVManager(self.output_dir, extra_colnames=qf_setting_keys(), version=self.version)
             self.csvManager.writeNewData(self.quadFold)
             # release the lock
             if self.lock is not None:

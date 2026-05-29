@@ -55,7 +55,13 @@ class QF_CSVManager:
             'Filename', 'version', 'date', 'centerX', 'centerY', 'rotationAngle',
             'backgroundMethod', 'backgroundConfigName',
             'parameters', 'downsampled',
-            'loss', 'bgSum', 'symmetry'#, 'hash', 'comment'
+            'loss', 'bgSum', 'symmetry',#, 'hash', 'comment'
+            # Blank/mask + calibration user settings. These live in the
+            # SettingsManager (not qfsettings.json) and are read off the
+            # ImageData attached to the QuadrantFolder at write time, so
+            # GUI and headless report the same values.
+            'blank_enabled', 'mask_enabled', 'blank_weight',
+            'detector', 'lambda_sdd',
         ]
         self.version = version if version is not None else 'unknown'
 
@@ -144,6 +150,12 @@ class QF_CSVManager:
             data['loss'] = quadFold.info['result_bg'].get('loss', '-')
             data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
             data['symmetry'] = quadFold.info['result_bg'].get('symmetry', '-')
+
+            # Blank/mask + calibration settings, read off the ImageData
+            # (which carries the resolved SettingsManager state). Same
+            # source in GUI and headless, so the values stay consistent.
+            data.update(self._blankMaskCalibrationColumns(quadFold))
+
             data = data | processed_flags 
 
 
@@ -156,6 +168,41 @@ class QF_CSVManager:
         # self.dataframe = self.dataframe.append(data, ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
         self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
+
+    def _blankMaskCalibrationColumns(self, quadFold):
+        """Pull blank/mask + calibration settings off the QuadrantFolder's
+        ImageData. Returns a dict with '-' for any value that cannot be
+        resolved (no ImageData / no SettingsManager / no calibration)."""
+        cols = {
+            'blank_enabled': '-',
+            'mask_enabled': '-',
+            'blank_weight': '-',
+            'detector': '-',
+            'lambda_sdd': '-',
+        }
+        image_data = getattr(quadFold, '_image_data', None)
+        if image_data is None:
+            return cols
+
+        cols['blank_enabled'] = bool(getattr(image_data, 'apply_blank', False))
+        cols['mask_enabled'] = bool(getattr(image_data, 'apply_mask', False))
+        cols['blank_weight'] = getattr(image_data, 'blank_weight', '-')
+
+        detector = getattr(image_data, 'detector', None)
+        if detector:
+            cols['detector'] = detector
+
+        sm = getattr(image_data, '_settings_manager', None)
+        if sm is not None:
+            try:
+                derived = sm.derive_processing_calibration()
+            except Exception:
+                derived = {}
+            if 'lambda_sdd' in derived:
+                cols['lambda_sdd'] = derived['lambda_sdd']
+            if cols['detector'] == '-' and derived.get('detector'):
+                cols['detector'] = derived['detector']
+        return cols
 
     def removeData(self, img_name):
         """
