@@ -126,8 +126,16 @@ class QuadrantFoldingh:
         settings_manager = SettingsManager(self.dir_path)
         manual_center = settings_manager.get_center(fileName)
         manual_rotation = settings_manager.get_rotation(fileName)
+        # Wire blank/mask preprocessing from the settings directory so headless
+        # mirrors the GUI: SettingsManager already resolves these from
+        # settings/ (blank_image_settings.json, mask.tif, and their disable
+        # flags), but ImageData defaults apply_blank/apply_mask to False unless
+        # the caller passes them explicitly.
         image_data = ImageData(img, self.dir_path, fileName,
                                center=manual_center, rotation=manual_rotation,
+                               apply_blank=settings_manager.blank_enabled,
+                               apply_mask=settings_manager.mask_enabled,
+                               blank_weight=settings_manager.blank_weight,
                                settings_manager=settings_manager)
         
         # Create QuadrantFolder with ImageData
