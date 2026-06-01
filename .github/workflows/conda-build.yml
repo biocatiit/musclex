@@ -45,7 +45,7 @@ jobs:
       - name: Install conda-build
         shell: bash -l {0}
         run: |
-          conda install -y conda-build anaconda-client
+          conda install -y -c conda-forge conda-build anaconda-client
           conda info
 
       - name: Patch meta.yaml with version, sha256, and build number
@@ -86,7 +86,7 @@ jobs:
       - name: Build conda package
         shell: bash -l {0}
         run: |
-          conda build . --output-folder ./conda-output
+          conda-build . --output-folder ./conda-output --channel conda-forge --channel defaults
 
       - name: Find built package
         shell: bash -l {0}
