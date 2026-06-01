@@ -1664,6 +1664,7 @@ class ProjectionTracesGUI(BaseGUI):
                             sigma_tolerance=new_box.sigma_tolerance,
                         )
                         # Expand peaks for processor (folder template keeps first half only)
+                        self.projProc.state.source_boxes[name] = copy.deepcopy(box_copy)
                         self._expand_peaks_mirrored(box_copy)
                         self.projProc.state.boxes[name] = box_copy
                         
@@ -1810,6 +1811,7 @@ class ProjectionTracesGUI(BaseGUI):
                                 sigma_tolerance=new_box.sigma_tolerance,
                             )
                             # Expand peaks for processor (folder template keeps first half only)
+                            self.projProc.state.source_boxes[name] = copy.deepcopy(box_copy)
                             self._expand_peaks_mirrored(box_copy)
                             self.projProc.state.boxes[name] = box_copy
 
@@ -2231,6 +2233,7 @@ class ProjectionTracesGUI(BaseGUI):
                     
                     # Expand peaks by mirroring user-selected peaks
                     # (folder template only contains first half)
+                    self.projProc.state.source_boxes[name] = copy.deepcopy(box_copy)
                     self._expand_peaks_mirrored(box_copy)
                     
                     self.projProc.state.boxes[name] = box_copy
@@ -2945,6 +2948,7 @@ class ProjectionTracesGUI(BaseGUI):
                     sigma_tolerance=box.sigma_tolerance,
                 )
                 # Expand peaks by mirroring (only in projProc copy)
+                self.projProc.state.source_boxes[name] = copy.deepcopy(box_copy)
                 self._expand_peaks_mirrored(box_copy)
                 # Update projProc's boxes to match
                 self.projProc.state.boxes[name] = box_copy

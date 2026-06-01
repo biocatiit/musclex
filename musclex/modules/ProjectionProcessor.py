@@ -144,6 +144,7 @@ class ProcessingState:
     dir_path: str
     
     # === All Processing Boxes ===
+    source_boxes: Dict[str, dict] = field(default_factory=dict)
     boxes: Dict[str, ProcessingBox] = field(default_factory=dict)
     
     # === Global Settings ===
@@ -216,7 +217,7 @@ class ProjectionProcessor:
             self.state.orientation_model = image_data.orientation_model
         
         # Note: center and rotation are now dynamic properties from ImageData
-    
+
     @property
     def boxes(self) -> Dict[str, ProcessingBox]:
         """
@@ -247,41 +248,9 @@ class ProjectionProcessor:
             return self._image_data.rotation
         return 0.0
 
-    def addBox(self, name, box, typ, bgsub):
-        """
-        Add a box to state. If it exists and it changed, clear all old results.
-        :param name: box name
-        :param box: box coordinates
-        :param typ: box type 'v' as vertical, 'h' as horizontal, 'oriented'
-        :param bgsub: background subtraction method 0=gaussian, 1=convex hull, 2=none
-        :return:
-        """
-        if name in self.boxes:
-            # Box exists - check if coordinates changed
-            existing_box = self.boxes[name]
-            coords_changed = existing_box.coordinates != box
-            oriented_changed = (typ == 'oriented' and 
-                              len(box) > 6 and len(existing_box.coordinates) > 6 and 
-                              box[-1] != existing_box.coordinates[-1])
-            
-            if coords_changed or oriented_changed:
-                # Coordinates changed - clear all results
-                existing_box.coordinates = box
-                existing_box.type = typ
-                existing_box.bgsub = bgsub
-                existing_box.clear_results(from_stage='hist')
-            else:
-                # Just update config
-                existing_box.type = typ
-                existing_box.bgsub = bgsub
-        else:
-            # New box - create it
-            self.boxes[name] = ProcessingBox(
-                name=name,
-                coordinates=box,
-                type=typ,
-                bgsub=bgsub
-            )
+    # def add_box(self, name:str, box: ProcessingBox):
+
+
 
     def addPeaks(self, name, peaks):
         """
@@ -415,6 +384,8 @@ class ProjectionProcessor:
         :param use_existing_cache: If True, skip expensive computation and use cached results
                                    (preprocessing like rotation is still applied)
         """
+        # Stage 0: Save settings
+        # self.state.boxes
         # Stage 1: Preprocessing (always run)
         self._preprocess()
         
