@@ -35,12 +35,20 @@ def _compute_image_diff(args):
                    base_center, base_rotation, pair_index)``
     @returns dict ``{'pair_index', 'diff', 'error'}``
     """
-    (dir_path, img_name_a, img_name_b,
-     spec_a, spec_b,
-     center_a, rotation_a,
-     center_b, rotation_b,
-     base_center, base_rotation,
-     pair_index) = args
+    (
+        dir_path,
+        img_name_a,
+        img_name_b,
+        spec_a,
+        spec_b,
+        center_a,
+        rotation_a,
+        center_b,
+        rotation_b,
+        base_center,
+        base_rotation,
+        pair_index,
+    ) = args
     try:
         import cv2 as _cv2
         import numpy as _np
@@ -70,13 +78,13 @@ def _compute_image_diff(args):
         else:
             cy, cx = h / 2.0, w / 2.0
         ys, xs = _np.ogrid[:h, :w]
-        mask = (xs - cx) ** 2 + (ys - cy) ** 2 <= 100 ** 2
+        mask = (xs - cx) ** 2 + (ys - cy) ** 2 <= 100**2
         absdiff = _np.abs(ta - tb)
         diff = float(_np.mean(absdiff[mask]) if mask.any() else _np.mean(absdiff))
-        return {'pair_index': pair_index, 'diff': diff, 'error': None}
+        return {"pair_index": pair_index, "diff": diff, "error": None}
     except Exception as e:
         traceback.print_exc()
-        return {'pair_index': pair_index, 'diff': None, 'error': str(e)}
+        return {"pair_index": pair_index, "diff": None, "error": str(e)}
 
 
 def _compute_geometry(args):
@@ -91,26 +99,36 @@ def _compute_geometry(args):
                    manual_rotation, orientation_model)``
     @returns dict ``{'img_name', 'center', 'rotation', 'error'}``
     """
-    dir_path, img_name, loader_spec, manual_center, manual_rotation, orientation_model = args
+    (
+        dir_path,
+        img_name,
+        loader_spec,
+        manual_center,
+        manual_rotation,
+        orientation_model,
+    ) = args
     try:
         from musclex.utils.file_manager import load_image_via_spec
         from musclex.utils.image_data import ImageData
 
         img = load_image_via_spec(dir_path, img_name, loader_spec)
         image_data = ImageData(
-            img=img, img_path=dir_path, img_name=img_name,
-            center=None, rotation=None,
+            img=img,
+            img_path=dir_path,
+            img_name=img_name,
+            center=None,
+            rotation=None,
             orientation_model=orientation_model,
         )
         return {
-            'img_name': img_name,
-            'center': image_data.center,
-            'rotation': image_data.rotation,
-            'error': None,
+            "img_name": img_name,
+            "center": image_data.center,
+            "rotation": image_data.rotation,
+            "error": None,
         }
     except Exception as e:
         traceback.print_exc()
-        return {'img_name': img_name, 'center': None, 'rotation': None, 'error': str(e)}
+        return {"img_name": img_name, "center": None, "rotation": None, "error": str(e)}
 
 
 def _compute_geometry_with_symmetry(args):
@@ -127,17 +145,26 @@ def _compute_geometry_with_symmetry(args):
     @returns dict ``{'img_name', 'center', 'rotation', 'fold_std_sum',
                      'fold_std_norm', 'error'}``
     """
-    (dir_path, img_name, loader_spec,
-     manual_center, manual_rotation,
-     orientation_model, do_symmetry) = args
+    (
+        dir_path,
+        img_name,
+        loader_spec,
+        manual_center,
+        manual_rotation,
+        orientation_model,
+        do_symmetry,
+    ) = args
     try:
         from musclex.utils.file_manager import load_image_via_spec
         from musclex.utils.image_data import ImageData
 
         img = load_image_via_spec(dir_path, img_name, loader_spec)
         image_data = ImageData(
-            img=img, img_path=dir_path, img_name=img_name,
-            center=None, rotation=None,
+            img=img,
+            img_path=dir_path,
+            img_name=img_name,
+            center=None,
+            rotation=None,
             orientation_model=orientation_model,
         )
         auto_center = image_data.center
@@ -147,27 +174,28 @@ def _compute_geometry_with_symmetry(args):
         fold_std_norm = None
         if do_symmetry:
             eff_center = manual_center if manual_center is not None else auto_center
-            eff_rotation = (manual_rotation
-                            if manual_rotation is not None else auto_rotation)
+            eff_rotation = (
+                manual_rotation if manual_rotation is not None else auto_rotation
+            )
             sym = _compute_fold_symmetry(img, eff_center, eff_rotation)
-            fold_std_sum = sym['fold_std_sum']
-            fold_std_norm = sym['fold_std_norm']
+            fold_std_sum = sym["fold_std_sum"]
+            fold_std_norm = sym["fold_std_norm"]
 
         return {
-            'img_name': img_name,
-            'center': auto_center,
-            'rotation': auto_rotation,
-            'fold_std_sum': fold_std_sum,
-            'fold_std_norm': fold_std_norm,
-            'error': None,
+            "img_name": img_name,
+            "center": auto_center,
+            "rotation": auto_rotation,
+            "fold_std_sum": fold_std_sum,
+            "fold_std_norm": fold_std_norm,
+            "error": None,
         }
     except Exception as e:
         traceback.print_exc()
         return {
-            'img_name': img_name,
-            'center': None,
-            'rotation': None,
-            'fold_std_sum': None,
-            'fold_std_norm': None,
-            'error': str(e),
+            "img_name": img_name,
+            "center": None,
+            "rotation": None,
+            "fold_std_sum": None,
+            "fold_std_norm": None,
+            "error": str(e),
         }

@@ -11,15 +11,15 @@ from .processing_workspace import ProcessingWorkspace
 from .parameter_editor_table import ParameterEditorTable
 
 __all__ = [
-    'NavigationControls',
-    'DoubleZoomWidget',
-    'ImageMouseMoveHandler',
-    'ImageMouseMoveState',
-    'DisplayOptionsPanel',
-    'CollapsibleRightPanel',
-    'CollapsibleGroupBox',
-    'ImageViewerWidget',
-    'ImageNavigatorWidget',
-    'ProcessingWorkspace',
-    'ParameterEditorTable',
+    "NavigationControls",
+    "DoubleZoomWidget",
+    "ImageMouseMoveHandler",
+    "ImageMouseMoveState",
+    "DisplayOptionsPanel",
+    "CollapsibleRightPanel",
+    "CollapsibleGroupBox",
+    "ImageViewerWidget",
+    "ImageNavigatorWidget",
+    "ProcessingWorkspace",
+    "ParameterEditorTable",
 ]

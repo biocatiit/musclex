@@ -33,19 +33,28 @@ from matplotlib.patches import Circle
 
 from musclex import __version__
 from .pyqt_utils import (
-    QMainWindow, QWidget, QVBoxLayout, QGridLayout, QLabel, QStatusBar,
-    QMessageBox, QApplication, QAction,
-    QGroupBox, QCheckBox, QSpinBox, QPushButton,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QGridLayout,
+    QLabel,
+    QStatusBar,
+    QMessageBox,
+    QApplication,
+    QAction,
+    QGroupBox,
+    QCheckBox,
+    QSpinBox,
+    QPushButton,
 )
 from ..utils.file_manager import fullPath
 from .widgets import ProcessingWorkspace
 from .tools.radius_tool import RadiusTool
 
-
 # Tags used to mark overlay artists drawn on the image_viewer axes so we can
 # remove/redraw them without disturbing other artists (matplotlib image, etc.).
-_RMIN_LABEL = 'tdi_rmin_overlay'
-_RMAX_LABEL = 'tdi_rmax_overlay'
+_RMIN_LABEL = "tdi_rmin_overlay"
+_RMAX_LABEL = "tdi_rmax_overlay"
 
 
 class TotalDiffractionIntensity(QMainWindow):
@@ -86,9 +95,7 @@ class TotalDiffractionIntensity(QMainWindow):
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        self.setWindowTitle(
-            "Muscle X Total Diffraction Intensity v." + __version__
-        )
+        self.setWindowTitle("Muscle X Total Diffraction Intensity v." + __version__)
 
         central = QWidget(self)
         self.setCentralWidget(central)
@@ -134,7 +141,8 @@ class TotalDiffractionIntensity(QMainWindow):
 
         self.rMinChkBx = QCheckBox("Use R-min")
         self.rMinChkBx.setToolTip(
-            "Exclude pixels inside this radius (pixels) from the sum.")
+            "Exclude pixels inside this radius (pixels) from the sum."
+        )
         self.rMinSpnBx = QSpinBox()
         self.rMinSpnBx.setRange(0, 100000)
         self.rMinSpnBx.setValue(self.r_min_value)
@@ -144,11 +152,13 @@ class TotalDiffractionIntensity(QMainWindow):
         self.setRminBtn.setCheckable(True)
         self.setRminBtn.setToolTip(
             "Click on the image to set R-min as distance (in pixels) "
-            "from the current center.")
+            "from the current center."
+        )
 
         self.rMaxChkBx = QCheckBox("Use R-max")
         self.rMaxChkBx.setToolTip(
-            "Exclude pixels outside this radius (pixels) from the sum.")
+            "Exclude pixels outside this radius (pixels) from the sum."
+        )
         self.rMaxSpnBx = QSpinBox()
         self.rMaxSpnBx.setRange(1, 100000)
         self.rMaxSpnBx.setValue(self.r_max_value)
@@ -158,12 +168,14 @@ class TotalDiffractionIntensity(QMainWindow):
         self.setRmaxBtn.setCheckable(True)
         self.setRmaxBtn.setToolTip(
             "Click on the image to set R-max as distance (in pixels) "
-            "from the current center.")
+            "from the current center."
+        )
 
         self.showRingsChkBx = QCheckBox("Show R-min / R-max overlays")
         self.showRingsChkBx.setChecked(True)
         self.showRingsChkBx.setToolTip(
-            "Draw dotted circles at R-min (red) and R-max (orange) on the image.")
+            "Draw dotted circles at R-min (red) and R-max (orange) on the image."
+        )
 
         grid.addWidget(self.rMinChkBx, 0, 0)
         grid.addWidget(self.rMinSpnBx, 0, 1)
@@ -175,29 +187,28 @@ class TotalDiffractionIntensity(QMainWindow):
         return grp
 
     def _build_menu_bar(self):
-        selectImageAction = QAction('Select an Image...', self)
-        selectImageAction.setShortcut('Ctrl+I')
+        selectImageAction = QAction("Select an Image...", self)
+        selectImageAction.setShortcut("Ctrl+I")
         selectImageAction.setToolTip(
             "Open an image (or HDF5) file for total intensity analysis (Ctrl+I)"
         )
         selectImageAction.triggered.connect(self.navigator.browse_file)
 
-        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction = QAction("Change Output Directory...", self)
         changeOutputDirAction.setToolTip(
             "Choose a different folder to write tdi_results/summary.csv"
         )
-        changeOutputDirAction.triggered.connect(
-            self.workspace.change_output_directory)
+        changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
+        fileMenu = menubar.addMenu("&File")
         fileMenu.addAction(selectImageAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
 
-        aboutAct = QAction('About', self)
+        aboutAct = QAction("About", self)
         aboutAct.triggered.connect(self._show_about)
-        helpMenu = menubar.addMenu('&Help')
+        helpMenu = menubar.addMenu("&Help")
         helpMenu.addAction(aboutAct)
 
     def _connect_signals(self):
@@ -210,14 +221,13 @@ class TotalDiffractionIntensity(QMainWindow):
         self.image_viewer.toolCompleted.connect(self._on_tool_completed)
 
         # Live cursor readout (x, y, intensity, distance from center).
-        self.image_viewer.coordinatesChanged.connect(
-            self._on_image_coordinates_changed)
+        self.image_viewer.coordinatesChanged.connect(self._on_image_coordinates_changed)
 
         # Batch processing
         self.navControls.processFolderButton.clicked.connect(
-            self._on_process_folder_toggled)
-        self.navControls.processH5Button.clicked.connect(
-            self._on_process_h5_toggled)
+            self._on_process_folder_toggled
+        )
+        self.navControls.processH5Button.clicked.connect(self._on_process_h5_toggled)
 
         # Radial range
         self.rMinChkBx.toggled.connect(self._on_rmin_chk_toggled)
@@ -225,18 +235,14 @@ class TotalDiffractionIntensity(QMainWindow):
         self.rMinSpnBx.valueChanged.connect(self._on_rmin_value_changed)
         self.rMaxSpnBx.valueChanged.connect(self._on_rmax_value_changed)
         self.showRingsChkBx.toggled.connect(lambda _c: self._refresh_overlay())
-        self.setRminBtn.toggled.connect(
-            lambda c: self._toggle_radius_tool('rmin', c))
-        self.setRmaxBtn.toggled.connect(
-            lambda c: self._toggle_radius_tool('rmax', c))
+        self.setRminBtn.toggled.connect(lambda c: self._toggle_radius_tool("rmin", c))
+        self.setRmaxBtn.toggled.connect(lambda c: self._toggle_radius_tool("rmax", c))
 
     def _register_tools(self):
         """Register R-min / R-max picking tools on the image viewer."""
         tm = self.image_viewer.tool_manager
-        tm.register_tool('rmin', RadiusTool, self._get_current_center,
-                         color='red')
-        tm.register_tool('rmax', RadiusTool, self._get_current_center,
-                         color='orange')
+        tm.register_tool("rmin", RadiusTool, self._get_current_center, color="red")
+        tm.register_tool("rmax", RadiusTool, self._get_current_center, color="orange")
 
     # ------------------------------------------------------------------
     # Workspace event hooks
@@ -279,11 +285,11 @@ class TotalDiffractionIntensity(QMainWindow):
         """Handle RadiusTool completion (workspace handles its own tools)."""
         if result is None:
             return
-        if tool_name == 'rmin':
-            self._set_radius_value('rmin', int(result), auto_enable=True)
+        if tool_name == "rmin":
+            self._set_radius_value("rmin", int(result), auto_enable=True)
             self.setRminBtn.setChecked(False)
-        elif tool_name == 'rmax':
-            self._set_radius_value('rmax', int(result), auto_enable=True)
+        elif tool_name == "rmax":
+            self._set_radius_value("rmax", int(result), auto_enable=True)
             self.setRmaxBtn.setChecked(False)
 
     def _on_image_coordinates_changed(self, x: float, y: float, value: float):
@@ -323,7 +329,7 @@ class TotalDiffractionIntensity(QMainWindow):
 
     def _set_radius_value(self, which: str, value: int, auto_enable: bool):
         """Update spinbox + state for ``which`` ∈ {'rmin','rmax'}."""
-        if which == 'rmin':
+        if which == "rmin":
             self.rMinSpnBx.blockSignals(True)
             try:
                 self.rMinSpnBx.setValue(value)
@@ -348,7 +354,7 @@ class TotalDiffractionIntensity(QMainWindow):
         tm = self.image_viewer.tool_manager
         if checked:
             # Mutual exclusion: untick the other radius button visually
-            other_btn = (self.setRmaxBtn if name == 'rmin' else self.setRminBtn)
+            other_btn = self.setRmaxBtn if name == "rmin" else self.setRminBtn
             if other_btn.isChecked():
                 other_btn.blockSignals(True)
                 other_btn.setChecked(False)
@@ -356,13 +362,15 @@ class TotalDiffractionIntensity(QMainWindow):
 
             if self._get_current_center() is None:
                 # No image loaded — bounce the button back and warn.
-                btn = self.setRminBtn if name == 'rmin' else self.setRmaxBtn
+                btn = self.setRminBtn if name == "rmin" else self.setRmaxBtn
                 btn.blockSignals(True)
                 btn.setChecked(False)
                 btn.blockSignals(False)
                 QMessageBox.information(
-                    self, "No image loaded",
-                    "Please load an image before setting R-min/R-max by clicking.")
+                    self,
+                    "No image loaded",
+                    "Please load an image before setting R-min/R-max by clicking.",
+                )
                 return
 
             tm.activate_tool(name)
@@ -402,15 +410,29 @@ class TotalDiffractionIntensity(QMainWindow):
 
         cx, cy = center
         if self.r_min_enabled:
-            ax.add_patch(Circle(
-                (cx, cy), self.r_min_value,
-                fill=False, ec='red', ls=':', lw=1.5, label=_RMIN_LABEL,
-            ))
+            ax.add_patch(
+                Circle(
+                    (cx, cy),
+                    self.r_min_value,
+                    fill=False,
+                    ec="red",
+                    ls=":",
+                    lw=1.5,
+                    label=_RMIN_LABEL,
+                )
+            )
         if self.r_max_enabled:
-            ax.add_patch(Circle(
-                (cx, cy), self.r_max_value,
-                fill=False, ec='orange', ls=':', lw=1.5, label=_RMAX_LABEL,
-            ))
+            ax.add_patch(
+                Circle(
+                    (cx, cy),
+                    self.r_max_value,
+                    fill=False,
+                    ec="orange",
+                    ls=":",
+                    lw=1.5,
+                    label=_RMAX_LABEL,
+                )
+            )
         self.image_viewer.canvas.draw_idle()
 
     # ------------------------------------------------------------------
@@ -419,11 +441,9 @@ class TotalDiffractionIntensity(QMainWindow):
 
     def _update_process_button_text(self):
         if self.workspace.navigator.is_h5_mode:
-            self.navControls.processFolderButton.setText(
-                "Process Current H5 File")
+            self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
-            self.navControls.processFolderButton.setText(
-                "Process Current Folder")
+            self.navControls.processFolderButton.setText("Process Current Folder")
         self.navControls.processH5Button.setText("Process All H5 Files")
 
     def _on_process_folder_toggled(self):
@@ -431,9 +451,11 @@ class TotalDiffractionIntensity(QMainWindow):
         if btn.isChecked():
             btn.setText("Stop")
             idxs = range(len(self.file_manager.names))
-            title = ("Process Current H5 File"
-                     if self.workspace.navigator.is_h5_mode
-                     else "Process Current Folder")
+            title = (
+                "Process Current H5 File"
+                if self.workspace.navigator.is_h5_mode
+                else "Process Current Folder"
+            )
             self._run_batch(idxs, title)
         else:
             self.stop_process = True
@@ -481,8 +503,11 @@ class TotalDiffractionIntensity(QMainWindow):
             return
 
         # Resolve output directory
-        out_dir = (self.workspace.dir_context.output_dir
-                   if self.workspace.dir_context else self.dir_path)
+        out_dir = (
+            self.workspace.dir_context.output_dir
+            if self.workspace.dir_context
+            else self.dir_path
+        )
         result_dir = fullPath(out_dir, "tdi_results")
         if not os.path.exists(result_dir):
             os.makedirs(result_dir, exist_ok=True)
@@ -516,21 +541,29 @@ class TotalDiffractionIntensity(QMainWindow):
                     print(f"TDI: error measuring '{name}': {e}. Skipping.")
                     continue
 
-                rows.append({
-                    "ImageName": name,
-                    "Rmin": self.r_min_value if self.r_min_enabled else "",
-                    "Rmax": self.r_max_value if self.r_max_enabled else "",
-                    "TotalIntensity": total,
-                    "AvgIntensity": (total / n_valid) if n_valid else 0.0,
-                    "ValidPixels": n_valid,
-                })
+                rows.append(
+                    {
+                        "ImageName": name,
+                        "Rmin": self.r_min_value if self.r_min_enabled else "",
+                        "Rmax": self.r_max_value if self.r_max_enabled else "",
+                        "TotalIntensity": total,
+                        "AvgIntensity": (total / n_valid) if n_valid else 0.0,
+                        "ValidPixels": n_valid,
+                    }
+                )
 
             df = pd.DataFrame(rows)
             df.to_csv(
                 csv_path,
                 index=False,
-                columns=["ImageName", "Rmin", "Rmax",
-                         "TotalIntensity", "AvgIntensity", "ValidPixels"],
+                columns=[
+                    "ImageName",
+                    "Rmin",
+                    "Rmax",
+                    "TotalIntensity",
+                    "AvgIntensity",
+                    "ValidPixels",
+                ],
             )
 
             stopped = self.stop_process
@@ -604,8 +637,9 @@ class TotalDiffractionIntensity(QMainWindow):
         QMessageBox.about(
             self,
             "About",
-            "Muscle X – Total Diffraction Intensity v." + __version__ +
-            "\n\nComputes per-image total and average intensities over the "
+            "Muscle X – Total Diffraction Intensity v."
+            + __version__
+            + "\n\nComputes per-image total and average intensities over the "
             "valid (non-masked) pixels inside the configured R-min/R-max "
             "annulus and writes them to tdi_results/summary.csv.",
         )

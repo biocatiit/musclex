@@ -32,51 +32,58 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import __version__ as QT_VERSION_STR
 import matplotlib
-matplotlib.use('QtAgg')
+
+matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+
 try:
     from ..utils.file_manager import input_types
-except: # for coverage
+except:  # for coverage
     from utils.file_manager import input_types
 
 print("Qt version:", QT_VERSION_STR)
 
-img_filter = 'Pattern ('
+img_filter = "Pattern ("
 for t in input_types:
-    img_filter += ' *.' + str(t)
-img_filter += ')'
+    img_filter += " *." + str(t)
+img_filter += ")"
 
-def getAFile(filtr=None, path='', add_txt=False, parent=None):
+
+def getAFile(filtr=None, path="", add_txt=False, parent=None):
     """
     Open a file finder and return the name of the file selected.
-    
+
     Args:
         parent: Optional parent widget. When provided, the dialog is raised above
                 any WindowStaysOnTopHint windows (e.g. detached tool dialogs).
     """
     if filtr is None:
         filtr = img_filter
-    if add_txt and filtr != '':
-        filtr += ';;Failed cases (*.txt)'
-    dialog = QFileDialog(parent, 'Select a file', path, filtr)
+    if add_txt and filtr != "":
+        filtr += ";;Failed cases (*.txt)"
+    dialog = QFileDialog(parent, "Select a file", path, filtr)
     dialog.setFileMode(QFileDialog.ExistingFile)
     # Ensure the file dialog is not hidden behind WindowStaysOnTopHint windows
     dialog.setWindowFlag(Qt.WindowStaysOnTopHint, True)
     if dialog.exec_():
         files = dialog.selectedFiles()
-        return str(files[0]) if files else ''
-    return ''
+        return str(files[0]) if files else ""
+    return ""
 
-def getFiles(path='', filtr=None):
+
+def getFiles(path="", filtr=None):
     """
     Give the list of the files in a folder
     """
     if filtr is None:
         filtr = img_filter
-    fileList = QFileDialog.getOpenFileNames(None, "Select frame(s) to average", path, filtr)
+    fileList = QFileDialog.getOpenFileNames(
+        None, "Select frame(s) to average", path, filtr
+    )
     if isinstance(fileList, tuple):
         fileList = fileList[0]
     return list(map(str, fileList))
+
 
 def getAFolder():
     """
@@ -85,7 +92,8 @@ def getAFolder():
     dir_path = QFileDialog.getExistingDirectory(None, "Select a Folder")
     return str(dir_path)
 
-def getSaveFile(path='', filtr='Images (*.png);;SVG (*.svg)'):
+
+def getSaveFile(path="", filtr="Images (*.png);;SVG (*.svg)"):
     """
     Open a file finder and let the user save the file where he wants
     and return the file path

@@ -31,25 +31,41 @@ import json
 import os
 import traceback
 from musclex import __version__
+
 try:
     from ..utils.file_manager import getImgFiles
     from ..modules.EquatorImage import EquatorImage
     from ..utils.image_data import ImageData
     from ..utils.image_processor import *
     from ..csv_manager import EQ_CSVManager
-except: # for coverage
+except:  # for coverage
     from utils.file_manager import getImgFiles
     from modules.EquatorImage import EquatorImage
     from utils.image_data import ImageData
     from utils.image_processor import *
     from csv_manager import EQ_CSVManager
 
+
 class EquatorWindowh:
     """
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, filename, inputsettings, delcache, lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, settingspath=os.path.join('musclex', 'settings', 'eqsettings.json'), output_dir=None):
+
+    def __init__(
+        self,
+        filename,
+        inputsettings,
+        delcache,
+        lock=None,
+        dir_path=None,
+        imgList=None,
+        currentFileNumber=None,
+        fileList=None,
+        ext=None,
+        settingspath=os.path.join("musclex", "settings", "eqsettings.json"),
+        output_dir=None,
+    ):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -61,7 +77,9 @@ class EquatorWindowh:
         self.bioImg = None  # Current EquatorImage object
         self.default_img_zoom = None  # default zoom calculated after processing image
         # self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
-        self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
+        self.graph_zoom = (
+            None  # Params for x and y ranges of displayed graph in fitting tab
+        )
         self.function = None  # Current active function
 
         self.in_batch_process = False
@@ -69,33 +87,44 @@ class EquatorWindowh:
         self.orientationModel = None
         self.modeOrientation = None
         if dir_path is not None:
-            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = (
+                dir_path,
+                imgList,
+                currentFileNumber,
+                fileList,
+                ext,
+            )
         else:
-            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = (
+                getImgFiles(str(filename), headless=True)
+            )
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.inputsettings=inputsettings
-        self.delcache=delcache
-        self.settingspath=settingspath
+        self.inputsettings = inputsettings
+        self.delcache = delcache
+        self.settingspath = settingspath
         self.lock = lock
         if output_dir:
             self.output_dir = output_dir
         elif os.access(self.dir_path, os.W_OK):
             self.output_dir = self.dir_path
         else:
-            print(f"Error: input directory is not writable and no output directory was specified.\n"
-                  f"  Input : {self.dir_path}\n"
-                  f"  Fix   : re-run with -o <output_dir>", flush=True)
+            print(
+                f"Error: input directory is not writable and no output directory was specified.\n"
+                f"  Input : {self.dir_path}\n"
+                f"  Fix   : re-run with -o <output_dir>",
+                flush=True,
+            )
             sys.exit(1)
 
-        self.onImageChanged() # Toggle window to process current image
+        self.onImageChanged()  # Toggle window to process current image
 
     def inputerror(self):
         """
         Display input error to screen
         """
-        self.statusPrint('Invalid Input')
+        self.statusPrint("Invalid Input")
         self.statusPrint("Please select non empty failedcases.txt or an image\n\n")
 
     def onImageChanged(self):
@@ -104,32 +133,44 @@ class EquatorWindowh:
         Process the new image if there's no cache.
         """
         fileName = self.imgList[self.currentImg]
-        file=fileName+'.info'
+        file = fileName + ".info"
         cache_path = os.path.join(self.output_dir, "eq_cache", file)
         cache_exist = os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
                 os.remove(cache_path)
 
-        #prevInfo = self.bioImg.info if self.bioImg is not None else None
+        # prevInfo = self.bioImg.info if self.bioImg is not None else None
         try:
             from musclex.utils.file_manager import load_image_by_index
+
             idx = self.currentImg
             img = load_image_by_index(self.dir_path, self.fileList, idx, fileName)
         except Exception:
             from musclex.utils.file_manager import fullPath
             import fabio
+
             img = fabio.open(fullPath(self.dir_path, fileName)).data
         from musclex.utils.settings_manager import SettingsManager
+
         settings_manager = SettingsManager(self.dir_path)
         manual_center = settings_manager.get_center(fileName)
         manual_rotation = settings_manager.get_rotation(fileName)
-        image_data = ImageData(img=img, img_path=self.dir_path, img_name=fileName,
-                               center=manual_center, rotation=manual_rotation,
-                               settings_manager=settings_manager)
+        image_data = ImageData(
+            img=img,
+            img_path=self.dir_path,
+            img_name=fileName,
+            center=manual_center,
+            rotation=manual_rotation,
+            settings_manager=settings_manager,
+        )
         self.bioImg = EquatorImage(image_data, self, output_dir=self.output_dir)
-        self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
-        self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
+        self.bioImg.skeletalVarsNotSet = not (
+            "isSkeletal" in self.bioImg.info and self.bioImg.info["isSkeletal"]
+        )
+        self.bioImg.extraPeakVarsNotSet = not (
+            "isExtraPeak" in self.bioImg.info and self.bioImg.info["isExtraPeak"]
+        )
 
         settings = None
         settings = self.getSettings()
@@ -137,25 +178,25 @@ class EquatorWindowh:
         self.statusPrint(settings)
 
         # Process new image
-        if 'paramInfo' in settings:
-            paramInfo = settings['paramInfo']
-            #settings.pop('paramInfo')
+        if "paramInfo" in settings:
+            paramInfo = settings["paramInfo"]
+            # settings.pop('paramInfo')
             self.processImage(paramInfo)
         else:
             self.processImage()
 
-        self.statusPrint('---------------------------------------------------')
+        self.statusPrint("---------------------------------------------------")
 
         if self.inputsettings and cache_exist and not self.delcache:
-            self.statusPrint('cache exists, provided setting file was not used ')
+            self.statusPrint("cache exists, provided setting file was not used ")
         elif self.inputsettings and (not cache_exist or self.delcache):
-            self.statusPrint('setting file provided and used for fitting')
+            self.statusPrint("setting file provided and used for fitting")
         elif not self.inputsettings and cache_exist and not self.delcache:
-            self.statusPrint('cache exist, no fitting was performed')
+            self.statusPrint("cache exist, no fitting was performed")
         elif not self.inputsettings and (self.delcache or not cache_exist):
-            self.statusPrint('fitting with default settings')
+            self.statusPrint("fitting with default settings")
 
-        self.statusPrint('---------------------------------------------------')
+        self.statusPrint("---------------------------------------------------")
 
     def processImage(self, paramInfo=None):
         """
@@ -171,9 +212,14 @@ class EquatorWindowh:
         try:
             self.bioImg.process(settings, paramInfo)
         except Exception:
-            self.statusPrint('Unexpected error')
-            msg = 'Please report the problem with error message below and the input image\n\n'
-            msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
+            self.statusPrint("Unexpected error")
+            msg = "Please report the problem with error message below and the input image\n\n"
+            msg += (
+                "Error : "
+                + str(sys.exc_info()[0])
+                + "\n\n"
+                + str(traceback.format_exc())
+            )
             self.statusPrint(msg)
             raise
 
@@ -193,14 +239,14 @@ class EquatorWindowh:
         Update the parameters
         """
         info = self.bioImg.info
-        if 'orientation_model' in info:
-            self.orientationModel = info['orientation_model']
+        if "orientation_model" in info:
+            self.orientationModel = info["orientation_model"]
 
         if self.bioImg.quadrant_folded:
             cx, cy = self.bioImg.center
             xlim, ylim = self.bioImg.initialImgDim
-            xlim, ylim = int(xlim/2), int(ylim/2)
-            self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
+            xlim, ylim = int(xlim / 2), int(ylim / 2)
+            self.default_img_zoom = [(cx - xlim, cx + xlim), (cy - ylim, cy + ylim)]
 
     def getSettings(self):
         """
@@ -220,23 +266,30 @@ class EquatorWindowh:
         stale JSON from masking a missing/changed calibration cache.
         """
         settings = {}
-        settingspath=self.settingspath
+        settingspath = self.settingspath
 
         default_settings = {
-            "left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0,
-            "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k": 0,
-            "orientation_model": 0, "model": "Gaussian", "isSkeletal": False,
-            "isExtraPeak": False, "mask_thres": 0.0, "90rotation": False,
+            "left_fix_sigmac": 1.0,
+            "right_fix_sigmac": 1.0,
+            "left_fix_sigmas": 0.0001,
+            "right_fix_sigmas": 0.0001,
+            "fix_k": 0,
+            "orientation_model": 0,
+            "model": "Gaussian",
+            "isSkeletal": False,
+            "isExtraPeak": False,
+            "mask_thres": 0.0,
+            "90rotation": False,
             "blank_mask": False,
         }
 
         if self.inputsettings:
             try:
                 with open(settingspath) as f:
-                    settings=json.load(f)
+                    settings = json.load(f)
             except Exception:
                 self.statusPrint("Can't load setting file")
-                self.inputsettings=False
+                self.inputsettings = False
                 settings = dict(default_settings)
         else:
             settings = dict(default_settings)
@@ -253,10 +306,21 @@ class EquatorWindowh:
         except ImportError:
             from utils.settings_manager import SettingsManager
 
-        stripped = [k for k in (
-            'lambda_sdd', 'detector', 'calib_center',
-            'silverB', 'radius', 'type', 'sdd', 'pixel_size', 'lambda',
-        ) if k in settings]
+        stripped = [
+            k
+            for k in (
+                "lambda_sdd",
+                "detector",
+                "calib_center",
+                "silverB",
+                "radius",
+                "type",
+                "sdd",
+                "pixel_size",
+                "lambda",
+            )
+            if k in settings
+        ]
         for k in stripped:
             settings.pop(k, None)
         if stripped:
@@ -274,12 +338,12 @@ class EquatorWindowh:
         return settings
 
     def isDynamicParameter(self, paramName):
-        '''
+        """
         Checks whether parameter is dynamically handelled by fitting mechanism
         :param paramName: Name of the parameter to be checked
         :return: bool True if it is in the dynamic parameter list
-        '''
-        dynamicParams = ['Speak', 'left_area', 'right_area']
+        """
+        dynamicParams = ["Speak", "left_area", "right_area"]
         for p in dynamicParams:
             if p in paramName:
                 return True
@@ -293,8 +357,7 @@ class EquatorWindowh:
         """
         if text != "":
             pid = os.getpid()
-            ptext = "[Process "+str(pid)+"] "+str(text)
+            ptext = "[Process " + str(pid) + "] " + str(text)
             print(ptext)
         else:
             print(text)
-   

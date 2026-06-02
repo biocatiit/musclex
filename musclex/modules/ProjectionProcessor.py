@@ -39,12 +39,13 @@ from scipy.special import wofz
 from sklearn.metrics import r2_score
 import fabio
 from musclex import __version__
+
 try:
     from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
     from ..utils.histogram_processor import getPeakInformations, convexHull
     from ..utils.image_processor import *
     from ..utils.image_data import ImageData
-except: # for coverage
+except:  # for coverage
     from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
     from utils.histogram_processor import getPeakInformations, convexHull
     from utils.image_processor import *
@@ -70,12 +71,13 @@ class ProcessingBox:
     Data container for a single processing box.
     Encapsulates all data and results for one box region.
     """
+
     # === Basic Configuration ===
     name: str
     coordinates: tuple  # ((x1, x2), (y1, y2), ...) or complex oriented format
     type: str  # 'h' (horizontal), 'v' (vertical), 'oriented'
     bgsub: int  # 0=gaussian fitting, 1=convex hull, 2=none
-    
+
     # === Processing Parameters ===
     peaks: List[float] = field(default_factory=list)
     merid_bg: bool = False
@@ -84,21 +86,21 @@ class ProcessingBox:
     use_common_sigma: bool = False
     peak_tolerance: float = 2.0
     sigma_tolerance: float = 100.0  # Changed to percentage (default 100%)
-    
+
     # === Fixed Parameters (for GMM fitting) ===
     # Dict mapping peak index -> fixed value
     fixed_center: Dict[int, float] = field(default_factory=dict)
     fixed_sigma: Dict[int, float] = field(default_factory=dict)
     fixed_amplitude: Dict[int, float] = field(default_factory=dict)
     fixed_common_sigma: Optional[float] = None  # For GMM equal variance mode
-    
+
     # === Intermediate Results ===
     hist: Optional[np.ndarray] = None
     hist2: Optional[np.ndarray] = None
-    
+
     # === Fitting Results ===
     fit_results: Optional[Dict] = None
-    
+
     # === Final Results ===
     moved_peaks: Optional[List[float]] = None
     subtracted_hist: Optional[np.ndarray] = None
@@ -106,28 +108,52 @@ class ProcessingBox:
     centroids: Optional[np.ndarray] = None
     widths: Optional[List[float]] = None
     areas: Optional[List[float]] = None
-    
-    def clear_results(self, from_stage='fit'):
+
+    def clear_results(self, from_stage="fit"):
         """
         Clear results from a specific processing stage onwards.
         This maintains the dependency chain integrity.
-        
+
         :param from_stage: Starting stage ('hist', 'hist2', 'fit', 'peaks')
         """
         stages = {
-            'hist': ['hist', 'hist2', 'fit_results', 'moved_peaks', 
-                    'subtracted_hist', 'baselines', 'centroids', 'widths', 'areas'],
-            'hist2': ['hist2', 'fit_results', 'moved_peaks', 
-                     'subtracted_hist', 'baselines', 'centroids', 'widths', 'areas'],
-            'fit': ['fit_results', 'moved_peaks', 'subtracted_hist', 
-                   'baselines', 'centroids', 'widths', 'areas'],
-            'peaks': ['moved_peaks', 'baselines', 'centroids', 'widths', 'areas']
+            "hist": [
+                "hist",
+                "hist2",
+                "fit_results",
+                "moved_peaks",
+                "subtracted_hist",
+                "baselines",
+                "centroids",
+                "widths",
+                "areas",
+            ],
+            "hist2": [
+                "hist2",
+                "fit_results",
+                "moved_peaks",
+                "subtracted_hist",
+                "baselines",
+                "centroids",
+                "widths",
+                "areas",
+            ],
+            "fit": [
+                "fit_results",
+                "moved_peaks",
+                "subtracted_hist",
+                "baselines",
+                "centroids",
+                "widths",
+                "areas",
+            ],
+            "peaks": ["moved_peaks", "baselines", "centroids", "widths", "areas"],
         }
-        
-        list_attrs = ['peaks', 'moved_peaks', 'baselines', 'widths', 'areas']
+
+        list_attrs = ["peaks", "moved_peaks", "baselines", "widths", "areas"]
         for attr in stages.get(from_stage, []):
             if attr in list_attrs:
-                setattr(self, attr, [] if attr == 'peaks' else None)
+                setattr(self, attr, [] if attr == "peaks" else None)
             else:
                 setattr(self, attr, None)
 
@@ -138,27 +164,28 @@ class ProcessingState:
     Complete state container for the projection processing pipeline.
     Replaces the old self.info dictionary with a structured, type-safe design.
     """
+
     # === Metadata ===
     version: str
     filename: str
     dir_path: str
-    
+
     # === All Processing Boxes ===
     boxes: Dict[str, ProcessingBox] = field(default_factory=dict)
-    
+
     # === Global Settings ===
     mask_thres: Optional[float] = None
     detector: Optional[str] = None
     orientation_model: Optional[object] = None  # Not serialized, rebuilt at runtime
     lambda_sdd: Optional[float] = None
-    
+
     # === Special: Main Peak Information ===
     main_peak_info: Dict = field(default_factory=dict)
     # Structure: {box_name: {'bg_sigma': ..., 'bg_amplitude': ..., ...}}
-    
+
     # === Image-level Reject Status ===
     rejected: bool = False
-    
+
     # === Image-level Comments ===
     comments: str = ""
 
@@ -167,56 +194,55 @@ class ProjectionProcessor:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
+
     def __init__(self, image_data: ImageData, output_dir=None):
         """
         Initialize ProjectionProcessor with ImageData container.
-        
+
         :param image_data: ImageData container with image data and preprocessing
         :param output_dir: directory for cache/results writes (defaults to input dir)
         """
         self.dir_path = str(image_data.img_path)
         self.output_dir = output_dir if output_dir else self.dir_path
         self.filename = image_data.img_name
-        
+
         # Get working image from ImageData (with blank/mask already applied)
         self.orig_img = image_data.get_working_image()
-        
+
         # Cache the raw image (before any rotation)
         # This allows process() to be called multiple times without cumulative rotation
         self._raw_img = self.orig_img.copy()
-        
+
         # Store reference to ImageData
         self._image_data = image_data
-        
+
         # Initialize runtime state
         self.rotated_img = None
         self.version = __version__
         self.rotMat = None
-        
+
         # Initialize ProcessingState (replaces self.info)
         self.state = ProcessingState(
-            version=__version__,
-            filename=self.filename,
-            dir_path=self.dir_path
+            version=__version__, filename=self.filename, dir_path=self.dir_path
         )
-        
+
         # Load cache
         cached_state = self.loadCache()
         if cached_state:
             self.state = cached_state
-        
+
         # Initialize mask threshold if not set
         if self.state.mask_thres is None:
             self.state.mask_thres = getMaskThreshold(self.orig_img)
-        
+
         # Configure from ImageData
         if image_data.detector:
             self.state.detector = image_data.detector
         if image_data.orientation_model is not None:
             self.state.orientation_model = image_data.orientation_model
-        
+
         # Note: center and rotation are now dynamic properties from ImageData
-    
+
     @property
     def boxes(self) -> Dict[str, ProcessingBox]:
         """
@@ -224,8 +250,7 @@ class ProjectionProcessor:
         Returns the boxes dictionary from state.
         """
         return self.state.boxes
-    
-    
+
     @property
     def center(self):
         """
@@ -236,7 +261,7 @@ class ProjectionProcessor:
             return self._image_data.center
         # Default: geometric center of image
         return (self.orig_img.shape[1] / 2 - 0.5, self.orig_img.shape[0] / 2 - 0.5)
-    
+
     @property
     def rotation(self):
         """
@@ -260,16 +285,19 @@ class ProjectionProcessor:
             # Box exists - check if coordinates changed
             existing_box = self.boxes[name]
             coords_changed = existing_box.coordinates != box
-            oriented_changed = (typ == 'oriented' and 
-                              len(box) > 6 and len(existing_box.coordinates) > 6 and 
-                              box[-1] != existing_box.coordinates[-1])
-            
+            oriented_changed = (
+                typ == "oriented"
+                and len(box) > 6
+                and len(existing_box.coordinates) > 6
+                and box[-1] != existing_box.coordinates[-1]
+            )
+
             if coords_changed or oriented_changed:
                 # Coordinates changed - clear all results
                 existing_box.coordinates = box
                 existing_box.type = typ
                 existing_box.bgsub = bgsub
-                existing_box.clear_results(from_stage='hist')
+                existing_box.clear_results(from_stage="hist")
             else:
                 # Just update config
                 existing_box.type = typ
@@ -277,10 +305,7 @@ class ProjectionProcessor:
         else:
             # New box - create it
             self.boxes[name] = ProcessingBox(
-                name=name,
-                coordinates=box,
-                type=typ,
-                bgsub=bgsub
+                name=name, coordinates=box, type=typ, bgsub=bgsub
             )
 
     def addPeaks(self, name, peaks):
@@ -293,27 +318,27 @@ class ProjectionProcessor:
         if name not in self.boxes:
             print(f"Warning: box name '{name}' is invalid.")
             return
-        
+
         box = self.boxes[name]
-        
+
         # Check if peaks actually changed
         if box.peaks == peaks:
             return
-        
+
         # Update peaks
         box.peaks = peaks
-        
+
         # Clear parameter bounds as they're no longer valid
         box.param_bounds = {}
-        
+
         # Clear fixed parameters (stored in ProcessingBox)
         box.fixed_center = {}
         box.fixed_sigma = {}
         box.fixed_amplitude = {}
         box.fixed_common_sigma = None
-        
+
         # Clear downstream results (fitting onwards)
-        box.clear_results(from_stage='fit')
+        box.clear_results(from_stage="fit")
 
     def _get_param_bounds(self, box_name: str, param_name: str):
         """
@@ -322,22 +347,24 @@ class ProjectionProcessor:
         """
         if box_name not in self.boxes:
             return (None, None)
-        
+
         box = self.boxes[box_name]
         b = box.param_bounds.get(param_name)
         if not isinstance(b, dict):
             return (None, None)
-        return (b.get('min', None), b.get('max', None))
+        return (b.get("min", None), b.get("max", None))
 
-    def _set_param_bounds(self, box_name: str, param_name: str, bmin: float, bmax: float):
+    def _set_param_bounds(
+        self, box_name: str, param_name: str, bmin: float, bmax: float
+    ):
         """
         Helper to persist per-parameter bounds.
         """
         if box_name not in self.boxes:
             return
-        
+
         box = self.boxes[box_name]
-        box.param_bounds[param_name] = {'min': float(bmin), 'max': float(bmax)}
+        box.param_bounds[param_name] = {"min": float(bmin), "max": float(bmax)}
 
     def removePeaks(self, name):
         """
@@ -348,12 +375,12 @@ class ProjectionProcessor:
         if name in self.boxes:
             box = self.boxes[name]
             box.peaks = []
-            box.clear_results(from_stage='fit')
+            box.clear_results(from_stage="fit")
 
     def _preprocess(self):
         """
         Stage 1: Preprocessing (always executed, even when using cache).
-        
+
         This stage prepares the image for processing:
         - Resets to raw image
         - Sets mask threshold
@@ -361,34 +388,36 @@ class ProjectionProcessor:
         """
         # Reset to raw image to avoid cumulative rotation on repeated process() calls
         self.orig_img = self._raw_img.copy()
-        
+
         # Ensure mask_thres is set (fallback to auto-detection)
         if self.state.mask_thres is None:
             self.state.mask_thres = getMaskThreshold(self.orig_img)
-        
+
         # ==================== Unified Rotation Logic ====================
         # Rotate the image once at the beginning if needed
         # Quadrant folded images should NOT be rotated (they are already aligned)
         # Normal images should be rotated if rotation angle is set
         should_rotate = not self._image_data.quadrant_folded and self.rotation != 0
-        
+
         if should_rotate:
             # Rotate around diffraction center (center position remains unchanged)
-            self.orig_img = rotateImageAboutPoint(self.orig_img, self.center, self.rotation)
+            self.orig_img = rotateImageAboutPoint(
+                self.orig_img, self.center, self.rotation
+            )
             self.rotMat = cv2.getRotationMatrix2D(tuple(self.center), self.rotation, 1)
             print(f"Image rotated by {self.rotation}° around center {self.center}")
         # ================================================================
-    
+
     def _compute(self):
         """
         Stage 2: Main computation pipeline (can be skipped when using cache).
-        
+
         This stage performs the expensive computations:
         - Histogram generation
         - Convex hull application
         - Model fitting
         - Peak detection
-        
+
         Note: Blank/mask preprocessing is already applied by ImageData.get_working_image()
         No need to apply again here (would cause double subtraction of blank image)
         """
@@ -398,32 +427,34 @@ class ProjectionProcessor:
         self.fitModel()
         self.getBackgroundSubtractedHistograms()
         self.getPeakInfos()
-    
+
     def process(self, no_cache: bool = False, use_existing_cache: bool = False):
         """
         Execute all processing steps.
-        
+
         Settings should be written directly to self.state before calling this method.
         Box configurations are managed by ProcessingBox objects in self.boxes.
-        
+
         Three-stage processing pipeline:
         1. Preprocessing (always run) - image preparation and rotation
         2. Main computation (skipped if use_existing_cache=True) - expensive calculations
         3. Caching (unless no_cache=True) - save results to disk
-        
+
         :param no_cache: If True, skip caching results to disk
         :param use_existing_cache: If True, skip expensive computation and use cached results
                                    (preprocessing like rotation is still applied)
         """
         # Stage 1: Preprocessing (always run)
         self._preprocess()
-        
+
         # Stage 2: Main computation (skip if using cache)
         if use_existing_cache:
-            print("Using cached computation results: skipping expensive processing pipeline")
+            print(
+                "Using cached computation results: skipping expensive processing pipeline"
+            )
         else:
             self._compute()
-        
+
         # Stage 3: Cache results to disk
         if not no_cache:
             self.cacheInfo()
@@ -431,7 +462,7 @@ class ProjectionProcessor:
     def getHistograms(self):
         """
         Obtain projected intensity for each box.
-        
+
         Note: Image rotation is now done in process(), so we directly use self.orig_img
         which is already rotated if needed.
         """
@@ -441,13 +472,13 @@ class ProjectionProcessor:
                 # Still need to clear downstream stages
                 box.hist2 = None
                 continue
-            
+
             # Use the current image (already rotated in process() if needed)
             img = copy.copy(self.orig_img)
             b = box.coordinates
             t = box.type
 
-            if t == 'oriented':
+            if t == "oriented":
                 # rotate bottom left to new origin, then get top right
                 # the box center
                 cx, cy = b[6]
@@ -460,8 +491,8 @@ class ProjectionProcessor:
             y1 = np.max((int(b[1][0]), 0))
             y2 = np.min((int(b[1][1]), img.shape[0]))
 
-            area = img[y1:y2+1, x1:x2+1]
-            if t in ('h', 'oriented'):
+            area = img[y1 : y2 + 1, x1 : x2 + 1]
+            if t in ("h", "oriented"):
                 hist = np.sum(area, axis=0)
             else:
                 hist = np.sum(area, axis=1)
@@ -478,7 +509,7 @@ class ProjectionProcessor:
             # Skip if hist2 already computed
             if box.hist2 is not None:
                 continue
-            
+
             # Skip if no histogram
             if box.hist is None:
                 continue
@@ -490,15 +521,15 @@ class ProjectionProcessor:
                 coords = box.coordinates
                 start_x = coords[0][0]
                 start_y = coords[1][0]
-                
-                if box.type == 'h':
+
+                if box.type == "h":
                     centerX = self.center[0] - start_x
-                elif box.type == 'oriented':
+                elif box.type == "oriented":
                     centerX = coords[6][0] - start_x
                 else:
                     centerX = self.center[1] - start_y
                 centerX = int(round(centerX))
-                
+
                 right_hist = hist[centerX:]
                 left_hist = hist[:centerX][::-1]
                 min_len = min(len(right_hist), len(left_hist))
@@ -509,10 +540,14 @@ class ProjectionProcessor:
                     box.hull_range = (start, end)
 
                 # find start and end points
-                (start, end) = box.hull_range
+                start, end = box.hull_range
 
-                left_ignore = np.array([(i <= self.state.mask_thres) for i in left_hist])
-                right_ignore = np.array([(i <= self.state.mask_thres) for i in right_hist])
+                left_ignore = np.array(
+                    [(i <= self.state.mask_thres) for i in left_hist]
+                )
+                right_ignore = np.array(
+                    [(i <= self.state.mask_thres) for i in right_hist]
+                )
                 if not any(left_ignore) and not any(right_ignore):
                     left_ignore = None
                     right_ignore = None
@@ -547,11 +582,11 @@ class ProjectionProcessor:
             # Skip if histogram data not available for this box
             if box.hist2 is None:
                 continue
-            
+
             # Skip if no peaks or already fitted
             if not box.peaks or len(box.peaks) == 0 or box.fit_results is not None:
                 continue
-            
+
             hist = np.array(box.hist2)
             peaks = box.peaks
             coords = box.coordinates
@@ -560,73 +595,113 @@ class ProjectionProcessor:
 
             x = np.arange(0, len(hist))
 
-            int_vars = {
-                'x' : x
-            }
+            int_vars = {"x": x}
 
             # Initial Parameters
             params = Parameters()
 
             # Init Center X
-            if box.type == 'h':
+            if box.type == "h":
                 init_center = self.center[0] - start_x
-            elif box.type == 'oriented':
+            elif box.type == "oriented":
                 init_center = coords[6][0] - start_x
             else:
                 init_center = self.center[1] - start_y
 
-            int_vars['centerX'] = init_center
+            int_vars["centerX"] = init_center
 
             if box.bgsub == 1:
                 # Convex hull has been applied, so we don't need to fit 3 gaussian anymore
-                int_vars['bg_line'] = 0
-                int_vars['bg_sigma'] = 1
-                int_vars['bg_amplitude'] = 0
-                int_vars['center_sigma1'] = 1
-                int_vars['center_amplitude1'] = 0
-                int_vars['center_sigma2'] = 1
-                int_vars['center_amplitude2'] = 0
+                int_vars["bg_line"] = 0
+                int_vars["bg_sigma"] = 1
+                int_vars["bg_amplitude"] = 0
+                int_vars["center_sigma1"] = 1
+                int_vars["center_amplitude1"] = 0
+                int_vars["center_sigma2"] = 1
+                int_vars["center_amplitude2"] = 0
             else:
                 # Init linear background
                 # params.add('bg_line', 0, min=0)
-                int_vars['bg_line'] = 0
+                int_vars["bg_line"] = 0
 
                 if name in self.state.main_peak_info:
                     main_info = self.state.main_peak_info[name]
-                    params.add('bg_sigma', main_info['bg_sigma'], min=1, max=len(hist)*2+1.)
-                    params.add('bg_amplitude', main_info['bg_amplitude'], min=-1, max=sum(hist)+1.)
-                    params.add('center_sigma1', main_info['center_sigma1'], min=1, max=len(hist)+1.)
-                    params.add('center_amplitude1', main_info['center_amplitude1'], min=-1, max=sum(hist) + 1.)
-                    params.add('center_sigma2', main_info['center_sigma2'], min=1, max=len(hist)+1.)
-                    params.add('center_amplitude2', main_info['center_amplitude2'], min=-1, max=sum(hist)+1.)
-                
+                    params.add(
+                        "bg_sigma",
+                        main_info["bg_sigma"],
+                        min=1,
+                        max=len(hist) * 2 + 1.0,
+                    )
+                    params.add(
+                        "bg_amplitude",
+                        main_info["bg_amplitude"],
+                        min=-1,
+                        max=sum(hist) + 1.0,
+                    )
+                    params.add(
+                        "center_sigma1",
+                        main_info["center_sigma1"],
+                        min=1,
+                        max=len(hist) + 1.0,
+                    )
+                    params.add(
+                        "center_amplitude1",
+                        main_info["center_amplitude1"],
+                        min=-1,
+                        max=sum(hist) + 1.0,
+                    )
+                    params.add(
+                        "center_sigma2",
+                        main_info["center_sigma2"],
+                        min=1,
+                        max=len(hist) + 1.0,
+                    )
+                    params.add(
+                        "center_amplitude2",
+                        main_info["center_amplitude2"],
+                        min=-1,
+                        max=sum(hist) + 1.0,
+                    )
+
                 else:
-                # Init background params
-                    params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
-                    params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
+                    # Init background params
+                    params.add(
+                        "bg_sigma", len(hist) / 3.0, min=1, max=len(hist) * 2 + 1.0
+                    )
+                    params.add("bg_amplitude", 0, min=-1, max=sum(hist) + 1.0)
 
                     if box.merid_bg:
                         # Init Meridian params1
-                        params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
-                        params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                        params.add("center_sigma1", 15, min=1, max=len(hist) + 1.0)
+                        params.add(
+                            "center_amplitude1",
+                            sum(hist) / 20.0,
+                            min=-1,
+                            max=sum(hist) + 1.0,
+                        )
                     else:
-                        int_vars['center_sigma1'] = 1
-                        int_vars['center_amplitude1'] = 0
+                        int_vars["center_sigma1"] = 1
+                        int_vars["center_amplitude1"] = 0
 
                     # Init Meridian params2
-                    params.add('center_sigma2',5 , min=1, max=len(hist)+1.)
-                    params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
+                    params.add("center_sigma2", 5, min=1, max=len(hist) + 1.0)
+                    params.add(
+                        "center_amplitude2",
+                        sum(hist) / 20.0,
+                        min=-1,
+                        max=sum(hist) + 1.0,
+                    )
 
             # Init peaks params
             # Check if GMM mode (shared sigma) is enabled for this box
             use_gmm = box.use_common_sigma
-            
+
             # Fixed params directly from ProcessingBox
             fixed_center_for_box = box.fixed_center
             fixed_sigma_for_box = box.fixed_sigma
             fixed_amplitude_for_box = box.fixed_amplitude
             fixed_common_sigma_for_box = box.fixed_common_sigma
-            
+
             # Check if hull_ranges exist to constrain peak search range
             # Get peak tolerance from settings (default 2.0 for backward compatibility)
             default_search_dist = box.peak_tolerance
@@ -639,19 +714,23 @@ class ProjectionProcessor:
                 # hull_ranges: (start, end) are both positive numbers
                 # Valid ranges: [start, end] for positive peaks, [-end, -start] for negative peaks
                 hull_constraint = (hull_start, hull_end)
-            
+
             if use_gmm:
                 # GMM mode: all peaks share one sigma
                 # Check if common_sigma is fixed
                 if fixed_common_sigma_for_box is not None:
-                    params.add('common_sigma', fixed_common_sigma_for_box, vary=False)
+                    params.add("common_sigma", fixed_common_sigma_for_box, vary=False)
                 else:
                     # Bounds-driven common_sigma: prefer persisted bounds; otherwise default [1, 50]
-                    orig_cs_min, orig_cs_max = self._get_param_bounds(name, 'common_sigma')
+                    orig_cs_min, orig_cs_max = self._get_param_bounds(
+                        name, "common_sigma"
+                    )
                     cs_min, cs_max = orig_cs_min, orig_cs_max
                     if cs_min is None:
                         # Calculate tolerance as percentage of default value 5.0
-                        cs_min = max(0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0))
+                        cs_min = max(
+                            0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0)
+                        )
                     if cs_max is None:
                         cs_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
                     if cs_min > cs_max:
@@ -661,15 +740,19 @@ class ProjectionProcessor:
                         cs_max = cs_max + 0.5
                     # Persist defaults if missing
                     if orig_cs_min is None and orig_cs_max is None:
-                        self._set_param_bounds(name, 'common_sigma', cs_min, cs_max)
-                    params.add('common_sigma', 5, min=cs_min, max=cs_max)
-                
+                        self._set_param_bounds(name, "common_sigma", cs_min, cs_max)
+                    params.add("common_sigma", 5, min=cs_min, max=cs_max)
+
                 for j, p in enumerate(peaks):
                     # Per-peak bounds (scheme B):
                     # Prefer persisted bounds for p_j; otherwise initialize from Peak Tolerance.
-                    stored_min, stored_max = self._get_param_bounds(name, f'p_{j}')
-                    base_min = (p - default_search_dist) if stored_min is None else stored_min
-                    base_max = (p + default_search_dist) if stored_max is None else stored_max
+                    stored_min, stored_max = self._get_param_bounds(name, f"p_{j}")
+                    base_min = (
+                        (p - default_search_dist) if stored_min is None else stored_min
+                    )
+                    base_max = (
+                        (p + default_search_dist) if stored_max is None else stored_max
+                    )
 
                     # Apply hull constraint by clamping bounds (not recomputing from p)
                     if hull_constraint is not None:
@@ -692,21 +775,21 @@ class ProjectionProcessor:
 
                     # Persist bounds if they didn't exist yet (initialization step)
                     if stored_min is None or stored_max is None:
-                        self._set_param_bounds(name, f'p_{j}', p_min, p_max)
-                    
+                        self._set_param_bounds(name, f"p_{j}", p_min, p_max)
+
                     # Position: check if fixed
                     if j in fixed_center_for_box:
-                        params.add('p_' + str(j), fixed_center_for_box[j], vary=False)
+                        params.add("p_" + str(j), fixed_center_for_box[j], vary=False)
                     else:
-                        params.add('p_' + str(j), p, min=p_min, max=p_max)
-                    
+                        params.add("p_" + str(j), p, min=p_min, max=p_max)
+
                     # NOTE: In GMM mode, we do NOT add individual sigma parameters
                     # The layerlineModelGMM function will use common_sigma directly
                     # No sigma{j} parameters needed!
                     #
                     # However, for UI consistency (Parameter Editor), we still initialize
                     # per-peak sigma{i} bounds if missing so they can be displayed/edited.
-                    s_name = f'sigma{j}'
+                    s_name = f"sigma{j}"
                     orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
                     if orig_s_min is None and orig_s_max is None:
                         # Calculate tolerance as percentage of default value 5.0
@@ -718,19 +801,28 @@ class ProjectionProcessor:
                             s_min = max(0.0, s_min - 0.5)
                             s_max = s_max + 0.5
                         self._set_param_bounds(name, s_name, s_min, s_max)
-                    
+
                     # Amplitude: check if fixed (no upper bound - amplitude is unconstrained)
                     if j in fixed_amplitude_for_box:
-                        params.add('amplitude' + str(j), fixed_amplitude_for_box[j], vary=False, min=-1)
+                        params.add(
+                            "amplitude" + str(j),
+                            fixed_amplitude_for_box[j],
+                            vary=False,
+                            min=-1,
+                        )
                     else:
-                        params.add(f'amplitude{j}', sum(hist)/10., min=-1)
+                        params.add(f"amplitude{j}", sum(hist) / 10.0, min=-1)
             else:
                 # Original mode: each peak has independent sigma
-                for j,p in enumerate(peaks):
+                for j, p in enumerate(peaks):
                     # Per-peak bounds (scheme B): same as GMM branch.
-                    stored_min, stored_max = self._get_param_bounds(name, f'p_{j}')
-                    base_min = (p - default_search_dist) if stored_min is None else stored_min
-                    base_max = (p + default_search_dist) if stored_max is None else stored_max
+                    stored_min, stored_max = self._get_param_bounds(name, f"p_{j}")
+                    base_min = (
+                        (p - default_search_dist) if stored_min is None else stored_min
+                    )
+                    base_max = (
+                        (p + default_search_dist) if stored_max is None else stored_max
+                    )
 
                     if hull_constraint is not None:
                         hull_start, hull_end = hull_constraint
@@ -750,25 +842,27 @@ class ProjectionProcessor:
                         p_max += 0.5
 
                     if stored_min is None or stored_max is None:
-                        self._set_param_bounds(name, f'p_{j}', p_min, p_max)
-                    
+                        self._set_param_bounds(name, f"p_{j}", p_min, p_max)
+
                     # Position: check if fixed
                     if j in fixed_center_for_box:
-                        params.add('p_' + str(j), fixed_center_for_box[j], vary=False)
+                        params.add("p_" + str(j), fixed_center_for_box[j], vary=False)
                     else:
-                        params.add('p_' + str(j), p, min=p_min, max=p_max)
-                    
+                        params.add("p_" + str(j), p, min=p_min, max=p_max)
+
                     # Sigma: check if fixed
                     if j in fixed_sigma_for_box:
-                        params.add('sigma' + str(j), fixed_sigma_for_box[j], vary=False)
+                        params.add("sigma" + str(j), fixed_sigma_for_box[j], vary=False)
                     else:
                         # Bounds-driven sigma: prefer persisted bounds; otherwise default [1, 50]
-                        s_name = f'sigma{j}'
+                        s_name = f"sigma{j}"
                         orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
                         s_min, s_max = orig_s_min, orig_s_max
                         if s_min is None:
                             # Calculate tolerance as percentage of default value 5.0
-                            s_min = max(0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0))
+                            s_min = max(
+                                0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0)
+                            )
                         if s_max is None:
                             s_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
                         if s_min > s_max:
@@ -779,20 +873,33 @@ class ProjectionProcessor:
                         if orig_s_min is None and orig_s_max is None:
                             self._set_param_bounds(name, s_name, s_min, s_max)
                         params.add(s_name, 5, min=s_min, max=s_max)
-                    
+
                     # Amplitude: check if fixed (no upper bound - amplitude is unconstrained)
                     if j in fixed_amplitude_for_box:
-                        params.add('amplitude' + str(j), fixed_amplitude_for_box[j], vary=False, min=-1)
+                        params.add(
+                            "amplitude" + str(j),
+                            fixed_amplitude_for_box[j],
+                            vary=False,
+                            min=-1,
+                        )
                     else:
-                        params.add(f'amplitude{j}', sum(hist)/10., min=-1)
+                        params.add(f"amplitude{j}", sum(hist) / 10.0, min=-1)
 
             # Fit model - choose model based on mode
             if use_gmm:
                 # Use GMM model that accepts common_sigma directly
-                model = Model(layerlineModelGMM, nan_policy='propagate', independent_vars=int_vars.keys())
+                model = Model(
+                    layerlineModelGMM,
+                    nan_policy="propagate",
+                    independent_vars=int_vars.keys(),
+                )
             else:
                 # Use standard model with independent sigmas
-                model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
+                model = Model(
+                    layerlineModel,
+                    nan_policy="propagate",
+                    independent_vars=int_vars.keys(),
+                )
 
             fit_hist = hist
             fit_int_vars = dict(int_vars)
@@ -803,8 +910,8 @@ class ProjectionProcessor:
                     centerX=init_center,
                     hull_range=box.hull_range,
                 )
-                fit_int_vars['x'] = fit_x
-            
+                fit_int_vars["x"] = fit_x
+
             _fit_t0 = _perf_counter()
             # ── Analytical-Jacobian fast-path (GMM, ≥ 10 peaks) ──────────
             # For GMM mode with many peaks the dominant cost is the optimizer's
@@ -815,9 +922,13 @@ class ProjectionProcessor:
             # reliable for GMM + n_peaks ≥ 10; for smaller or non-GMM cases
             # we fall back to the standard lmfit/TRF solver.
             result = None
-            _n_free_peaks = sum(1 for k in params if k.startswith('p_') and params[k].vary)
+            _n_free_peaks = sum(
+                1 for k in params if k.startswith("p_") and params[k].vary
+            )
             if use_gmm and _n_free_peaks >= 10:
-                result = _fit_gmm_analytic_jac(params, fit_int_vars['x'], fit_hist, fit_int_vars)
+                result = _fit_gmm_analytic_jac(
+                    params, fit_int_vars["x"], fit_hist, fit_int_vars
+                )
 
             if result is None:
                 # Fallback: Trust-Region-Reflective via lmfit wrapper.
@@ -828,7 +939,7 @@ class ProjectionProcessor:
                     fit_hist,
                     verbose=False,
                     params=params,
-                    method='least_squares',
+                    method="least_squares",
                     **fit_int_vars,
                 )
             _fit_elapsed = _perf_counter() - _fit_t0
@@ -837,7 +948,7 @@ class ProjectionProcessor:
                     box_name=name,
                     box=box,
                     processor=self,
-                    x=fit_int_vars['x'],
+                    x=fit_int_vars["x"],
                     y=fit_hist,
                     params=params,
                     int_vars=fit_int_vars,
@@ -855,33 +966,40 @@ class ProjectionProcessor:
                 # least_squares (TRF) solver some cases land at the
                 # mathematically equivalent but label-swapped optimum, so
                 # canonicalize the ordering here.
-                _s1 = result_dict.get('center_sigma1')
-                _s2 = result_dict.get('center_sigma2')
-                if (_s1 is not None and _s2 is not None
-                        and float(_s1) < float(_s2)):
-                    result_dict['center_sigma1'], result_dict['center_sigma2'] = _s2, _s1
-                    result_dict['center_amplitude1'], result_dict['center_amplitude2'] = (
-                        result_dict.get('center_amplitude2'),
-                        result_dict.get('center_amplitude1'),
+                _s1 = result_dict.get("center_sigma1")
+                _s2 = result_dict.get("center_sigma2")
+                if _s1 is not None and _s2 is not None and float(_s1) < float(_s2):
+                    result_dict["center_sigma1"], result_dict["center_sigma2"] = (
+                        _s2,
+                        _s1,
+                    )
+                    (
+                        result_dict["center_amplitude1"],
+                        result_dict["center_amplitude2"],
+                    ) = (
+                        result_dict.get("center_amplitude2"),
+                        result_dict.get("center_amplitude1"),
                     )
 
-                int_vars.pop('x')
+                int_vars.pop("x")
                 result_dict.update(int_vars)
-                
+
                 # Add explicit flag for GMM mode
-                result_dict['use_common_sigma'] = use_gmm
-                
+                result_dict["use_common_sigma"] = use_gmm
+
                 # Ensure complete data regardless of mode
                 if use_gmm:
                     # GMM mode: common_sigma exists, copy to all individual sigmas
-                    common_sigma_value = result_dict.get('common_sigma', 10.0)
+                    common_sigma_value = result_dict.get("common_sigma", 10.0)
                     for j in range(len(peaks)):
-                        result_dict[f'sigma{j}'] = common_sigma_value
+                        result_dict[f"sigma{j}"] = common_sigma_value
                 else:
                     # Non-GMM mode: calculate common_sigma as mean of individual sigmas
-                    sigmas = [result_dict.get(f'sigma{j}', 10.0) for j in range(len(peaks))]
-                    result_dict['common_sigma'] = np.mean(sigmas) if sigmas else 10.0
-                
+                    sigmas = [
+                        result_dict.get(f"sigma{j}", 10.0) for j in range(len(peaks))
+                    ]
+                    result_dict["common_sigma"] = np.mean(sigmas) if sigmas else 10.0
+
                 # Calculate error using the appropriate model function
                 if use_gmm:
                     # For GMM mode, use layerlineModelGMM
@@ -889,67 +1007,75 @@ class ProjectionProcessor:
                 else:
                     # For non-GMM mode, use layerlineModel
                     predicted = layerlineModel(x, **result_dict)
-                result_dict['error'] = 1. - r2_score(hist, predicted)
-                
+                result_dict["error"] = 1.0 - r2_score(hist, predicted)
+
                 # Persist fixed flags into fit_results so UI reflects reality.
                 if fixed_common_sigma_for_box is not None:
-                    result_dict['common_sigma_fixed'] = True
+                    result_dict["common_sigma_fixed"] = True
                 if isinstance(fixed_center_for_box, dict):
                     for idx, val in fixed_center_for_box.items():
-                        key = f'p_{idx}'
+                        key = f"p_{idx}"
                         if key in result_dict:
                             result_dict[key] = val
-                        result_dict[f'{key}_fixed'] = True
+                        result_dict[f"{key}_fixed"] = True
                 if isinstance(fixed_sigma_for_box, dict):
                     for idx, val in fixed_sigma_for_box.items():
-                        key = f'sigma{idx}'
+                        key = f"sigma{idx}"
                         if key in result_dict:
                             result_dict[key] = val
-                        result_dict[f'{key}_fixed'] = True
+                        result_dict[f"{key}_fixed"] = True
                 if isinstance(fixed_amplitude_for_box, dict):
                     for idx, val in fixed_amplitude_for_box.items():
-                        key = f'amplitude{idx}'
+                        key = f"amplitude{idx}"
                         if key in result_dict:
                             result_dict[key] = val
-                        result_dict[f'{key}_fixed'] = True
-                
+                        result_dict[f"{key}_fixed"] = True
+
                 if name in self.state.main_peak_info:
                     main_info = self.state.main_peak_info[name]
-                    if main_info.get('bg_sigma_lock', False):
-                        result_dict['bg_sigma'] = main_info['bg_sigma']
-                    if main_info.get('bg_amplitude_lock', False):
-                        result_dict['bg_amplitude'] = main_info['bg_amplitude']
-                    if main_info.get('center_sigma1_lock', False):
-                        result_dict['center_sigma1'] = main_info['center_sigma1']   
-                    if main_info.get('center_amplitude1_lock', False):
-                        result_dict['center_amplitude1'] = main_info['center_amplitude1']
-                    if main_info.get('center_sigma2_lock', False):
-                        result_dict['center_sigma2'] = main_info['center_sigma2']
-                    if main_info.get('center_amplitude2_lock', False):
-                        result_dict['center_amplitude2'] = main_info['center_amplitude2']
-                
+                    if main_info.get("bg_sigma_lock", False):
+                        result_dict["bg_sigma"] = main_info["bg_sigma"]
+                    if main_info.get("bg_amplitude_lock", False):
+                        result_dict["bg_amplitude"] = main_info["bg_amplitude"]
+                    if main_info.get("center_sigma1_lock", False):
+                        result_dict["center_sigma1"] = main_info["center_sigma1"]
+                    if main_info.get("center_amplitude1_lock", False):
+                        result_dict["center_amplitude1"] = main_info[
+                            "center_amplitude1"
+                        ]
+                    if main_info.get("center_sigma2_lock", False):
+                        result_dict["center_sigma2"] = main_info["center_sigma2"]
+                    if main_info.get("center_amplitude2_lock", False):
+                        result_dict["center_amplitude2"] = main_info[
+                            "center_amplitude2"
+                        ]
+
                 # Save fit results to box
                 box.fit_results = result_dict
                 box.subtracted_hist = None  # Clear downstream results
-                
+
                 # Print fitting results
-                print("Box : "+ str(name))
-                print(f"Mode: {'GMM (Common Sigma)' if use_gmm else 'Independent Sigma'}")
+                print("Box : " + str(name))
+                print(
+                    f"Mode: {'GMM (Common Sigma)' if use_gmm else 'Independent Sigma'}"
+                )
                 print(f"Number of free parameters: {result.nvarys}")
                 print(f"Chi-square: {result.chisqr:.6f}")
                 print(f"Reduced chi-square: {result.redchi:.6f}")
                 if use_gmm:
-                    common_sigma_val = result_dict.get('common_sigma', 'N/A')
+                    common_sigma_val = result_dict.get("common_sigma", "N/A")
                     print(f"  Common Sigma = {common_sigma_val}")
                 else:
-                    sigmas = [result_dict.get(f'sigma{i}', 'N/A') for i in range(min(3, len(peaks)))]
+                    sigmas = [
+                        result_dict.get(f"sigma{i}", "N/A")
+                        for i in range(min(3, len(peaks)))
+                    ]
                     print(f"  Individual Sigmas (first 3): {sigmas}")
                 print("Fitting Result : " + str(result_dict))
-                print("Fitting Error : " + str(result_dict['error']))
-                if hasattr(result, 'aic') and hasattr(result, 'bic'):
+                print("Fitting Error : " + str(result_dict["error"]))
+                if hasattr(result, "aic") and hasattr(result, "bic"):
                     print(f"AIC: {result.aic:.2f}, BIC: {result.bic:.2f}")
                 print("---")
-
 
     def getBackgroundSubtractedHistograms(self):
         """
@@ -960,11 +1086,11 @@ class ProjectionProcessor:
             # Skip if already computed or no fit results
             if box.subtracted_hist is not None or box.fit_results is None:
                 continue
-            
+
             # Skip if no hist2
             if box.hist2 is None:
                 continue
-            
+
             if box.bgsub == 2:  # no background, so no subtraction
                 box.subtracted_hist = box.hist2
             else:
@@ -973,7 +1099,7 @@ class ProjectionProcessor:
                 xs = np.arange(0, len(hist))
                 background = layerlineModelBackground(xs, **box.fit_results)
                 box.subtracted_hist = hist - background
-            
+
             # Clear downstream results
             box.moved_peaks = None
 
@@ -986,7 +1112,7 @@ class ProjectionProcessor:
             # Skip if no subtracted histogram
             if box.subtracted_hist is None:
                 continue
-            
+
             # Skip if no fit results
             if box.fit_results is None:
                 continue
@@ -994,15 +1120,15 @@ class ProjectionProcessor:
             ### Find real peak locations in the box (not distance from center)
             model = box.fit_results
             hist = box.subtracted_hist
-            
+
             if box.moved_peaks is None:
                 peaks = box.peaks
                 moved = []
                 for p in peaks:
-                    globalpeak = int(round(model['centerX']+p))
+                    globalpeak = int(round(model["centerX"] + p))
                     if 0 <= globalpeak <= len(hist):
                         moved.append(globalpeak)
-                
+
                 # Use Gaussian fit positions directly (more accurate than movePeaks)
                 # This respects fixed peaks and avoids noise-induced position errors
                 box.moved_peaks = moved
@@ -1013,7 +1139,7 @@ class ProjectionProcessor:
             if box.baselines is None:
                 baselines = []
                 for p in peaks:
-                    baselines.append(hist[p]*0.5)
+                    baselines.append(hist[p] * 0.5)
                 box.baselines = baselines
                 box.centroids = None  # Clear downstream results
 
@@ -1021,10 +1147,10 @@ class ProjectionProcessor:
 
             if box.centroids is None:
                 results = getPeakInformations(hist, peaks, baselines)
-                box.centroids = np.array(results['centroids']) - model['centerX']
-                box.widths = results['widths']
-                box.areas = results['areas']
-                print("Box : "+ str(name))
+                box.centroids = np.array(results["centroids"]) - model["centerX"]
+                box.widths = results["widths"]
+                box.areas = results["areas"]
+                print("Box : " + str(name))
                 print("Centroid Result : " + str(results))
                 print("---")
 
@@ -1038,7 +1164,7 @@ class ProjectionProcessor:
         new_center = float(str(new_center))
         if box_name in self.boxes:
             self.boxes[box_name].fixed_center[peak_num] = new_center
-            self.removeInfo(box_name, 'fit_results')
+            self.removeInfo(box_name, "fit_results")
 
     def setGaussSig(self, box_name, peak_num, new_sigma):
         """
@@ -1050,7 +1176,7 @@ class ProjectionProcessor:
         new_sigma = float(str(new_sigma))
         if box_name in self.boxes:
             self.boxes[box_name].fixed_sigma[peak_num] = new_sigma
-            self.removeInfo(box_name, 'fit_results')
+            self.removeInfo(box_name, "fit_results")
 
     def setBaseline(self, box_name, peak_num, new_baseline):
         """
@@ -1068,19 +1194,18 @@ class ProjectionProcessor:
         if "%" in new_baseline:
             # if new_baseline contain "%", baseline value will use this as percent of peak height
             percent = float(new_baseline.rstrip("%"))
-            baseline = height * percent / 100.
+            baseline = height * percent / 100.0
         elif len(new_baseline) == 0:
             # if new_baseline is empty, baseline will be half-height
-            baseline = float(height * .5)
+            baseline = float(height * 0.5)
         else:
             baseline = float(new_baseline)
 
         if height > baseline:
             baselines[peak_num] = baseline
-            self.removeInfo(box_name, 'centroids')
-            self.removeInfo(box_name, 'widths')
-            self.removeInfo(box_name, 'areas')
-
+            self.removeInfo(box_name, "centroids")
+            self.removeInfo(box_name, "widths")
+            self.removeInfo(box_name, "areas")
 
     def removeInfo(self, name, k=None):
         """
@@ -1091,7 +1216,7 @@ class ProjectionProcessor:
         """
         if name not in self.boxes:
             return
-        
+
         if k is None:
             # Remove entire box
             del self.boxes[name]
@@ -1100,23 +1225,23 @@ class ProjectionProcessor:
             box = self.boxes[name]
             # Map old dict keys to box attributes
             key_map = {
-                'hists': 'hist',
-                'hists2': 'hist2',
-                'fit_results': 'fit_results',
-                'subtracted_hists': 'subtracted_hist',
-                'moved_peaks': 'moved_peaks',
-                'baselines': 'baselines',
-                'centroids': 'centroids',
-                'widths': 'widths',
-                'areas': 'areas',
-                'param_bounds': 'param_bounds',
+                "hists": "hist",
+                "hists2": "hist2",
+                "fit_results": "fit_results",
+                "subtracted_hists": "subtracted_hist",
+                "moved_peaks": "moved_peaks",
+                "baselines": "baselines",
+                "centroids": "centroids",
+                "widths": "widths",
+                "areas": "areas",
+                "param_bounds": "param_bounds",
             }
-            
+
             if k in key_map:
                 attr = key_map[k]
-                if attr in ['moved_peaks', 'baselines', 'widths', 'areas']:
+                if attr in ["moved_peaks", "baselines", "widths", "areas"]:
                     setattr(box, attr, None)
-                elif attr == 'param_bounds':
+                elif attr == "param_bounds":
                     setattr(box, attr, {})
                 else:
                     setattr(box, attr, None)
@@ -1127,21 +1252,25 @@ class ProjectionProcessor:
         :return: cached ProcessingState or None
         """
         cache_path = fullPath(self.output_dir, "pt_cache")
-        cache_file = fullPath(cache_path, self.filename + '.cache')
-        
+        cache_file = fullPath(cache_path, self.filename + ".cache")
+
         if not exists(cache_file):
             return None
-        
+
         try:
-            with open(cache_file, 'rb') as f:
+            with open(cache_file, "rb") as f:
                 state = pickle.load(f)
-            
+
             # Version check
             if isinstance(state, ProcessingState) and state.version == self.version:
                 return state
             else:
-                version = state.version if isinstance(state, ProcessingState) else "unknown"
-                print(f"Cache version {version} did not match with Program version {self.version}")
+                version = (
+                    state.version if isinstance(state, ProcessingState) else "unknown"
+                )
+                print(
+                    f"Cache version {version} did not match with Program version {self.version}"
+                )
                 print("Invalidating cache and reprocessing the image")
                 return None
         except Exception as e:
@@ -1153,16 +1282,26 @@ class ProjectionProcessor:
         Save ProcessingState to cache. Cache file will be saved as filename.cache in folder "pt_cache"
         :return: -
         """
-        cache_path = fullPath(self.output_dir, 'pt_cache')
+        cache_path = fullPath(self.output_dir, "pt_cache")
         createFolder(cache_path)
-        cache_file = fullPath(cache_path, self.filename + '.cache')
-        
-        with open(cache_file, 'wb') as f:
+        cache_file = fullPath(cache_path, self.filename + ".cache")
+
+        with open(cache_file, "wb") as f:
             pickle.dump(self.state, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
-                    center_sigma2, center_amplitude2, **kwargs):
+def layerlineModel(
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    **kwargs,
+):
     """
     Model for fitting layer line pattern
     :param x: x axis
@@ -1178,21 +1317,33 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
     :return:
     """
     #### Background and Meridian
-    result = layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2,**kwargs)
+    result = layerlineModelBackground(
+        x,
+        centerX,
+        bg_line,
+        bg_sigma,
+        bg_amplitude,
+        center_sigma1,
+        center_amplitude1,
+        center_sigma2,
+        center_amplitude2,
+        **kwargs,
+    )
     #### Other peaks
     # Collect Gaussian peak parameters first, then evaluate all at once (L3 batch).
     g_centers = []
-    g_amps    = []
-    g_sigmas  = []
+    g_amps = []
+    g_sigmas = []
     i = 0
-    while 'p_'+str(i) in kwargs:
-        p         = kwargs['p_'+str(i)]
-        sigma     = kwargs['sigma'+str(i)]
-        amplitude = kwargs['amplitude' + str(i)]
-        if 'gamma' + str(i) in kwargs:
-            gamma = kwargs['gamma' + str(i)]
-            result += _voigt_eval(x=x, amplitude=amplitude,
-                                  center=centerX + p, sigma=sigma, gamma=gamma)
+    while "p_" + str(i) in kwargs:
+        p = kwargs["p_" + str(i)]
+        sigma = kwargs["sigma" + str(i)]
+        amplitude = kwargs["amplitude" + str(i)]
+        if "gamma" + str(i) in kwargs:
+            gamma = kwargs["gamma" + str(i)]
+            result += _voigt_eval(
+                x=x, amplitude=amplitude, center=centerX + p, sigma=sigma, gamma=gamma
+            )
         else:
             g_centers.append(centerX + p)
             g_amps.append(amplitude)
@@ -1200,12 +1351,25 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
         i += 1
 
     if g_centers:
-        result += _gaussian_batch_std(x, np.asarray(g_centers), np.asarray(g_amps),
-                                      np.asarray(g_sigmas))
+        result += _gaussian_batch_std(
+            x, np.asarray(g_centers), np.asarray(g_amps), np.asarray(g_sigmas)
+        )
     return result
 
-def layerlineModelGMM(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
-                      center_sigma2, center_amplitude2, common_sigma, **kwargs):
+
+def layerlineModelGMM(
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    common_sigma,
+    **kwargs,
+):
     """
     GMM version: Model for fitting layer line pattern with common sigma for all peaks
     :param x: x axis
@@ -1222,37 +1386,62 @@ def layerlineModelGMM(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1
     :return:
     """
     #### Background and Meridian
-    result = layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, 
-                                     center_sigma1, center_amplitude1, 
-                                     center_sigma2, center_amplitude2, **kwargs)
-    
+    result = layerlineModelBackground(
+        x,
+        centerX,
+        bg_line,
+        bg_sigma,
+        bg_amplitude,
+        center_sigma1,
+        center_amplitude1,
+        center_sigma2,
+        center_amplitude2,
+        **kwargs,
+    )
+
     #### Other peaks - all using common_sigma
     # Collect Gaussian peak parameters first, then evaluate all at once (L3 batch).
     # Voigt peaks remain in a loop (rare in practice; wofz not easily vectorised).
     g_centers = []
-    g_amps    = []
+    g_amps = []
     i = 0
-    while 'p_'+str(i) in kwargs:
-        p         = kwargs['p_'+str(i)]
-        amplitude = kwargs['amplitude' + str(i)]
-        if 'gamma' + str(i) in kwargs:
-            gamma = kwargs['gamma' + str(i)]
-            result += _voigt_eval(x=x, amplitude=amplitude,
-                                  center=centerX + p,
-                                  sigma=common_sigma, gamma=gamma)
+    while "p_" + str(i) in kwargs:
+        p = kwargs["p_" + str(i)]
+        amplitude = kwargs["amplitude" + str(i)]
+        if "gamma" + str(i) in kwargs:
+            gamma = kwargs["gamma" + str(i)]
+            result += _voigt_eval(
+                x=x,
+                amplitude=amplitude,
+                center=centerX + p,
+                sigma=common_sigma,
+                gamma=gamma,
+            )
         else:
             g_centers.append(centerX + p)
             g_amps.append(amplitude)
         i += 1
 
     if g_centers:
-        result += _gaussian_batch_gmm(x, np.asarray(g_centers), np.asarray(g_amps),
-                                      common_sigma)
+        result += _gaussian_batch_gmm(
+            x, np.asarray(g_centers), np.asarray(g_amps), common_sigma
+        )
 
     return result
 
-def layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
-                            center_sigma2, center_amplitude2,**kwargs):
+
+def layerlineModelBackground(
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    **kwargs,
+):
     """
     Model for fitting layer line pattern
     :param x: x axis
@@ -1267,9 +1456,11 @@ def layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center
     :param kwargs: nothing
     :return:
     """
-    return layerlineBackground(x, centerX, bg_line, bg_sigma, bg_amplitude) + \
-           meridianBackground(x, centerX, center_sigma1, center_amplitude1) + \
-           meridianGauss(x, centerX, center_sigma2, center_amplitude2)
+    return (
+        layerlineBackground(x, centerX, bg_line, bg_sigma, bg_amplitude)
+        + meridianBackground(x, centerX, center_sigma1, center_amplitude1)
+        + meridianGauss(x, centerX, center_sigma2, center_amplitude2)
+    )
 
 
 def layerlineBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, **kwargs):
@@ -1283,7 +1474,11 @@ def layerlineBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, **kwargs):
     :param kwargs: nothing
     :return:
     """
-    return _gaussian_eval(x=x, amplitude=bg_amplitude, center=centerX, sigma=bg_sigma) + bg_line
+    return (
+        _gaussian_eval(x=x, amplitude=bg_amplitude, center=centerX, sigma=bg_sigma)
+        + bg_line
+    )
+
 
 def meridianBackground(x, centerX, center_sigma1, center_amplitude1, **kwargs):
     """
@@ -1295,7 +1490,10 @@ def meridianBackground(x, centerX, center_sigma1, center_amplitude1, **kwargs):
     :param kwargs: nothing
     :return:
     """
-    return _gaussian_eval(x=x, amplitude=center_amplitude1, center=centerX, sigma=center_sigma1)
+    return _gaussian_eval(
+        x=x, amplitude=center_amplitude1, center=centerX, sigma=center_sigma1
+    )
+
 
 def meridianGauss(x, centerX, center_sigma2, center_amplitude2, **kwargs):
     """
@@ -1307,7 +1505,9 @@ def meridianGauss(x, centerX, center_sigma2, center_amplitude2, **kwargs):
     :param kwargs:
     :return:
     """
-    return _gaussian_eval(x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2)
+    return _gaussian_eval(
+        x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2
+    )
 
 
 def _slice_fit_arrays_to_hull_range(x, hist, centerX, hull_range):
@@ -1354,21 +1554,26 @@ def _slice_fit_arrays_to_hull_range(x, hist, centerX, hull_range):
 # Background terms live in int_vars (fixed); they only enter the Jacobian via
 # finite-differences for the rare bgsub≠1 case where they are free params.
 
+
 def _aj_build_peak_index(free_names: list) -> dict:
     """Map free-parameter names to their column indices for the AJ calculation."""
-    sigma_idx = free_names.index('common_sigma') if 'common_sigma' in free_names else None
+    sigma_idx = (
+        free_names.index("common_sigma") if "common_sigma" in free_names else None
+    )
     peaks = []
     i = 0
-    while f'p_{i}' in free_names:
-        peaks.append({
-            'p_idx':   free_names.index(f'p_{i}'),
-            'amp_idx': free_names.index(f'amplitude{i}'),
-        })
+    while f"p_{i}" in free_names:
+        peaks.append(
+            {
+                "p_idx": free_names.index(f"p_{i}"),
+                "amp_idx": free_names.index(f"amplitude{i}"),
+            }
+        )
         i += 1
-    analytic_cols = {pk['p_idx'] for pk in peaks} | {pk['amp_idx'] for pk in peaks}
+    analytic_cols = {pk["p_idx"] for pk in peaks} | {pk["amp_idx"] for pk in peaks}
     if sigma_idx is not None:
         analytic_cols.add(sigma_idx)
-    return {'sigma_idx': sigma_idx, 'peaks': peaks, 'analytic_cols': analytic_cols}
+    return {"sigma_idx": sigma_idx, "peaks": peaks, "analytic_cols": analytic_cols}
 
 
 def _aj_compute_jacobian_gmm(
@@ -1382,29 +1587,29 @@ def _aj_compute_jacobian_gmm(
     n_data, n_free = len(x), len(free_names)
     J = np.zeros((n_data, n_free), dtype=np.float64)
 
-    sigma_idx = peak_index['sigma_idx']
+    sigma_idx = peak_index["sigma_idx"]
     if sigma_idx is None:
         return J  # no common_sigma in free params — nothing to do analytically
 
-    sigma   = p[sigma_idx]
+    sigma = p[sigma_idx]
     inv_sig = 1.0 / sigma
-    prefac  = inv_sig / _SQRT_2PI
+    prefac = inv_sig / _SQRT_2PI
     d_sigma = np.zeros(n_data)
 
-    for pk in peak_index['peaks']:
-        center = centerX + p[pk['p_idx']]
-        amp    = p[pk['amp_idx']]
-        z      = (x - center) * inv_sig
-        G      = amp * prefac * np.exp(-0.5 * z * z)
+    for pk in peak_index["peaks"]:
+        center = centerX + p[pk["p_idx"]]
+        amp = p[pk["amp_idx"]]
+        z = (x - center) * inv_sig
+        G = amp * prefac * np.exp(-0.5 * z * z)
 
         # Guard against amp ≈ 0 to avoid NaN in G/amp column
         if abs(amp) > 1e-15:
-            J[:, pk['amp_idx']] = G / amp
+            J[:, pk["amp_idx"]] = G / amp
         else:
-            J[:, pk['amp_idx']] = prefac * np.exp(-0.5 * z * z)
+            J[:, pk["amp_idx"]] = prefac * np.exp(-0.5 * z * z)
 
-        J[:, pk['p_idx']] = G * z * inv_sig
-        d_sigma           += G * (z * z - 1.0) * inv_sig
+        J[:, pk["p_idx"]] = G * z * inv_sig
+        d_sigma += G * (z * z - 1.0) * inv_sig
 
     J[:, sigma_idx] = d_sigma
     return J
@@ -1417,15 +1622,17 @@ class _ScipyFitResult:
     (``nvarys``, ``chisqr``, ``redchi``) as well as ``.values`` which is the
     only attribute consumed by the downstream result-dict logic.
     """
-    __slots__ = ('values', '_optimality', 'nvarys', 'chisqr', 'redchi')
 
-    def __init__(self, values: dict, nvarys: int = 0,
-                 chisqr: float = 0.0, redchi: float = 0.0):
-        self.values     = values
+    __slots__ = ("values", "_optimality", "nvarys", "chisqr", "redchi")
+
+    def __init__(
+        self, values: dict, nvarys: int = 0, chisqr: float = 0.0, redchi: float = 0.0
+    ):
+        self.values = values
         self._optimality = None
-        self.nvarys     = nvarys
-        self.chisqr     = chisqr
-        self.redchi     = redchi
+        self.nvarys = nvarys
+        self.chisqr = chisqr
+        self.redchi = redchi
 
 
 def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
@@ -1455,23 +1662,37 @@ def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
         return None  # nothing to optimise
 
     x0 = np.array([params[k].value for k in free_names], dtype=np.float64)
-    lb = np.array([
-        params[k].min if params[k].min is not None and np.isfinite(params[k].min) else -np.inf
-        for k in free_names
-    ], dtype=np.float64)
-    ub = np.array([
-        params[k].max if params[k].max is not None and np.isfinite(params[k].max) else np.inf
-        for k in free_names
-    ], dtype=np.float64)
+    lb = np.array(
+        [
+            (
+                params[k].min
+                if params[k].min is not None and np.isfinite(params[k].min)
+                else -np.inf
+            )
+            for k in free_names
+        ],
+        dtype=np.float64,
+    )
+    ub = np.array(
+        [
+            (
+                params[k].max
+                if params[k].max is not None and np.isfinite(params[k].max)
+                else np.inf
+            )
+            for k in free_names
+        ],
+        dtype=np.float64,
+    )
 
     # ---- build peak index once (outside the hot loop) -------------------
-    peak_index   = _aj_build_peak_index(free_names)
-    analytic_cols = peak_index['analytic_cols']
-    fd_cols       = [j for j in range(len(free_names)) if j not in analytic_cols]
+    peak_index = _aj_build_peak_index(free_names)
+    analytic_cols = peak_index["analytic_cols"]
+    fd_cols = [j for j in range(len(free_names)) if j not in analytic_cols]
 
-    centerX = float(fit_int_vars.get('centerX', 0.0))
+    centerX = float(fit_int_vars.get("centerX", 0.0))
     # Fixed independent variables that go into the model call
-    indep = {k: v for k, v in fit_int_vars.items() if k != 'x'}
+    indep = {k: v for k, v in fit_int_vars.items() if k != "x"}
 
     # ---- residual -------------------------------------------------------
     def _residual(p: np.ndarray) -> np.ndarray:
@@ -1488,8 +1709,10 @@ def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
         if fd_cols:
             for j in fd_cols:
                 step = max(abs(p[j]) * _fd_step, _fd_step)
-                ph = p.copy(); ph[j] += step
-                pl = p.copy(); pl[j] -= step
+                ph = p.copy()
+                ph[j] += step
+                pl = p.copy()
+                pl[j] -= step
                 J[:, j] = (_residual(ph) - _residual(pl)) / (2.0 * step)
         return J
 
@@ -1500,7 +1723,7 @@ def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
             x0,
             jac=_jacobian,
             bounds=(lb, ub),
-            method='trf',
+            method="trf",
         )
     except Exception:
         return None
@@ -1517,7 +1740,7 @@ def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
         return None
 
     # 2. R² on the fit window: discard catastrophically bad solutions.
-    ss_res = float(np.sum(sol.fun ** 2))
+    ss_res = float(np.sum(sol.fun**2))
     ss_tot = float(np.sum((fit_hist - fit_hist.mean()) ** 2))
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
     if r2 < 0.5:
@@ -1527,14 +1750,14 @@ def _fit_gmm_analytic_jac(params, fit_x, fit_hist, fit_int_vars):
     result_vals = dict(zip(free_names, sol.x))
     result_vals.update(fixed_vals)
 
-    n_free  = len(free_names)
-    n_data  = len(fit_hist)
-    chisqr  = float(2.0 * sol.cost)          # matches lmfit's convention (SSR)
-    dof     = max(1, n_data - n_free)
-    redchi  = chisqr / dof
+    n_free = len(free_names)
+    n_data = len(fit_hist)
+    chisqr = float(2.0 * sol.cost)  # matches lmfit's convention (SSR)
+    dof = max(1, n_data - n_free)
+    redchi = chisqr / dof
 
     res = _ScipyFitResult(result_vals, nvarys=n_free, chisqr=chisqr, redchi=redchi)
-    res._optimality = sol.optimality   # expose for diagnostics / guard tuning
+    res._optimality = sol.optimality  # expose for diagnostics / guard tuning
     return res
 
 
@@ -1555,9 +1778,9 @@ def _gaussian_batch_gmm(x, centers, amps, sigma):
     amps    : (K,) array — integrated amplitudes
     sigma   : float      — shared sigma for all peaks
     """
-    inv_sig    = 1.0 / sigma
-    prefactor  = (amps * inv_sig / _SQRT_2PI)[:, np.newaxis]   # (K, 1)
-    z          = (x[np.newaxis, :] - centers[:, np.newaxis]) * inv_sig  # (K, N)
+    inv_sig = 1.0 / sigma
+    prefactor = (amps * inv_sig / _SQRT_2PI)[:, np.newaxis]  # (K, 1)
+    z = (x[np.newaxis, :] - centers[:, np.newaxis]) * inv_sig  # (K, N)
     return (prefactor * np.exp(-0.5 * z * z)).sum(axis=0)
 
 
@@ -1571,9 +1794,9 @@ def _gaussian_batch_std(x, centers, amps, sigmas):
     amps    : (K,) array — integrated amplitudes
     sigmas  : (K,) array — per-peak sigmas
     """
-    inv_sigs   = 1.0 / sigmas                                    # (K,)
-    prefactors = (amps * inv_sigs / _SQRT_2PI)[:, np.newaxis]    # (K, 1)
-    z          = (x[np.newaxis, :] - centers[:, np.newaxis]) * inv_sigs[:, np.newaxis]  # (K, N)
+    inv_sigs = 1.0 / sigmas  # (K,)
+    prefactors = (amps * inv_sigs / _SQRT_2PI)[:, np.newaxis]  # (K, 1)
+    z = (x[np.newaxis, :] - centers[:, np.newaxis]) * inv_sigs[:, np.newaxis]  # (K, N)
     return (prefactors * np.exp(-0.5 * z * z)).sum(axis=0)
 
 

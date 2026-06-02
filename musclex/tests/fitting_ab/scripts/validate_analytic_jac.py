@@ -29,6 +29,7 @@ Output columns
   max_damp%   : max |Δamp_i / amp_i(L1)| × 100  across all amplitudes
   L1_r2 / AJ_r2 : R² of both solutions
 """
+
 from __future__ import annotations
 
 import glob
@@ -40,7 +41,7 @@ from pathlib import Path
 import numpy as np
 
 # ── path setup ────────────────────────────────────────────────────────────────
-_ROOT = Path(__file__).resolve().parents[4]   # repo root
+_ROOT = Path(__file__).resolve().parents[4]  # repo root
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
@@ -58,15 +59,18 @@ _CASES_DIR = Path(__file__).parent.parent / "real_cases"
 pkl_files = sorted(_CASES_DIR.glob("*.pkl"))
 
 if not pkl_files:
-    print(f"No .pkl files found in {_CASES_DIR}. Run MuscleX with MUSCLEX_CAPTURE_FITS=1 first.")
+    print(
+        f"No .pkl files found in {_CASES_DIR}. Run MuscleX with MUSCLEX_CAPTURE_FITS=1 first."
+    )
     sys.exit(1)
 
 # ── adapters ──────────────────────────────────────────────────────────────────
 REPS = 5
 ref_ad = LmfitTRFNumpyAdapter(seed=0)
-aj_ad  = ScipyAnalyticJacAdapter(seed=0)
+aj_ad = ScipyAnalyticJacAdapter(seed=0)
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def timed_fit(adapter, case, reps):
     """Return (median_ms, last_FitResult)."""
@@ -81,19 +85,25 @@ def timed_fit(adapter, case, reps):
 
 def param_diff(r_ref, r_cand, free_names):
     """Return max |Δp_i| and max rel |Δamp_i| for peak params."""
-    p_keys   = [k for k in free_names if k.startswith('p_')]
-    amp_keys = [k for k in free_names if k.startswith('amplitude')]
+    p_keys = [k for k in free_names if k.startswith("p_")]
+    amp_keys = [k for k in free_names if k.startswith("amplitude")]
     if not r_ref.values or not r_cand.values:
-        return float('nan'), float('nan')
-    max_dp = max(
-        abs(r_cand.values.get(k, 0) - r_ref.values.get(k, 0))
-        for k in p_keys
-    ) if p_keys else float('nan')
-    max_da = max(
-        abs(r_cand.values.get(k, 0) - r_ref.values.get(k, 0))
-        / max(abs(r_ref.values.get(k, 1.0)), 1e-6) * 100
-        for k in amp_keys
-    ) if amp_keys else float('nan')
+        return float("nan"), float("nan")
+    max_dp = (
+        max(abs(r_cand.values.get(k, 0) - r_ref.values.get(k, 0)) for k in p_keys)
+        if p_keys
+        else float("nan")
+    )
+    max_da = (
+        max(
+            abs(r_cand.values.get(k, 0) - r_ref.values.get(k, 0))
+            / max(abs(r_ref.values.get(k, 1.0)), 1e-6)
+            * 100
+            for k in amp_keys
+        )
+        if amp_keys
+        else float("nan")
+    )
     return max_dp, max_da
 
 
@@ -116,14 +126,14 @@ speedups, ok_both, ok_l1_only, fail_both = [], [], [], []
 
 for pkl in pkl_files:
     case = load_case(str(pkl))
-    inp  = case.inputs
+    inp = case.inputs
     free_names = list(inp.free_params.keys())
-    n_peaks = len([k for k in free_names if k.startswith('p_')])
+    n_peaks = len([k for k in free_names if k.startswith("p_")])
 
-    l1_ms,  r_l1 = timed_fit(ref_ad, case, REPS)
-    aj_ms,  r_aj = timed_fit(aj_ad,  case, REPS)
+    l1_ms, r_l1 = timed_fit(ref_ad, case, REPS)
+    aj_ms, r_aj = timed_fit(aj_ad, case, REPS)
 
-    speedup = l1_ms / aj_ms if aj_ms > 0 else float('nan')
+    speedup = l1_ms / aj_ms if aj_ms > 0 else float("nan")
     max_dp, max_da = param_diff(r_l1, r_aj, free_names)
 
     l1_ok = "✓" if r_l1.success else "✗"
@@ -145,13 +155,23 @@ for pkl in pkl_files:
     )
     sys.stdout.flush()
 
-    rows.append(dict(
-        fname=fname, model=inp.model_kind, len_x=len(inp.x),
-        n_peaks=n_peaks, l1_ms=l1_ms, aj_ms=aj_ms, speedup=speedup,
-        l1_ok=r_l1.success, aj_ok=r_aj.success,
-        max_dp=max_dp, max_da=max_da,
-        l1_r2=r_l1.r2, aj_r2=r_aj.r2,
-    ))
+    rows.append(
+        dict(
+            fname=fname,
+            model=inp.model_kind,
+            len_x=len(inp.x),
+            n_peaks=n_peaks,
+            l1_ms=l1_ms,
+            aj_ms=aj_ms,
+            speedup=speedup,
+            l1_ok=r_l1.success,
+            aj_ok=r_aj.success,
+            max_dp=max_dp,
+            max_da=max_da,
+            l1_r2=r_l1.r2,
+            aj_r2=r_aj.r2,
+        )
+    )
 
     if r_l1.success and r_aj.success:
         ok_both.append(speedup)
@@ -165,27 +185,33 @@ print()
 print("=" * len(HEADER))
 print(f"Cases where both converge   : {len(ok_both)}")
 if ok_both:
-    print(f"  Speedup  median={np.median(ok_both):.2f}x  "
-          f"min={min(ok_both):.2f}x  max={max(ok_both):.2f}x")
+    print(
+        f"  Speedup  median={np.median(ok_both):.2f}x  "
+        f"min={min(ok_both):.2f}x  max={max(ok_both):.2f}x"
+    )
 
 # Parameter agreement among both-converged cases
-ok_rows = [r for r in rows if r['l1_ok'] and r['aj_ok']]
+ok_rows = [r for r in rows if r["l1_ok"] and r["aj_ok"]]
 if ok_rows:
-    valid_dp = [r['max_dp'] for r in ok_rows if np.isfinite(r['max_dp'])]
-    valid_da = [r['max_da'] for r in ok_rows if np.isfinite(r['max_da'])]
+    valid_dp = [r["max_dp"] for r in ok_rows if np.isfinite(r["max_dp"])]
+    valid_da = [r["max_da"] for r in ok_rows if np.isfinite(r["max_da"])]
     if valid_dp:
-        print(f"  max |Δp_i| (peak pos)      : median={np.median(valid_dp):.3f} px  "
-              f"max={max(valid_dp):.3f} px")
+        print(
+            f"  max |Δp_i| (peak pos)      : median={np.median(valid_dp):.3f} px  "
+            f"max={max(valid_dp):.3f} px"
+        )
     if valid_da:
-        print(f"  max |Δamp_i/amp_i| (%)      : median={np.median(valid_da):.2f}%  "
-              f"max={max(valid_da):.2f}%")
+        print(
+            f"  max |Δamp_i/amp_i| (%)      : median={np.median(valid_da):.2f}%  "
+            f"max={max(valid_da):.2f}%"
+        )
 
 if ok_l1_only:
     print(f"\nL1 converged but AJ failed  : {len(ok_l1_only)}")
     for f in ok_l1_only:
         print(f"  {f}")
 
-fail_aj_only = [r['fname'] for r in rows if not r['l1_ok'] and r['aj_ok']]
+fail_aj_only = [r["fname"] for r in rows if not r["l1_ok"] and r["aj_ok"]]
 if fail_aj_only:
     print(f"\nAJ converged but L1 failed  : {len(fail_aj_only)}")
     for f in fail_aj_only:
@@ -198,7 +224,9 @@ if fail_both:
 
 print()
 print("CONCLUSION:")
-good_dp = [r for r in ok_rows if np.isfinite(r['max_dp']) and r['max_dp'] < 0.5]
-print(f"  Peak position agrees to <0.5 px: {len(good_dp)}/{len(ok_rows)} both-converged cases")
-fast = [r for r in ok_rows if r['speedup'] > 2.0]
+good_dp = [r for r in ok_rows if np.isfinite(r["max_dp"]) and r["max_dp"] < 0.5]
+print(
+    f"  Peak position agrees to <0.5 px: {len(good_dp)}/{len(ok_rows)} both-converged cases"
+)
+fast = [r for r in ok_rows if r["speedup"] > 2.0]
 print(f"  Speedup > 2×:  {len(fast)}/{len(ok_rows)} cases")

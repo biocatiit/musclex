@@ -12,6 +12,7 @@ Or use the helper script::
 After building you will see a file named ``_eval_cy.cpython-3XX-*.so``
 (Linux/macOS) or ``_eval_cy.cpython-3XX-*.pyd`` (Windows) in this directory.
 """
+
 from setuptools import setup, Extension
 
 try:

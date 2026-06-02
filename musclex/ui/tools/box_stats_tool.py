@@ -98,10 +98,9 @@ class BoxStatsTool(InteractionTool):
     FROZEN_COLORS = ("lime", "cyan", "orange", "magenta", "red")
     CURRENT_COLOR = "yellow"
 
-    def __init__(self, axes, canvas,
-                 on_box_drawn=None,
-                 on_committed=None,
-                 on_deactivated=None):
+    def __init__(
+        self, axes, canvas, on_box_drawn=None, on_committed=None, on_deactivated=None
+    ):
         super().__init__(axes, canvas)
         self.on_box_drawn = on_box_drawn
         self.on_committed = on_committed
@@ -157,16 +156,23 @@ class BoxStatsTool(InteractionTool):
 
         color = self.FROZEN_COLORS[(idx - 1) % len(self.FROZEN_COLORS)]
         rect = Rectangle(
-            (b['x0'], b['y0']),
-            b['x1'] - b['x0'],
-            b['y1'] - b['y0'],
-            linewidth=1.2, edgecolor=color, facecolor='none',
+            (b["x0"], b["y0"]),
+            b["x1"] - b["x0"],
+            b["y1"] - b["y0"],
+            linewidth=1.2,
+            edgecolor=color,
+            facecolor="none",
             label=self.LABEL_FROZEN,
         )
         self.axes.add_patch(rect)
         text = self.axes.text(
-            b['x0'], b['y0'], f" #{idx}",
-            color=color, fontsize=9, va='bottom', ha='left',
+            b["x0"],
+            b["y0"],
+            f" #{idx}",
+            color=color,
+            fontsize=9,
+            va="bottom",
+            ha="left",
             label=self.LABEL_FROZEN,
         )
         self.frozen_artists[idx] = [rect, text]
@@ -202,7 +208,11 @@ class BoxStatsTool(InteractionTool):
         if self.selector is not None:
             try:
                 self.selector.extents = (
-                    bounds['x0'], bounds['x1'], bounds['y0'], bounds['y1'])
+                    bounds["x0"],
+                    bounds["x1"],
+                    bounds["y0"],
+                    bounds["y1"],
+                )
                 self.selector.set_visible(True)
             except Exception:
                 pass
@@ -236,10 +246,11 @@ class BoxStatsTool(InteractionTool):
             self.axes,
             self._on_select,
             useblit=True,
-            button=[1],          # left mouse button only
-            minspanx=2, minspany=2,
-            spancoords='pixels',
-            interactive=True,    # keep handles after release for live editing
+            button=[1],  # left mouse button only
+            minspanx=2,
+            minspany=2,
+            spancoords="pixels",
+            interactive=True,  # keep handles after release for live editing
             props=dict(
                 facecolor=self.CURRENT_COLOR,
                 edgecolor=self.CURRENT_COLOR,
@@ -248,7 +259,7 @@ class BoxStatsTool(InteractionTool):
             ),
             handle_props=dict(
                 markeredgecolor=self.CURRENT_COLOR,
-                markerfacecolor='white',
+                markerfacecolor="white",
                 markersize=6,
             ),
         )
@@ -287,13 +298,13 @@ class BoxStatsTool(InteractionTool):
         if (x1n - x0) < 1 or (y1n - y0) < 1:
             return
 
-        self.current_bounds = {'x0': x0, 'y0': y0, 'x1': x1n, 'y1': y1n}
+        self.current_bounds = {"x0": x0, "y0": y0, "x1": x1n, "y1": y1n}
 
         # Re-edits keep their original idx; new draws preview as the
         # next-to-be-assigned idx.
-        idx = (self.current_idx
-               if self.current_idx is not None
-               else self.frozen_count + 1)
+        idx = (
+            self.current_idx if self.current_idx is not None else self.frozen_count + 1
+        )
         if self.on_box_drawn is not None:
             self.on_box_drawn(dict(self.current_bounds), idx)
 
