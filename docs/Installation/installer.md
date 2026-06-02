@@ -20,12 +20,13 @@ For users who prefer not to manage Python environments, we provide a pre-built i
 
 
 ## Install via macOS DMG Image
-
 <!-- > **Note**: For version 1.24.0 and later, DMG Image are not available. Please use [pip](pip.md) or [conda](conda.md) instead. -->
 
-For older versions (1.23.2 and earlier), macOS builds are not signed, so you may need to bypass security warnings. 
+>For older versions (1.23.2 and earlier), macOS builds are not signed, so you may need to bypass security warnings. 
 
 1. Download the `.dmg` file:
+   - Download the `.dmg` file from [GitHub Releases](https://github.com/biocatiit/musclex/releases)
+
    - **Version 1.23.2 and earlier**: [SourceForge](https://sourceforge.net/projects/musclex/files/)
 
 2. Open the `.dmg` and drag the MuscleX app into the **Applications** folder
