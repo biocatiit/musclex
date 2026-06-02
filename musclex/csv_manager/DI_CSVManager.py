@@ -27,24 +27,43 @@ authorization from Illinois Institute of Technology.
 """
 
 import pandas as pd
+
 try:
     from ..modules.ScanningDiffraction import *
-except: # for coverage
+except:  # for coverage
     from modules.ScanningDiffraction import *
 
-class DI_CSVManager():
+
+class DI_CSVManager:
     """
     The CSV manager object is used to gather information and save them in results files.
     """
+
     def __init__(self, dir_path):
         self.df_sum = None
         self.df_rings = None
-        result_path = fullPath(dir_path, 'di_results')
+        result_path = fullPath(dir_path, "di_results")
         createFolder(result_path)
         self.sum_file = fullPath(result_path, "summary.csv")
         self.rings_file = fullPath(result_path, "rings.csv")
-        self.sum_header = ['filename', 'total intensity (hull)', 'total intensity', 'number of rings']
-        self.rings_header = ['filename', 'ring', 'S', 'd', 'peak sigma', 'peak intensity', 'angle', 'angle sigma', 'angle amplitude', 'angle fitting error']
+        self.sum_header = [
+            "filename",
+            "total intensity (hull)",
+            "total intensity",
+            "number of rings",
+        ]
+        self.rings_header = [
+            "filename",
+            "ring",
+            "S",
+            "d",
+            "peak sigma",
+            "peak intensity",
+            "angle",
+            "angle sigma",
+            "angle amplitude",
+            "angle fitting error",
+        ]
         self.load_all()
 
     def load_all(self):
@@ -83,60 +102,78 @@ class DI_CSVManager():
 
         # Add data to summary.csv
         new_sum_data = {
-            'filename' : file_name,
-            'total intensity (hull)' : info['area'],
-            'total intensity' : info['simple_total_intensity'] if 'simple_total_intensity' in info else info['area']
+            "filename": file_name,
+            "total intensity (hull)": info["area"],
+            "total intensity": (
+                info["simple_total_intensity"]
+                if "simple_total_intensity" in info
+                else info["area"]
+            ),
         }
 
-        if 'model_peaks' in info:
-            new_sum_data['number of rings'] = len(info['model_peaks'])
+        if "model_peaks" in info:
+            new_sum_data["number of rings"] = len(info["model_peaks"])
 
-        self.df_sum = pd.concat([self.df_sum, pd.DataFrame.from_records([new_sum_data])])
+        self.df_sum = pd.concat(
+            [self.df_sum, pd.DataFrame.from_records([new_sum_data])]
+        )
         # self.df_sum = self.df_sum.append(new_sum_data, ignore_index = True) # Future warning deprecated
         self.df_sum.reset_index()
-        self.df_sum.to_csv(self.sum_file, index=False, columns=self.sum_header)  # Write to csv file
+        self.df_sum.to_csv(
+            self.sum_file, index=False, columns=self.sum_header
+        )  # Write to csv file
 
         # Add data to rings.csv
-        if 'model_peaks' in info.keys() and len(info['model_peaks']) > 0 and len(info['merged_peaks']) > 0:
+        if (
+            "model_peaks" in info.keys()
+            and len(info["model_peaks"]) > 0
+            and len(info["merged_peaks"]) > 0
+        ):
             # new_datas = []
-            nRings = len(info['model_peaks'])
-            models = info['ring_models']
-            errors = info['ring_errors']
-            fit_result = info['fitResult']
+            nRings = len(info["model_peaks"])
+            models = info["ring_models"]
+            errors = info["ring_errors"]
+            fit_result = info["fitResult"]
             for i in range(nRings):
                 if i not in models:
                     continue
                 ring = models[i]
-                new_data = {'filename':file_name}
-                new_data['ring'] = i+1
-                new_data['S'] = fit_result['u' + str(i + 1)]
-                new_data['peak sigma'] = fit_result['sigmad' + str(i + 1)]
-                new_data['peak intensity'] = fit_result['alpha' + str(i + 1)]
-                new_data['angle'] = ring['u'] % np.pi
-                if '90rotation' in info and info['90rotation']:
-                    new_data['angle'] = (ring['u'] + np.pi/2) % np.pi
-                new_data['angle sigma'] = ring['sigma']
-                new_data['angle amplitude'] = ring['alpha']
-                new_data['angle fitting error'] = errors[i]
-                if 'peak_ds' in info:
-                    new_data['d'] = info['peak_ds'][i]
+                new_data = {"filename": file_name}
+                new_data["ring"] = i + 1
+                new_data["S"] = fit_result["u" + str(i + 1)]
+                new_data["peak sigma"] = fit_result["sigmad" + str(i + 1)]
+                new_data["peak intensity"] = fit_result["alpha" + str(i + 1)]
+                new_data["angle"] = ring["u"] % np.pi
+                if "90rotation" in info and info["90rotation"]:
+                    new_data["angle"] = (ring["u"] + np.pi / 2) % np.pi
+                new_data["angle sigma"] = ring["sigma"]
+                new_data["angle amplitude"] = ring["alpha"]
+                new_data["angle fitting error"] = errors[i]
+                if "peak_ds" in info:
+                    new_data["d"] = info["peak_ds"][i]
                 else:
-                    new_data['d'] = '-'
+                    new_data["d"] = "-"
                 # new_datas.append(new_data)
                 try:
-                    self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_data])])
+                    self.df_rings = pd.concat(
+                        [self.df_rings, pd.DataFrame.from_records([new_data])]
+                    )
                     # self.df_rings = self.df_rings.append(new_datas, ignore_index=True) # Future warning deprecated
                 except Exception:
                     pass
         else:
             for k in self.rings_header:
                 new_data = {}
-                if k == 'filename':
+                if k == "filename":
                     new_data[k] = file_name
                 else:
-                    new_data[k] = '-'
-            self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_data])])
+                    new_data[k] = "-"
+            self.df_rings = pd.concat(
+                [self.df_rings, pd.DataFrame.from_records([new_data])]
+            )
             # self.df_rings = self.df_rings.append(new_data, ignore_index = True) # Future warning deprecated
 
         self.df_rings.reset_index()
-        self.df_rings.to_csv(self.rings_file, index=False, columns=self.rings_header)  # Write to csv file
+        self.df_rings.to_csv(
+            self.rings_file, index=False, columns=self.rings_header
+        )  # Write to csv file

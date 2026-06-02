@@ -34,6 +34,7 @@ import fabio
 import numpy as np
 from PIL import Image
 
+
 def decompress_tiff_files(fn, compress):
     """
     Decompress/compress tiff files.
@@ -41,29 +42,37 @@ def decompress_tiff_files(fn, compress):
     :return: -
     """
     with Image.open(fn) as im:
-        
-        name,ext = os.path.splitext(fn)
-        
+
+        name, ext = os.path.splitext(fn)
+
         if compress:
-            print('Compressing TIFF Files...')
+            print("Compressing TIFF Files...")
             new_fn = f"{name}_compressed{ext}"
-            im.save(new_fn, compression='tiff_lzw')
+            im.save(new_fn, compression="tiff_lzw")
         else:
-            print('Decompressing TIFF Files...')
+            print("Decompressing TIFF Files...")
             data = np.array(im)
             new_fn = f"{name}_uncompressed{ext}"
             fabio.tifimage.tifimage(data=data).write(new_fn)
         # os.remove(fn)
-        print('Completed')
+        print("Completed")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='The script will decompress the TIF files from given compressed TIF files or folders. Reciprocally, this script can compress TIF files or folders to tiff_lzw. \
-            All the images converted have the same name as the original images, which means the script overwrites the data.')
-    parser.add_argument('-i', metavar='file', help='Path to the TIFF files', nargs='*')
-    parser.add_argument('-f', metavar='folder', help='Path to the TIFF folders', nargs='*')
-    parser.add_argument('-z', action='store_true', help='If this option is set, the script will generate a compressed version of the TIF images. \
-                        Else, it will generate a decompressed version of it.')
+        description="The script will decompress the TIF files from given compressed TIF files or folders. Reciprocally, this script can compress TIF files or folders to tiff_lzw. \
+            All the images converted have the same name as the original images, which means the script overwrites the data."
+    )
+    parser.add_argument("-i", metavar="file", help="Path to the TIFF files", nargs="*")
+    parser.add_argument(
+        "-f", metavar="folder", help="Path to the TIFF folders", nargs="*"
+    )
+    parser.add_argument(
+        "-z",
+        action="store_true",
+        help="If this option is set, the script will generate a compressed version of the TIF images. \
+                        Else, it will generate a decompressed version of it.",
+    )
 
     args = parser.parse_args()
 
@@ -74,7 +83,7 @@ if __name__ == '__main__':
         for folder in foldername:
             list_files = sorted(os.listdir(folder))
             for file in list_files:
-                if os.path.splitext(file)[1] in ('.tiff', '.tif'):
+                if os.path.splitext(file)[1] in (".tiff", ".tif"):
                     f = os.path.join(folder, file)
                     print(f)
                     decompress_tiff_files(f, compress)

@@ -1,1 +1,1 @@
-hiddenimports = ['musclex.modules.QF_utilities']
+hiddenimports = ["musclex.modules.QF_utilities"]

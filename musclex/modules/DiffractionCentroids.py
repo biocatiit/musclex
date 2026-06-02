@@ -36,20 +36,25 @@ from lmfit import Parameters
 from lmfit.models import VoigtModel
 import fabio
 from musclex import __version__
+
 try:
     from ..utils.file_manager import fullPath, ifHdfReadConvertless
     from ..utils.image_processor import *
     from ..utils.histogram_processor import *
-except: # for coverage
+except:  # for coverage
     from utils.file_manager import fullPath, ifHdfReadConvertless
     from utils.image_processor import *
     from utils.histogram_processor import *
+
 
 class DiffractionCentroids:
     """
     A class for Diffraction Centroids processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, imgList, grp_number, fixRanges, off_mer, output_dir=None):
+
+    def __init__(
+        self, dir_path, imgList, grp_number, fixRanges, off_mer, output_dir=None
+    ):
         """
         Initial value for DiffractionCentroids object
         :param dir_path: directory path of input images (str)
@@ -59,18 +64,18 @@ class DiffractionCentroids:
         :param off_mer: configuration of off-meridian peaks configured my users
         :param output_dir: optional output directory for cache writes
         """
-        self.avgImg = self.mergeImages(dir_path, imgList) # average all image in a group
+        self.avgImg = self.mergeImages(
+            dir_path, imgList
+        )  # average all image in a group
         self.mask_thres = getMaskThreshold(self.avgImg)
         self.dir_path = dir_path
         self.output_dir = output_dir if output_dir else dir_path
         self.version = __version__
-        self.info = {
-            "reject" : {"top":[], "bottom": [] }
-        }
+        self.info = {"reject": {"top": [], "bottom": []}}
         self.cachefile, cinfo = self.loadCache(dir_path, imgList)
         self.info.update(cinfo)
         self.info["filelist"] = imgList
-        self.info["grp_num"] = grp_number+1
+        self.info["grp_num"] = grp_number + 1
         self.fixRanges = fixRanges
         self.init_off_mer = off_mer
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
@@ -97,11 +102,11 @@ class DiffractionCentroids:
         :param imgList: input images
         :return: cached info (dict)
         """
-        cache_path = fullPath(self.output_dir, 'dc_cache')
-        cache_filename = imgList[0]+'_'+ imgList[-1]+ '.info'
+        cache_path = fullPath(self.output_dir, "dc_cache")
+        cache_filename = imgList[0] + "_" + imgList[-1] + ".info"
         cachefile = fullPath(cache_path, cache_filename)
         if not isfile(cachefile):
-            fallback_cache = fullPath(dir_path, 'dc_cache')
+            fallback_cache = fullPath(dir_path, "dc_cache")
             fallback_file = fullPath(fallback_cache, cache_filename)
             if isfile(fallback_file):
                 cachefile = fallback_file
@@ -110,10 +115,15 @@ class DiffractionCentroids:
         if isfile(cachefile):
             cinfo = pickle.load(open(cachefile, "rb"))
             if cinfo is not None:
-                if cinfo['program_version'] == self.version:
+                if cinfo["program_version"] == self.version:
                     info = cinfo
                 else:
-                    print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
+                    print(
+                        "Cache version "
+                        + cinfo["program_version"]
+                        + " did not match with Program version "
+                        + self.version
+                    )
                     print("Invalidating cache and reprocessing the image")
 
         return cachefile, info
@@ -122,8 +132,8 @@ class DiffractionCentroids:
         """
         All processing steps
         """
-        imgList = self.info['filelist']
-        print(str(imgList[0])+' ... '+str(imgList[-1])+' are being processed...')
+        imgList = self.info["filelist"]
+        print(str(imgList[0]) + " ... " + str(imgList[-1]) + " are being processed...")
         self.updateInfo(flags)
         self.findCenter()
         self.findRotationAngle()
@@ -153,8 +163,8 @@ class DiffractionCentroids:
         :param k: key of dictionary
         :return: -
         """
-        if k == 'hists':
-            for ky in ['top_hist', 'top_hull', 'bottom_hist', 'bottom_hull']:
+        if k == "hists":
+            for ky in ["top_hist", "top_hull", "bottom_hist", "bottom_hull"]:
                 self.removeInfo(ky)
         if k in self.info:
             del self.info[k]
@@ -165,11 +175,11 @@ class DiffractionCentroids:
         :param flags: flags
         :return: -
         """
-        if flags['orientation_model'] is None:
-            if 'orientation_model' not in self.info:
-                flags['orientation_model'] = 0
+        if flags["orientation_model"] is None:
+            if "orientation_model" not in self.info:
+                flags["orientation_model"] = 0
             else:
-                del flags['orientation_model']
+                del flags["orientation_model"]
         self.info.update(flags)
 
     def findCenter(self):
@@ -177,69 +187,84 @@ class DiffractionCentroids:
         Find center of diffraction, and keep it in self.info["center"]
         This calculation will affect rotation angle, so self.info["rotationAngle"] will be removed
         """
-        if 'center' in self.info:
+        if "center" in self.info:
             if self.rotMat is not None:
-                center = self.info['center']
-                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
-                self.info['center'] = (center[0], center[1])
-                self.info['orig_center'] = (center[0], center[1])
+                center = self.info["center"]
+                center = np.dot(
+                    cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1]
+                )
+                self.info["center"] = (center[0], center[1])
+                self.info["orig_center"] = (center[0], center[1])
             return
-        self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg))
-        print("center = "+str(self.info['center']))
-        self.removeInfo('rotationAngle')
+        self.avgImg, self.info["center"] = processImageForIntCenter(
+            self.avgImg, getCenter(self.avgImg)
+        )
+        print("center = " + str(self.info["center"]))
+        self.removeInfo("rotationAngle")
 
     def findRotationAngle(self):
         """
         Find rotation angle of diffraction, and keep it in self.info["rotationAngle"]
         This calculation will affect R-min, so self.info["rmin"] will be removed
         """
-        if 'rotationAngle' in self.info:
+        if "rotationAngle" in self.info:
             return
-        center = self.info['center']
-        self.info['rotationAngle'] = getRotationAngle(self.avgImg, center, self.info['orientation_model'])
-        print("rotation angle = " + str(self.info['rotationAngle']))
-        self.removeInfo('rmin')
+        center = self.info["center"]
+        self.info["rotationAngle"] = getRotationAngle(
+            self.avgImg, center, self.info["orientation_model"]
+        )
+        print("rotation angle = " + str(self.info["rotationAngle"]))
+        self.removeInfo("rmin")
 
     def calculateRmin(self):
         """
         Find R-min of diffraction, and keep it in self.info["rmin"]
         This calculation will affect integrated area (meridian), so self.info["int_area"] will be removed
         """
-        if 'rmin' in self.info:
+        if "rmin" in self.info:
             return
         img = copy.copy(self.avgImg)
-        center = self.info['center']
+        center = self.info["center"]
 
         if img.shape == (1043, 981):
             det = "pilatus1m"
         else:
             det = "agilent_titan"
 
-        corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
+        corners = [
+            (0, 0),
+            (img.shape[1], 0),
+            (0, img.shape[0]),
+            (img.shape[1], img.shape[0]),
+        ]
         npt_rad = int(round(max([distance(center, c) for c in corners])))
         ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
-        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+        integration_method = IntegrationMethod.select_one_available(
+            "csr", dim=1, default="csr", degradable=True
+        )
         _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method)
-        self.info['rmin'] = getFirstVallay(I)
-        print("R-min = "+str(self.info['rmin']))
-        self.removeInfo('int_area')
+        self.info["rmin"] = getFirstVallay(I)
+        print("R-min = " + str(self.info["rmin"]))
+        self.removeInfo("int_area")
 
     def getIntegrateArea(self):
         """
         Find intergrated area or meridian lines of diffraction, and keep it in self.info["int_area"]
         This calculation will affect start and end points of convexh hull applying points, so self.info["top_se"] and self.info["bottom_se"] will be removed
         """
-        if 'int_area' in self.info:
+        if "int_area" in self.info:
             return
-        rmin = self.info['rmin']
-        img = getCenterRemovedImage(copy.copy(self.avgImg), self.info['center'], self.info['rmin']) # remove center location
-        rotate_img = self.getRotatedImage(img) # rotate image
-        center = self.info['center']
-        l = max(0,center[0]-rmin) # initial guess for left line
-        r = min(center[0]+rmin, rotate_img.shape[1]) # initial guess for right line
-        area = rotate_img[:,l:r] # Get the area by initial guess
-        hist = np.sum(area, axis=0) # find verital histogram
+        rmin = self.info["rmin"]
+        img = getCenterRemovedImage(
+            copy.copy(self.avgImg), self.info["center"], self.info["rmin"]
+        )  # remove center location
+        rotate_img = self.getRotatedImage(img)  # rotate image
+        center = self.info["center"]
+        l = max(0, center[0] - rmin)  # initial guess for left line
+        r = min(center[0] + rmin, rotate_img.shape[1])  # initial guess for right line
+        area = rotate_img[:, l:r]  # Get the area by initial guess
+        hist = np.sum(area, axis=0)  # find verital histogram
         hull = convexHull(hist)  # appl convex hull to the histogram
 
         if len(hist) > 0:
@@ -247,25 +272,42 @@ class DiffractionCentroids:
             r = 1
             l = 1
             # Find start and end points by finding first zero value from on both side
-            while max_loc-l >= 0 and max_loc+r < len(hull) and (hull[max_loc-l] != 0 or hull[max_loc+r] != 0):
-                if hull[max_loc-l] != 0:
+            while (
+                max_loc - l >= 0
+                and max_loc + r < len(hull)
+                and (hull[max_loc - l] != 0 or hull[max_loc + r] != 0)
+            ):
+                if hull[max_loc - l] != 0:
                     l += 1
-                if hull[max_loc+r] != 0:
+                if hull[max_loc + r] != 0:
                     r += 1
 
             # Assume that meridian size should not smaller than 50% or R-min
-            if max_loc+r < center[0] or max_loc-l > center[0] or abs(r+l) < rmin*.5:
-                self.info['int_area'] = (int(round(center[0] - rmin*.5)), int(round(center[0] + rmin*.5)) + 1)
+            if (
+                max_loc + r < center[0]
+                or max_loc - l > center[0]
+                or abs(r + l) < rmin * 0.5
+            ):
+                self.info["int_area"] = (
+                    int(round(center[0] - rmin * 0.5)),
+                    int(round(center[0] + rmin * 0.5)) + 1,
+                )
             else:
-                center = center[0]-rmin+max_loc
-                self.info['int_area'] = (int(round(center-l*1.2)), int(round(center+r*1.2))+1)
+                center = center[0] - rmin + max_loc
+                self.info["int_area"] = (
+                    int(round(center - l * 1.2)),
+                    int(round(center + r * 1.2)) + 1,
+                )
         else:
-            self.info['int_area'] = (int(round(center[0] - rmin * .5)), int(round(center[0] + rmin * .5)) + 1)
-        print("integrated area = "+str(self.info['int_area']))
-        self.removeInfo('top_se')
-        self.removeInfo('bottom_se')
+            self.info["int_area"] = (
+                int(round(center[0] - rmin * 0.5)),
+                int(round(center[0] + rmin * 0.5)) + 1,
+            )
+        print("integrated area = " + str(self.info["int_area"]))
+        self.removeInfo("top_se")
+        self.removeInfo("bottom_se")
 
-    def getRotatedImage(self, img = None, angle = None):
+    def getRotatedImage(self, img=None, angle=None):
         """
         Get rotated image by angle. If the input params are not specified. image = original input image, angle = self.info["rotationAngle"]
         :param img: input image
@@ -275,8 +317,8 @@ class DiffractionCentroids:
         if img is None:
             img = copy.copy(self.avgImg)
         if angle is None:
-            angle = self.info['rotationAngle']
-        if '90rotation' in self.info and self.info['90rotation'] is True:
+            angle = self.info["rotationAngle"]
+        if "90rotation" in self.info and self.info["90rotation"] is True:
             angle = angle - 90 if angle > 90 else angle + 90
 
         center = self.info["center"]
@@ -295,20 +337,36 @@ class DiffractionCentroids:
         This values will be kept in self.info["top_se"] and self.info["bottom_se"]
         This calculation will affect histograms, so all histograms will be removed from self.info
         """
-        if 'top_se' not in self.info:
-            if 'top_fixed_se' in self.info:
-                self.info['top_se'] = self.info['top_fixed_se']
+        if "top_se" not in self.info:
+            if "top_fixed_se" in self.info:
+                self.info["top_se"] = self.info["top_fixed_se"]
             else:
-                self.info['top_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0] / 2, self.avgImg.shape[1] / 2) * 0.7)))
-            self.removeInfo('top_hist')
-            self.removeInfo('top_hull')
-        if 'bottom_se' not in self.info:
-            if 'bottom_fixed_se' in self.info:
-                self.info['bottom_se'] = self.info['bottom_fixed_se']
+                self.info["top_se"] = (
+                    self.info["rmin"],
+                    int(
+                        round(
+                            min(self.avgImg.shape[0] / 2, self.avgImg.shape[1] / 2)
+                            * 0.7
+                        )
+                    ),
+                )
+            self.removeInfo("top_hist")
+            self.removeInfo("top_hull")
+        if "bottom_se" not in self.info:
+            if "bottom_fixed_se" in self.info:
+                self.info["bottom_se"] = self.info["bottom_fixed_se"]
             else:
-                self.info['bottom_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0]/2, self.avgImg.shape[1]/2) * 0.7)))
-            self.removeInfo('bottom_hist')
-            self.removeInfo('bottom_hull')
+                self.info["bottom_se"] = (
+                    self.info["rmin"],
+                    int(
+                        round(
+                            min(self.avgImg.shape[0] / 2, self.avgImg.shape[1] / 2)
+                            * 0.7
+                        )
+                    ),
+                )
+            self.removeInfo("bottom_hist")
+            self.removeInfo("bottom_hull")
 
     def getHistograms(self):
         """
@@ -317,29 +375,46 @@ class DiffractionCentroids:
         The background subtracted histogram will be kept in self.info["top_hull"] and self.info["bottom_hull"]
         These changing will affect peak locations, so peaks will be removed from self.info
         """
-        if 'top_hist' in self.info and 'top_hull' in self.info and 'bottom_hist' in self.info and 'bottom_hull' in self.info:
+        if (
+            "top_hist" in self.info
+            and "top_hull" in self.info
+            and "bottom_hist" in self.info
+            and "bottom_hull" in self.info
+        ):
             return
 
-        int_area = self.info['int_area']
-        img = self.getRotatedImage(copy.copy(self.avgImg), self.info['rotationAngle'])
-        center_y = self.info['center'][1]
-        img_area = img[:,int_area[0]: int_area[1]]
+        int_area = self.info["int_area"]
+        img = self.getRotatedImage(copy.copy(self.avgImg), self.info["rotationAngle"])
+        center_y = self.info["center"][1]
+        img_area = img[:, int_area[0] : int_area[1]]
         ignore = np.array([any(line <= self.mask_thres) for line in img_area])
         hist = np.sum(img_area, axis=1)
 
-        top_hist, top_ignore, bottom_hist, bottom_ignore = self.splitHist(center_y, hist, ignore)
+        top_hist, top_ignore, bottom_hist, bottom_ignore = self.splitHist(
+            center_y, hist, ignore
+        )
 
-        if not ('top_hist' in self.info or 'top_hull' in self.info):
-            top_hull = convexHull(top_hist, start_p=self.info['top_se'][0], end_p=self.info['top_se'][1], ignore=top_ignore)
-            self.info['top_hist'] = np.array(top_hist)
-            self.info['top_hull'] = np.array(top_hull)
-            self.removeInfo('pre_top_peaks')
+        if not ("top_hist" in self.info or "top_hull" in self.info):
+            top_hull = convexHull(
+                top_hist,
+                start_p=self.info["top_se"][0],
+                end_p=self.info["top_se"][1],
+                ignore=top_ignore,
+            )
+            self.info["top_hist"] = np.array(top_hist)
+            self.info["top_hull"] = np.array(top_hull)
+            self.removeInfo("pre_top_peaks")
 
-        if not ('bottom_hist' in self.info or 'bottom_hull' in self.info):
-            bottom_hull = convexHull(bottom_hist, start_p=self.info['bottom_se'][0], end_p=self.info['bottom_se'][1], ignore=bottom_ignore)
-            self.info['bottom_hist'] = np.array(bottom_hist)
-            self.info['bottom_hull'] = np.array(bottom_hull)
-            self.removeInfo('pre_bottom_peaks')
+        if not ("bottom_hist" in self.info or "bottom_hull" in self.info):
+            bottom_hull = convexHull(
+                bottom_hist,
+                start_p=self.info["bottom_se"][0],
+                end_p=self.info["bottom_se"][1],
+                ignore=bottom_ignore,
+            )
+            self.info["bottom_hist"] = np.array(bottom_hist)
+            self.info["bottom_hull"] = np.array(bottom_hull)
+            self.removeInfo("pre_bottom_peaks")
 
     def getPeaks(self):
         """
@@ -347,19 +422,25 @@ class DiffractionCentroids:
         These pre peaks will be kept in self.info["pre_[side]_peaks"]
         This calculation will affect reak peaks, so peaks will be removed from self.info
         """
-        if 'pre_top_peaks' not in self.info:
+        if "pre_top_peaks" not in self.info:
             if len(self.fixRanges) > 0:
-                self.info['pre_top_peaks'] = self.getPeaksFromRanges(self.info['top_hull'], self.fixRanges)
+                self.info["pre_top_peaks"] = self.getPeaksFromRanges(
+                    self.info["top_hull"], self.fixRanges
+                )
             else:
-                self.info['pre_top_peaks'] = getPeaksFromHist(self.info['top_hull'])
-            self.removeInfo('top_peaks')
+                self.info["pre_top_peaks"] = getPeaksFromHist(self.info["top_hull"])
+            self.removeInfo("top_peaks")
 
-        if 'pre_bottom_peaks' not in self.info:
+        if "pre_bottom_peaks" not in self.info:
             if len(self.fixRanges) > 0:
-                self.info['pre_bottom_peaks'] = self.getPeaksFromRanges(self.info['bottom_hull'], self.fixRanges)
+                self.info["pre_bottom_peaks"] = self.getPeaksFromRanges(
+                    self.info["bottom_hull"], self.fixRanges
+                )
             else:
-                self.info['pre_bottom_peaks'] = getPeaksFromHist(self.info['bottom_hull'])
-            self.removeInfo('bottom_peaks')
+                self.info["pre_bottom_peaks"] = getPeaksFromHist(
+                    self.info["bottom_hull"]
+                )
+            self.removeInfo("bottom_peaks")
 
     def getPeaksFromRanges(self, hist, fix_ranges):
         """
@@ -371,9 +452,9 @@ class DiffractionCentroids:
         results = []
         for fr in fix_ranges:
             r = fr[1]
-            start = min(r[0], len(hist)-2)
-            end = min(r[1], len(hist)-1)
-            peak = start + np.argmax(hist[start:end + 1])
+            start = min(r[0], len(hist) - 2)
+            end = min(r[1], len(hist) - 1)
+            peak = start + np.argmax(hist[start : end + 1])
             results.append(peak)
         return results
 
@@ -384,35 +465,47 @@ class DiffractionCentroids:
         Peaks location will affect baselines, so baselines will be removed from self.info
         :return:
         """
-        if 'top_peaks' not in self.info:
+        if "top_peaks" not in self.info:
             if len(self.fixRanges) == 0:
-                moved_peaks = self.movePeaks(self.info['top_hull'], self.info['pre_top_peaks'])
-                self.info['top_peaks'] = moved_peaks
-                self.info['top_names'] = [str(p) for p in moved_peaks]
+                moved_peaks = self.movePeaks(
+                    self.info["top_hull"], self.info["pre_top_peaks"]
+                )
+                self.info["top_peaks"] = moved_peaks
+                self.info["top_names"] = [str(p) for p in moved_peaks]
             else:
-                self.info['top_peaks'] = self.info['pre_top_peaks']
-                self.info['top_names'] = [self.fixRanges[i][0] for i in range(len(self.fixRanges))]
-            self.removeInfo('top_baselines')
+                self.info["top_peaks"] = self.info["pre_top_peaks"]
+                self.info["top_names"] = [
+                    self.fixRanges[i][0] for i in range(len(self.fixRanges))
+                ]
+            self.removeInfo("top_baselines")
 
         print("Top peaks : ")
-        for i in range(len(self.info['top_peaks'])):
-            print(str(self.info['top_names'][i])+" : "+str(self.info['top_peaks'][i]))
+        for i in range(len(self.info["top_peaks"])):
+            print(
+                str(self.info["top_names"][i]) + " : " + str(self.info["top_peaks"][i])
+            )
 
-        if 'bottom_peaks' not in self.info:
+        if "bottom_peaks" not in self.info:
             if len(self.fixRanges) == 0:
-                moved_peaks = self.movePeaks(self.info['bottom_hull'], self.info['pre_bottom_peaks'])
-                self.info['bottom_peaks'] = moved_peaks
-                self.info['bottom_names'] = [str(p) for p in moved_peaks]
+                moved_peaks = self.movePeaks(
+                    self.info["bottom_hull"], self.info["pre_bottom_peaks"]
+                )
+                self.info["bottom_peaks"] = moved_peaks
+                self.info["bottom_names"] = [str(p) for p in moved_peaks]
             else:
-                self.info['bottom_peaks'] = self.info['pre_bottom_peaks']
+                self.info["bottom_peaks"] = self.info["pre_bottom_peaks"]
                 names = [self.fixRanges[i][0] for i in range(len(self.fixRanges))]
-                self.info['bottom_names'] = names
-            self.removeInfo('bottom_baselines')
+                self.info["bottom_names"] = names
+            self.removeInfo("bottom_baselines")
         print("Bottom peaks : ")
-        for i in range(len(self.info['bottom_peaks'])):
-            print(str(self.info['bottom_names'][i]) + " : " + str(self.info['bottom_peaks'][i]))
+        for i in range(len(self.info["bottom_peaks"])):
+            print(
+                str(self.info["bottom_names"][i])
+                + " : "
+                + str(self.info["bottom_peaks"][i])
+            )
 
-    def movePeaks(self, hist, peaks, dist = 10):
+    def movePeaks(self, hist, peaks, dist=10):
         """
         Move peaks to their local maximum. Duplicated peak locations will be removed
         :param hist: input histogram
@@ -425,17 +518,17 @@ class DiffractionCentroids:
         for p in peaks:
             new_peak = p
             while True:
-                start = max(0, p-dist)
-                end = min(len(hist), p+dist)
+                start = max(0, p - dist)
+                end = min(len(hist), p + dist)
                 new_peak = start + np.argmax(hist[start:end])
 
-                if abs(p-new_peak) < 4:
+                if abs(p - new_peak) < 4:
                     break
                 left = min(p, new_peak)
                 right = max(p, new_peak)
-                if all(smooth_hist[left+1:right] > p):
+                if all(smooth_hist[left + 1 : right] > p):
                     break
-                dist = dist/2
+                dist = dist / 2
             peakList.append(new_peak)
         return sorted(list(set(peakList)))
 
@@ -445,42 +538,42 @@ class DiffractionCentroids:
         Baselines will be kept in self..info["[side]_baselines"].
         This calulation might affact other infos : centroids width and intensity
         """
-        if 'top_baselines' not in self.info:
-            hist = self.info['top_hull']
-            peaks = self.info['top_peaks']
-            self.info['top_baselines'] = [hist[p] / 2. for p in peaks]
-            self.removeInfo('top_centroids')
-        print("Top baselines = "+str(self.info['top_baselines']))
-        if 'bottom_baselines' not in self.info:
-            hist = self.info['bottom_hull']
-            peaks = self.info['bottom_peaks']
-            self.info['bottom_baselines'] = [hist[p]/2. for p in peaks]
-            self.removeInfo('bottom_centroids')
-        print("Bottom baselines = "+str(self.info['bottom_baselines']))
+        if "top_baselines" not in self.info:
+            hist = self.info["top_hull"]
+            peaks = self.info["top_peaks"]
+            self.info["top_baselines"] = [hist[p] / 2.0 for p in peaks]
+            self.removeInfo("top_centroids")
+        print("Top baselines = " + str(self.info["top_baselines"]))
+        if "bottom_baselines" not in self.info:
+            hist = self.info["bottom_hull"]
+            peaks = self.info["bottom_peaks"]
+            self.info["bottom_baselines"] = [hist[p] / 2.0 for p in peaks]
+            self.removeInfo("bottom_centroids")
+        print("Bottom baselines = " + str(self.info["bottom_baselines"]))
 
     def calculateCentroids(self):
         """
         Calculate all other peaks infomation including centroid, width, and intensity(area)
         This results will be kept in self.info
         """
-        if 'top_centroids' not in self.info:
-            hist = self.info['top_hull']
-            peaks = self.info['top_peaks']
+        if "top_centroids" not in self.info:
+            hist = self.info["top_hull"]
+            peaks = self.info["top_peaks"]
             baselines = self.info["top_baselines"]
             results = getPeakInformations(hist, peaks, baselines)
-            self.info['top_centroids'] = results['centroids']
-            self.info['top_widths'] = results['widths']
-            self.info['top_areas'] = results['areas']
-        print("Top centroids = "+ str(self.info['top_centroids']))
-        if 'bottom_centroids' not in self.info:
-            hist = self.info['bottom_hull']
-            peaks = self.info['bottom_peaks']
+            self.info["top_centroids"] = results["centroids"]
+            self.info["top_widths"] = results["widths"]
+            self.info["top_areas"] = results["areas"]
+        print("Top centroids = " + str(self.info["top_centroids"]))
+        if "bottom_centroids" not in self.info:
+            hist = self.info["bottom_hull"]
+            peaks = self.info["bottom_peaks"]
             baselines = self.info["bottom_baselines"]
             results = getPeakInformations(hist, peaks, baselines)
-            self.info['bottom_centroids'] = results['centroids']
-            self.info['bottom_widths'] = results['widths']
-            self.info['bottom_areas'] = results['areas']
-        print("Bottom centroids = " + str(self.info['bottom_centroids']))
+            self.info["bottom_centroids"] = results["centroids"]
+            self.info["bottom_widths"] = results["widths"]
+            self.info["bottom_areas"] = results["areas"]
+        print("Bottom centroids = " + str(self.info["bottom_centroids"]))
 
     def fitModel(self, hist, peaks, baselines):
         """
@@ -492,26 +585,26 @@ class DiffractionCentroids:
         pars = Parameters()
         mean_margin = 3
 
-        for (i, p) in enumerate(peaks):
+        for i, p in enumerate(peaks):
             baseline = baselines[i]
             width, _ = getWidth(hist, p, baseline)
-            new_hist[p - width:p + width] = hist[p - width:p + width]
-            prefix = "v"+str(i + 1) + '_'
+            new_hist[p - width : p + width] = hist[p - width : p + width]
+            prefix = "v" + str(i + 1) + "_"
             init_amp = hist[p] * width * np.sqrt(2 * np.pi)
             voigt = VoigtModel(prefix=prefix)
-            pars.add(prefix + 'center', p,  min=p - mean_margin, max=p + mean_margin)
-            pars.add(prefix + 'sigma',width, min = 0, max = width*3.)
-            pars.add(prefix + 'amplitude', init_amp, min = 0, max = init_amp*3.)
-            pars.add(prefix + 'gamma', width,  min = 0, max = width*3.)
-            pars.add(prefix + 'fwhm', baseline, min=0, max=baseline * 3.)
-            pars.add(prefix + 'height',  hist[p], min=0, max= hist[p] * 3.)
+            pars.add(prefix + "center", p, min=p - mean_margin, max=p + mean_margin)
+            pars.add(prefix + "sigma", width, min=0, max=width * 3.0)
+            pars.add(prefix + "amplitude", init_amp, min=0, max=init_amp * 3.0)
+            pars.add(prefix + "gamma", width, min=0, max=width * 3.0)
+            pars.add(prefix + "fwhm", baseline, min=0, max=baseline * 3.0)
+            pars.add(prefix + "height", hist[p], min=0, max=hist[p] * 3.0)
             if i == 0:
                 model = voigt
             else:
                 model += voigt
 
         xs = np.arange(0, len(new_hist))
-        result = model.fit(np.array(new_hist), params = pars, x = xs).values
+        result = model.fit(np.array(new_hist), params=pars, x=xs).values
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(hist)
@@ -529,23 +622,23 @@ class DiffractionCentroids:
         """
         new_baseline = str(new_baseline)
         hist = self.info[side + "_hull"]
-        peaks = self.info[side+ "_peaks"]
+        peaks = self.info[side + "_peaks"]
         baselines = self.info[side + "_baselines"]
         height = hist[peaks[peak_num]]
         if "%" in new_baseline:
             # if new_baseline contain "%", baseline value will use this as percent of peak height
             percent = float(new_baseline.rstrip("%"))
-            baseline = height*percent/100.
+            baseline = height * percent / 100.0
         elif len(new_baseline) == 0:
             # if new_baseline is empty, baseline will by half-height
-            baseline = float(height*.5)
+            baseline = float(height * 0.5)
         else:
             baseline = float(new_baseline)
 
         if height > baseline:
             baselines[peak_num] = baseline
 
-        self.removeInfo(side+"_centroids")
+        self.removeInfo(side + "_centroids")
 
     def setOffMerBaseline(self, quadrant, ind, new_baseline):
         """
@@ -563,10 +656,10 @@ class DiffractionCentroids:
         if "%" in new_baseline:
             # if new_baseline contain "%", baseline value will use this as percent of peak height
             percent = float(new_baseline.rstrip("%"))
-            baseline = height * percent / 100.
+            baseline = height * percent / 100.0
         elif len(new_baseline) == 0:
             # if new_baseline is empty, baseline will by half-height
-            baseline = float(height * .5)
+            baseline = float(height * 0.5)
         else:
             baseline = float(new_baseline)
 
@@ -607,12 +700,12 @@ class DiffractionCentroids:
         """
         Produce Rmin and Rmax of off-meridian ranges.
         """
-        if 'off_mer_rmin_rmax' not in self.info:
-            if 'fixed_offmer_hull_range' in self.info:
-                self.info['off_mer_rmin_rmax'] = self.info['fixed_offmer_hull_range']
+        if "off_mer_rmin_rmax" not in self.info:
+            if "fixed_offmer_hull_range" in self.info:
+                self.info["off_mer_rmin_rmax"] = self.info["fixed_offmer_hull_range"]
             else:
                 rmin, rmax = self.initOffMeridianPeakRange()
-                self.info['off_mer_rmin_rmax'] = (rmin, rmax)
+                self.info["off_mer_rmin_rmax"] = (rmin, rmax)
             self.removeInfo("off_mer_hists")
 
     def getOffMeridianHistograms(self):
@@ -633,33 +726,47 @@ class DiffractionCentroids:
             # left_ignore = np.array([any(line < 0) for line in left_area])
             # right_ignore = np.array([any(line < 0) for line in right_area])
 
-            left_ignore = np.array([sum(np.array(line) < 0) > 0.1*len(line) for line in left_area])
-            right_ignore = np.array([sum(np.array(line) < 0) > 0.1*len(line) for line in right_area])
+            left_ignore = np.array(
+                [sum(np.array(line) < 0) > 0.1 * len(line) for line in left_area]
+            )
+            right_ignore = np.array(
+                [sum(np.array(line) < 0) > 0.1 * len(line) for line in right_area]
+            )
             left_hist = np.sum(left_area, axis=1)
             right_hist = np.sum(right_area, axis=1)
-            top_left_hist, top_left_ignore, bottom_left_hist, bottom_left_ignore = self.splitHist(center_y, left_hist,
-                                                                                                  left_ignore)
-            top_right_hist, top_right_ignore, bottom_right_hist, bottom_right_ignore = self.splitHist(center_y, right_hist,
-                                                                                                  right_ignore)
-            start, end = self.info['off_mer_rmin_rmax']
-            top_left_hull = convexHull(top_left_hist, start_p=start, end_p=end, ignore=top_left_ignore)
-            bottom_left_hull = convexHull(bottom_left_hist, start_p=start, end_p=end, ignore=bottom_left_ignore)
-            top_right_hull = convexHull(top_right_hist, start_p=start, end_p=end, ignore=top_right_ignore)
-            bottom_right_hull = convexHull(bottom_right_hist, start_p=start, end_p=end, ignore=bottom_right_ignore)
+            top_left_hist, top_left_ignore, bottom_left_hist, bottom_left_ignore = (
+                self.splitHist(center_y, left_hist, left_ignore)
+            )
+            top_right_hist, top_right_ignore, bottom_right_hist, bottom_right_ignore = (
+                self.splitHist(center_y, right_hist, right_ignore)
+            )
+            start, end = self.info["off_mer_rmin_rmax"]
+            top_left_hull = convexHull(
+                top_left_hist, start_p=start, end_p=end, ignore=top_left_ignore
+            )
+            bottom_left_hull = convexHull(
+                bottom_left_hist, start_p=start, end_p=end, ignore=bottom_left_ignore
+            )
+            top_right_hull = convexHull(
+                top_right_hist, start_p=start, end_p=end, ignore=top_right_ignore
+            )
+            bottom_right_hull = convexHull(
+                bottom_right_hist, start_p=start, end_p=end, ignore=bottom_right_ignore
+            )
 
             self.info["off_mer_hists"] = {
-                "hists" : {
-                    "top_left" : np.array(top_left_hist),
+                "hists": {
+                    "top_left": np.array(top_left_hist),
                     "top_right": np.array(top_right_hist),
-                    "bottom_left" : np.array(bottom_left_hist),
-                    "bottom_right": np.array(bottom_right_hist)
+                    "bottom_left": np.array(bottom_left_hist),
+                    "bottom_right": np.array(bottom_right_hist),
                 },
                 "hulls": {
                     "top_left": np.array(top_left_hull),
                     "top_right": np.array(top_right_hull),
                     "bottom_left": np.array(bottom_left_hull),
-                    "bottom_right": np.array(bottom_right_hull)
-                }
+                    "bottom_right": np.array(bottom_right_hull),
+                },
             }
             self.removeInfo("off_mer_peaks")
 
@@ -672,8 +779,10 @@ class DiffractionCentroids:
         if "off_mer_peaks" not in self.info:
             peaks = {}
             hulls = self.info["off_mer_hists"]["hulls"]
-            peak_ranges = [("59",(self.init_off_mer["s59"], self.init_off_mer["e59"])),
-                           ("51",(self.init_off_mer["s51"], self.init_off_mer["e51"]))]
+            peak_ranges = [
+                ("59", (self.init_off_mer["s59"], self.init_off_mer["e59"])),
+                ("51", (self.init_off_mer["s51"], self.init_off_mer["e51"])),
+            ]
             for k in hulls.keys():
                 peaks[k] = self.getPeaksFromRanges(hulls[k], peak_ranges)
             self.info["off_mer_peaks"] = peaks
@@ -690,7 +799,7 @@ class DiffractionCentroids:
             peaks = self.info["off_mer_peaks"]
             hulls = self.info["off_mer_hists"]["hulls"]
             for k in peaks.keys():
-                baselines[k] = [hulls[k][p]*.5 for p in peaks[k]]
+                baselines[k] = [hulls[k][p] * 0.5 for p in peaks[k]]
             self.info["off_mer_baselines"] = baselines
             self.removeInfo("off_mer_peak_info")
 
@@ -718,14 +827,16 @@ class DiffractionCentroids:
         """
         Find start and end points of peak 51 and 59 for applying convex hull
         """
-        return int(round(0.9*self.init_off_mer["s59"])), int(round(1.1*self.init_off_mer["e51"]))
+        return int(round(0.9 * self.init_off_mer["s59"])), int(
+            round(1.1 * self.init_off_mer["e51"])
+        )
 
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
         :return: -
         """
-        cache_path = fullPath(self.output_dir, 'dc_cache')
+        cache_path = fullPath(self.output_dir, "dc_cache")
 
         if not exists(cache_path):
             makedirs(cache_path)

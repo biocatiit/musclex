@@ -29,15 +29,18 @@ authorization from Illinois Institute of Technology.
 from os import makedirs
 from os.path import exists
 import pandas as pd
+
 try:
     from ..utils.file_manager import fullPath
-except: # for coverage
+except:  # for coverage
     from utils.file_manager import fullPath
+
 
 class XV_CSVManager:
     """
     A class taking care of writing results including csv file and failedcases file
     """
+
     def __init__(self, dir_path):
         """
         init with directory path
@@ -45,8 +48,8 @@ class XV_CSVManager:
         """
         self.dataframe = None
         self.result_path = fullPath(dir_path, "xv_results")
-        self.filename = fullPath(self.result_path, 'summary.csv')
-        self.colnames = ['Filename', 'Histogram', 'Comment']
+        self.filename = fullPath(self.result_path, "summary.csv")
+        self.colnames = ["Filename", "Histogram", "Comment"]
         self.loadSummary()
 
     def loadSummary(self):
@@ -55,7 +58,7 @@ class XV_CSVManager:
         :return:
         """
         if not exists(self.filename):
-            self.dataframe = pd.DataFrame(columns = self.colnames)
+            self.dataframe = pd.DataFrame(columns=self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
 
@@ -70,24 +73,26 @@ class XV_CSVManager:
         img_name = xrayViewer.img_name
         self.removeData(img_name)
         data = {}
-        hist = getattr(xrayViewer, 'hist', None)
+        hist = getattr(xrayViewer, "hist", None)
         has_hist = hist is not None and len(hist) > 0
 
         # If there is no result
         if not has_hist:
             for k in self.dataframe.columns:
-                data[k] = '-'
-            data['Filename'] = img_name
-            data['Comment'] = "No slice or box selected"
+                data[k] = "-"
+            data["Filename"] = img_name
+            data["Comment"] = "No slice or box selected"
         else:
             # Get all needed infos
-            data['Filename'] = img_name
-            data['Histogram'] = hist.tolist() if hasattr(hist, 'tolist') else hist
+            data["Filename"] = img_name
+            data["Histogram"] = hist.tolist() if hasattr(hist, "tolist") else hist
 
         self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([data])])
         # self.dataframe = self.dataframe.append(data, ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
-        self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
+        self.dataframe.to_csv(
+            self.filename, index=False, columns=self.colnames
+        )  # Write to csv file
 
     def removeData(self, img_name):
         """

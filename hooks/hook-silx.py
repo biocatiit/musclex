@@ -34,4 +34,4 @@ is why drawmask worked in venv installs but crashed in the .deb with
 
 from PyInstaller.utils.hooks import collect_all
 
-datas, binaries, hiddenimports = collect_all('silx')
+datas, binaries, hiddenimports = collect_all("silx")

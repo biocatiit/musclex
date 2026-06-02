@@ -80,11 +80,10 @@ class CartesianRowMapper:
     absolute FileManager index in ``COL_INDEX``.
     """
 
-    _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
+    _GROUP_BG = QColor(100, 149, 237)  # cornflower blue
     _GROUP_FG = QColor(255, 255, 255)
 
-    def __init__(self, table: QTableWidget, col_index: int,
-                 col_exp: int, workspace):
+    def __init__(self, table: QTableWidget, col_index: int, col_exp: int, workspace):
         self._table = table
         self._col_index = col_index
         self._col_exp = col_exp
@@ -157,7 +156,7 @@ class CartesianRowMapper:
             if fm.source_labels and start < len(fm.source_labels):
                 exp_label = fm.source_labels[start]
             else:
-                exp_label = os.path.basename(dp.rstrip('/\\'))
+                exp_label = os.path.basename(dp.rstrip("/\\"))
             for idx in range(n_indices):
                 fm_idx = start + idx
                 name = fm.names[fm_idx]

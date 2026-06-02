@@ -4,12 +4,29 @@ import numpy as np
 import cv2
 import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
-    QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QHeaderView, QAbstractItemView, QLabel,
-    QSizePolicy, QRadioButton, QSpinBox, QWidget, QSplitter,
-    QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
-    QProgressDialog, QMessageBox,
-    QTabBar, QInputDialog,
+    QMainWindow,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QPushButton,
+    QHeaderView,
+    QAbstractItemView,
+    QLabel,
+    QSizePolicy,
+    QRadioButton,
+    QSpinBox,
+    QWidget,
+    QSplitter,
+    QScrollArea,
+    QFrame,
+    QStackedWidget,
+    QCheckBox,
+    QStatusBar,
+    QProgressDialog,
+    QMessageBox,
+    QTabBar,
+    QInputDialog,
 )
 from PySide6.QtCore import Qt, QThreadPool, QTimer
 
@@ -29,7 +46,6 @@ from musclex.ui.add_intensities_common import (
 )
 from musclex.ui.widgets.image_alignment_table import ColKey
 from musclex.ui.widgets.image_alignment_widget import ImageAlignmentWidget
-
 
 _AIME_WORKFLOW_HTML = """
 <html>
@@ -120,16 +136,18 @@ _AIME_WORKFLOW_TITLE = "AIME Workflow Guide"
 class AddIntensitiesMultipleExp(QMainWindow):
 
     # Window-specific column indices
-    COL_INDEX = 0    # frame-index group label
-    COL_EXP   = 1    # experiment directory basename
+    COL_INDEX = 0  # frame-index group label
+    COL_EXP = 1  # experiment directory basename
 
     # Visual style for group cells
-    _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
+    _GROUP_BG = QColor(100, 149, 237)  # cornflower blue
     _GROUP_FG = QColor(255, 255, 255)
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Muscle X Add Intensities Multiple Experiments v." + __version__)
+        self.setWindowTitle(
+            "Muscle X Add Intensities Multiple Experiments v." + __version__
+        )
         self._current_inv_transform = None
         self.workspace = ProcessingWorkspace(
             settings_dir="",
@@ -147,6 +165,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # Multiprocessing sum-images
         from musclex.utils.task_manager import ProcessingTaskManager
+
         self.sumTaskManager = ProcessingTaskManager()
         self.sumExecutor = None
         self._in_sum_batch = False
@@ -165,40 +184,57 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._build_ui()
         self._create_menu_bar()
         self._row_mapper = CartesianRowMapper(
-            self.panel.table, self.COL_INDEX, self.COL_EXP, self.workspace)
+            self.panel.table, self.COL_INDEX, self.COL_EXP, self.workspace
+        )
         self.panel.set_row_mapper(self._row_mapper)
         self.resize(1400, 800)
         self.show()
-        QTimer.singleShot(0, lambda: WorkflowGuideDialog.show_if_needed(
-            _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self))
+        QTimer.singleShot(
+            0,
+            lambda: WorkflowGuideDialog.show_if_needed(
+                _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self
+            ),
+        )
 
     def _create_menu_bar(self):
         from PySide6.QtGui import QAction
-        changeOutputDirAction = QAction('Change Output Directory...', self)
-        changeOutputDirAction.setToolTip("Choose a different folder to write the summed/averaged images and CSV output")
+
+        changeOutputDirAction = QAction("Change Output Directory...", self)
+        changeOutputDirAction.setToolTip(
+            "Choose a different folder to write the summed/averaged images and CSV output"
+        )
         changeOutputDirAction.triggered.connect(self._change_output_directory)
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
+        fileMenu = menubar.addMenu("&File")
         fileMenu.addAction(changeOutputDirAction)
 
     def _change_output_directory(self):
         """Let the user pick a new output directory for AIME results."""
         from PySide6.QtWidgets import QDialog, QMessageBox
-        from musclex.ui.widgets.output_dir_dialog import OutputDirDialog, _persist_association
+        from musclex.ui.widgets.output_dir_dialog import (
+            OutputDirDialog,
+            _persist_association,
+        )
         from musclex.utils.directory_context import DirectoryContext
 
         if not self._exp_dirs:
             QMessageBox.information(
-                self, "No experiments loaded",
-                "Please load experiments before changing the output directory.")
+                self,
+                "No experiments loaded",
+                "Please load experiments before changing the output directory.",
+            )
             return
 
         # Determine whether all experiments share a single parent (single-parent
         # case can store an input→output association; multi-parent cannot).
-        parent_dirs = {os.path.dirname(s.rstrip('/\\')) for s in self._exp_dirs}
-        input_dir: str | None = next(iter(parent_dirs)) if len(parent_dirs) == 1 else None
+        parent_dirs = {os.path.dirname(s.rstrip("/\\")) for s in self._exp_dirs}
+        input_dir: str | None = (
+            next(iter(parent_dirs)) if len(parent_dirs) == 1 else None
+        )
 
-        current_output = self.dir_context.output_dir if self.dir_context else (input_dir or "")
+        current_output = (
+            self.dir_context.output_dir if self.dir_context else (input_dir or "")
+        )
         dlg = OutputDirDialog(input_dir, current_output, parent=self)
         if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
             return
@@ -207,7 +243,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if input_dir:
             _persist_association(input_dir, new_output)
         common_parent = input_dir or self._parent_dir or ""
-        self.dir_context = DirectoryContext(input_dir=common_parent, output_dir=new_output)
+        self.dir_context = DirectoryContext(
+            input_dir=common_parent, output_dir=new_output
+        )
         self.workspace.set_settings_dir(new_output)
 
     # ------------------------------------------------------------------
@@ -223,19 +261,36 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # Alignment panel (owns table, detection controls, multiprocessing)
         col_map = {
-            ColKey.FRAME: 2, ColKey.CENTER: 3, ColKey.CENTER_MODE: 4,
-            ColKey.CENTER_DIST: 5, ColKey.AUTO_CENTER: 6,
-            ColKey.AUTO_MANUAL_DIST: 7, ColKey.ROTATION: 8,
-            ColKey.ROTATION_MODE: 9, ColKey.ROTATION_DIFF: 10,
-            ColKey.AUTO_ROTATION: 11, ColKey.AUTO_ROT_DIFF: 12,
-            ColKey.SIZE: 13, ColKey.IMAGE_DIFF: 14,
+            ColKey.FRAME: 2,
+            ColKey.CENTER: 3,
+            ColKey.CENTER_MODE: 4,
+            ColKey.CENTER_DIST: 5,
+            ColKey.AUTO_CENTER: 6,
+            ColKey.AUTO_MANUAL_DIST: 7,
+            ColKey.ROTATION: 8,
+            ColKey.ROTATION_MODE: 9,
+            ColKey.ROTATION_DIFF: 10,
+            ColKey.AUTO_ROTATION: 11,
+            ColKey.AUTO_ROT_DIFF: 12,
+            ColKey.SIZE: 13,
+            ColKey.IMAGE_DIFF: 14,
         }
         headers = [
-            "Index", "Experiment", "Frame", "Original Center",
-            "Center\nMode", "Dist\nfrom Base", "Auto\nCenter",
-            "Auto Center\nDifference", "Rotation", "Rotation\nMode",
-            "Rot Diff\nfrom Base", "Auto\nRotation",
-            "Auto Rot\nDifference", "Size", "Image\nDifference",
+            "Index",
+            "Experiment",
+            "Frame",
+            "Original Center",
+            "Center\nMode",
+            "Dist\nfrom Base",
+            "Auto\nCenter",
+            "Auto Center\nDifference",
+            "Rotation",
+            "Rotation\nMode",
+            "Rot Diff\nfrom Base",
+            "Auto\nRotation",
+            "Auto Rot\nDifference",
+            "Size",
+            "Image\nDifference",
         ]
         self.panel = ImageAlignmentWidget(
             workspace=self.workspace,
@@ -256,8 +311,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # Connect panel signals
         self.panel.rowSelected.connect(self._on_panel_row_selected)
-        self.panel.requestSetCenterRotation.connect(
-            self._open_center_rotation_dialog)
+        self.panel.requestSetCenterRotation.connect(self._open_center_rotation_dialog)
         self.panel.globalBaseChanged.connect(self._on_global_base_changed)
 
         # Status bar
@@ -292,7 +346,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _browse_btn.clicked.connect(self._on_browse_parent_dir)
         _clear_list_btn = QPushButton("Clear List")
         _clear_list_btn.setMinimumHeight(32)
-        _clear_list_btn.setToolTip("Remove all experiments from the available list above")
+        _clear_list_btn.setToolTip(
+            "Remove all experiments from the available list above"
+        )
         _clear_list_btn.clicked.connect(self._on_clear_source_list)
         _dir_row.addWidget(_browse_btn)
         _dir_row.addWidget(_clear_list_btn)
@@ -309,10 +365,13 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _sel_layout.addWidget(_avail_label)
 
         from PySide6.QtWidgets import QListWidget
+
         self._source_list_widget = QListWidget()
         self._source_list_widget.setMinimumHeight(160)
         self._source_list_widget.setSelectionMode(QListWidget.ExtendedSelection)
-        self._source_list_widget.itemSelectionChanged.connect(self._on_source_selection_changed)
+        self._source_list_widget.itemSelectionChanged.connect(
+            self._on_source_selection_changed
+        )
         _sel_layout.addWidget(self._source_list_widget)
 
         # Action row
@@ -327,7 +386,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._load_sources_btn.setMinimumHeight(32)
         self._load_sources_btn.setEnabled(False)
         self._load_sources_btn.setStyleSheet("font-weight: bold;")
-        self._load_sources_btn.setToolTip("Load the selected experiments and prepare them for summing")
+        self._load_sources_btn.setToolTip(
+            "Load the selected experiments and prepare them for summing"
+        )
         self._load_sources_btn.clicked.connect(self._on_load_sources)
         _action_row.addWidget(_sel_all_btn)
         _action_row.addWidget(_sel_none_btn)
@@ -348,8 +409,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._left_stack.setCurrentIndex(0)
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
         self.workspace.needsReprocess.connect(
-            lambda: self._on_image_data_ready(self.workspace._current_image_data)
-            if self.workspace._current_image_data is not None else None
+            lambda: (
+                self._on_image_data_ready(self.workspace._current_image_data)
+                if self.workspace._current_image_data is not None
+                else None
+            )
         )
         self.workspace.batchSettingsChanged.connect(self.panel.refresh_all_rows)
         # Right panel container (global settings group box + scrollable panel)
@@ -373,8 +437,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # (Detection controls are inside self.panel — no manual UI building needed)
 
-
-
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
         self.right_panel.setWidgetResizable(True)
@@ -388,8 +450,6 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._right_panel_layout.setSpacing(6)
         self.right_panel.setWidget(self._right_panel_content)
         right_container_layout.addWidget(self.right_panel, 1)
-
-
 
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.addWidget(self._left_stack)
@@ -415,8 +475,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._workflow_btn = QPushButton("Workflow Guide")
         self._workflow_btn.setToolTip("Show the step-by-step workflow guide")
         self._workflow_btn.setFixedHeight(26)
-        self._workflow_btn.clicked.connect(lambda: WorkflowGuideDialog.show_always(
-            _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self))
+        self._workflow_btn.clicked.connect(
+            lambda: WorkflowGuideDialog.show_always(
+                _AIME_WORKFLOW_TITLE, _AIME_WORKFLOW_HTML, _AIME_SETTINGS_KEY, self
+            )
+        )
         top_bar.addWidget(self._workflow_btn)
 
         top_bar_widget = QWidget()
@@ -426,7 +489,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         # Main stack: page 0 = splitter (Origin), page 1 = Result page
         self._result_page = self._build_result_page()
         self._main_stack = QStackedWidget()
-        self._main_stack.addWidget(self.splitter)      # page 0
+        self._main_stack.addWidget(self.splitter)  # page 0
         self._main_stack.addWidget(self._result_page)  # page 1
         root.addWidget(self._main_stack)
 
@@ -441,12 +504,16 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._right_panel_layout.addWidget(self.panel)
         self.centerChkBx = QCheckBox("Original Center")
         self.centerChkBx.setChecked(False)
-        self.centerChkBx.setToolTip("Show this image's own detected (per-image) center on the display")
+        self.centerChkBx.setToolTip(
+            "Show this image's own detected (per-image) center on the display"
+        )
         self.centerChkBx.stateChanged.connect(self._redraw_overlays)
 
         self.baseCenterChkBx = QCheckBox("Global Base Center")
         self.baseCenterChkBx.setChecked(False)
-        self.baseCenterChkBx.setToolTip("Show the global base image center used to align all experiments")
+        self.baseCenterChkBx.setToolTip(
+            "Show the global base image center used to align all experiments"
+        )
         self.baseCenterChkBx.stateChanged.connect(self._redraw_overlays)
 
         _center_row = QWidget()
@@ -458,23 +525,22 @@ class AddIntensitiesMultipleExp(QMainWindow):
         _center_row_layout.addStretch()
         self.image_viewer.display_panel.add_to_top_slot(_center_row)
 
-
-
-
-
-
         # Image Operations collapsible group
-        self._img_ops_group = CollapsibleGroupBox("Image Operations", start_expanded=True)
+        self._img_ops_group = CollapsibleGroupBox(
+            "Image Operations", start_expanded=True
+        )
         _img_ops_layout = QVBoxLayout()
         _img_ops_layout.setSpacing(4)
         _img_ops_layout.setContentsMargins(4, 4, 4, 4)
 
         self.avg_instead_of_sum_chk = QCheckBox("Compute Average Instead of Sum")
         self.avg_instead_of_sum_chk.setToolTip(
-            "When enabled, the result is the per-pixel mean across the input images instead of the sum")
+            "When enabled, the result is the per-pixel mean across the input images instead of the sum"
+        )
         self.compress_chk = QCheckBox("Compress the Resulting Images")
         self.compress_chk.setToolTip(
-            "Save the resulting images as compressed TIFFs (smaller files; compatible with ImageJ but not fit2d)")
+            "Save the resulting images as compressed TIFFs (smaller files; compatible with ImageJ but not fit2d)"
+        )
         _img_ops_layout.addWidget(self.avg_instead_of_sum_chk)
         _img_ops_layout.addWidget(self.compress_chk)
 
@@ -490,11 +556,13 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.radio_rot_absolute = QRadioButton("Align to Make Equator Horizontal")
         self.radio_rot_absolute.setChecked(True)
         self.radio_rot_absolute.setToolTip(
-            "Rotate every image by its own detected angle so the equator becomes horizontal in absolute coordinates")
+            "Rotate every image by its own detected angle so the equator becomes horizontal in absolute coordinates"
+        )
         self.radio_rot_diff = QRadioButton("Align to Base Image Rotation")
         self.radio_rot_diff.setToolTip(
             "Rotate every image by the difference between its angle and the base image's angle, "
-            "preserving the base image's orientation")
+            "preserving the base image's orientation"
+        )
         _rot_row_layout.addWidget(self.radio_rot_absolute)
         _rot_row_layout.addWidget(self.radio_rot_diff)
         _rot_row_layout.addStretch()
@@ -508,10 +576,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self.sum_images_btn.setCheckable(True)
         self.sum_images_btn.setMinimumHeight(32)
         self.sum_images_btn.setStyleSheet(
-            "QPushButton { color: #ededed; background-color: #af6207 }")
+            "QPushButton { color: #ededed; background-color: #af6207 }"
+        )
         self.sum_images_btn.setToolTip(
             "Sum (or average) the loaded experiments image-by-image, grouping by frame index, "
-            "and write the results to the output directory")
+            "and write the results to the output directory"
+        )
         self._right_panel_layout.addWidget(self.sum_images_btn)
 
         self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
@@ -530,7 +600,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._result_table = QTableWidget()
         self._result_table.setColumnCount(4)
         self._result_table.setHorizontalHeaderLabels(
-            ["Filename", "N Images", "Total Intensity", "Date"])
+            ["Filename", "N Images", "Total Intensity", "Date"]
+        )
         self._result_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._result_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._result_table.setAlternatingRowColors(True)
@@ -581,34 +652,37 @@ class AddIntensitiesMultipleExp(QMainWindow):
         out = self.dir_context.output_dir if self.dir_context else self._parent_dir
         aime_results_dir = os.path.join(out, "aime_results") if out else ""
         if not self._result_entries and aime_results_dir:
-            csv_path = os.path.join(aime_results_dir, 'intensities.csv')
+            csv_path = os.path.join(aime_results_dir, "intensities.csv")
             if os.path.exists(csv_path):
                 import csv as _csv
+
                 seen = {}
                 try:
-                    with open(csv_path, newline='') as f:
+                    with open(csv_path, newline="") as f:
                         for row in _csv.reader(f):
-                            if not row or row[0] == 'Filename':
+                            if not row or row[0] == "Filename":
                                 continue
                             seen[row[0]] = {
-                                'filename': row[0],
-                                'date': row[1] if len(row) > 1 else '',
-                                'total_intensity': row[2] if len(row) > 2 else '',
-                                'n_images': row[7] if len(row) > 7 else '',
+                                "filename": row[0],
+                                "date": row[1] if len(row) > 1 else "",
+                                "total_intensity": row[2] if len(row) > 2 else "",
+                                "n_images": row[7] if len(row) > 7 else "",
                             }
                     self._result_entries = list(seen.values())
                 except Exception as e:
                     print(f"Could not read intensities.csv: {e}")
 
-        self._result_entries.sort(key=lambda e: e['filename'])
+        self._result_entries.sort(key=lambda e: e["filename"])
         self._result_table.setRowCount(0)
         for entry in self._result_entries:
             row = self._result_table.rowCount()
             self._result_table.insertRow(row)
-            self._result_table.setItem(row, 0, QTableWidgetItem(str(entry['filename'])))
-            self._result_table.setItem(row, 1, QTableWidgetItem(str(entry['n_images'])))
-            self._result_table.setItem(row, 2, QTableWidgetItem(str(entry['total_intensity'])))
-            self._result_table.setItem(row, 3, QTableWidgetItem(str(entry['date'])))
+            self._result_table.setItem(row, 0, QTableWidgetItem(str(entry["filename"])))
+            self._result_table.setItem(row, 1, QTableWidgetItem(str(entry["n_images"])))
+            self._result_table.setItem(
+                row, 2, QTableWidgetItem(str(entry["total_intensity"]))
+            )
+            self._result_table.setItem(row, 3, QTableWidgetItem(str(entry["date"])))
 
         if self._result_table.rowCount() > 0:
             self._result_table.selectRow(0)
@@ -623,17 +697,19 @@ class AddIntensitiesMultipleExp(QMainWindow):
         aime_results_dir = os.path.join(out, "aime_results") if out else ""
         if not aime_results_dir:
             return
-        full_path = os.path.join(aime_results_dir, entry['filename'])
+        full_path = os.path.join(aime_results_dir, entry["filename"])
         if not os.path.exists(full_path):
             return
         try:
             img = load_image_via_spec(
-                aime_results_dir, entry['filename'], ("tiff", full_path))
+                aime_results_dir, entry["filename"], ("tiff", full_path)
+            )
             # Mirror ImageNavigatorWidget behaviour: auto-scale intensity on new
             # image unless "Persist intensities" is checked in the display panel.
             if self._result_viewer.display_panel is not None:
                 self._result_viewer.display_panel.update_from_image(
-                    img, respect_persist=True)
+                    img, respect_persist=True
+                )
             self._result_viewer.display_image(img)
         except Exception as e:
             print(f"Could not load result image {entry['filename']}: {e}")
@@ -661,13 +737,16 @@ class AddIntensitiesMultipleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     # Folder names generated by AIME/AISE that should not be treated as experiments
-    _SYSTEM_DIRS = {'aime_results', 'aise_results', 'calibration'}
+    _SYSTEM_DIRS = {"aime_results", "aise_results", "calibration"}
 
     def _on_browse_parent_dir(self):
         """Pick a parent directory and append its experiments to the list."""
         from PySide6.QtWidgets import QFileDialog
+
         folder = QFileDialog.getExistingDirectory(
-            self, "Select Experiment Folder", self._last_browse_dir or "",
+            self,
+            "Select Experiment Folder",
+            self._last_browse_dir or "",
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
         )
         if not folder:
@@ -706,7 +785,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
             full = os.path.join(parent_dir, entry)
             if full in existing_paths:
                 continue
-            if os.path.isfile(full) and entry.lower().endswith(('.h5', '.hdf5')):
+            if os.path.isfile(full) and entry.lower().endswith((".h5", ".hdf5")):
                 item = QListWidgetItem(entry)
                 item.setToolTip(full)
                 self._source_list_widget.addItem(item)
@@ -726,7 +805,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
         else:
             self._exp_dirs_label.setText(
                 f"{total} item(s) listed — select which to use as experiments"
-                + (f" ({added} new from {os.path.basename(parent_dir)})" if added else " (no new items added)")
+                + (
+                    f" ({added} new from {os.path.basename(parent_dir)})"
+                    if added
+                    else " (no new items added)"
+                )
             )
 
     def _on_source_selection_changed(self):
@@ -745,7 +828,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._pending_sources = sources
 
         # Determine the common parent directory of all selected sources (if any).
-        parent_dirs = {os.path.dirname(s.rstrip('/\\')) for s in sources}
+        parent_dirs = {os.path.dirname(s.rstrip("/\\")) for s in sources}
         if len(parent_dirs) == 1:
             # All experiments share a single parent: use the normal association flow.
             common_parent = next(iter(parent_dirs))
@@ -757,17 +840,24 @@ class AddIntensitiesMultipleExp(QMainWindow):
             from PySide6.QtWidgets import QDialog
             from musclex.ui.widgets.output_dir_dialog import OutputDirDialog
             from musclex.utils.directory_context import DirectoryContext
+
             try:
                 common_parent = os.path.commonpath(list(parent_dirs))
             except ValueError:
                 common_parent = ""
             suggested = common_parent or ""
-            dlg = OutputDirDialog(None, suggested, parent=self,
-                                  info_text="Experiments are from multiple folders. "
-                                            "Please choose an output directory.")
+            dlg = OutputDirDialog(
+                None,
+                suggested,
+                parent=self,
+                info_text="Experiments are from multiple folders. "
+                "Please choose an output directory.",
+            )
             if dlg.exec() != QDialog.Accepted or dlg.chosen_output is None:
                 return
-            ctx = DirectoryContext(input_dir=common_parent, output_dir=dlg.chosen_output)
+            ctx = DirectoryContext(
+                input_dir=common_parent, output_dir=dlg.chosen_output
+            )
 
         if ctx is None:
             return
@@ -800,8 +890,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
     def _rebuild_spans(self):
         """Delegate span rebuilding to the CartesianRowMapper."""
-        self._row_mapper.rebuild_spans(
-            self.panel.table, self._span_col)
+        self._row_mapper.rebuild_spans(self.panel.table, self._span_col)
 
     # ------------------------------------------------------------------
     # Center/Rotation dialog (reparent viewer + settings into popup)
@@ -822,9 +911,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("Set Center and Rotation")
         dlg.setWindowFlags(
-            Qt.Window | Qt.WindowMinimizeButtonHint |
-            Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint |
-            Qt.WindowStaysOnTopHint
+            Qt.Window
+            | Qt.WindowMinimizeButtonHint
+            | Qt.WindowMaximizeButtonHint
+            | Qt.WindowCloseButtonHint
+            | Qt.WindowStaysOnTopHint
         )
         dlg.setAttribute(Qt.WA_DeleteOnClose, False)
         self._cr_dialog = dlg
@@ -835,6 +926,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         outer.addWidget(splitter)
 
         from PySide6.QtWidgets import QPushButton, QHBoxLayout as _QHBox
+
         _btn_row = _QHBox()
         _btn_row.addStretch()
         _close_btn = QPushButton("Close")
@@ -874,8 +966,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         # FigureCanvas.sizeHint() reports the original small size.  Without this,
         # sizeHint() returns the dialog's ~700 px height and Qt layout over-allocates
         # vertical space, causing aspect='equal' letterboxing.
-        saved_w = getattr(self, '_viewer_canvas_w_before', 0)
-        saved_h = getattr(self, '_viewer_canvas_h_before', 0)
+        saved_w = getattr(self, "_viewer_canvas_w_before", 0)
+        saved_h = getattr(self, "_viewer_canvas_h_before", 0)
         if saved_w > 0 and saved_h > 0:
             dpi = self.image_viewer.figure.dpi
             self.image_viewer.figure.set_size_inches(
@@ -908,7 +1000,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if table_row is not None:
             name = self._row_mapper.name_for_row(table_row)
             if name:
-                display_img = self._apply_center_shift_if_needed(display_img, center, name)
+                display_img = self._apply_center_shift_if_needed(
+                    display_img, center, name
+                )
         self._current_inv_transform = self._build_display_inv_transform(
             center, rotation, base_center
         )
@@ -962,7 +1056,9 @@ class AddIntensitiesMultipleExp(QMainWindow):
             if table_row is not None and table_row >= 0:
                 name = self._row_mapper.name_for_row(table_row)
                 if name:
-                    display_img = self._apply_center_shift_if_needed(display_img, center, name)
+                    display_img = self._apply_center_shift_if_needed(
+                        display_img, center, name
+                    )
             self._current_inv_transform = self._build_display_inv_transform(
                 center, rotation, base_center
             )
@@ -1012,19 +1108,16 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # Step 1 forward matrix: rotate around center
         if rotation and rotation != 0:
-            M_rot_3x3 = np.vstack([
-                cv2.getRotationMatrix2D(tuple(center), rotation, 1),
-                [0, 0, 1]
-            ]).astype(np.float64)
+            M_rot_3x3 = np.vstack(
+                [cv2.getRotationMatrix2D(tuple(center), rotation, 1), [0, 0, 1]]
+            ).astype(np.float64)
         else:
             M_rot_3x3 = np.eye(3, dtype=np.float64)
 
         # Step 2 forward matrix: translation
         tx = base_center[0] - center[0]
         ty = base_center[1] - center[1]
-        M_trans_3x3 = np.array(
-            [[1, 0, tx], [0, 1, ty], [0, 0, 1]], dtype=np.float64
-        )
+        M_trans_3x3 = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]], dtype=np.float64)
 
         # Full forward: translate ∘ rotate  (rotate first, then translate)
         M_full = M_trans_3x3 @ M_rot_3x3
@@ -1057,7 +1150,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         if self.centerChkBx.isChecked() and self._current_center is not None:
             cx, cy = self._current_center
-            circle = mpatches.Circle((cx, cy), 10, color='g', fill=False, linewidth=1.5)
+            circle = mpatches.Circle((cx, cy), 10, color="g", fill=False, linewidth=1.5)
             ax.add_patch(circle)
 
         if self.baseCenterChkBx.isChecked():
@@ -1065,8 +1158,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
             if base_center is not None:
                 bx, by = base_center
                 arm = 20
-                h_line, = ax.plot([bx - arm, bx + arm], [by, by], color='r', linewidth=1.5)
-                v_line, = ax.plot([bx, bx], [by - arm, by + arm], color='r', linewidth=1.5)
+                (h_line,) = ax.plot(
+                    [bx - arm, bx + arm], [by, by], color="r", linewidth=1.5
+                )
+                (v_line,) = ax.plot(
+                    [bx, bx], [by - arm, by + arm], color="r", linewidth=1.5
+                )
                 self._overlay_lines.extend([h_line, v_line])
 
         self.image_viewer.canvas.draw_idle()
@@ -1078,10 +1175,13 @@ class AddIntensitiesMultipleExp(QMainWindow):
     def _init_sum_executor(self):
         from concurrent.futures import ProcessPoolExecutor
         import multiprocessing as _mp
+
         worker_count = max(1, (os.cpu_count() or 2) - 2)
         try:
-            mp_ctx = _mp.get_context('spawn')
-            self.sumExecutor = ProcessPoolExecutor(max_workers=worker_count, mp_context=mp_ctx)
+            mp_ctx = _mp.get_context("spawn")
+            self.sumExecutor = ProcessPoolExecutor(
+                max_workers=worker_count, mp_context=mp_ctx
+            )
             print(f"Sum process pool initialised with {worker_count} workers (spawn)")
         except Exception as e:
             print(f"Failed to create sum process pool: {e}")
@@ -1092,8 +1192,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
             if self._in_sum_batch:
                 return
             if self.panel.table.rowCount() == 0:
-                QMessageBox.information(self, "Sum Images",
-                                        "No images loaded.")
+                QMessageBox.information(self, "Sum Images", "No images loaded.")
                 self.sum_images_btn.blockSignals(True)
                 self.sum_images_btn.setChecked(False)
                 self.sum_images_btn.blockSignals(False)
@@ -1120,7 +1219,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
         msg = f"Stopping Sum\n\nWaiting for {running_count} tasks to complete..."
         self._sumStopProgress = QProgressDialog(msg, None, 0, 0, self)
         self._sumStopProgress.setWindowFlags(
-            Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+            Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        )
         self._sumStopProgress.setModal(False)
         self._sumStopProgress.show()
 
@@ -1130,11 +1230,12 @@ class AddIntensitiesMultipleExp(QMainWindow):
         self._sumStopTimer.start()
 
     def _update_sum_stop_progress(self):
-        if not hasattr(self, '_sumStopProgress') or self._sumStopProgress is None:
+        if not hasattr(self, "_sumStopProgress") or self._sumStopProgress is None:
             return
         running_count = self.sumTaskManager.get_running_count()
         self._sumStopProgress.setLabelText(
-            f"Stopping Sum\n\nWaiting for {running_count} tasks to complete...")
+            f"Stopping Sum\n\nWaiting for {running_count} tasks to complete..."
+        )
         if running_count == 0:
             self._sumStopTimer.stop()
             self._sumStopProgress.close()
@@ -1145,8 +1246,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if self._in_sum_batch:
             return
         if self.panel.table.rowCount() == 0:
-            QMessageBox.information(self, "Sum Images",
-                                    "No images loaded.")
+            QMessageBox.information(self, "Sum Images", "No images loaded.")
             return
 
         fm = self.workspace.navigator.file_manager
@@ -1154,16 +1254,21 @@ class AddIntensitiesMultipleExp(QMainWindow):
             QMessageBox.warning(self, "Sum Images", "No folder loaded.")
             return
 
-        out = self.dir_context.output_dir if self.dir_context else getattr(self, '_parent_dir', str(fm.dir_path))
+        out = (
+            self.dir_context.output_dir
+            if self.dir_context
+            else getattr(self, "_parent_dir", str(fm.dir_path))
+        )
         output_dir = os.path.join(out, "aime_results")
         os.makedirs(output_dir, exist_ok=True)
 
         do_average = self.avg_instead_of_sum_chk.isChecked()
         compress = self.compress_chk.isChecked()
-        rotation_mode = 'absolute' if self.radio_rot_absolute.isChecked() else 'diff'
+        rotation_mode = "absolute" if self.radio_rot_absolute.isChecked() else "diff"
 
         # Build index groups from COL_INDEX column (always groups by frame index)
         from collections import defaultdict
+
         index_groups = defaultdict(list)
         for row in range(self.panel.table.rowCount()):
             item = self.panel.table.item(row, self.COL_INDEX)
@@ -1177,9 +1282,13 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 if r not in self.panel.ignored_rows:
                     name = self._row_mapper.name_for_row(r)
                     all_basenames.append(os.path.splitext(os.path.basename(name))[0])
-        default_base = os.path.commonprefix(all_basenames).rstrip('_') if all_basenames else "output"
-        if all_basenames and all('folded' in b for b in all_basenames):
-            default_base += '_folded'
+        default_base = (
+            os.path.commonprefix(all_basenames).rstrip("_")
+            if all_basenames
+            else "output"
+        )
+        if all_basenames and all("folded" in b for b in all_basenames):
+            default_base += "_folded"
 
         # Ask user for the output base name before any heavy work or pool init
         base_name, ok = QInputDialog.getText(
@@ -1208,8 +1317,8 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         # Blank config (loaded once, shared across all groups)
         blank_mask_config = self.workspace.get_blank_mask_config()
-        apply_blank = blank_mask_config['apply_blank']
-        blank_weight = blank_mask_config['blank_weight']
+        apply_blank = blank_mask_config["apply_blank"]
+        blank_weight = blank_mask_config["blank_weight"]
         sm = self.workspace.settings_manager
         loaded_blank, mask_for_csv, _ = sm.load_blank_and_mask()
         blank_img = loaded_blank if apply_blank else None
@@ -1247,19 +1356,32 @@ class AddIntensitiesMultipleExp(QMainWindow):
                 name = self._row_mapper.name_for_row(r)
                 center = self.panel.get_effective_center(name)
                 rotation = self.panel.get_effective_rotation(name)
-                per_img_transforms.append((
-                    list(center) if center else None,
-                    rotation,
-                ))
+                per_img_transforms.append(
+                    (
+                        list(center) if center else None,
+                        rotation,
+                    )
+                )
 
             filename = f"{base_name}_{str(group_num).zfill(5)}.tif"
             output_path = os.path.join(output_dir, filename)
 
-            job_args = (group_num, "", img_names, specs,
-                        per_img_transforms, base_center, base_rotation,
-                        blank_img, blank_weight, apply_blank,
-                        do_average, output_path, compress,
-                        rotation_mode)
+            job_args = (
+                group_num,
+                "",
+                img_names,
+                specs,
+                per_img_transforms,
+                base_center,
+                base_rotation,
+                blank_img,
+                blank_weight,
+                apply_blank,
+                do_average,
+                output_path,
+                compress,
+                rotation_mode,
+            )
             future = self.sumExecutor.submit(_sum_group_worker, job_args)
             self.sumTaskManager.submit_task(filename, group_num, future)
             future.add_done_callback(self._on_sum_future_done)
@@ -1274,8 +1396,11 @@ class AddIntensitiesMultipleExp(QMainWindow):
             self.sum_images_btn.setChecked(False)
             self.sum_images_btn.setText("Sum Images")
             self.sum_images_btn.blockSignals(False)
-            QMessageBox.information(self, "Sum Images",
-                                    "All groups have every image ignored — nothing to sum.")
+            QMessageBox.information(
+                self,
+                "Sum Images",
+                "All groups have every image ignored — nothing to sum.",
+            )
             return
 
         self.panel.progressBar.setMaximum(jobs_submitted)
@@ -1293,11 +1418,15 @@ class AddIntensitiesMultipleExp(QMainWindow):
         try:
             try:
                 result = future.result()
-                error = result.get('error')
+                error = result.get("error")
             except Exception as fut_exc:
                 error = str(fut_exc)
-                result = {'group_num': None, 'output_path': None,
-                          'n_images': 0, 'error': error}
+                result = {
+                    "group_num": None,
+                    "output_path": None,
+                    "n_images": 0,
+                    "error": error,
+                }
 
             task = self.sumTaskManager.complete_task(future, result, error)
             if task is None:
@@ -1309,39 +1438,48 @@ class AddIntensitiesMultipleExp(QMainWindow):
             if error:
                 print(f"Sum error for group {result.get('group_num')}: {error}")
             else:
-                print(f"Group {result['group_num']}: {result['n_images']} image(s) "
-                      f"→ {result['output_path']}")
+                print(
+                    f"Group {result['group_num']}: {result['n_images']} image(s) "
+                    f"→ {result['output_path']}"
+                )
                 from datetime import datetime as _dt
-                total_intensity = result.get('total_intensity', 0.0)
+
+                total_intensity = result.get("total_intensity", 0.0)
                 nonmasked = self._sum_nonmasked_pixels
                 avg_mask = (total_intensity / nonmasked) if nonmasked > 0 else 0.0
                 _timestamp = _dt.now().strftime("%m/%d/%Y %H:%M:%S")
-                self._sum_csv_rows.append([
-                    os.path.basename(result['output_path']),
-                    _timestamp,
-                    total_intensity,       # Original Image Intensity (Total)
-                    total_intensity,       # Masked Image Intensity (Total)
-                    nonmasked,             # Number of Pixels Not Masked
-                    avg_mask,              # Masked Image Intensity (Average)
-                    self._sum_blank_weight,
-                    result['n_images'],    # Binning Factor
-                    False,                 # Drawn Mask (matches old code default)
-                    False,                 # Computed Mask (matches old code default)
-                ])
-                self._result_entries.append({
-                    'filename': os.path.basename(result['output_path']),
-                    'n_images': result['n_images'],
-                    'total_intensity': total_intensity,
-                    'date': _timestamp,
-                })
+                self._sum_csv_rows.append(
+                    [
+                        os.path.basename(result["output_path"]),
+                        _timestamp,
+                        total_intensity,  # Original Image Intensity (Total)
+                        total_intensity,  # Masked Image Intensity (Total)
+                        nonmasked,  # Number of Pixels Not Masked
+                        avg_mask,  # Masked Image Intensity (Average)
+                        self._sum_blank_weight,
+                        result["n_images"],  # Binning Factor
+                        False,  # Drawn Mask (matches old code default)
+                        False,  # Computed Mask (matches old code default)
+                    ]
+                )
+                self._result_entries.append(
+                    {
+                        "filename": os.path.basename(result["output_path"]),
+                        "n_images": result["n_images"],
+                        "total_intensity": total_intensity,
+                        "date": _timestamp,
+                    }
+                )
 
             stats = self.sumTaskManager.get_statistics()
-            done = stats['completed'] + stats['failed']
+            done = stats["completed"] + stats["failed"]
             self.panel.progressBar.setValue(done)
             op = "Averaging" if self.avg_instead_of_sum_chk.isChecked() else "Summing"
-            self.panel.statusLabel.setText(f"{op} images: {done}/{stats['total']} groups...")
+            self.panel.statusLabel.setText(
+                f"{op} images: {done}/{stats['total']} groups..."
+            )
 
-            if stats['pending'] == 0:
+            if stats["pending"] == 0:
                 self._on_sum_batch_complete()
 
         except Exception as e:
@@ -1353,20 +1491,26 @@ class AddIntensitiesMultipleExp(QMainWindow):
         if not self._sum_csv_rows:
             return
         import csv as _csv
-        csv_path = os.path.join(output_dir, 'intensities.csv')
+
+        csv_path = os.path.join(output_dir, "intensities.csv")
         write_header = not os.path.exists(csv_path)
-        with open(csv_path, 'a', newline='') as f:
+        with open(csv_path, "a", newline="") as f:
             writer = _csv.writer(f)
             if write_header:
-                writer.writerow([
-                    'Filename', 'Date',
-                    'Original Image Intensity (Total)',
-                    'Masked Image Intensity (Total)',
-                    'Number of Pixels Not Masked',
-                    'Masked Image Intensity (Average)',
-                    'Blank Image Weight', 'Binning Factor',
-                    'Drawn Mask', 'Computed Mask',
-                ])
+                writer.writerow(
+                    [
+                        "Filename",
+                        "Date",
+                        "Original Image Intensity (Total)",
+                        "Masked Image Intensity (Total)",
+                        "Number of Pixels Not Masked",
+                        "Masked Image Intensity (Average)",
+                        "Blank Image Weight",
+                        "Binning Factor",
+                        "Drawn Mask",
+                        "Computed Mask",
+                    ]
+                )
             for row in self._sum_csv_rows:
                 writer.writerow(row)
         print(f"CSV written: {csv_path} ({len(self._sum_csv_rows)} rows)")
@@ -1395,11 +1539,15 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"
         if stopped:
-            msg = (f"{op} stopped: {stats['completed']}/{stats['total']} group(s) saved, "
-                   f"{stats['failed']} failed")
+            msg = (
+                f"{op} stopped: {stats['completed']}/{stats['total']} group(s) saved, "
+                f"{stats['failed']} failed"
+            )
         else:
-            msg = (f"{op} complete: {stats['completed']}/{stats['total']} group(s) saved, "
-                   f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/group")
+            msg = (
+                f"{op} complete: {stats['completed']}/{stats['total']} group(s) saved, "
+                f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/group"
+            )
         self.panel.statusLabel.setText(msg)
         print(msg)
 

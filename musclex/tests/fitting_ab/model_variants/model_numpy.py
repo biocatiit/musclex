@@ -7,6 +7,7 @@ Variant: numpy  (direct NumPy / wofz — no lmfit object construction)
 This is the simplest non-trivial speedup: identical maths, zero Python
 object overhead per call.
 """
+
 from __future__ import annotations
 
 import numpy as np

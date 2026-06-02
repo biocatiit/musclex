@@ -39,18 +39,20 @@ JIT compilation is triggered at **module import time** via dummy calls
 to both kernels.  ``cache=True`` persists compiled code to disk so
 subsequent imports are instant (≈ 0 ms overhead after first run).
 """
+
 from __future__ import annotations
 
 import numpy as np
 import numba
 from scipy.special import wofz
 
-_SQRT_2PI        = np.sqrt(2.0 * np.pi)
-_SQRT_2PI_SCALAR = float(_SQRT_2PI)   # inlined in njit kernel
-_SQRT2           = np.sqrt(2.0)
+_SQRT_2PI = np.sqrt(2.0 * np.pi)
+_SQRT_2PI_SCALAR = float(_SQRT_2PI)  # inlined in njit kernel
+_SQRT2 = np.sqrt(2.0)
 
 
 # ── Background helpers (single-peak, unchanged from L1) ─────────────────────
+
 
 def _gaussian_eval(x, amplitude, center, sigma):
     z = (x - center) / sigma
@@ -63,6 +65,7 @@ def _voigt_eval(x, amplitude, center, sigma, gamma):
 
 
 # ── Numba JIT kernels ────────────────────────────────────────────────────────
+
 
 @numba.njit(cache=True, fastmath=True)
 def _gmm_peaks_kernel(x, centers, amps, sigma):
@@ -82,7 +85,7 @@ def _gmm_peaks_kernel(x, centers, amps, sigma):
     -------
     (N,) float64
     """
-    sqrt_2pi = 2.5066282746310002   # sqrt(2*pi) inlined
+    sqrt_2pi = 2.5066282746310002  # sqrt(2*pi) inlined
     n = x.shape[0]
     k = centers.shape[0]
     result = np.zeros(n, dtype=np.float64)
@@ -117,10 +120,10 @@ def _std_peaks_kernel(x, centers, amps, sigmas):
     k = centers.shape[0]
     result = np.zeros(n, dtype=np.float64)
     for i in range(k):
-        c   = centers[i]
-        s   = sigmas[i]
+        c = centers[i]
+        s = sigmas[i]
         inv_s = 1.0 / s
-        a   = amps[i] * inv_s / sqrt_2pi
+        a = amps[i] * inv_s / sqrt_2pi
         for j in range(n):
             dz = (x[j] - c) * inv_s
             result[j] += a * np.exp(-0.5 * dz * dz)
@@ -131,25 +134,38 @@ def _std_peaks_kernel(x, centers, amps, sigmas):
 # cache=True means this only compiles once; subsequent imports load from disk.
 
 _WU_X = np.array([0.0, 1.0, 2.0], dtype=np.float64)
-_gmm_peaks_kernel(_WU_X, np.array([1.5], dtype=np.float64),
-                  np.array([1.0], dtype=np.float64), 1.0)
-_std_peaks_kernel(_WU_X, np.array([1.5], dtype=np.float64),
-                  np.array([1.0], dtype=np.float64),
-                  np.array([1.0], dtype=np.float64))
+_gmm_peaks_kernel(
+    _WU_X, np.array([1.5], dtype=np.float64), np.array([1.0], dtype=np.float64), 1.0
+)
+_std_peaks_kernel(
+    _WU_X,
+    np.array([1.5], dtype=np.float64),
+    np.array([1.0], dtype=np.float64),
+    np.array([1.0], dtype=np.float64),
+)
 del _WU_X
 
 
 # ── Model functions ──────────────────────────────────────────────────────────
 
+
 def layerlineModelGMM(
-    x, centerX, bg_line, bg_sigma, bg_amplitude,
-    center_sigma1, center_amplitude1,
-    center_sigma2, center_amplitude2,
-    common_sigma, **kwargs,
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    common_sigma,
+    **kwargs,
 ):
     """GMM model (shared sigma) with numba batch kernel."""
     result = (
-        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma) + bg_line
+        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma)
+        + bg_line
         + _gaussian_eval(x, center_amplitude1, centerX, center_sigma1)
         + _gaussian_eval(x, center_amplitude2, centerX, center_sigma2)
     )
@@ -158,7 +174,7 @@ def layerlineModelGMM(
     voigt_peaks = []
     i = 0
     while f"p_{i}" in kwargs:
-        p   = kwargs[f"p_{i}"]
+        p = kwargs[f"p_{i}"]
         amp = kwargs[f"amplitude{i}"]
         if f"gamma{i}" in kwargs:
             voigt_peaks.append((centerX + p, amp, kwargs[f"gamma{i}"]))
@@ -171,7 +187,7 @@ def layerlineModelGMM(
         result += _gmm_peaks_kernel(
             np.ascontiguousarray(x, dtype=np.float64),
             np.asarray(g_centers, dtype=np.float64),
-            np.asarray(g_amps,    dtype=np.float64),
+            np.asarray(g_amps, dtype=np.float64),
             float(common_sigma),
         )
 
@@ -183,13 +199,21 @@ def layerlineModelGMM(
 
 
 def layerlineModel(
-    x, centerX, bg_line, bg_sigma, bg_amplitude,
-    center_sigma1, center_amplitude1,
-    center_sigma2, center_amplitude2, **kwargs,
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    **kwargs,
 ):
     """Standard model (independent sigma per peak) with numba batch kernel."""
     result = (
-        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma) + bg_line
+        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma)
+        + bg_line
         + _gaussian_eval(x, center_amplitude1, centerX, center_sigma1)
         + _gaussian_eval(x, center_amplitude2, centerX, center_sigma2)
     )
@@ -198,8 +222,8 @@ def layerlineModel(
     voigt_peaks = []
     i = 0
     while f"p_{i}" in kwargs:
-        p     = kwargs[f"p_{i}"]
-        amp   = kwargs[f"amplitude{i}"]
+        p = kwargs[f"p_{i}"]
+        amp = kwargs[f"amplitude{i}"]
         sigma = kwargs[f"sigma{i}"]
         if f"gamma{i}" in kwargs:
             voigt_peaks.append((centerX + p, amp, sigma, kwargs[f"gamma{i}"]))
@@ -213,8 +237,8 @@ def layerlineModel(
         result += _std_peaks_kernel(
             np.ascontiguousarray(x, dtype=np.float64),
             np.asarray(g_centers, dtype=np.float64),
-            np.asarray(g_amps,    dtype=np.float64),
-            np.asarray(g_sigmas,  dtype=np.float64),
+            np.asarray(g_amps, dtype=np.float64),
+            np.asarray(g_sigmas, dtype=np.float64),
         )
 
     for c, a, s, g in voigt_peaks:

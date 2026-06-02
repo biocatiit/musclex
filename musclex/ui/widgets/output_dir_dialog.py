@@ -33,8 +33,14 @@ from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QFileDialog, QMessageBox,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QFileDialog,
+    QMessageBox,
 )
 
 from ...utils.association_store import AssociationStore
@@ -52,8 +58,13 @@ def _is_writable(path: str) -> bool:
 class OutputDirDialog(QDialog):
     """Modal dialog asking the user to confirm or change the output directory."""
 
-    def __init__(self, input_dir: Optional[str], suggested_output: str,
-                 parent=None, info_text: str = ""):
+    def __init__(
+        self,
+        input_dir: Optional[str],
+        suggested_output: str,
+        parent=None,
+        info_text: str = "",
+    ):
         super().__init__(parent)
         self.setWindowTitle("Select Output Directory")
         self.setMinimumWidth(520)
@@ -123,8 +134,9 @@ class OutputDirDialog(QDialog):
     def _on_ok(self):
         path = self._path_edit.text().strip()
         if not path:
-            QMessageBox.warning(self, "Empty path",
-                                "Please specify an output directory.")
+            QMessageBox.warning(
+                self, "Empty path", "Please specify an output directory."
+            )
             return
 
         # Try creating if it doesn't exist
@@ -133,16 +145,18 @@ class OutputDirDialog(QDialog):
                 os.makedirs(path, exist_ok=True)
             except OSError as exc:
                 QMessageBox.warning(
-                    self, "Cannot create directory",
-                    f"Could not create output directory:\n{path}\n\n{exc}"
+                    self,
+                    "Cannot create directory",
+                    f"Could not create output directory:\n{path}\n\n{exc}",
                 )
                 return
 
         if not _is_writable(path):
             QMessageBox.warning(
-                self, "Not writable",
+                self,
+                "Not writable",
                 f"The selected directory is not writable:\n{path}\n\n"
-                "Please choose a different directory."
+                "Please choose a different directory.",
             )
             return
 
@@ -170,8 +184,7 @@ def _persist_association(input_dir: str, output_dir: str) -> None:
         _store.save(input_dir, output_dir)
 
 
-def resolve_output_directory(input_dir: str,
-                             parent=None) -> Optional[DirectoryContext]:
+def resolve_output_directory(input_dir: str, parent=None) -> Optional[DirectoryContext]:
     """Look up or ask the user for an output directory.
 
     Returns a :class:`DirectoryContext`, or ``None`` if the user cancels.
@@ -187,8 +200,10 @@ def resolve_output_directory(input_dir: str,
     if stored is not None:
         if _is_writable(stored):
             return DirectoryContext(input_dir=input_dir, output_dir=stored)
-        info = (f"The previously associated output directory no longer "
-                f"exists or is not writable:\n{stored}")
+        info = (
+            f"The previously associated output directory no longer "
+            f"exists or is not writable:\n{stored}"
+        )
     else:
         if _is_writable(input_dir):
             return DirectoryContext.colocated(input_dir)
@@ -205,9 +220,9 @@ def resolve_output_directory(input_dir: str,
     return DirectoryContext(input_dir=input_dir, output_dir=output_dir)
 
 
-def resolve_output_directory_headless(input_dir: str,
-                                      output_dir: Optional[str] = None
-                                      ) -> Optional[DirectoryContext]:
+def resolve_output_directory_headless(
+    input_dir: str, output_dir: Optional[str] = None
+) -> Optional[DirectoryContext]:
     """Non-interactive variant for headless / CLI mode.
 
     If *output_dir* is given explicitly it is used directly.
@@ -236,7 +251,9 @@ def resolve_output_directory_headless(input_dir: str,
     if _is_writable(input_dir):
         return DirectoryContext.colocated(input_dir)
 
-    print(f"Error: input directory is read-only and no output directory "
-          f"is configured: {input_dir}")
+    print(
+        f"Error: input directory is read-only and no output directory "
+        f"is configured: {input_dir}"
+    )
     print("Use --output-dir to specify a writable output directory.")
     return None
