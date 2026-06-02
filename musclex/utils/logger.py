@@ -32,26 +32,24 @@ import datetime
 import time
 from ..ui.pyqt_utils import *
 
-
 class Logger:
     """
     Logger
     """
-
-    def __init__(self, name, path="~"):
-        """
+    def __init__(self, name, path='~'):
+        '''
         params
             name...program name
             path...
-        """
+        '''
         self.logger = None
         self.name = name
-        folder = os.path.expanduser(os.path.join(path, "log"))
+        folder = os.path.expanduser(os.path.join(path, 'log'))
         if not os.path.exists(folder):
             os.mkdir(folder)
-        fname = f"{name}_{os.path.split(path)[-1]}_{datetime.date.today()}.log"
+        fname = f'{name}_{os.path.split(path)[-1]}_{datetime.date.today()}.log'
         fname = os.sep.join([folder, fname])
-        self.logger = open(fname, "a")
+        self.logger = open(fname, 'a')
 
     def write(self, msg):
         """
@@ -64,17 +62,17 @@ class Logger:
         Open a Qt pop up window
         """
         popupMsg = QMessageBox()
-        popupMsg.setWindowTitle("New log generated")
-        text = "The log file is stored with the images.\n\n"
+        popupMsg.setWindowTitle('New log generated')
+        text = 'The log file is stored with the images.\n\n'
         text += f'Mannual changes of parameters are recorded in file "{self.logger.name}".\n'
-        text += "Please report them to us if you are willing to help us optimize our program."
+        text += 'Please report them to us if you are willing to help us optimize our program.'
         popupMsg.setText(text)
         popupMsg.setStandardButtons(QMessageBox.Ok)
         popupMsg.setIcon(QMessageBox.Information)
         try:
             popupMsg.setTextInteractionFlags(Qt.TextSelectableByMouse)
         except AttributeError:
-            pass  # not supported in Qt4
+            pass # not supported in Qt4
         popupMsg.setMinimumWidth(1000)
         popupMsg.exec_()
 

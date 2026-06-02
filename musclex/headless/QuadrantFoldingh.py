@@ -35,7 +35,6 @@ import fabio
 import pandas as pd
 from PIL import Image
 from musclex import __version__
-
 try:
     from ..utils.file_manager import *
     from ..utils.background_search import makeFullImage
@@ -44,7 +43,7 @@ try:
     from ..utils.qf_settings_bindings import qf_setting_keys
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..csv_manager.QF_CSVManager import QF_CSVManager
-except:  # for coverage
+except: # for coverage
     from utils.file_manager import *
     from utils.background_search import makeFullImage
     from utils.image_processor import *
@@ -53,27 +52,12 @@ except:  # for coverage
     from modules.QuadrantFolder import QuadrantFolder
     from csv_manager.QF_CSVManager import QF_CSVManager
 
-
 class QuadrantFoldingh:
     """
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-
-    def __init__(
-        self,
-        filename,
-        inputsettings,
-        delcache,
-        settingspath=os.path.join("musclex", "settings", "qfsettings.json"),
-        lock=None,
-        dir_path=None,
-        imgList=None,
-        currentFileNumber=None,
-        fileList=None,
-        ext=None,
-        output_dir=None,
-    ):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'qfsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, output_dir=None):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -81,15 +65,13 @@ class QuadrantFoldingh:
         :param settingspath: setting file directory
         """
         self.version = __version__
-        self.quadFold = None  # QuadrantFolder object
-        self.img_zoom = None  # zoom location of original image (x,y range)
-        self.default_img_zoom = None  # default zoom calculated after processing image
-        self.default_result_img_zoom = (
-            None  # default result image zoom calculated after processing image
-        )
-        self.result_zoom = None  # zoom location of result image (x,y range)
-        self.function = None  # current active function
-        self.updated = {"img": False, "result": False}  # update state of 2 tabs
+        self.quadFold = None # QuadrantFolder object
+        self.img_zoom = None # zoom location of original image (x,y range)
+        self.default_img_zoom = None # default zoom calculated after processing image
+        self.default_result_img_zoom = None # default result image zoom calculated after processing image
+        self.result_zoom = None # zoom location of result image (x,y range)
+        self.function = None # current active function
+        self.updated = {'img': False, 'result': False} # update state of 2 tabs
         self.BGImages = []
         self.calSettings = None
         self.ignoreFolds = set()
@@ -99,59 +81,43 @@ class QuadrantFoldingh:
         self.newImgDimension = None
         self.lock = lock
         if dir_path is not None:
-            (
-                self.dir_path,
-                self.imgList,
-                self.currentFileNumber,
-                self.fileList,
-                self.ext,
-            ) = (dir_path, imgList, currentFileNumber, fileList, ext)
+            self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
         else:
-            (
-                self.dir_path,
-                self.imgList,
-                self.currentFileNumber,
-                self.fileList,
-                self.ext,
-            ) = getImgFiles(str(filename), headless=True)
+            self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
         self.numberOfFiles = len(self.imgList)
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.inputsettings = inputsettings
-        self.delcache = delcache
-        self.settingspath = settingspath
+        self.inputsettings=inputsettings
+        self.delcache=delcache
+        self.settingspath=settingspath
         if output_dir:
             self.output_dir = output_dir
         elif os.access(self.dir_path, os.W_OK):
             self.output_dir = self.dir_path
         else:
-            print(
-                f"Error: input directory is not writable and no output directory was specified.\n"
-                f"  Input : {self.dir_path}\n"
-                f"  Fix   : re-run with -o <output_dir>",
-                flush=True,
-            )
+            print(f"Error: input directory is not writable and no output directory was specified.\n"
+                  f"  Input : {self.dir_path}\n"
+                  f"  Fix   : re-run with -o <output_dir>", flush=True)
             sys.exit(1)
 
         fileName = self.imgList[self.currentFileNumber]
-        file = fileName + ".info"
+        file=fileName+'.info'
         cache_path = os.path.join(self.output_dir, "qf_cache", file)
-        cache_exist = os.path.isfile(cache_path)
+        cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if cache_exist:
                 os.remove(cache_path)
-
+        
         # Load the image using fabio
         img_full_path = fullPath(self.dir_path, fileName)
         img = fabio.open(img_full_path).data
-
+        
         # Load calibration settings if needed (for flags/parameters, not center)
         if self.inputsettings:
             try:
                 import json
-
-                with open(self.settingspath, "r") as f:
+                with open(self.settingspath, 'r') as f:
                     self.calSettings = json.load(f)
             except:
                 self.calSettings = None
@@ -159,7 +125,6 @@ class QuadrantFoldingh:
         # Create ImageData with manual center/rotation from center_settings.json
         from ..utils.image_data import ImageData
         from ..utils.settings_manager import SettingsManager
-
         settings_manager = SettingsManager(self.dir_path)
         manual_center = settings_manager.get_center(fileName)
         manual_rotation = settings_manager.get_rotation(fileName)
@@ -168,18 +133,13 @@ class QuadrantFoldingh:
         # settings/ (blank_image_settings.json, mask.tif, and their disable
         # flags), but ImageData defaults apply_blank/apply_mask to False unless
         # the caller passes them explicitly.
-        image_data = ImageData(
-            img,
-            self.dir_path,
-            fileName,
-            center=manual_center,
-            rotation=manual_rotation,
-            apply_blank=settings_manager.blank_enabled,
-            apply_mask=settings_manager.mask_enabled,
-            blank_weight=settings_manager.blank_weight,
-            settings_manager=settings_manager,
-        )
-
+        image_data = ImageData(img, self.dir_path, fileName,
+                               center=manual_center, rotation=manual_rotation,
+                               apply_blank=settings_manager.blank_enabled,
+                               apply_mask=settings_manager.mask_enabled,
+                               blank_weight=settings_manager.blank_weight,
+                               settings_manager=settings_manager)
+        
         # Create QuadrantFolder with ImageData
         self.quadFold = QuadrantFolder(image_data, self, output_dir=self.output_dir)
 
@@ -189,7 +149,7 @@ class QuadrantFoldingh:
         """
         Display input error to screen
         """
-        self.statusPrint("Invalid Input")
+        self.statusPrint('Invalid Input')
         self.statusPrint("Please select non empty failedcases.txt or an image\n\n")
 
     def ableToProcess(self):
@@ -215,12 +175,12 @@ class QuadrantFoldingh:
         Process the new image if there's no cache.
         """
         fileName = self.imgList[self.currentFileNumber]
-        file = fileName + ".info"
+        file=fileName+'.info'
         cache_path = os.path.join(self.output_dir, "qf_cache", file)
-        cache_exist = os.path.isfile(cache_path)
+        cache_exist=os.path.isfile(cache_path)
 
-        if "ignore_folds" in self.quadFold.info:
-            self.ignoreFolds = self.quadFold.info["ignore_folds"]
+        if 'ignore_folds' in self.quadFold.info:
+            self.ignoreFolds = self.quadFold.info['ignore_folds']
 
         # self.updateParams()
         self.markFixedInfo(self.quadFold.info)
@@ -230,47 +190,40 @@ class QuadrantFoldingh:
         # Process new image
         self.processImage()
 
-        self.statusPrint("---------------------------------------------------")
+        self.statusPrint('---------------------------------------------------')
 
         if self.inputsettings and cache_exist and not self.delcache:
-            self.statusPrint("cache exists, provided setting file was not used ")
+            self.statusPrint('cache exists, provided setting file was not used ')
         elif self.inputsettings and (not cache_exist or self.delcache):
-            self.statusPrint("setting file provided and used for fitting")
+            self.statusPrint('setting file provided and used for fitting')
         elif not self.inputsettings and cache_exist and not self.delcache:
-            self.statusPrint("cache exist, no fitting was performed")
+            self.statusPrint('cache exist, no fitting was performed')
         elif not self.inputsettings and (self.delcache or not cache_exist):
-            self.statusPrint("fitting with default settings")
+            self.statusPrint('fitting with default settings')
 
-        self.statusPrint("---------------------------------------------------")
+        self.statusPrint('---------------------------------------------------')
 
     def markFixedInfo(self, currentInfo):
         """
         Deleting the center for appropriate recalculation
         """
-        if "center" in currentInfo:
-            del currentInfo["center"]
+        if 'center' in currentInfo:
+            del currentInfo['center']
 
     def getExtentAndCenter(self):
         """
         Give the extent and center of the image
         """
         if self.quadFold is None:
-            return [0, 0], (0, 0)
+            return [0,0], (0,0)
         if self.quadFold.orig_image_center is None:
             self.quadFold.findCenter()
             self.statusPrint("Done.")
-
+        
         # Use quadFold.center (which can be manual or auto)
-        center = (
-            self.quadFold.center
-            if self.quadFold.center is not None
-            else self.quadFold.orig_image_center
-        )
+        center = self.quadFold.center if self.quadFold.center is not None else self.quadFold.orig_image_center
 
-        extent = [
-            self.quadFold.center[0] - center[0],
-            self.quadFold.center[1] - center[1],
-        ]
+        extent = [self.quadFold.center[0] - center[0], self.quadFold.center[1] - center[1]]
         return extent, center
 
     def processImage(self):
@@ -290,14 +243,9 @@ class QuadrantFoldingh:
             try:
                 full_process = self.quadFold.process(flags)
             except Exception:
-                self.statusPrint("Unexpected error")
-                msg = "Please report the problem with error message below and the input image\n\n"
-                msg += (
-                    "Error : "
-                    + str(sys.exc_info()[0])
-                    + "\n\n"
-                    + str(traceback.format_exc())
-                )
+                self.statusPrint('Unexpected error')
+                msg = 'Please report the problem with error message below and the input image\n\n'
+                msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
                 self.statusPrint(msg)
                 raise
 
@@ -305,36 +253,29 @@ class QuadrantFoldingh:
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
-            self.csvManager = QF_CSVManager(
-                self.output_dir, extra_colnames=qf_setting_keys(), version=self.version
-            )
+            self.csvManager = QF_CSVManager(self.output_dir, extra_colnames=qf_setting_keys(), version=self.version)
             self.csvManager.writeNewData(self.quadFold)
             # release the lock
             if self.lock is not None:
                 self.lock.release()
 
             # Save result to folder qf_results
-            if "resultImg" in self.quadFold.imgCache:
-                result_path = fullPath(self.output_dir, "qf_results")
+            if 'resultImg' in self.quadFold.imgCache:
+                result_path = fullPath(self.output_dir, 'qf_results')
                 createFolder(result_path)
 
-                result_file = str(
-                    join(result_path, self.imgList[self.currentFileNumber])
-                )
+                result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
                 result_file, _ = splitext(result_file)
-                img = self.quadFold.imgCache["resultImg"]
+                img = self.quadFold.imgCache['resultImg']
 
                 img = img.astype("float32")
-                if (
-                    "compressed" in self.quadFold.info
-                    and not self.quadFold.info["compressed"]
-                ):
-                    result_file += "_folded.tif"
+                if 'compressed' in self.quadFold.info and not self.quadFold.info['compressed']:
+                    result_file += '_folded.tif'
                     fabio.tifimage.tifimage(data=img).write(result_file)
                 else:
-                    result_file += "_folded_compressed.tif"
+                    result_file += '_folded_compressed.tif'
                     tif_img = Image.fromarray(img)
-                    tif_img.save(result_file, compression="tiff_lzw")
+                    tif_img.save(result_file, compression='tiff_lzw')
                 # bg.tif from a previous session is still on disk on the
                 # fast-path, and BgSubFold / avg_fold weren't reconstructed
                 # so saveBackground is skipped.
@@ -354,10 +295,10 @@ class QuadrantFoldingh:
             # On the fast-path BgSubFold / avg_fold are not reconstructed; bg.tif
             # from a previous session is still on disk so nothing to save here.
             return
-        background = avg_fold - result
+        background = avg_fold-result
         resultImg = makeFullImage(background)
 
-        if "rotate" in info and info["rotate"]:
+        if 'rotate' in info and info['rotate']:
             resultImg = np.rot90(resultImg)
 
         filename = self.imgList[self.currentFileNumber]
@@ -371,19 +312,19 @@ class QuadrantFoldingh:
         fabio.tifimage.tifimage(data=resultImg).write(result_path)
 
         total_inten = np.sum(resultImg)
-        csv_path = join(bg_path, "background_sum.csv")
+        csv_path = join(bg_path, 'background_sum.csv')
         if self.csv_bg is None:
             # create csv file to save total intensity for background
             if exists(csv_path):
                 self.csv_bg = pd.read_csv(csv_path)
             else:
-                self.csv_bg = pd.DataFrame(columns=["Name", "Sum"])
-            self.csv_bg = self.csv_bg.set_index("Name")
+                self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
+            self.csv_bg = self.csv_bg.set_index('Name')
 
         if filename in self.csv_bg.index:
             self.csv_bg = self.csv_bg.drop(index=filename)
 
-        self.csv_bg.loc[filename] = pd.Series({"Sum": total_inten})
+        self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
         self.csv_bg.to_csv(csv_path)
 
     def _upsert_background_metrics_csv(self, flags=None):
@@ -396,10 +337,10 @@ class QuadrantFoldingh:
 
         info = self.quadFold.info if isinstance(self.quadFold.info, dict) else {}
         save_metrics_enabled = None
-        if isinstance(flags, dict) and "save_metrics_to_csv" in flags:
-            save_metrics_enabled = bool(flags.get("save_metrics_to_csv"))
-        elif "save_metrics_to_csv" in info:
-            save_metrics_enabled = bool(info.get("save_metrics_to_csv"))
+        if isinstance(flags, dict) and 'save_metrics_to_csv' in flags:
+            save_metrics_enabled = bool(flags.get('save_metrics_to_csv'))
+        elif 'save_metrics_to_csv' in info:
+            save_metrics_enabled = bool(info.get('save_metrics_to_csv'))
         else:
             save_metrics_enabled = False
         if not save_metrics_enabled:
@@ -439,101 +380,35 @@ class QuadrantFoldingh:
             "Norm_Share_Non_Baseline": norm_metrics.get("Share_Non_Baseline", None),
             "Norm_Share_Neg_Connected": norm_metrics.get("Share_Neg_Connected", None),
             "Norm_Smoothness": norm_metrics.get("Smoothness", None),
-            "Weight_MSE": (
-                metric_weights.get("MSE", None)
-                if isinstance(metric_weights, dict)
-                else None
-            ),
-            "Weight_Share_Neg_Synthetic": (
-                metric_weights.get("Share_Neg_Synthetic", None)
-                if isinstance(metric_weights, dict)
-                else None
-            ),
-            "Weight_Share_Non_Baseline": (
-                metric_weights.get("Share_Non_Baseline", None)
-                if isinstance(metric_weights, dict)
-                else None
-            ),
-            "Weight_Share_Neg_Connected": (
-                metric_weights.get("Share_Neg_Connected", None)
-                if isinstance(metric_weights, dict)
-                else None
-            ),
-            "Weight_Smoothness": (
-                metric_weights.get("Smoothness", None)
-                if isinstance(metric_weights, dict)
-                else None
-            ),
-            "Mean_MSE_SYN": (
-                mean_metric_values.get("MSE_SYN_MEAN", None)
-                if isinstance(mean_metric_values, dict)
-                else None
-            ),
-            "Mean_SHARE_NEG_SYN": (
-                mean_metric_values.get("SHARE_NEG_SYN_MEAN", None)
-                if isinstance(mean_metric_values, dict)
-                else None
-            ),
-            "Mean_SHARE_NON_BASELINE": (
-                mean_metric_values.get("SHARE_NON_BASELINE_MEAN", None)
-                if isinstance(mean_metric_values, dict)
-                else None
-            ),
-            "Mean_SHARE_NEG_CON": (
-                mean_metric_values.get("SHARE_NEG_CON_MEAN", None)
-                if isinstance(mean_metric_values, dict)
-                else None
-            ),
-            "Mean_SMOOTH": (
-                mean_metric_values.get("SMOOTH_MEAN", None)
-                if isinstance(mean_metric_values, dict)
-                else None
-            ),
-            "Evaluation_Baseline_Value": (
-                info.get("evaluation_baseline", None)
-                if isinstance(info, dict)
-                else None
-            ),
-            "Synthetic_Amplitude_Value": (
-                info.get("synthetic_amplitude", None)
-                if isinstance(info, dict)
-                else None
-            ),
-            "Synthetic_Sigma_X_Value": (
-                info.get("synthetic_sigma_x", None) if isinstance(info, dict) else None
-            ),
-            "Synthetic_Sigma_Y_Value": (
-                info.get("synthetic_sigma_y", None) if isinstance(info, dict) else None
-            ),
+            "Weight_MSE": metric_weights.get("MSE", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Share_Neg_Synthetic": metric_weights.get("Share_Neg_Synthetic", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Share_Non_Baseline": metric_weights.get("Share_Non_Baseline", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Share_Neg_Connected": metric_weights.get("Share_Neg_Connected", None) if isinstance(metric_weights, dict) else None,
+            "Weight_Smoothness": metric_weights.get("Smoothness", None) if isinstance(metric_weights, dict) else None,
+            "Mean_MSE_SYN": mean_metric_values.get("MSE_SYN_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SHARE_NEG_SYN": mean_metric_values.get("SHARE_NEG_SYN_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SHARE_NON_BASELINE": mean_metric_values.get("SHARE_NON_BASELINE_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SHARE_NEG_CON": mean_metric_values.get("SHARE_NEG_CON_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Mean_SMOOTH": mean_metric_values.get("SMOOTH_MEAN", None) if isinstance(mean_metric_values, dict) else None,
+            "Evaluation_Baseline_Value": info.get("evaluation_baseline", None) if isinstance(info, dict) else None,
+            "Synthetic_Amplitude_Value": info.get("synthetic_amplitude", None) if isinstance(info, dict) else None,
+            "Synthetic_Sigma_X_Value": info.get("synthetic_sigma_x", None) if isinstance(info, dict) else None,
+            "Synthetic_Sigma_Y_Value": info.get("synthetic_sigma_y", None) if isinstance(info, dict) else None,
             "Equator_Raw_MSE": equator_raw_metrics.get("MSE", None),
-            "Equator_Raw_Share_Neg_Synthetic": equator_raw_metrics.get(
-                "Share_Neg_Synthetic", None
-            ),
-            "Equator_Raw_Share_Non_Baseline": equator_raw_metrics.get(
-                "Share_Non_Baseline", None
-            ),
-            "Equator_Raw_Share_Neg_Connected": equator_raw_metrics.get(
-                "Share_Neg_Connected", None
-            ),
+            "Equator_Raw_Share_Neg_Synthetic": equator_raw_metrics.get("Share_Neg_Synthetic", None),
+            "Equator_Raw_Share_Non_Baseline": equator_raw_metrics.get("Share_Non_Baseline", None),
+            "Equator_Raw_Share_Neg_Connected": equator_raw_metrics.get("Share_Neg_Connected", None),
             "Equator_Raw_Smoothness": equator_raw_metrics.get("Smoothness", None),
             "Equator_Norm_MSE": equator_norm_metrics.get("MSE", None),
-            "Equator_Norm_Share_Neg_Synthetic": equator_norm_metrics.get(
-                "Share_Neg_Synthetic", None
-            ),
-            "Equator_Norm_Share_Non_Baseline": equator_norm_metrics.get(
-                "Share_Non_Baseline", None
-            ),
-            "Equator_Norm_Share_Neg_Connected": equator_norm_metrics.get(
-                "Share_Neg_Connected", None
-            ),
+            "Equator_Norm_Share_Neg_Synthetic": equator_norm_metrics.get("Share_Neg_Synthetic", None),
+            "Equator_Norm_Share_Non_Baseline": equator_norm_metrics.get("Share_Non_Baseline", None),
+            "Equator_Norm_Share_Neg_Connected": equator_norm_metrics.get("Share_Neg_Connected", None),
             "Equator_Norm_Smoothness": equator_norm_metrics.get("Smoothness", None),
         }
         ordered_columns = list(row_data.keys())
 
         try:
-            csv_path = join(
-                self.output_dir, "qf_results", "bg", "background_metrics.csv"
-            )
+            csv_path = join(self.output_dir, "qf_results", "bg", "background_metrics.csv")
             os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
             if exists(csv_path):
@@ -554,17 +429,15 @@ class QuadrantFoldingh:
             df.sort_index(inplace=True)
             df.to_csv(csv_path, index_label="ImageName")
         except Exception as e:
-            self.statusPrint(
-                f"Failed to upsert background metrics CSV for {filename}: {e}"
-            )
+            self.statusPrint(f"Failed to upsert background metrics CSV for {filename}: {e}")
 
     def updateParams(self):
         """
         Update the parameters
         """
         info = self.quadFold.info
-        if "orientation_model" in info:
-            self.orientationModel = info["orientation_model"]
+        if 'orientation_model' in info:
+            self.orientationModel = info['orientation_model']
         self.getExtentAndCenter()
 
     def getFlags(self):
@@ -574,20 +447,20 @@ class QuadrantFoldingh:
         """
         flags = build_default_flags()
 
-        flags["orientation_model"] = self.orientationModel
-        flags["ignore_folds"] = self.ignoreFolds
+        flags['orientation_model'] = self.orientationModel
+        flags['ignore_folds'] = self.ignoreFolds
         # mask_thres removed from QuadrantFolder (uses INVALID_PIXEL_THRESHOLD
         # constant now, see QuadrantFolder.initParams docstring); blank_mask
         # is also no longer consumed by QF (ImageData applies blank/mask
         # before the image reaches QF). Both intentionally omitted.
-        flags["rotate"] = False
-        flags["fold_image"] = True
-        flags["bg_options"] = 0  # default to "Manual Setting | One Method"
+        flags['rotate'] = False
+        flags['fold_image'] = True
+        flags['bg_options'] = 0 # default to "Manual Setting | One Method"
 
         if self.calSettings is not None:
             flags.update(self.calSettings)
-        if "center" in flags:
-            flags.pop("center")
+        if 'center' in flags:
+            flags.pop('center')
 
         # Defensive: strip caller-injected runtime state if it ever made
         # it into qfsettings.json (older GUI versions, or a hand-edited
@@ -595,11 +468,8 @@ class QuadrantFoldingh:
         # is no batch in flight, no manual BG batch assignment, and no
         # "force recompute" trigger. Letting any of these come through
         # would change BG selection logic mid-run.
-        for key in (
-            "batch_processing",
-            "force_recalc_bg",
-            "manual_background_assignments",
-        ):
+        for key in ('batch_processing', 'force_recalc_bg',
+                    'manual_background_assignments'):
             flags.pop(key, None)
 
         # Translate the user-preference name 'fixed_roi_*' (used by
@@ -609,11 +479,11 @@ class QuadrantFoldingh:
         # never sees the preference name -- per-image qf_cache should
         # only describe the actual ROI used, not the user's
         # cross-image preference.
-        fixed_w = flags.pop("fixed_roi_w", None)
-        fixed_h = flags.pop("fixed_roi_h", None)
+        fixed_w = flags.pop('fixed_roi_w', None)
+        fixed_h = flags.pop('fixed_roi_h', None)
         if fixed_w is not None and fixed_h is not None and fixed_w > 0 and fixed_h > 0:
-            flags["roi_w"] = fixed_w
-            flags["roi_h"] = fixed_h
+            flags['roi_w'] = fixed_w
+            flags['roi_h'] = fixed_h
 
         # Normalize the share-based mean metric values to fractions, mirroring
         # the GUI net transform (loadSettings _fraction_to_percent_for_ui is
@@ -621,13 +491,10 @@ class QuadrantFoldingh:
         # 100 -> values >1 become /100, values <=1 stay). qfsettings.json may
         # store these as legacy percentages (e.g. 20.0) or GUI-saved fractions
         # (e.g. 0.2); this rule handles both and keeps headless == GUI input.
-        means = flags.get("mean_metric_values")
+        means = flags.get('mean_metric_values')
         if isinstance(means, dict):
-            for k in (
-                "SHARE_NEG_SYN_MEAN",
-                "SHARE_NON_BASELINE_MEAN",
-                "SHARE_NEG_CON_MEAN",
-            ):
+            for k in ('SHARE_NEG_SYN_MEAN', 'SHARE_NON_BASELINE_MEAN',
+                      'SHARE_NEG_CON_MEAN'):
                 try:
                     v = float(means[k])
                 except (KeyError, TypeError, ValueError):
@@ -638,8 +505,8 @@ class QuadrantFoldingh:
         # When evaluation-baseline persistence is off, the value is recomputed
         # per image, so emit 0.0 to match the GUI getFlags path and the value
         # QuadrantFolder.updateInfo actually uses.
-        if not bool(flags.get("persist_evaluation_baseline", False)):
-            flags["evaluation_baseline"] = 0.0
+        if not bool(flags.get('persist_evaluation_baseline', False)):
+            flags['evaluation_baseline'] = 0.0
 
         return flags
 
@@ -651,7 +518,7 @@ class QuadrantFoldingh:
         """
         if text != "":
             pid = os.getpid()
-            ptext = "[Process " + str(pid) + "] " + str(text)
+            ptext = "[Process "+str(pid)+"] "+str(text)
             print(ptext)
         else:
             print(text)
@@ -662,10 +529,10 @@ class QuadrantFoldingh:
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingspath = self.settingspath
+        settingspath=self.settingspath
         if self.inputsettings:
             try:
-                with open(settingspath, "r") as f:
+                with open(settingspath, 'r') as f:
                     self.calSettings = json.load(f)
             except Exception:
                 self.statusPrint("Can't load setting file")

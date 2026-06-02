@@ -39,39 +39,22 @@ from ..utils.image_processor import getMaskThreshold
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..csv_manager import PT_CSVManager
 
-
 class BoxDetails:
     """
     This class is for Popup window when a box is added
     """
-
     def __init__(self, current_box_names, oriented=False):
         self.box_names = current_box_names
         self.oriented = oriented
 
-
 class ProjectionTracesh:
     """
     This class is for Projection Traces headless mode.
-
+    
     Note: Box configurations are now managed directly by ProcessingBox objects
     in self.projProc.boxes, following the same architecture as the GUI.
     """
-
-    def __init__(
-        self,
-        filename,
-        inputsettings,
-        delcache,
-        settingspath=os.path.join("musclex", "settings", "ptsettings.json"),
-        lock=None,
-        dir_path=None,
-        imgList=None,
-        currentFileNumber=None,
-        fileList=None,
-        ext=None,
-        output_dir=None,
-    ):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'ptsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, output_dir=None):
         self.lock = lock
         self.current_file = 0
         self.calSettings = None
@@ -86,40 +69,29 @@ class ProjectionTracesh:
 
         self.version = __version__
         if dir_path is not None:
-            self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = (
-                dir_path,
-                imgList,
-                currentFileNumber,
-                fileList,
-                ext,
-            )
+            self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
         else:
-            self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = (
-                getImgFiles(str(filename), headless=True)
-            )
+            self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.inputsettings = inputsettings
-        self.delcache = delcache
-        self.settingspath = settingspath
+        self.inputsettings=inputsettings
+        self.delcache=delcache
+        self.settingspath=settingspath
         if output_dir:
             self.output_dir = output_dir
         elif os.access(self.dir_path, os.W_OK):
             self.output_dir = self.dir_path
         else:
-            print(
-                f"Error: input directory is not writable and no output directory was specified.\n"
-                f"  Input : {self.dir_path}\n"
-                f"  Fix   : re-run with -o <output_dir>",
-                flush=True,
-            )
+            print(f"Error: input directory is not writable and no output directory was specified.\n"
+                  f"  Input : {self.dir_path}\n"
+                  f"  Fix   : re-run with -o <output_dir>", flush=True)
             sys.exit(1)
 
         fileName = self.imgList[self.current_file]
-        file = fileName + ".info"
+        file=fileName+'.info'
         cache_path = os.path.join(self.output_dir, "qf_cache", file)
-        cache_exist = os.path.isfile(cache_path)
+        cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if cache_exist:
                 os.remove(cache_path)
@@ -133,7 +105,7 @@ class ProjectionTracesh:
         """
         savedParams = self.getSavedBoxesAndPeaks()
         cache = self.loadBoxesAndPeaks()
-
+        
         # Determine source of box configuration
         # is_from_cache flag tells onImageChanged whether peaks need mirroring
         if cache is not None and not self.delcache:
@@ -146,20 +118,20 @@ class ProjectionTracesh:
         else:
             box_config = None
             is_from_cache = False
-
+        
         # Extract global settings from config
         if box_config is not None:
-            self.centerx = box_config.get("centerx")
-            self.centery = box_config.get("centery")
-            self.mask_thres = box_config.get("mask_thres", -999)
-
+            self.centerx = box_config.get('centerx')
+            self.centery = box_config.get('centery')
+            self.mask_thres = box_config.get('mask_thres', -999)
+        
         self.onImageChanged(box_config, is_from_cache=is_from_cache)
 
     def onImageChanged(self, box_config=None, is_from_cache=False):
         """
         Called when image changes (e.g. to next image in batch).
         Creates a new ProjectionProcessor and populates boxes from config.
-
+        
         :param box_config: Dictionary containing box configurations from cache or settings file
                            Expected format (NEW): {'boxes': {'name': {...}}, 'centerx': ..., 'centery': ..., 'mask_thres': ...}
         :param is_from_cache: If True, peaks are already mirrored (from cache). If False, need to mirror (from settings file).
@@ -169,116 +141,94 @@ class ProjectionTracesh:
         from ..utils.image_data import ImageData
         from ..utils.file_manager import fullPath
         from ..modules.ProjectionProcessor import ProcessingBox
-
+        
         img_name = self.imgList[self.current_file]
         img_full_path = fullPath(self.dir_path, img_name)
         img = fabio.open(img_full_path).data
-
+        
         # Create ImageData with manual center/rotation from center_settings.json
         from ..utils.settings_manager import SettingsManager
-
         settings_manager = SettingsManager(self.dir_path)
         manual_center = settings_manager.get_center(img_name)
         manual_rotation = settings_manager.get_rotation(img_name)
-        image_data = ImageData(
-            img,
-            self.dir_path,
-            img_name,
-            center=manual_center,
-            rotation=manual_rotation,
-            settings_manager=settings_manager,
-        )
-
+        image_data = ImageData(img, self.dir_path, img_name,
+                               center=manual_center, rotation=manual_rotation,
+                               settings_manager=settings_manager)
+        
         # Create ProjectionProcessor with ImageData
         self.projProc = ProjectionProcessor(image_data, output_dir=self.output_dir)
         # Headless mode: Use the same rotation as GUI
         # Box coordinates in ptsettings.json are based on the rotated image displayed in GUI
         # ImageData will automatically load rotation from auto_geometry cache if it exists
         # This ensures headless and GUI produce identical results
-
+        
         if self.mask_thres == -999:
             self.mask_thres = getMaskThreshold(self.projProc.orig_img)
-
+        
         # Get final center from ImageData (manual or auto-calculated)
         center = self.projProc._image_data.center
         self.centerx, self.centery = center
-
+        
         # Populate boxes from config (NEW FORMAT: boxes contain all info as objects)
-        if box_config is not None and "boxes" in box_config:
-            boxes_dict = box_config["boxes"]
-
+        if box_config is not None and 'boxes' in box_config:
+            boxes_dict = box_config['boxes']
+            
             for box_name, box_dict in boxes_dict.items():
                 # Create ProcessingBox from dict (new format with all properties)
                 box = ProcessingBox(
-                    name=box_dict.get("name", box_name),
-                    coordinates=box_dict.get("coordinates"),
-                    type=box_dict.get("type", "h"),
-                    bgsub=box_dict.get("bgsub", 0),
-                    peaks=(
-                        box_dict.get("peaks", []).copy()
-                        if box_dict.get("peaks")
-                        else []
-                    ),
-                    merid_bg=box_dict.get("merid_bg", False),
-                    hull_range=(
-                        tuple(box_dict["hull_range"])
-                        if box_dict.get("hull_range")
-                        else None
-                    ),
-                    param_bounds=(
-                        box_dict.get("param_bounds", {}).copy()
-                        if box_dict.get("param_bounds")
-                        else {}
-                    ),
-                    use_common_sigma=box_dict.get("use_common_sigma", False),
-                    peak_tolerance=box_dict.get("peak_tolerance", 2.0),
-                    sigma_tolerance=box_dict.get("sigma_tolerance", 100.0),
+                    name=box_dict.get('name', box_name),
+                    coordinates=box_dict.get('coordinates'),
+                    type=box_dict.get('type', 'h'),
+                    bgsub=box_dict.get('bgsub', 0),
+                    peaks=box_dict.get('peaks', []).copy() if box_dict.get('peaks') else [],
+                    merid_bg=box_dict.get('merid_bg', False),
+                    hull_range=tuple(box_dict['hull_range']) if box_dict.get('hull_range') else None,
+                    param_bounds=box_dict.get('param_bounds', {}).copy() if box_dict.get('param_bounds') else {},
+                    use_common_sigma=box_dict.get('use_common_sigma', False),
+                    peak_tolerance=box_dict.get('peak_tolerance', 2.0),
+                    sigma_tolerance=box_dict.get('sigma_tolerance', 100.0)
                 )
-
+                
                 # Expand peaks by mirroring ONLY if loading from settings file
                 # Cache already has mirrored peaks, so skip mirroring to avoid double-mirror
                 if not is_from_cache:
                     self._expand_peaks_mirrored(box)
                 else:
-                    print(
-                        f"  [onImageChanged] Box '{box.name}': Loaded from cache, peaks already mirrored (count={len(box.peaks)})"
-                    )
-
+                    print(f"  [onImageChanged] Box '{box.name}': Loaded from cache, peaks already mirrored (count={len(box.peaks)})")
+                
                 self.projProc.boxes[box_name] = box
-
+        
         # Process new image
         self.processImage()
 
     def _expand_peaks_mirrored(self, box):
         """
         Expand peaks in a ProcessingBox by mirroring the first half.
-
+        
         User-selected peaks (first half) are mirrored to create symmetric peaks.
         For example: [10, 20, 30] -> [10, 20, 30, -10, -20, -30]
-
+        
         Modifies box.peaks in-place.
-
+        
         Note: hull_range is NOT mirrored because it's already a symmetric concept:
         hull_range = (start, end) means distance from center, applied to both sides.
-
+        
         Args:
             box: ProcessingBox with user-selected peaks (first half only)
         """
         if not box.peaks:
             print(f"  [_expand_peaks_mirrored] Box '{box.name}': No peaks to expand")
             return
-
+        
         # Mirror peaks: first half stays, add mirrored second half
         user_peaks = box.peaks  # Already only the first half
         mirrored_peaks = [-p for p in user_peaks]
         box.peaks = user_peaks + mirrored_peaks
-
-        print(
-            f"  [_expand_peaks_mirrored] Box '{box.name}': {len(user_peaks)} user peaks → {len(box.peaks)} total peaks"
-        )
+        
+        print(f"  [_expand_peaks_mirrored] Box '{box.name}': {len(user_peaks)} user peaks → {len(box.peaks)} total peaks")
         print(f"    User selected: {user_peaks}")
         print(f"    After mirroring: {box.peaks}")
-
+        
         # hull_range doesn't need mirroring - it's already symmetric
         # (start, end) defines distance ranges from center for both positive and negative sides
 
@@ -293,29 +243,24 @@ class ProjectionTracesh:
         try:
             self.projProc.process()
         except Exception:
-            print("Unexpected error")
-            msg = "Please report the problem with error message below and the input image\n\n"
-            msg += (
-                "Error : "
-                + str(sys.exc_info()[0])
-                + "\n\n"
-                + str(traceback.format_exc())
-            )
+            print('Unexpected error')
+            msg = 'Please report the problem with error message below and the input image\n\n'
+            msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             print(msg)
             raise
 
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()
-
+        
         self.cacheBoxesAndPeaks()
-
+        
         # Use boxes directly from projProc - no conversion needed
         self.csvManager = PT_CSVManager(self.output_dir, self.projProc.boxes)
         self.csvManager.loadSummary()
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
-
+        
         # release the lock
         if self.lock is not None:
             self.lock.release()
@@ -326,45 +271,24 @@ class ProjectionTracesh:
         :return:
         """
         if self.projProc:
-            path = fullPath(
-                self.output_dir, os.path.join("pt_results", "1d_projections")
-            )
+            path = fullPath(self.output_dir, os.path.join('pt_results', '1d_projections'))
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
-            orig_hists = {
-                name: box.hist
-                for name, box in self.projProc.boxes.items()
-                if box.hist is not None
-            }
-            subtr_hists = {
-                name: box.subtracted_hist
-                for name, box in self.projProc.boxes.items()
-                if box.subtracted_hist is not None
-            }
+            orig_hists = {name: box.hist for name, box in self.projProc.boxes.items() if box.hist is not None}
+            subtr_hists = {name: box.subtracted_hist for name, box in self.projProc.boxes.items() if box.subtracted_hist is not None}
 
             for k in orig_hists.keys():
                 hist = orig_hists[k]
                 xs = np.arange(len(hist))
-                f = open(
-                    fullPath(path, filename + "_box_" + str(k) + "_original.txt"), "w"
-                )
+                f = open(fullPath(path, filename+'_box_'+str(k)+'_original.txt'), 'w')
                 coords = zip(xs, hist)
-                f.write(
-                    "\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords)))
-                )
+                f.write("\n".join(list(map(lambda c : str(c[0])+"\t"+str(c[1]), coords))))
                 if k in subtr_hists:
                     sub_hist = subtr_hists[k]
-                    f = open(
-                        fullPath(path, filename + "_box_" + str(k) + "_subtracted.txt"),
-                        "w",
-                    )
+                    f = open(fullPath(path, filename+'_box_' + str(k) + '_subtracted.txt'), 'w')
                     coords = zip(xs, sub_hist)
-                    f.write(
-                        "\n".join(
-                            list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))
-                        )
-                    )
+                    f.write("\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))))
 
     def cacheBoxesAndPeaks(self):
         """
@@ -373,46 +297,38 @@ class ProjectionTracesh:
         """
         # Extract box configurations from ProcessingBox objects (NEW FORMAT)
         boxes = {}
-
+        
         for name, box in self.projProc.boxes.items():
             boxes[name] = {
-                "name": box.name,
-                "coordinates": box.coordinates,
-                "type": box.type,
-                "bgsub": box.bgsub,
-                "peaks": box.peaks,
-                "merid_bg": box.merid_bg,
-                "hull_range": box.hull_range,
-                "param_bounds": (
-                    box.param_bounds if hasattr(box, "param_bounds") else {}
-                ),
-                "use_common_sigma": (
-                    box.use_common_sigma if hasattr(box, "use_common_sigma") else False
-                ),
-                "peak_tolerance": (
-                    box.peak_tolerance if hasattr(box, "peak_tolerance") else 2.0
-                ),
-                "sigma_tolerance": (
-                    box.sigma_tolerance if hasattr(box, "sigma_tolerance") else 100.0
-                ),
+                'name': box.name,
+                'coordinates': box.coordinates,
+                'type': box.type,
+                'bgsub': box.bgsub,
+                'peaks': box.peaks,
+                'merid_bg': box.merid_bg,
+                'hull_range': box.hull_range,
+                'param_bounds': box.param_bounds if hasattr(box, 'param_bounds') else {},
+                'use_common_sigma': box.use_common_sigma if hasattr(box, 'use_common_sigma') else False,
+                'peak_tolerance': box.peak_tolerance if hasattr(box, 'peak_tolerance') else 2.0,
+                'sigma_tolerance': box.sigma_tolerance if hasattr(box, 'sigma_tolerance') else 100.0
             }
-
+        
         cache = {
-            "boxes": boxes,
-            "centerx": self.centerx,
-            "centery": self.centery,
-            "mask_thres": self.mask_thres,
+            'boxes': boxes,
+            'centerx': self.centerx,
+            'centery': self.centery,
+            'mask_thres': self.mask_thres
         }
-        cache_dir = fullPath(self.output_dir, "pt_cache")
+        cache_dir = fullPath(self.output_dir, 'pt_cache')
         createFolder(cache_dir)
-        cache_file = fullPath(cache_dir, "boxes_peaks.info")
+        cache_file = fullPath(cache_dir, 'boxes_peaks.info')
         pickle.dump(cache, open(cache_file, "wb"))
 
     def loadBoxesAndPeaks(self):
         """
         Load the boxes and peaks stored in the cache file, if it exists
         """
-        cache_file = fullPath(fullPath(self.output_dir, "pt_cache"), "boxes_peaks.info")
+        cache_file = fullPath(fullPath(self.output_dir, 'pt_cache'), 'boxes_peaks.info')
         if exists(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
             if cache is not None:
@@ -423,10 +339,10 @@ class ProjectionTracesh:
         """
         Import json saved boxes
         """
-        settingspath = self.settingspath
+        settingspath=self.settingspath
         if self.inputsettings:
             try:
-                with open(settingspath, "r") as f:
+                with open(settingspath, 'r') as f:
                     settings = json.load(f)
                 # for b in settings["boxes"].items():
                 #         if len(b[1][-1]) > 3:
@@ -440,37 +356,30 @@ class ProjectionTracesh:
     def applySettings(self):
         """
         Apply current settings directly to ProjectionProcessor state.
-
+        
         Note: Box configurations are managed by ProcessingBox objects in projProc.boxes.
         This method writes global settings directly to projProc.state.
         """
         if self.projProc is None:
             return
-
+        
         # Mask threshold
         self.projProc.state.mask_thres = self.mask_thres
 
         # Handle refit flag - clear fit results directly
         if self.refit:
             for box in self.projProc.boxes.values():
-                box.clear_results(from_stage="fit")
+                box.clear_results(from_stage='fit')
             self.refit = False
 
         # Calibration settings
         if self.calSettings is not None:
-            if "type" in self.calSettings:
+            if 'type' in self.calSettings:
                 if self.calSettings["type"] == "img":
-                    self.projProc.state.lambda_sdd = (
-                        self.calSettings["silverB"] * self.calSettings["radius"]
-                    )
+                    self.projProc.state.lambda_sdd = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
-                    self.projProc.state.lambda_sdd = (
-                        1.0
-                        * self.calSettings["lambda"]
-                        * self.calSettings["sdd"]
-                        / self.calSettings["pixel_size"]
-                    )
-
+                    self.projProc.state.lambda_sdd = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+            
             if "detector" in self.calSettings:
                 # Write to state
                 self.projProc.state.detector = self.calSettings["detector"]
@@ -479,7 +388,7 @@ class ProjectionTracesh:
         """
         Display input error to screen
         """
-        self.statusPrint("Invalid Input")
+        self.statusPrint('Invalid Input')
         self.statusPrint("Please select non empty failedcases.txt or an image\n\n")
 
     def statusPrint(self, text):
@@ -490,7 +399,7 @@ class ProjectionTracesh:
         """
         if text != "":
             pid = os.getpid()
-            ptext = "[Process " + str(pid) + "] " + str(text)
+            ptext = "[Process "+str(pid)+"] "+str(text)
             print(ptext)
         else:
             print(text)

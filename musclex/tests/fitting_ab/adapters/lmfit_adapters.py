@@ -27,14 +27,13 @@ from lmfit import Model, Parameters
 try:
     from sklearn.metrics import r2_score
 except ImportError:  # pragma: no cover - sklearn is a hard musclex dep
-
     def r2_score(y_true, y_pred):  # type: ignore[no-redef]
         ss_res = float(np.sum((np.asarray(y_true) - np.asarray(y_pred)) ** 2))
         ss_tot = float(np.sum((np.asarray(y_true) - np.mean(y_true)) ** 2))
         return 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
 
-
 from .base import FitCase, FitInputs, FitResult, FitterAdapter, ParamSpec
+
 
 # --------------------------------------------------------------------------- #
 # Model functions
@@ -192,14 +191,12 @@ def _manual_chi2(y: np.ndarray, predicted: np.ndarray, weights) -> Optional[floa
     if predicted is None:
         return None
     try:
-        residuals = np.asarray(y, dtype=np.float64) - np.asarray(
-            predicted, dtype=np.float64
-        )
+        residuals = np.asarray(y, dtype=np.float64) - np.asarray(predicted, dtype=np.float64)
         if weights is not None:
             residuals = residuals * np.asarray(weights, dtype=np.float64)
         if not np.all(np.isfinite(residuals)):
             return None
-        return float(np.sum(residuals**2))
+        return float(np.sum(residuals ** 2))
     except Exception:  # pragma: no cover
         return None
 
@@ -291,7 +288,7 @@ class _LmfitAdapterBase(FitterAdapter):
         stderr: Dict[str, Optional[float]] = {}
         for name in inputs.free_params:
             p = result.params.get(name)
-            stderr[name] = None if p is None or p.stderr is None else float(p.stderr)
+            stderr[name] = (None if p is None or p.stderr is None else float(p.stderr))
 
         # Recompute chi2 / r2 from the final parameter values so we don't
         # inherit lmfit's reporting quirks (notably the ``chisqr ~ 1e-250``
@@ -397,7 +394,6 @@ def _make_variant_resolver(import_path: str):
 
     def _resolve(self, model_kind: str):  # noqa: ANN001
         import importlib  # noqa: PLC0415
-
         mod = importlib.import_module(import_path)
         if model_kind == "gmm":
             return mod.layerlineModelGMM
@@ -513,7 +509,6 @@ def _slice_to_hull_range(inputs: FitInputs, hull_range) -> FitInputs:
     w_sl = inputs.weights[lo:hi] if inputs.weights is not None else None
 
     from dataclasses import replace  # noqa: PLC0415
-
     return replace(inputs, x=x_sl, y=y_sl, weights=w_sl)
 
 
@@ -561,15 +556,11 @@ def _double_slice_to_hull_range(inputs: FitInputs, hull_range) -> FitInputs:
     y_cat = np.concatenate([inputs.y[l_lo:l_hi], inputs.y[r_lo:r_hi]])
     w_cat = None
     if inputs.weights is not None:
-        w_cat = np.concatenate(
-            [
-                inputs.weights[l_lo:l_hi],
-                inputs.weights[r_lo:r_hi],
-            ]
-        )
+        w_cat = np.concatenate([
+            inputs.weights[l_lo:l_hi], inputs.weights[r_lo:r_hi],
+        ])
 
     from dataclasses import replace  # noqa: PLC0415
-
     return replace(inputs, x=x_cat, y=y_cat, weights=w_cat)
 
 
@@ -598,10 +589,8 @@ def _recompute_metrics_on_full_array(
 
     try:
         predicted_full = model_func(**{**indep_kwargs, **result.values})
-        r2_full = _compute_r2(original_inputs.y, predicted_full)
-        chi2_full = _manual_chi2(
-            original_inputs.y, predicted_full, original_inputs.weights
-        )
+        r2_full  = _compute_r2(original_inputs.y, predicted_full)
+        chi2_full = _manual_chi2(original_inputs.y, predicted_full, original_inputs.weights)
         redchi_full: Optional[float] = None
         try:
             ndata = int(np.asarray(original_inputs.y).size)
@@ -615,7 +604,6 @@ def _recompute_metrics_on_full_array(
         return result
 
     from dataclasses import replace as _replace  # noqa: PLC0415
-
     return _replace(result, r2=r2_full, chi2=chi2_full, redchi=redchi_full)
 
 
@@ -649,7 +637,6 @@ class LmfitTRFHullDoubleSliceAdapter(_LmfitAdapterBase):
         ):
             sliced_inputs = _double_slice_to_hull_range(case.inputs, meta.hull_range)
             from dataclasses import replace as _replace  # noqa: PLC0415
-
             sliced_case = _replace(case, inputs=sliced_inputs)
             result = super().fit(sliced_case, perturb_init=perturb_init)
             return _recompute_metrics_on_full_array(result, case.inputs)
@@ -685,7 +672,6 @@ class LmfitTRFHullSliceAdapter(_LmfitAdapterBase):
         ):
             sliced_inputs = _slice_to_hull_range(case.inputs, meta.hull_range)
             from dataclasses import replace as _replace  # noqa: PLC0415
-
             sliced_case = _replace(case, inputs=sliced_inputs)
             result = super().fit(sliced_case, perturb_init=perturb_init)
             return _recompute_metrics_on_full_array(result, case.inputs)
@@ -695,7 +681,6 @@ class LmfitTRFHullSliceAdapter(_LmfitAdapterBase):
 # --------------------------------------------------------------------------- #
 # Vectorised batch adapters (L3 / L4)
 # --------------------------------------------------------------------------- #
-
 
 class LmfitTRFNumpyVectorizedAdapter(_LmfitAdapterBase):
     """TRF + NumPy batch vectorisation (L3, control group).
@@ -742,7 +727,6 @@ class LmfitTRFNumbaVectorizedAdapter(_LmfitAdapterBase):
 # Analytical-Jacobian adapter (direct scipy, no lmfit wrapper overhead)
 # --------------------------------------------------------------------------- #
 
-
 class ScipyAnalyticJacAdapter(FitterAdapter):
     """Direct ``scipy.optimize.least_squares`` with an analytical Jacobian.
 
@@ -769,8 +753,8 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
     name = "scipy-analytic-jac"
 
     def __init__(self, *, seed: int = 0, max_nfev: Optional[int] = None):
-        self._rng = np.random.default_rng(seed)
-        self._max_nfev = max_nfev  # None → scipy default (100 × n_free)
+        self._rng       = np.random.default_rng(seed)
+        self._max_nfev  = max_nfev  # None → scipy default (100 × n_free)
 
     def fit(self, case: FitCase, *, perturb_init: Optional[float] = None) -> FitResult:
         from scipy.optimize import least_squares as _ls
@@ -780,16 +764,13 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
 
         inputs = case.inputs
         free_names = list(inputs.free_params.keys())
-        fixed = dict(inputs.fixed_params)
+        fixed      = dict(inputs.fixed_params)
 
         # Build x0, bounds
-        x0 = np.array(
-            [
-                float(_maybe_perturb_init(spec, perturb_init, self._rng))
-                for spec in inputs.free_params.values()
-            ],
-            dtype=np.float64,
-        )
+        x0 = np.array([
+            float(_maybe_perturb_init(spec, perturb_init, self._rng))
+            for spec in inputs.free_params.values()
+        ], dtype=np.float64)
         lo = np.array([s.to_lmfit_min() for s in inputs.free_params.values()])
         hi = np.array([s.to_lmfit_max() for s in inputs.free_params.values()])
 
@@ -805,22 +786,15 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
                 x0,
                 jac=jac_fn,
                 bounds=(lo, hi),
-                method="trf",
+                method='trf',
                 max_nfev=self._max_nfev,
             )
         except Exception as exc:
             elapsed = time.perf_counter() - t0
             return FitResult(
-                success=False,
-                values={},
-                stderr={},
-                n_eval=None,
-                n_iter=None,
-                elapsed_s=elapsed,
-                converged=False,
-                chi2=None,
-                redchi=None,
-                r2=None,
+                success=False, values={}, stderr={},
+                n_eval=None, n_iter=None, elapsed_s=elapsed,
+                converged=False, chi2=None, redchi=None, r2=None,
                 message=f"{type(exc).__name__}: {exc}",
             )
         elapsed = time.perf_counter() - t0
@@ -831,7 +805,7 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
         values.update(fixed)
         # Add independent vars that happen to be params (e.g. bg when bgsub==1)
         for k, v in inputs.independent_vars.items():
-            if k != "x":
+            if k != 'x':
                 values.setdefault(k, float(v))
 
         # Covariance → stderr (from Jacobian at solution, same as scipy convention)
@@ -844,7 +818,7 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
             # Scale by residual variance
             m, n = J.shape
             if m > n:
-                s2 = np.sum(result.fun**2) / (m - n)
+                s2 = np.sum(result.fun ** 2) / (m - n)
                 cov = cov * s2
             for i, name in enumerate(free_names):
                 v = float(cov[i, i])
@@ -854,25 +828,23 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
 
         # Post-fit metrics
         from musclex.tests.fitting_ab.model_variants.model_numpy import (
-            layerlineModelGMM,
-            layerlineModel,
+            layerlineModelGMM, layerlineModel,
         )
-
-        model_fn = layerlineModelGMM if inputs.model_kind == "gmm" else layerlineModel
+        model_fn = layerlineModelGMM if inputs.model_kind == 'gmm' else layerlineModel
         indep_kw = dict(inputs.independent_vars)
-        indep_kw["x"] = inputs.x
+        indep_kw['x'] = inputs.x
 
         predicted = None
         chi2: Optional[float] = None
-        r2: Optional[float] = None
+        r2:   Optional[float] = None
         redchi: Optional[float] = None
         try:
             predicted = model_fn(**{**indep_kw, **values})
-            r2 = _compute_r2(inputs.y, predicted)
+            r2   = _compute_r2(inputs.y, predicted)
             chi2 = _manual_chi2(inputs.y, predicted, inputs.weights)
-            ndata = len(inputs.y)
-            nvarys = len(free_names)
-            dof = ndata - nvarys
+            ndata   = len(inputs.y)
+            nvarys  = len(free_names)
+            dof     = ndata - nvarys
             if chi2 is not None and dof > 0:
                 redchi = chi2 / dof
         except Exception:
@@ -883,7 +855,7 @@ class ScipyAnalyticJacAdapter(FitterAdapter):
         #    0  max nfev reached
         #    1–4 convergence criteria
         converged = bool(result.success) and result.status > 0
-        aborted = result.status == 0
+        aborted   = result.status == 0
 
         return FitResult(
             success=converged,

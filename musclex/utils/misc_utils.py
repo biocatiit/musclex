@@ -54,7 +54,7 @@ def qFromCenter(point, center, scale):
         x, y = point
         q_x = (x - center[0]) / scale
         q_y = (y - center[1]) / scale
-        q_R = np.sqrt(q_x**2 + q_y**2)
+        q_R = np.sqrt(q_x ** 2 + q_y ** 2)
     except Exception as e:
         print("Error calculating q from center:", e)
         return None, None, None, unit

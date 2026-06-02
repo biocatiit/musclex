@@ -42,14 +42,14 @@ class NavigationControls(QWidget):
         self.filenameLineEdit = QLineEdit()
 
         # Helpful tooltips (can be overridden by parent GUIs)
-        self.nextButton.setToolTip("Go to the next image / frame in the folder")
-        self.prevButton.setToolTip("Go to the previous image / frame in the folder")
-        self.nextFileButton.setToolTip("Jump to the next H5 file in this folder")
-        self.prevFileButton.setToolTip("Jump to the previous H5 file in this folder")
+        self.nextButton.setToolTip('Go to the next image / frame in the folder')
+        self.prevButton.setToolTip('Go to the previous image / frame in the folder')
+        self.nextFileButton.setToolTip('Jump to the next H5 file in this folder')
+        self.prevFileButton.setToolTip('Jump to the previous H5 file in this folder')
         self.processFolderButton.setToolTip(
-            "Process every image in the current folder using the current settings"
-        )
-        self.processH5Button.setToolTip("Process all H5 files in the current folder")
+            'Process every image in the current folder using the current settings')
+        self.processH5Button.setToolTip(
+            'Process all H5 files in the current folder')
 
         # Layout
         layout = QGridLayout(self)
@@ -72,12 +72,12 @@ class NavigationControls(QWidget):
         # Default: hide file-level navigation until a GUI enables H5 mode
         self.prevFileButton.hide()
         self.nextFileButton.hide()
-
+    
     def setNavMode(self, mode):
         """
         Set the navigation mode based on the mode parameter.
         """
-        if mode == "h5":
+        if mode == 'h5':
             self.nextFileButton.show()
             self.prevFileButton.show()
             self.processH5Button.show()

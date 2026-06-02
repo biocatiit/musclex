@@ -26,30 +26,30 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-python_version = {"python": "3.10.12"}
+python_version = { "python" : "3.10.12" }
 pip_details = {
-    "scikit-image": "0.25.2",
-    "tifffile": "2023.2.28",
-    "numpy": "1.26.4",
-    "pandas": "2.2.0",
-    "scikit-learn": "1.7.1",
-    "lmfit": "1.1.0",
-    "fabio": "2023.10.0",
-    "h5py": "3.10.0",
-    "scipy": "1.11.4",
-    "matplotlib": "3.9.2",
-    "opencv-python-headless": "4.11.0",
-    "pyFAI": "2024.1.0",
-    "distro": "1.8.0",
-    "hdf5plugin": "4.4.0",
-    "PyMca5": "5.9.4",
-    "numba": "0.60.0",
-    "fisx": "1.3.2",
-    "future": "1.0.0",
-    "openpyxl": "3.1.2",
-    "pip": "22.0.2",
-    "wheel": "0.45.1",
-}
+    "scikit-image" : "0.25.2",
+    "tifffile" : "2023.2.28",
+    "numpy" : "1.26.4",
+    "pandas" : "2.2.0",
+    "scikit-learn" : "1.7.1",
+    "lmfit" : "1.1.0",
+    "fabio" : "2023.10.0",
+    "h5py" : "3.10.0",
+    "scipy" : "1.11.4",
+    "matplotlib" : "3.9.2",
+    "opencv-python-headless" : "4.11.0",
+    "pyFAI" : "2024.1.0",
+    "distro" : "1.8.0",
+    "hdf5plugin" : "4.4.0",
+    "PyMca5" : "5.9.4",
+    "numba" : "0.60.0",
+    "fisx" : "1.3.2",
+    "future" : "1.0.0",
+    "openpyxl" : "3.1.2",
+    "pip" : "22.0.2",
+    "wheel" : "0.45.1"
+    }
 
 import os
 import sys
@@ -58,59 +58,49 @@ from time import gmtime, strftime
 import platform
 from musclex import __version__
 
-
 class EnvironmentTester(unittest.TestCase):
     """
     Unittest class to test the pip environment of the computer, UPDATE BEFORE RELEASE
     """
-
     @classmethod
     def setUpClass(cls):
-        if getattr(sys, "frozen", False):
+        if getattr(sys, 'frozen', False):
             cls.currdir = os.path.join(os.path.dirname(sys._MEIPASS), "musclex")
         else:
             cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")
-        cls.testversion = __version__  # change this to test against a different version
+        cls.testversion = __version__ # change this to test against a different version
 
-        cls.logname = os.path.join(cls.currdir, "test_logs", "test.log")
+        cls.logname = os.path.join(cls.currdir,"test_logs", "test.log")
         if not os.path.isdir(os.path.dirname(cls.logname)):
             os.mkdir(os.path.dirname(cls.logname))
         if os.path.exists(cls.logname):
-            append_write = "a"
+            append_write = 'a'
         else:
-            append_write = "w"
+            append_write = 'w'
 
         with open(cls.logname, append_write) as lf:
             lf.write(f'\n{"-"*80}\n')
-            lf.write(
-                "Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-            )
+            lf.write("Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
             lf.write("Testing MuscleX version: {}\n".format(__version__))
             lf.write("\nSummary of Test Results\n")
 
     @classmethod
     def tearDownClass(cls):
-        with open(cls.logname, "a") as lf:
-            lf.write(
-                "Ending test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-            )
+        with open(cls.logname, 'a') as lf:
+            lf.write("Ending test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
             lf.write(f'\n{"-"*80}\n')
 
     def testEnvironment(self):
         """
         Runs a test of Environment given the current versions.
         """
-        print(
-            f"\033[3;33m\nVerifying that installed Python version {python_version['python']} is equivalent to Python at the release {__version__}\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that installed Python version {python_version['python']} is equivalent to Python at the release {__version__}\033[0;3140m")
         if platform.python_version() == python_version["python"]:
             print("Testing Python version ..... \033[0;32mPASSED\033[0;3140m")
             python_test = True
         else:
-            print(
-                f"Testing Python version ..... \033[0;31mWARNING : {platform.python_version()} is not {python_version['python']}\033[0;3140m"
-            )
+            print(f"Testing Python version ..... \033[0;31mWARNING : {platform.python_version()} is not {python_version['python']}\033[0;3140m")
             python_test = False
         self.log_results(python_test, "Python Version")
         for pip in pip_details:
@@ -123,20 +113,17 @@ class EnvironmentTester(unittest.TestCase):
         Save the result in the log file
         """
         if pass_test:
-            result = "pass"
+            result = 'pass'
         else:
-            result = "warning, check terminal for more detail"
-        with open(self.logname, "a") as lf:
+            result = 'warning, check terminal for more detail'
+        with open(self.logname, 'a') as lf:
             lf.write(f"{testname} Test: {result}\n")
-
 
 def env_test(pip, pip_details):
     """
     Function importing the package pip and comparing the version to the package version at the release
     """
-    print(
-        f"\033[3;33m\nVerifying that installed package {pip} is equivalent to package at the release {__version__}\033[0;3140m"
-    )
+    print(f"\033[3;33m\nVerifying that installed package {pip} is equivalent to package at the release {__version__}\033[0;3140m")
     if pip == "scikit-image":
         module = __import__("skimage")
     elif pip == "scikit-learn":
@@ -149,15 +136,12 @@ def env_test(pip, pip_details):
         vfy_pip = module.version
     else:
         vfy_pip = module.__version__
-    pass_test = vfy_pip == pip_details[pip]
+    pass_test = (vfy_pip == pip_details[pip])
     if pass_test:
         print(f"Testing {pip} ..... \033[0;32mPASSED\033[0;3140m")
     else:
-        print(
-            f"Testing {pip} ..... \033[0;31mWARNING : {vfy_pip} is not {pip_details[pip]}\033[0;3140m"
-        )
+        print(f"Testing {pip} ..... \033[0;31mWARNING : {vfy_pip} is not {pip_details[pip]}\033[0;3140m")
     return pass_test
 
-
-if __name__ == "__main__":
+if __name__=="__main__":
     unittest.main(verbosity=2)

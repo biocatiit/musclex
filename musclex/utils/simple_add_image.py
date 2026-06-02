@@ -26,6 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+
 import os
 import numpy as np
 import tifffile
@@ -44,7 +45,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QRadioButton,
     QDialog,
-    QDialogButtonBox,
+    QDialogButtonBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout
@@ -93,9 +94,9 @@ class SumFramesGUI(QWidget):
         start_frame = int(self.startFrameInput.text())
         end_frame = int(self.endFrameInput.text())
         output_folder = os.path.join(os.path.dirname(file_path), "summed_files")
-
+        
         add_frames(file_path, start_frame, end_frame)
-
+        
         print(
             f"Summing frames {start_frame} to {end_frame} in {file_path}, saving to {output_folder}"
         )
@@ -113,9 +114,7 @@ class SumImagesGUI(QWidget):
         layout = QVBoxLayout()
 
         # Image selection input
-        self.imagesLabel = QLabel(
-            "Select Start and End Images, holding Ctrl to select multiple images:"
-        )
+        self.imagesLabel = QLabel("Select Start and End Images, holding Ctrl to select multiple images:")
         layout.addWidget(self.imagesLabel)
         self.imagesButton = QPushButton("Browse Images", self)
         self.imagesButton.clicked.connect(self.openImagesDialog)
@@ -168,7 +167,7 @@ class SumImagesGUI(QWidget):
         if files:
             start_image = files[0]
             end_image = files[-1]
-
+            
             self.startImageInput.setText(start_image)
             self.endImageInput.setText(end_image)
 
@@ -180,16 +179,17 @@ class SumImagesGUI(QWidget):
             if self.excludeInput.text()
             else []
         )
+        
 
         try:
             folder_path = os.path.dirname(start_image_path)
             start_image_name = os.path.basename(start_image_path)
             end_image_name = os.path.basename(end_image_path)
-
-            print(
-                f"Summing images from {start_image_name} to {end_image_name} in {folder_path}"
+            
+            print(f"Summing images from {start_image_name} to {end_image_name} in {folder_path}")
+            add_images(
+                folder_path, start_image_name, end_image_name, str_to_exclude
             )
-            add_images(folder_path, start_image_name, end_image_name, str_to_exclude)
             QMessageBox.information(
                 self, "Success", "The summed image has been successfully created."
             )
@@ -209,9 +209,7 @@ def filter_and_sort_files(
         end_index = files.index(end_image_name) + 1
     except ValueError:
         print("One or both of the provided image names are not in the folder.")
-        raise ValueError(
-            "One or both of the provided image names are not in the folder."
-        )
+        raise ValueError("One or both of the provided image names are not in the folder.")
 
     files = files[start_index:end_index]
 
@@ -263,15 +261,12 @@ def save_summed_image(folder_path, start_image_name, end_image_name, summed_imag
     end_image_name = end_image_name.split(".")[0]
     output_file_name = f"summed_image_{start_image_name}_{end_image_name}.tif"
     output_file_path = os.path.join(output_folder, output_file_name)
-    fabio.pilatusimage.pilatusimage(
-        data=summed_image,
-        header=fabio.open(
-            os.path.join(folder_path, start_image_name + ".tif")
-        ).getheader(),
-    ).write(output_file_path)
+    fabio.pilatusimage.pilatusimage(data=summed_image, header=fabio.open(os.path.join(folder_path, start_image_name + ".tif")).getheader()).write(output_file_path)
 
 
-def add_images(folder_path, start_image_name, end_image_name, str_to_exclude=None):
+def add_images(
+    folder_path, start_image_name, end_image_name, str_to_exclude=None
+):
     """Create a summed image from TIFF or H5 files between start and end image names, excluding specified strings."""
     try:
         file_extension = ".tif" if start_image_name.endswith(".tif") else ".h5"
@@ -292,7 +287,7 @@ def add_images(folder_path, start_image_name, end_image_name, str_to_exclude=Non
             save_summed_image(folder_path, new_start_img, new_end_img, summed_image)
             print(f"Summed image saved to {os.path.join(folder_path, 'summed_files')}")
     except Exception as e:
-        raise e
+        raise e  
 
 
 def add_frames(file_path, start_frame=1, end_frame=None):
@@ -303,17 +298,15 @@ def add_frames(file_path, start_frame=1, end_frame=None):
             current_frame = 1
             print("h5 file has ", fabio_img.nframes, " frames available")
             if end_frame and end_frame > fabio_img.nframes:
-                raise ValueError(
-                    "The ending frame must be less than or equal to the number of frames in the file."
-                )
-
+                raise ValueError("The ending frame must be less than or equal to the number of frames in the file.")
+            
             output_folder = os.path.join(os.path.dirname(file_path), "summed_files")
             while True:
                 if start_frame <= current_frame <= (end_frame or fabio_img.nframes):
                     if sum_image is None:
                         sum_image = fabio_img.data.astype(np.int32)
                         sum_image[sum_image == 4294967295] = -1
-
+                    
                     else:
                         to_add = fabio_img.data.astype(np.int32)
                         to_add[to_add == 4294967295] = -1
@@ -334,13 +327,12 @@ def add_frames(file_path, start_frame=1, end_frame=None):
             + f"_summed_{start_frame}-{end_frame}.tif",
         )
         os.makedirs(output_folder, exist_ok=True)
-        fabio.pilatusimage.pilatusimage(
-            data=sum_image, header=fabio_img.getheader()
-        ).write(output_file)
+        fabio.pilatusimage.pilatusimage(data=sum_image, header=fabio_img.getheader()).write(output_file)
         print(f"Summed image saved to {output_file}")
 
     except Exception as e:
         raise e
+
 
 
 def main_cli():
@@ -354,7 +346,9 @@ def main_cli():
     sum_images_parser.add_argument(
         "image_path_start", help="Full path to the start image."
     )
-    sum_images_parser.add_argument("image_path_end", help="Full path to the end image.")
+    sum_images_parser.add_argument(
+        "image_path_end", help="Full path to the end image."
+    )
     sum_images_parser.add_argument(
         "--exclude", nargs="*", help="List of strings to exclude from the summed image."
     )
@@ -372,7 +366,9 @@ def main_cli():
     sum_frames_parser.add_argument(
         "start_frame", type=int, default=1, help="Starting frame to sum."
     )
-    sum_frames_parser.add_argument("end_frame", type=int, help="Ending frame to sum.")
+    sum_frames_parser.add_argument(
+        "end_frame", type=int, help="Ending frame to sum."
+    )
     sum_frames_parser.add_argument(
         "--headless", action="store_true", help="Run the script without the GUI."
     )
@@ -393,13 +389,17 @@ def main_cli():
             f"Summing images from {start_image_name} to {end_image_name} in {folder_path_start}"
         )
         excluded = args.exclude if args.exclude else []
-        add_images(folder_path_start, start_image_name, end_image_name, excluded)
+        add_images(
+            folder_path_start, start_image_name, end_image_name, excluded
+        )
 
     elif args.command == "sum-frames":
         file_path = args.file
         file_name = os.path.basename(file_path)
         print(f"Summing frames {args.start_frame} to {args.end_frame} in {file_name}")
-        add_frames(file_path, args.start_frame, args.end_frame)
+        add_frames(
+            file_path, args.start_frame, args.end_frame
+        )
     else:
         parser.print_help()
 
@@ -410,10 +410,10 @@ def main():
     if "--headless" in sys.argv or "-h" in sys.argv or "--help" in sys.argv:
         main_cli()
     else:
-        if "sum-images" in sys.argv:
+        if 'sum-images' in sys.argv: 
             main_gui = SumImagesGUI()
             main_gui.show()
-        elif "sum-frames" in sys.argv:
+        elif 'sum-frames' in sys.argv:
             main_gui = SumFramesGUI()
             main_gui.show()
         else:

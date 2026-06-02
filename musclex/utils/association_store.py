@@ -36,6 +36,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+
 _DEFAULT_PATH = Path.home() / ".musclex" / "directory_associations.json"
 
 

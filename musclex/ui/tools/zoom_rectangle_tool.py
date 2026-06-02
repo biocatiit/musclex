@@ -33,27 +33,27 @@ from .interaction_tool import InteractionTool
 class ZoomRectangleTool(InteractionTool):
     """
     Tool for selecting a rectangular zoom region using matplotlib RectangleSelector.
-
+    
     This tool wraps matplotlib's RectangleSelector widget to provide a professional
     zoom selection experience with drag-to-select and interactive adjustment.
-
+    
     Workflow:
         1. User activates the tool
         2. User drags to select a rectangular region
         3. When selection is released, the zoom is applied IMMEDIATELY
         4. Tool automatically deactivates itself
-
+    
     Usage:
         tool = ZoomRectangleTool(axes, canvas, on_zoom_callback)
         tool.activate()
         # ... user drags to select region ...
         # Zoom is applied automatically when selection is released
     """
-
+    
     def __init__(self, axes, canvas, on_zoom_callback=None):
         """
         Initialize the ZoomRectangleTool.
-
+        
         Args:
             axes: The matplotlib axes to draw on
             canvas: The matplotlib canvas to redraw
@@ -63,11 +63,11 @@ class ZoomRectangleTool(InteractionTool):
         self.selector = None
         self.zoom_bounds = None
         self.on_zoom_callback = on_zoom_callback
-
+    
     def _on_activate(self):
         """Create and activate the RectangleSelector when tool is activated."""
         self.zoom_bounds = None
-
+        
         # Create RectangleSelector
         self.selector = RectangleSelector(
             self.axes,
@@ -76,11 +76,16 @@ class ZoomRectangleTool(InteractionTool):
             button=[1],  # Left mouse button
             minspanx=5,
             minspany=5,
-            spancoords="pixels",
+            spancoords='pixels',
             interactive=True,
-            props=dict(facecolor="red", edgecolor="red", alpha=0.2, fill=True),
+            props=dict(
+                facecolor='red',
+                edgecolor='red',
+                alpha=0.2,
+                fill=True
+            )
         )
-
+    
     def _on_deactivate(self):
         """Clean up the RectangleSelector when tool is deactivated."""
         if self.selector is not None:
@@ -90,34 +95,34 @@ class ZoomRectangleTool(InteractionTool):
             # Remove the selector's artists from the axes
             self.selector = None
         self.canvas.draw_idle()
-
+    
     def _on_select(self, eclick, erelease):
         """
         Callback when rectangle selection is completed (mouse button released).
         This is called IMMEDIATELY when user finishes dragging, so we apply zoom here.
-
+        
         Args:
             eclick: Mouse button press event
             erelease: Mouse button release event
         """
         x1, y1 = eclick.xdata, eclick.ydata
         x2, y2 = erelease.xdata, erelease.ydata
-
+        
         # Store zoom bounds
         self.zoom_bounds = [
             (min(x1, x2), max(x1, x2)),  # x range
-            (min(y1, y2), max(y1, y2)),  # y range
+            (min(y1, y2), max(y1, y2))   # y range
         ]
-
+        
         # Immediately hide the selection rectangle to avoid leaving visual artifacts
         if self.selector is not None:
             self.selector.set_visible(False)
             self.canvas.draw_idle()
-
+        
         # Apply zoom immediately if callback is provided
         if self.on_zoom_callback:
             self.on_zoom_callback(self.zoom_bounds)
-
+    
     def handle_click(self, event) -> bool:
         """
         RectangleSelector handles clicks internally.
@@ -125,7 +130,7 @@ class ZoomRectangleTool(InteractionTool):
         """
         # Block the event when tool is active to prevent accidental clicks
         return self.is_active
-
+    
     def handle_motion(self, event) -> bool:
         """
         RectangleSelector handles motion internally for drawing the rectangle.
@@ -133,7 +138,7 @@ class ZoomRectangleTool(InteractionTool):
         """
         # Block the event when tool is active
         return self.is_active
-
+    
     def handle_release(self, event) -> bool:
         """
         RectangleSelector handles release internally to finalize the selection.
@@ -141,12 +146,13 @@ class ZoomRectangleTool(InteractionTool):
         """
         # Block the event when tool is active to prevent accidental clicks
         return self.is_active
-
+    
     def get_result(self):
         """
         Get the selected zoom bounds.
-
+        
         Returns:
             List with two tuples: [(x_min, x_max), (y_min, y_max)], or None if no selection
         """
         return self.zoom_bounds
+

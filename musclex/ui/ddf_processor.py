@@ -31,12 +31,10 @@ from musclex import __version__
 import pandas as pd
 from .pyqt_utils import *
 
-
 class DDFWindow(QMainWindow):
     """
     DDF Processor is a program which is able to average data points for ddf file.
     """
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Muscle X DDF-Processor v." + __version__)
@@ -83,12 +81,10 @@ class DDFWindow(QMainWindow):
         self.mainGrid.addWidget(self.inputField, 0, 1, 1, 1)
         self.mainGrid.addWidget(self.browseFileButton, 0, 2, 1, 1)
         self.mainGrid.addWidget(separator, 1, 0, 1, 3)
-        self.mainGrid.addWidget(
-            QLabel("2. Column Selection"), 2, 0, 1, 3, alignment=Qt.AlignCenter
-        )
+        self.mainGrid.addWidget(QLabel("2. Column Selection"), 2, 0, 1, 3, alignment = Qt.AlignCenter)
         self.mainGrid.addLayout(self.columnGrid, 3, 0, 1, 3)
         self.mainGrid.addWidget(separator2, 4, 0, 1, 3)
-        self.mainGrid.addLayout(self.freqLayout, 5, 0, 1, 3, alignment=Qt.AlignCenter)
+        self.mainGrid.addLayout(self.freqLayout, 5, 0, 1, 3, alignment = Qt.AlignCenter)
         # self.mainGrid.addWidget(QLabel("Average every : "), 3, 1, 1, 1, alignment = Qt.AlignRight)
         # self.mainGrid.addWidget(self.freqSpnBx, 3, 2, 1, 1)
         self.columnGrid.rowMinimumHeight(50)
@@ -126,7 +122,7 @@ class DDFWindow(QMainWindow):
         """
         Browse an image
         """
-        file_name = getAFile("")
+        file_name = getAFile('')
         if file_name != "":
             _, ext = os.path.splitext(str(file_name))
             if ext in (".txt", ".ddf"):
@@ -136,7 +132,7 @@ class DDFWindow(QMainWindow):
                 self.updateUI()
             else:
                 errMsg = QMessageBox()
-                errMsg.setText("Invalid Input")
+                errMsg.setText('Invalid Input')
                 errMsg.setInformativeText("Please select a .txt or .ddf file\n\n")
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
@@ -153,9 +149,9 @@ class DDFWindow(QMainWindow):
         self.generateButton.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         for i, row in enumerate(open(self.current_file)):
-            if (i / 100) % 3 == 0:
+            if (i/100)%3 == 0:
                 self.statusText.setText(reading)
-            elif (i / 100) % 3 == 1:
+            elif (i/100)%3 == 1:
                 self.statusText.setText(reading + " .")
             else:
                 self.statusText.setText(reading + " . .")
@@ -174,15 +170,13 @@ class DDFWindow(QMainWindow):
             r = row.rstrip("\n")
             r = r.rstrip("\r")
             line = r.split("\t")
-            line = list(map(float, line))[: len(cols)]
-            d = dict(zip(cols, line))
+            line =  list(map(float, line))[:len(cols)]
+            d = dict(zip(cols,line))
             self.data = self.data.append(d, ignore_index=True)
 
         QApplication.restoreOverrideCursor()
         self.generateButton.setEnabled(True)
-        self.statusText.setText(
-            "Please select columns, adjust the average frequency, and click Generate"
-        )
+        self.statusText.setText("Please select columns, adjust the average frequency, and click Generate")
         QApplication.processEvents()
 
     def updateUI(self):
@@ -199,12 +193,12 @@ class DDFWindow(QMainWindow):
         if self.data is not None:
             cols = list(self.data.columns)
             cols.remove("Sample")
-            for i, col_name in enumerate(cols):
-                r = i / 3
-                c = i % 3
+            for i,col_name in enumerate(cols):
+                r = i/3
+                c = (i%3)
                 col_cb = QCheckBox(col_name)
                 self.colChkBxs.append(col_cb)
-                self.columnGrid.addWidget(col_cb, r, c, 1, 1)
+                self.columnGrid.addWidget(col_cb, r, c , 1, 1)
                 self.columnGrid.setAlignment(col_cb, Qt.AlignCenter)
         self.resize(700, 50)
 
@@ -218,9 +212,9 @@ class DDFWindow(QMainWindow):
         for i, c in enumerate(self.colChkBxs):
             if c.isChecked():
                 selected_cols.append(cols[i])
-        if len(selected_cols) == 0:
+        if len(selected_cols) == 0 :
             errMsg = QMessageBox()
-            errMsg.setText("No column selected")
+            errMsg.setText('No column selected')
             errMsg.setInformativeText("Please select at least 1 column.\n\n")
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
@@ -239,4 +233,4 @@ class DDFWindow(QMainWindow):
                 genData.to_html(output, index=False)
             else:
                 genData.to_csv(output, index=False)
-            self.statusText.setText(output + " has been saved.")
+            self.statusText.setText(output+" has been saved.")

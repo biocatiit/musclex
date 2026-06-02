@@ -8,7 +8,7 @@ import math
 from scipy.interpolate import UnivariateSpline
 from numba import njit, gdb
 import sys
-import cv2
+import cv2 
 
 
 @jit(nopython=True, parallel=True)
@@ -42,8 +42,9 @@ def intrvl(t, x, n):
             return i
 
 
+
 @jit(nopython=True, parallel=True)
-def bcksmooth(  # not used
+def bcksmooth( # not used
     BUF,
     CBACK,
     B,
@@ -219,17 +220,9 @@ def bcksmooth(  # not used
                     CBACK[I] = 0.0
     return CBACK
 
-
 # @jit(forceobj=True, parallel=True)
-def replicate_bcksmooth(
-    image,
-    max_iterations=10,
-    kernel_size=(5, 5),
-    sigmaX=0,
-    tension=0.5,
-    edge_background=None,
-    filter_type="gaussian",
-):
+def replicate_bcksmooth(image, max_iterations=10, kernel_size=(5, 5), sigmaX=0, tension=0.5,
+              edge_background=None, filter_type='gaussian'):
     """
     Updated bcksmooth function with edge handling and filter selection.
 
@@ -257,6 +250,7 @@ def replicate_bcksmooth(
             print("Converged at iteration", _)
             break
 
+
     return image
 
 
@@ -280,7 +274,6 @@ def handle_edge_effects(final_background, edge_background, filter_radius):
     corrected_background = np.where(edge_mask, edge_background, final_background)
 
     return corrected_background
-
 
 def downsample_data(x, y, factor):
     """
@@ -306,13 +299,12 @@ def merge_backgrounds_with_spline(x, y, z, tension):
     :return: Merged background.
     """
     # Compute the spline on the downsampled data
-    spline = interpolate.interp2d(x, y, z, kind="cubic")
+    spline = interpolate.interp2d(x, y, z, kind='cubic')
 
     # Evaluate the spline on the original x coordinates
     return spline(x, y)
 
-
-def blur_image(image, kernel_size=(5, 5), sigmaX=0, filter_type="gaussian"):
+def blur_image(image, kernel_size=(5, 5), sigmaX=0, filter_type='gaussian'):
     """
     Apply Gaussian blur or boxcar filter to an image.
 
@@ -322,16 +314,16 @@ def blur_image(image, kernel_size=(5, 5), sigmaX=0, filter_type="gaussian"):
     :param filter_type: 'gaussian' for Gaussian blur or 'boxcar' for boxcar filter.
     :return: Blurred image.
     """
-    if filter_type == "gaussian":
+    if filter_type == 'gaussian':
         return cv2.GaussianBlur(image, kernel_size, sigmaX)
-    elif filter_type == "boxcar":
+    elif filter_type == 'boxcar':
         kernel = np.ones(kernel_size, np.float32) / np.prod(kernel_size)
         return cv2.filter2D(image, -1, kernel)
     else:
-        raise ValueError("Invalid filter_type. Use 'gaussian' or 'boxcar'.")
+        raise ValueError("Invalid filter_type. Use 'gaussian' or 'boxcar'.")  
 
 
-# @jit(forceobj=False, parallel=True)
+#@jit(forceobj=False, parallel=True)
 def replicate_bgcsym2(
     AD, width, height, dmin, dmax, xc, yc, bin_size, smooth, tension, pc1, pc2
 ):
@@ -380,7 +372,6 @@ def replicate_bgcsym2(
 
     return B
 
-
 @jit(nopython=True, parallel=True)
 def curvd(t, n, x, y, yp, sigma):
     im1 = intrvl(t, x, n)
@@ -408,6 +399,7 @@ def curvd(t, n, x, y, yp, sigma):
         ) / (6 * dels)
 
     return curvd
+
 
 
 @jit(nopython=True, parallel=True)
@@ -466,42 +458,15 @@ def curv2(t, n, x, y, yp, sigma):
         ss, _ = snhcsh(sigdel, -1)
         s1, _ = snhcsh(sigmap * del1, -1)
         s2, _ = snhcsh(sigmap * del2, -1)
-        curv2 = sum + (yp[i] * del1 * (s1 - ss) + yp[im1] * del2 * (s2 - ss)) / (
-            sigdel * sigmap * (1 + ss)
-        )
+        curv2 = sum + (yp[i] * del1 * (s1 - ss) + yp[im1] * del2 * (s2 - ss)) / (sigdel * sigmap * (1 + ss))
     else:
-        curv2 = sum - del1 * del2 * (
-            yp[i] * (del1 + dels) + yp[im1] * (del2 + dels)
-        ) / (6 * dels)
+        curv2 = sum - del1 * del2 * (yp[i] * (del1 + dels) + yp[im1] * (del2 + dels)) / (6 * dels)
 
     return curv2
 
 
-def bgwsrt2(
-    buf,
-    b,
-    iwid,
-    jwid,
-    isep,
-    jsep,
-    smoo,
-    tens,
-    pc1,
-    pc2,
-    npix,
-    nrast,
-    maxdim,
-    maxwin,
-    xb,
-    yb,
-    ys,
-    ysp,
-    wrk,
-    bw,
-    index,
-    iprint,
-    ilog,
-):
+
+def bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tens, pc1, pc2, npix, nrast, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index, iprint, ilog):
     ifpix = 1
     ilpix = npix
     ifrast = 1
@@ -511,22 +476,22 @@ def bgwsrt2(
     zmin = 1.0
     delz = 1.0
 
-    # print('BGWSRT Window background fitting...', file=iprint)
-    # print('BGWSRT Window background fitting...', file=ilog)
+    #print('BGWSRT Window background fitting...', file=iprint)
+    #print('BGWSRT Window background fitting...', file=ilog)
 
     ibad = 0
 
     nb = (2 * iwid + 1) * (2 * jwid + 1)
     if nb > maxwin:
-        # print('BGWSRT Error - window size too large for array', file=iprint)
-        # print('BGWSRT Error - window size too large for array', file=ilog)
-        raise ValueError("Window size too large for array")
+        #print('BGWSRT Error - window size too large for array', file=iprint)
+        #print('BGWSRT Error - window size too large for array', file=ilog)
+        raise ValueError('Window size too large for array')
         sys.exit()
 
     for j in range(1, nrast + 1):
         for i in range(1, npix + 1):
             m = (j - 1) * npix + i
-            b[m - 1] = -1.0e30
+            b[m - 1] = -1.0e+30
 
     jsep = jwid if jsep <= 0 else jsep
     isep = iwid if isep <= 0 else isep
@@ -542,10 +507,10 @@ def bgwsrt2(
         for i in range(ifpix, ilpix + 1):
             m = (j - 1) * npix + i
             mm = j * npix - i + 1
-            if buf[m - 1] > -1.0e30:
+            if buf[m - 1] > -1.0e+30:
                 if istrt == 0:
                     istrt = i
-            if buf[mm - 1] > -1.0e30:
+            if buf[mm - 1] > -1.0e+30:
                 if iend == 0:
                     iend = npix - i + 1
 
@@ -558,22 +523,22 @@ def bgwsrt2(
             line = True
         else:
             for i in range(istrt, iend + 1):
-                m = (j - 1) * npix + i
-                if buf[m - npix - 1] < -0.5e30 or buf[m + npix - 1] < -0.55e30:
+                m = (j - 1) * npix + i 
+                if buf[m - npix - 1] < -0.5e+30 or buf[m + npix - 1] < -0.55e+30:
                     knot[i - 1] = True
 
         ibck = 0
         for i in range(ifpix, ilpix + 1):
             if knot[i - 1]:
                 m = (j - 1) * npix + i
-                if buf[m - 1] > -1.0e30:
+                if buf[m - 1] > -1.0e+30:
                     iw1 = max(i - iwid, 1)
                     iw2 = min(i + iwid, npix)
                     nb = 0
                     for jn in range(jw1, jw2 + 1):
                         for in_ in range(iw1, iw2 + 1):
                             mm = (jn - 1) * npix + in_
-                            if buf[mm - 1] > -1.0e30:
+                            if buf[mm - 1] > -1.0e+30:
                                 nb += 1
                                 bw[nb - 1] = buf[mm - 1]
 
@@ -597,28 +562,16 @@ def bgwsrt2(
         if line and ibck > 1:
             eps = np.sqrt(2.0 / float(ibck))
             s = smoo * float(ibck)
-            ys, ysp, ier = curvs(
-                ibck,
-                xb,
-                yb,
-                1.0,
-                isw=1,
-                s=s,
-                eps=eps,
-                ys=ys,
-                ysp=ysp,
-                sigma=tens,
-                temp=wrk,
-            )
+            ys, ysp, ier = curvs(ibck, xb, yb, 1.0, isw=1, s=s, eps=eps, ys=ys, ysp=ysp, sigma=tens, temp=wrk)
             if ier != 0:
-                # print(f'***Error in spline fitting- FITPACK error {ier}', file=iprint)
-                # print(f'***Error in spline fitting- FITPACK error {ier}', file=ilog)
-                raise ValueError(f"***Error in spline fitting- FITPACK error {ier}")
-                sys.exit("Fatal error")
+                #print(f'***Error in spline fitting- FITPACK error {ier}', file=iprint)
+                #print(f'***Error in spline fitting- FITPACK error {ier}', file=ilog)
+                raise ValueError(f'***Error in spline fitting- FITPACK error {ier}')
+                sys.exit('Fatal error')
 
             for i in range(istrt + 1, iend):
                 m = (j - 1) * npix + i
-                if buf[m - 1] > -1.0e30:
+                if buf[m - 1] > -1.0e+30:
                     rs = delr * float(i) + rmin
                     b[m - 1] = curv2(rs, ibck, xb, ys, ysp, tens)
 
@@ -626,7 +579,7 @@ def bgwsrt2(
         ibck = 0
         for j in range(ifrast, ilrast + 1):
             m = (j - 1) * npix + i
-            if b[m - 1] > -1.0e30:
+            if b[m - 1] > -1.0e+30:
                 ibck += 1
                 xb[ibck - 1] = float(j) * delz + zmin
                 yb[ibck - 1] = b[m - 1]
@@ -636,21 +589,20 @@ def bgwsrt2(
             s = smoo * float(ibck)
             ys, ysp, ier = curvs(ibck, xb, yb, 1.0, 1, s, eps, ys, ysp, tens, wrk)
             if ier != 0:
-                # print(f'***Error in spline fitting- FITPACK error {ier}', file=iprint)
-                # print(f'***Error in spline fitting- FITPACK error {ier}', file=ilog)
-                raise ValueError(f"***Error in spline fitting- FITPACK error {ier}")
-                sys.exit("Fatal error")
+                #print(f'***Error in spline fitting- FITPACK error {ier}', file=iprint)
+                #print(f'***Error in spline fitting- FITPACK error {ier}', file=ilog)
+                raise ValueError(f'***Error in spline fitting- FITPACK error {ier}')
+                sys.exit('Fatal error')
 
             for j in range(ifrast, ilrast + 1):
                 m = (j - 1) * npix + i
-                if buf[m - 1] > -1.0e30:
+                if buf[m - 1] > -1.0e+30:
                     zs = delz * float(j) + zmin
                     b[m - 1] = curv2(zs, ibck, xb, ys, ysp, tens)
     return b
-    # print(f'Number of bad background points {ibad}', file=iprint)
-    # print(f'Number of bad background points {ibad}', file=ilog)
-
-
+    #print(f'Number of bad background points {ibad}', file=iprint)
+    #print(f'Number of bad background points {ibad}', file=ilog)
+    
 @jit(nopython=True)
 def process_window(buf, iwid, jwid, pc1, pc2, npix, nrast, i, j):
     """Optimized: use partial sort (quickselect) instead of full sort."""
@@ -666,59 +618,34 @@ def process_window(buf, iwid, jwid, pc1, pc2, npix, nrast, i, j):
     for jn in range(jw1, jw2):
         for in_ in range(iw1, iw2):
             idx = jn * npix + in_
-            if buf[idx] > -1.0e30:
+            if buf[idx] > -1.0E+30:
                 window_buffer[count] = buf[idx]
                 count += 1
 
     if count == 0:
-        return -1.0e30
+        return -1.0E+30
 
     valid_window = window_buffer[:count]
     start_idx = int(pc1 * count)
     end_idx = int(pc2 * count)
 
     if end_idx <= start_idx:
-        return -1.0e30
+        return -1.0E+30
 
     # Use median-of-3 partition to split without full sort
     # Only partially sort the percentile range
     if start_idx > 0:
         for k in range(start_idx):
             quickselect(valid_window, k)
-
+    
     # Sum the percentile range directly
     total = 0.0
     for idx in range(start_idx, end_idx):
         total += valid_window[idx]
-
+    
     return total / (end_idx - start_idx)
-
-
-def replicate_bgwsrt2(
-    buf,
-    b,
-    iwid,
-    jwid,
-    isep,
-    jsep,
-    smoo,
-    tens,
-    pc1,
-    pc2,
-    npix,
-    nrast,
-    maxdim,
-    maxwin,
-    xb,
-    yb,
-    ys,
-    ysp,
-    wrk,
-    bw,
-    index,
-    iprint,
-    ilog,
-):
+    
+def replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tens, pc1, pc2, npix, nrast, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index, iprint, ilog):
     """
     Implement the background subtraction using the roving window method.
 
@@ -736,37 +663,30 @@ def replicate_bgwsrt2(
     :param iprint, ilog: Print and log parameters.
     :return: Updated background estimate array.
     """
-    b.fill(-1.0e30)
+    b.fill(-1.0E+30)
 
     # Iterate over the image using the roving window
     for j in range(0, nrast, jsep):
         for i in range(0, npix, isep):
-            b[j * npix + i] = process_window(
-                buf, iwid, jwid, pc1, pc2, npix, nrast, i, j
-            )
+            b[j * npix + i] = process_window(buf, iwid, jwid, pc1, pc2, npix, nrast, i, j)
 
     # Fit splines row-wise
     for j in range(nrast):
-        valid_indices = np.where(b[j * npix : (j + 1) * npix] > -1.0e30)[0]
+        valid_indices = np.where(b[j * npix: (j + 1) * npix] > -1.0E+30)[0]
         if len(valid_indices) > 1:
-            spline = UnivariateSpline(
-                valid_indices, b[j * npix + valid_indices], s=smoo, k=tens
-            )
-            b[j * npix : (j + 1) * npix] = spline(np.arange(npix))
+            spline = UnivariateSpline(valid_indices, b[j * npix + valid_indices], s=smoo, k=tens)
+            b[j * npix: (j + 1) * npix] = spline(np.arange(npix))
 
     # Transpose and fit splines column-wise
     b_transposed = b.reshape(nrast, npix).T.flatten()
     for i in range(npix):
-        valid_indices = np.where(b_transposed[i * nrast : (i + 1) * nrast] > -1.0e30)[0]
+        valid_indices = np.where(b_transposed[i * nrast: (i + 1) * nrast] > -1.0E+30)[0]
         if len(valid_indices) > 1:
-            spline = UnivariateSpline(
-                valid_indices, b_transposed[i * nrast + valid_indices], s=smoo, k=tens
-            )
-            b_transposed[i * nrast : (i + 1) * nrast] = spline(np.arange(nrast))
+            spline = UnivariateSpline(valid_indices, b_transposed[i * nrast + valid_indices], s=smoo, k=tens)
+            b_transposed[i * nrast: (i + 1) * nrast] = spline(np.arange(nrast))
     b[:] = b_transposed.reshape(npix, nrast).T.flatten()
 
     return b
-
 
 @jit(nopython=True)
 def partition_inplace(arr, left, right, pivot_idx):
@@ -780,7 +700,6 @@ def partition_inplace(arr, left, right, pivot_idx):
             store_idx += 1
     arr[right], arr[store_idx] = arr[store_idx], arr[right]
     return store_idx
-
 
 @jit(nopython=True)
 def quickselect(arr, k):
@@ -844,29 +763,10 @@ def curvs(n, x, y, d, isw, s, eps, ys, ysp, sigma, temp):
 
     # Call curvss with the decomposed temp array components
     ys, ysp, ierr = curvss(
-        n,
-        x,
-        y,
-        d,
-        isw,
-        s,
-        eps,
-        ys,
-        ysp,
-        sigma,
-        td,
-        tsd1,
-        hd,
-        hsd1,
-        hsd2,
-        rd,
-        rsd1,
-        rsd2,
-        v,
+        n, x, y, d, isw, s, eps, ys, ysp, sigma, td, tsd1, hd, hsd1, hsd2, rd, rsd1, rsd2, v
     )
 
     return ys, ysp, ierr
-
 
 @jit(nopython=True, parallel=True)
 def sort(x, n, ind):
@@ -904,76 +804,74 @@ def sort(x, n, ind):
 
 
 @jit(nopython=True, parallel=True)
-def curvss(
-    n, x, y, d, isw, s, eps, ys, ysp, sigma, td, tsd1, hd, hsd1, hsd2, rd, rsd1, rsd2, v
-):
+def curvss(n, x, y, d, isw, s, eps, ys, ysp, sigma, td, tsd1, hd, hsd1, hsd2, rd, rsd1, rsd2, v):
     ierr = 0
 
     if n < 2:
         ierr = 1
         return None, None, ierr
 
-    if s < 0.0:
+    if s < 0.:
         ierr = 2
         return None, None, ierr
 
-    if eps < 0.0 or eps > 1.0:
+    if eps < 0. or eps > 1.:
         ierr = 3
         return None, None, ierr
 
-    p = 0.0
-    v[0] = 0.0
-    v[n - 1] = 0.0
-    ysp[0] = 0.0
-    ysp[n - 1] = 0.0
+    p = 0.
+    v[0] = 0.
+    v[n-1] = 0.
+    ysp[0] = 0.
+    ysp[n-1] = 0.
 
     if n == 2:
         store_smoothed_values(n, y, v, p, ys, ysp)
         return ys, ysp, ierr
 
-    rsd1[0] = 0.0
-    rd[0] = 0.0
-    rsd2[n - 1] = 0.0
-    rdim1 = 0.0
-    yspim2 = 0.0
+    rsd1[0] = 0.
+    rd[0] = 0.
+    rsd2[n-1] = 0.
+    rdim1 = 0.
+    yspim2 = 0.
 
-    sigmap = abs(sigma) * (n - 1) / (x[n - 1] - x[0])
+    sigmap = abs(sigma) * (n-1) / (x[n-1] - x[0])
 
-    nm1 = n - 1
-    nm3 = n - 3
-    delxi1 = 1.0
-    delyi1 = 0.0
-    dim1 = 0.0
+    nm1 = n-1
+    nm3 = n-3
+    delxi1 = 1.
+    delyi1 = 0.
+    dim1 = 0.
 
     for i in range(nm1):
-        delxi = x[i + 1] - x[i]
-        if delxi <= 0.0:
+        delxi = x[i+1] - x[i]
+        if delxi <= 0.:
             ierr = 4
             return ys, ysp, ierr
-        delyi = (y[i + 1] - y[i]) / delxi
+        delyi = (y[i+1] - y[i]) / delxi
         ys[i] = delyi - delyi1
-        di, tsd1[i + 1] = terms(sigmap, delxi)  # terms function needs implementation
+        di, tsd1[i+1] = terms(sigmap, delxi)  # terms function needs implementation
         td[i] = di + dim1
-        hd[i] = -(1.0 / delxi + 1.0 / delxi1)
-        hsd1[i + 1] = 1.0 / delxi
+        hd[i] = -(1. / delxi + 1. / delxi1)
+        hsd1[i+1] = 1. / delxi
         delxi1 = delxi
         delyi1 = delyi
         dim1 = di
 
-    sl = s * (1.0 - eps)
-    su = s * (1.0 + eps)
+    sl = s * (1. - eps)
+    su = s * (1. + eps)
 
     if isw == 1:
-        if d <= 0.0:
+        if d <= 0.:
             ierr = 5
             return ys, ysp, ierr
         sl = d * d * sl
         su = d * d * su
-        hsd1p = 0.0
-        hdim1 = 0.0
+        hsd1p = 0.
+        hdim1 = 0.
         for i in range(1, nm1):
             hdi = hd[i]
-            hd[i] = hsd1[i] * hsd1[i] + hdi * hdi + hsd1[i + 1] * hsd1[i + 1]
+            hd[i] = hsd1[i] * hsd1[i] + hdi * hdi + hsd1[i+1] * hsd1[i+1]
             hsd2[i] = hsd1[i] * hsd1p
             hsd1p = hsd1[i]
             hsd1[i] = hsd1p * (hdi + hdim1)
@@ -981,25 +879,23 @@ def curvss(
 
         for i in range(1, nm1):
             rsd2i = hsd2[i]
-            rsd1i = p * tsd1[i] + hsd1[i] - rsd2i * rsd1[i - 1]
+            rsd1i = p * tsd1[i] + hsd1[i] - rsd2i * rsd1[i-1]
             rsd2[i] = rsd2i * rdim1
-            rdim1 = rd[i - 1]
+            rdim1 = rd[i-1]
             rsd1[i] = rsd1i * rdim1
-            rd[i] = 1.0 / (p * td[i] + hd[i] - rsd1i * rsd1[i] - rsd2i * rsd2[i])
-            ysp[i] = ys[i] - rsd1[i] * ysp[i - 1] - rsd2[i] * yspim2
-            yspim2 = ysp[i - 1]
+            rd[i] = 1. / (p * td[i] + hd[i] - rsd1i * rsd1[i] - rsd2i * rsd2[i])
+            ysp[i] = ys[i] - rsd1[i] * ysp[i-1] - rsd2[i] * yspim2
+            yspim2 = ysp[i-1]
 
         ysp[nm1] = rd[nm1] * ysp[nm1]
         if n == 3:
             ysp[1] = rd[1] * ysp[1] - rsd1[2] * ysp[2]
         else:
-            for ibak in range(1, nm3 + 1):
+            for ibak in range(1, nm3+1):
                 i = nm1 - ibak
-                ysp[i - 1] = (
-                    rd[i - 1] * ysp[i - 1] - rsd1[i] * ysp[i] - rsd2[i + 1] * ysp[i + 1]
-                )
-        sum = 0.0
-        delyi1 = 0.0
+                ysp[i - 1] = rd[i - 1] * ysp[i - 1] - rsd1[i] * ysp[i] - rsd2[i+1] * ysp[i+1]
+        sum = 0.
+        delyi1 = 0.
         for i in range(nm1 - 1):  # Python indexing is 0-based, so nm1 - 1
             delyi = (ysp[i + 1] - ysp[i]) / (x[i + 1] - x[i])
             v[i] = delyi - delyi1
@@ -1016,12 +912,12 @@ def curvss(
             store_smoothed_values(n, y, v, p, ys, ysp)
             return ys, ysp, ierr
 
-        f = 0.0
-        g = 0.0
-        wim2 = 0.0
-        wim1 = 0.0
+        f = 0.
+        g = 0.
+        wim2 = 0.
+        wim1 = 0.
         for i in range(1, nm1):
-            tui = tsd1[i] * ysp[i - 1] + td[i] * ysp[i] + tsd1[i + 1] * ysp[i + 1]
+            tui = tsd1[i] * ysp[i-1] + td[i] * ysp[i] + tsd1[i+1] * ysp[i+1]
             wi = tui - rsd1[i] * wim1 - rsd2[i] * wim2
             f += tui * ysp[i]
             g += wi * wi * rd[i]
@@ -1041,7 +937,6 @@ def curvss(
     store_smoothed_values(n, y, v, p, ys, ysp)
     return ys, ysp, ierr
 
-
 @jit(nopython=True, parallel=True)
 def store_smoothed_values(n, y, v, p, ys, ysp):
     for i in range(n):
@@ -1049,17 +944,18 @@ def store_smoothed_values(n, y, v, p, ys, ysp):
         ysp[i] = p * ysp[i]
 
 
+
 @jit(nopython=True, parallel=True)
 def terms(sigma, del_step):
     if sigma != 0:
         sigdel = sigma * del_step
         sinhm, coshm = np.sinh(sigdel), np.cosh(sigdel)
-        denom = sigma * sigdel * (1.0 + sinhm)
+        denom = sigma * sigdel * (1. + sinhm)
         diag = (coshm - sinhm) / denom
         sdiag = sinhm / denom
     else:
-        diag = del_step / 3.0
-        sdiag = del_step / 6.0
+        diag = del_step / 3.
+        sdiag = del_step / 6.
 
     return diag, sdiag
 
@@ -1105,15 +1001,13 @@ def snhcsh(x, isw):
     if ax > 10.1:
         xs = ax * ax
         sinhm = (
-            xs
-            * (((sp43 * xs + sp42) * xs + sp41) * xs + 1.0)
+            xs * (((sp43 * xs + sp42) * xs + sp41) * xs + 1.0)
             / ((sq42 * xs + sq41) * xs + sq40)
         )
     elif ax > 7.65:
         xs = ax * ax
         sinhm = (
-            xs
-            * (((sp33 * xs + sp32) * xs + sp31) * xs + 1.0)
+            xs * (((sp33 * xs + sp32) * xs + sp31) * xs + 1.0)
             / ((sq32 * xs + sq31) * xs + sq30)
         )
     elif ax > 4.45:
@@ -1253,7 +1147,7 @@ def snhcsh2(sinhm, coshm, x, isw):
     return sinhm, coshm
 
 
-# @jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def blur(BUF, CBACK, SMBUF, NPIX, NRAST, PWID, RWID, XC, YC, TEMPBUF, IFLAG, DOEDGE):
     for J in range(1, NRAST + 1):
         for I in range(1, NPIX + 1):

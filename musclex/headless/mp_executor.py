@@ -18,7 +18,7 @@ def init_worker():
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
     os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
+    
     # Print worker info
     pid = os.getpid()
     print(f"[Worker {pid}] Initialized with single-threaded BLAS/LAPACK")
@@ -27,7 +27,7 @@ def init_worker():
 def process_one_image(args):
     """
     Headless image processing function (no Qt dependencies).
-
+    
     Args:
         args: tuple of (settings, paramInfo, dir_path, filename, spec)
             - settings: dict with processing settings
@@ -35,7 +35,7 @@ def process_one_image(args):
             - dir_path: str directory path
             - filename: str display name of the image
             - spec: tuple loader spec like ("tiff", path) or ("h5", path, frame_idx)
-
+    
     Returns:
         dict: {
             'filename': str,
@@ -46,59 +46,54 @@ def process_one_image(args):
     filename = None  # Initialize for error handling
     try:
         settings, paramInfo, dir_path, filename, spec = args
-
+        
         # Create a minimal parent object that only provides statusPrint
         # We don't use EquatorWindowh here because it requires complex initialization
         class MinimalParent:
             def statusPrint(self, text):
                 if text and text.strip():
                     import os
-
                     pid = os.getpid()
                     print(f"[Worker {pid}] {text}")
-
+        
         parent = MinimalParent()
-
+        
         # Load image using the spec
         from musclex.utils.file_manager import load_image_via_spec
-
         img = load_image_via_spec(dir_path, filename, spec)
-
+        
         # Create ImageData and EquatorImage with minimal parent
         from musclex.utils.image_data import ImageData
         from musclex.modules.EquatorImage import EquatorImage
-
-        inpaint = settings.get("inpaint", False)
+        inpaint = settings.get('inpaint', False)
         from musclex.utils.settings_manager import SettingsManager
-
         settings_manager = SettingsManager(dir_path)
-        image_data = ImageData(
-            img=img,
-            img_path=dir_path,
-            img_name=filename,
-            inpaint=inpaint,
-            settings_manager=settings_manager,
-        )
+        image_data = ImageData(img=img, img_path=dir_path, img_name=filename, inpaint=inpaint,
+                               settings_manager=settings_manager)
         bioImg = EquatorImage(image_data, parent)
-
+        
         # Process the image
         bioImg.process(settings, paramInfo)
-
+        
         # Return results including processed images for UI preview
         return {
-            "filename": filename,
-            "info": bioImg.info,
-            "image": bioImg.image,
-            "error": None,
+            'filename': filename,
+            'info': bioImg.info,
+            'image': bioImg.image,
+            'error': None
         }
-
+    
     except Exception as e:
         # Capture full traceback for debugging
         error_msg = traceback.format_exc()
         fname_str = filename if filename else "unknown"
         print(f"[ERROR] Failed to process {fname_str}:\n{error_msg}")
-
-        return {"filename": fname_str, "info": None, "error": error_msg}
+        
+        return {
+            'filename': fname_str,
+            'info': None,
+            'error': error_msg
+        }
 
 
 def process_one_qf_image(args):
@@ -151,22 +146,22 @@ def process_one_qf_image(args):
     filename = None
     job_index = -1
     try:
-        dir_path = args["dir_path"]
-        filename = args["filename"]
-        spec = args["spec"]
-        flags = args["flags"]
-        bgsub = args.get("bgsub", "None")
-        output_dir = args.get("output_dir") or dir_path
-        manual_center = args.get("manual_center")
-        manual_rotation = args.get("manual_rotation")
-        apply_blank = bool(args.get("apply_blank", False))
-        apply_mask = bool(args.get("apply_mask", False))
-        blank_weight = float(args.get("blank_weight", 1.0))
-        inpaint = bool(args.get("inpaint", False))
-        orientation_model = int(args.get("orientation_model", 0) or 0)
-        detector = args.get("detector")
-        compress_folded = bool(args.get("compress_folded", True))
-        job_index = int(args.get("job_index", -1))
+        dir_path = args['dir_path']
+        filename = args['filename']
+        spec = args['spec']
+        flags = args['flags']
+        bgsub = args.get('bgsub', 'None')
+        output_dir = args.get('output_dir') or dir_path
+        manual_center = args.get('manual_center')
+        manual_rotation = args.get('manual_rotation')
+        apply_blank = bool(args.get('apply_blank', False))
+        apply_mask = bool(args.get('apply_mask', False))
+        blank_weight = float(args.get('blank_weight', 1.0))
+        inpaint = bool(args.get('inpaint', False))
+        orientation_model = int(args.get('orientation_model', 0) or 0)
+        detector = args.get('detector')
+        compress_folded = bool(args.get('compress_folded', True))
+        job_index = int(args.get('job_index', -1))
 
         pid = os.getpid()
 
@@ -207,19 +202,17 @@ def process_one_qf_image(args):
         )
 
         quadFold = QuadrantFolder(image_data, parent=parent, output_dir=output_dir)
-        quadFold.info["bgsub"] = bgsub
+        quadFold.info['bgsub'] = bgsub
         quadFold.process(flags)
 
-        has_result = "resultImg" in quadFold.imgCache
+        has_result = 'resultImg' in quadFold.imgCache
 
         # ---- Write the folded result tif (per-image, no race) ----
         if has_result:
             try:
                 _save_qf_result_image(quadFold, output_dir, compress_folded)
             except Exception as e:
-                print(
-                    f"[QF worker {pid}] Failed to save folded image for {filename}: {e}"
-                )
+                print(f"[QF worker {pid}] Failed to save folded image for {filename}: {e}")
 
         # ---- Write the background tif and compute bg_sum ----
         bg_sum = None
@@ -236,19 +229,15 @@ def process_one_qf_image(args):
         rotation = float(quadFold.rotation) if quadFold.rotation is not None else 0.0
 
         return {
-            "filename": filename,
-            "job_index": job_index,
-            "info": dict(quadFold.info),
-            "processing_flags": (
-                dict(quadFold.processing_flags)
-                if isinstance(quadFold.processing_flags, dict)
-                else {}
-            ),
-            "has_result": has_result,
-            "center": center,
-            "rotation": rotation,
-            "bg_sum": bg_sum,
-            "error": None,
+            'filename': filename,
+            'job_index': job_index,
+            'info': dict(quadFold.info),
+            'processing_flags': dict(quadFold.processing_flags) if isinstance(quadFold.processing_flags, dict) else {},
+            'has_result': has_result,
+            'center': center,
+            'rotation': rotation,
+            'bg_sum': bg_sum,
+            'error': None,
         }
 
     except Exception:
@@ -256,15 +245,15 @@ def process_one_qf_image(args):
         fname_str = filename if filename else "unknown"
         print(f"[QF worker ERROR] Failed to process {fname_str}:\n{error_msg}")
         return {
-            "filename": fname_str,
-            "job_index": job_index,
-            "info": None,
-            "processing_flags": {},
-            "has_result": False,
-            "center": None,
-            "rotation": None,
-            "bg_sum": None,
-            "error": error_msg,
+            'filename': fname_str,
+            'job_index': job_index,
+            'info': None,
+            'processing_flags': {},
+            'has_result': False,
+            'center': None,
+            'rotation': None,
+            'bg_sum': None,
+            'error': error_msg,
         }
 
 
@@ -276,16 +265,16 @@ def _save_qf_result_image(quadFold, output_dir, compress_folded):
     from os.path import splitext, join
     from musclex.utils.file_manager import fullPath, createFolder
 
-    result_path = fullPath(output_dir, "qf_results")
+    result_path = fullPath(output_dir, 'qf_results')
     createFolder(result_path)
 
     base, _ = splitext(str(join(result_path, quadFold.img_name)))
-    img = quadFold.imgCache["resultImg"].astype("float32")
+    img = quadFold.imgCache['resultImg'].astype('float32')
 
-    suffix = "_folded_compressed.tif" if compress_folded else "_folded.tif"
+    suffix = '_folded_compressed.tif' if compress_folded else '_folded.tif'
     out_file = base + suffix
     if compress_folded:
-        Image.fromarray(img).save(out_file, compression="tiff_lzw")
+        Image.fromarray(img).save(out_file, compression='tiff_lzw')
     else:
         fabio.tifimage.tifimage(data=img).write(out_file)
 
@@ -301,28 +290,28 @@ def _save_qf_background(quadFold, dir_path):
     import fabio
 
     info = quadFold.info
-    result = quadFold.imgCache.get("BgSubFold")
-    avg_fold = quadFold.imgCache.get("avg_fold")
+    result = quadFold.imgCache.get('BgSubFold')
+    avg_fold = quadFold.imgCache.get('avg_fold')
 
     if result is None or avg_fold is None:
         return None
 
-    method = info.get("bgsub", "None")
-    if not method or method == "None":
+    method = info.get('bgsub', 'None')
+    if not method or method == 'None':
         return None
 
     from musclex.utils.background_search import makeFullImage
-
     background = avg_fold - result
     result_img = makeFullImage(background)
 
-    if info.get("rotate"):
+    if info.get('rotate'):
         result_img = np.rot90(result_img)
 
-    bg_dir = os.path.join(dir_path, "qf_results", "bg")
+    bg_dir = os.path.join(dir_path, 'qf_results', 'bg')
     os.makedirs(bg_dir, exist_ok=True)
 
-    result_path = os.path.join(bg_dir, f"{quadFold.img_name}.bg.tif")
-    result_img = result_img.astype("float32")
+    result_path = os.path.join(bg_dir, f'{quadFold.img_name}.bg.tif')
+    result_img = result_img.astype('float32')
     fabio.tifimage.tifimage(data=result_img).write(result_path)
     return float(np.sum(result_img))
+

@@ -1,23 +1,8 @@
 import os
 from PySide6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QPushButton,
-    QHeaderView,
-    QAbstractItemView,
-    QLabel,
-    QProgressBar,
-    QSizePolicy,
-    QMenu,
-    QRadioButton,
-    QSpinBox,
-    QWidget,
-    QSplitter,
-    QScrollArea,
-    QFrame,
+    QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
+    QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
+    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter, QScrollArea, QFrame
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
@@ -59,7 +44,7 @@ class DetectMisalignedDialog(QDialog):
     ]
 
     # Visual style for group cells
-    _GROUP_BG = QColor(100, 149, 237)  # cornflower blue
+    _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
     _GROUP_FG = QColor(255, 255, 255)
 
     def __init__(self, workspace, parent=None):
@@ -74,9 +59,7 @@ class DetectMisalignedDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Detect Misaligned Images")
         self.workspace = workspace
-        self.img_list = (
-            list(workspace.navigator.file_manager.names) if workspace else []
-        )
+        self.img_list = list(workspace.navigator.file_manager.names) if workspace else []
         self.misaligned_names = set()
         self.items_data = None
 
@@ -149,21 +132,15 @@ class DetectMisalignedDialog(QDialog):
         root.addWidget(self.splitter)
 
         self.start_detection_btn = QPushButton("Start Detection")
-        self._right_panel_layout.insertWidget(
-            self._right_panel_layout.count() - 1, self.start_detection_btn
-        )
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.start_detection_btn)
 
         # Grouping mode selector
         self.radio_manual = QRadioButton("Select Group Manually")
         self.radio_manual.setChecked(True)
-        self._right_panel_layout.insertWidget(
-            self._right_panel_layout.count() - 1, self.radio_manual
-        )
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.radio_manual)
 
         self.radio_same_frame = QRadioButton("Same Frame Number")
-        self._right_panel_layout.insertWidget(
-            self._right_panel_layout.count() - 1, self.radio_same_frame
-        )
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.radio_same_frame)
 
         # Binning factor row (shown only when Same Frame Number is selected)
         self._binning_row = QWidget()
@@ -177,9 +154,7 @@ class DetectMisalignedDialog(QDialog):
         self.binning_spin.setValue(1)
         binning_layout.addWidget(self.binning_spin)
         self._binning_row.setVisible(False)
-        self._right_panel_layout.insertWidget(
-            self._right_panel_layout.count() - 1, self._binning_row
-        )
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self._binning_row)
 
         self.radio_same_frame.toggled.connect(self._binning_row.setVisible)
 
@@ -236,30 +211,23 @@ class DetectMisalignedDialog(QDialog):
             center_text = f"({cx:.1f}, {cy:.1f})" if cx is not None else ""
             self.table.setItem(row, self.COL_CENTER, cell(center_text))
 
-            self.table.setItem(
-                row, self.COL_CENTER_MODE, cell(d.get("center_mode", ""))
-            )
+            self.table.setItem(row, self.COL_CENTER_MODE,
+                               cell(d.get("center_mode", "")))
 
             cd = d.get("center_dist")
-            self.table.setItem(
-                row, self.COL_CENTER_DIST, cell(f"{cd:.4f}" if cd is not None else "")
-            )
+            self.table.setItem(row, self.COL_CENTER_DIST,
+                               cell(f"{cd:.4f}" if cd is not None else ""))
 
             ang = d.get("angle")
-            self.table.setItem(
-                row, self.COL_ROTATION, cell(f"{ang:.4f}" if ang is not None else "")
-            )
+            self.table.setItem(row, self.COL_ROTATION,
+                               cell(f"{ang:.4f}" if ang is not None else ""))
 
-            self.table.setItem(
-                row, self.COL_ROTATION_MODE, cell(d.get("rotation_mode", ""))
-            )
+            self.table.setItem(row, self.COL_ROTATION_MODE,
+                               cell(d.get("rotation_mode", "")))
 
             img_diff = d.get("image_diff")
-            self.table.setItem(
-                row,
-                self.COL_IMAGE_DIFF,
-                cell(f"{img_diff:.4f}" if img_diff is not None else ""),
-            )
+            self.table.setItem(row, self.COL_IMAGE_DIFF,
+                               cell(f"{img_diff:.4f}" if img_diff is not None else ""))
 
             self._apply_misaligned_highlight(row, name)
 
@@ -271,7 +239,7 @@ class DetectMisalignedDialog(QDialog):
         base = os.path.basename(name)
         if name in self.misaligned_names or base in self.misaligned_names:
             highlight = QBrush(QColor(255, 120, 120))
-            for col in range(1, self.table.columnCount()):  # skip COL_GROUP
+            for col in range(1, self.table.columnCount()):   # skip COL_GROUP
                 item = self.table.item(row, col)
                 if item is None:
                     item = QTableWidgetItem("")
@@ -285,7 +253,7 @@ class DetectMisalignedDialog(QDialog):
     def _find_group_at_row(self, row):
         """Return the group dict that contains *row*, or None."""
         for group in self._groups:
-            if group["start"] <= row < group["start"] + group["count"]:
+            if group['start'] <= row < group['start'] + group['count']:
                 return group
         return None
 
@@ -302,15 +270,15 @@ class DetectMisalignedDialog(QDialog):
 
         # Paint each group
         for group in self._groups:
-            start = group["start"]
-            count = group["count"]
+            start = group['start']
+            count = group['count']
             if count > 1:
                 self.table.setSpan(start, self.COL_GROUP, count, 1)
             item = self.table.item(start, self.COL_GROUP)
             if item is None:
                 item = QTableWidgetItem()
                 self.table.setItem(start, self.COL_GROUP, item)
-            item.setText(str(group["number"]))
+            item.setText(str(group['number']))
             item.setTextAlignment(Qt.AlignCenter)
             item.setBackground(QBrush(self._GROUP_BG))
             item.setForeground(QBrush(self._GROUP_FG))
@@ -318,9 +286,9 @@ class DetectMisalignedDialog(QDialog):
     def _renumber_groups(self):
         """Sort groups by row position and assign sequential numbers (1, 2, 3…),
         then re-render."""
-        self._groups.sort(key=lambda g: g["start"])
+        self._groups.sort(key=lambda g: g['start'])
         for i, group in enumerate(self._groups):
-            group["number"] = i + 1
+            group['number'] = i + 1
         self._render_groups()
 
     def _group_rows(self, selected_rows):
@@ -332,12 +300,11 @@ class DetectMisalignedDialog(QDialog):
 
         # Remove overlapping groups
         self._groups = [
-            g
-            for g in self._groups
-            if not (g["start"] <= end and g["start"] + g["count"] > start)
+            g for g in self._groups
+            if not (g['start'] <= end and g['start'] + g['count'] > start)
         ]
 
-        self._groups.append({"start": start, "count": count, "number": 0})
+        self._groups.append({'start': start, 'count': count, 'number': 0})
         self._renumber_groups()
 
     def _ungroup(self, group):

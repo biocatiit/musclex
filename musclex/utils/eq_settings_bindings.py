@@ -26,37 +26,41 @@ Schema invariant enforced by tests:
 
 # (json_key, widget_attr) on EquatorWindow -- value via .value()/.setValue()
 EQ_SPINBOX_BINDINGS = (
-    ("nPeaks", "nPeakSpnBx"),
-    ("mask_thres", "maskThresSpnBx"),
+    ('nPeaks',     'nPeakSpnBx'),
+    ('mask_thres', 'maskThresSpnBx'),
 )
 
 
 # (json_key, widget_attr, to_combo_text)
-EQ_COMBO_TEXT_BINDINGS = (("model", "modelSelect", str),)
+EQ_COMBO_TEXT_BINDINGS = (
+    ('model', 'modelSelect', str),
+)
 
 
 # (json_key, widget_attr) where the JSON stores an integer index instead
 # of the visible text. orientation_model is the index of orientationCmbBx
 # (0=Max Intensity, 1=GMM, 2=Herman Half Pi, 3=Herman Pi).
-EQ_COMBO_INDEX_BINDINGS = (("orientation_model", "orientationCmbBx"),)
+EQ_COMBO_INDEX_BINDINGS = (
+    ('orientation_model', 'orientationCmbBx'),
+)
 
 
 # (json_key, widget_attr) on EquatorWindow -- value via .isChecked()/.setChecked()
 EQ_CHECKBOX_BINDINGS = (
-    ("isSkeletal", "skeletalChkBx"),
-    ("isExtraPeak", "extraPeakChkBx"),
-    ("90rotation", "rotation90ChkBx"),
-    ("find_oritation", "brightSpot"),
-    ("inpaint", "inpaintChkBx"),
+    ('isSkeletal',     'skeletalChkBx'),
+    ('isExtraPeak',    'extraPeakChkBx'),
+    ('90rotation',     'rotation90ChkBx'),
+    ('find_oritation', 'brightSpot'),
+    ('inpaint',        'inpaintChkBx'),
 )
 
 
 # Sparse "presence-of-key = enable + setValue" pairs on the EquatorWindow.
 # (json_key, checkbox_attr, spinbox_attr)
 EQ_SPARSE_FIX_BINDINGS = (
-    ("fix_k", "k_chkbx", "k_spnbx"),
-    ("fixed_rmin", "fixedRminChkBx", "fixedRmin"),
-    ("fixed_rmax", "fixedRmaxChkBx", "fixedRmax"),
+    ('fix_k',      'k_chkbx',        'k_spnbx'),
+    ('fixed_rmin', 'fixedRminChkBx', 'fixedRmin'),
+    ('fixed_rmax', 'fixedRmaxChkBx', 'fixedRmax'),
 )
 
 
@@ -72,28 +76,16 @@ EQ_SPARSE_FIX_BINDINGS = (
 # getFittingSettings() writes exactly one of the two variants per parameter:
 # the _fix_ key when the checkbox is checked, the plain key otherwise.
 EQ_FITTING_FIX_SUFFIXES = (
-    "_fix_sigmac",
-    "_fix_sigmas",
-    "_fix_sigmad",
-    "_fix_gamma",
-    "_fix_intz",
-    "_fix_sigz",
-    "_fix_zline",
-    "_fix_gammaz",
-    "_fix_intz_EP",
-    "_fix_sigz_EP",
-    "_fix_zline_EP",
-    "_fix_gammaz_EP",
+    '_fix_sigmac', '_fix_sigmas', '_fix_sigmad', '_fix_gamma',
+    '_fix_intz', '_fix_sigz', '_fix_zline', '_fix_gammaz',
+    '_fix_intz_EP', '_fix_sigz_EP', '_fix_zline_EP', '_fix_gammaz_EP',
 )
 
 # Unfixed value-hint suffixes: written by getFittingSettings() when the
 # parameter's fix-checkbox is NOT ticked. applyLoadedSettings() sets the
 # spinbox but leaves the checkbox unchecked.
 EQ_FITTING_VAL_SUFFIXES = (
-    "_sigmac",
-    "_sigmas",
-    "_sigmad",
-    "_gamma",
+    '_sigmac', '_sigmas', '_sigmad', '_gamma',
 )
 
 
@@ -103,20 +95,20 @@ EQ_FITTING_VAL_SUFFIXES = (
 # test sees the full per-side enumeration.
 def _build_fitting_fix_bindings():
     rows = []
-    for side in ("left", "right"):
+    for side in ('left', 'right'):
         for suffix, cb, sp, model, skeletal, extra in (
-            ("_fix_sigmac", "fixSigmaC", "sigmaCSpinBx", None, False, False),
-            ("_fix_sigmas", "fixSigmaS", "sigmaSSpinBx", None, False, False),
-            ("_fix_sigmad", "fixSigmaD", "sigmaDSpinBx", None, False, False),
-            ("_fix_gamma", "fixGamma", "gammaSpinBx", "Voigt", False, False),
-            ("_fix_intz", "fixedIntZ", "intZSpnBx", None, True, False),
-            ("_fix_sigz", "fixedSigZ", "sigZSpnBx", None, True, False),
-            ("_fix_zline", "fixedZline", "zlineSpnBx", None, True, False),
-            ("_fix_gammaz", "fixedGammaZ", "gammaZSpnBx", "Voigt", True, False),
-            ("_fix_intz_EP", "fixedIntZEP", "intZSpnBxEP", None, True, True),
-            ("_fix_sigz_EP", "fixedSigZEP", "sigZSpnBxEP", None, True, True),
-            ("_fix_zline_EP", "fixedZlineEP", "zlineSpnBxEP", None, True, True),
-            ("_fix_gammaz_EP", "fixedGammaZEP", "gammaZSpnBxEP", "Voigt", True, True),
+            ('_fix_sigmac', 'fixSigmaC',     'sigmaCSpinBx',    None,    False, False),
+            ('_fix_sigmas', 'fixSigmaS',     'sigmaSSpinBx',    None,    False, False),
+            ('_fix_sigmad', 'fixSigmaD',     'sigmaDSpinBx',    None,    False, False),
+            ('_fix_gamma',  'fixGamma',      'gammaSpinBx',     'Voigt', False, False),
+            ('_fix_intz',   'fixedIntZ',     'intZSpnBx',       None,    True,  False),
+            ('_fix_sigz',   'fixedSigZ',     'sigZSpnBx',       None,    True,  False),
+            ('_fix_zline',  'fixedZline',    'zlineSpnBx',      None,    True,  False),
+            ('_fix_gammaz', 'fixedGammaZ',   'gammaZSpnBx',     'Voigt', True,  False),
+            ('_fix_intz_EP', 'fixedIntZEP',  'intZSpnBxEP',     None,    True,  True),
+            ('_fix_sigz_EP', 'fixedSigZEP',  'sigZSpnBxEP',     None,    True,  True),
+            ('_fix_zline_EP', 'fixedZlineEP', 'zlineSpnBxEP',   None,    True,  True),
+            ('_fix_gammaz_EP', 'fixedGammaZEP', 'gammaZSpnBxEP', 'Voigt', True, True),
         ):
             rows.append((side + suffix, side, cb, sp, model, skeletal, extra))
     return tuple(rows)
@@ -127,12 +119,10 @@ EQ_FITTING_FIX_BINDINGS = _build_fitting_fix_bindings()
 
 # Keys handled by custom logic in loadSettings() (not in the simple
 # binding tables): nested structures, paired widgets, side effects.
-EQ_SPECIAL_KEYS = frozenset(
-    {
-        # tuple (min_t, b) -- stored on self.fixedIntArea + fixedIntAreaChkBx
-        "fixed_int_area",
-    }
-)
+EQ_SPECIAL_KEYS = frozenset({
+    # tuple (min_t, b) -- stored on self.fixedIntArea + fixedIntAreaChkBx
+    'fixed_int_area',
+})
 
 
 # Keys that may appear in eqsettings.json but are owned by another
@@ -147,28 +137,20 @@ EQ_SPECIAL_KEYS = frozenset(
 #     here only so legacy / hand-edited files do not trip the schema
 #     test (they get classified as 'skip' instead of 'unknown').
 #   - blank_mask: owned by workspace.get_blank_mask_config().
-EQ_SKIP_KEYS = frozenset(
-    {
-        "lambda_sdd",
-        "calib_center",
-        "detector",
-        "silverB",
-        "radius",
-        "type",
-        "sdd",
-        "pixel_size",
-        "lambda",
-        "blank_mask",
-    }
-)
+EQ_SKIP_KEYS = frozenset({
+    'lambda_sdd', 'calib_center', 'detector',
+    'silverB', 'radius', 'type',
+    'sdd', 'pixel_size', 'lambda',
+    'blank_mask',
+})
 
 
 def _is_fitting_fix_key(key):
     """True if ``key`` is one of the per-side fitting-tab fix keys."""
-    if key.startswith("left"):
-        suffix = key[len("left") :]
-    elif key.startswith("right"):
-        suffix = key[len("right") :]
+    if key.startswith('left'):
+        suffix = key[len('left'):]
+    elif key.startswith('right'):
+        suffix = key[len('right'):]
     else:
         return False
     return suffix in EQ_FITTING_FIX_SUFFIXES
@@ -176,10 +158,10 @@ def _is_fitting_fix_key(key):
 
 def _is_fitting_val_key(key):
     """True if ``key`` is the unfixed value-hint variant of a fitting param."""
-    if key.startswith("left"):
-        suffix = key[len("left") :]
-    elif key.startswith("right"):
-        suffix = key[len("right") :]
+    if key.startswith('left'):
+        suffix = key[len('left'):]
+    elif key.startswith('right'):
+        suffix = key[len('right'):]
     else:
         return False
     return suffix in EQ_FITTING_VAL_SUFFIXES
@@ -197,25 +179,25 @@ def classify_eq_setting_key(key):
     """
     for k, _ in EQ_SPINBOX_BINDINGS:
         if k == key:
-            return "spinbox"
+            return 'spinbox'
     for k, *_ in EQ_COMBO_TEXT_BINDINGS:
         if k == key:
-            return "combo_text"
+            return 'combo_text'
     for k, _ in EQ_COMBO_INDEX_BINDINGS:
         if k == key:
-            return "combo_index"
+            return 'combo_index'
     for k, _ in EQ_CHECKBOX_BINDINGS:
         if k == key:
-            return "checkbox"
+            return 'checkbox'
     for k, _, _ in EQ_SPARSE_FIX_BINDINGS:
         if k == key:
-            return "sparse_fix"
+            return 'sparse_fix'
     if _is_fitting_fix_key(key):
-        return "fitting_fix"
+        return 'fitting_fix'
     if _is_fitting_val_key(key):
-        return "fitting_val"
+        return 'fitting_val'
     if key in EQ_SPECIAL_KEYS:
-        return "special"
+        return 'special'
     if key in EQ_SKIP_KEYS:
-        return "skip"
-    return "unknown"
+        return 'skip'
+    return 'unknown'

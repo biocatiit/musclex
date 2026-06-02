@@ -40,12 +40,10 @@ from ..utils.image_processor import *
 from ..modules.DiffractionCentroids import DiffractionCentroids
 from ..csv_manager import DC_CSVManager
 
-
 class OffMeridianTab(QWidget):
     """
     A class for off-meridian tab containnig 4 plots and result table
     """
-
     def __init__(self, mainwin, off_mer):
         """
         Initial tab
@@ -124,14 +122,14 @@ class OffMeridianTab(QWidget):
         Triggered when start and end lines clicked
         """
         difCent = self.mainwin.getCurrentDifCent()
-        if difCent is None or "off_mer_hists" not in difCent.info.keys():
+        if difCent is None or 'off_mer_hists' not in difCent.info.keys():
             return
 
         if self.setSEButton.isChecked():
             self.function = ["se"]
 
             for q in self.quadrants:
-                hist = difCent.info["off_mer_hists"]["hists"][q]
+                hist = difCent.info['off_mer_hists']['hists'][q]
                 left = int(round(0.5 * difCent.init_off_mer["s59"]))
                 right = min(len(hist), int(round(1.5 * difCent.init_off_mer["e51"])))
                 ax = self.allFiguresCanvas[q][2]
@@ -140,7 +138,7 @@ class OffMeridianTab(QWidget):
                 ax.set_title(title)
                 ax.plot(hist)
                 ax.set_xlim((left, right))
-                ax.set_ylim((0, max(hist[left:right]) * 1.1))
+                ax.set_ylim((0, max(hist[left:right])*1.1))
                 canvas = self.allFiguresCanvas[q][1]
                 canvas.draw_idle()
         else:
@@ -154,21 +152,16 @@ class OffMeridianTab(QWidget):
         # y = event.ydata
         difCent = self.mainwin.getCurrentDifCent()
 
-        if (
-            self.function is None
-            or difCent is None
-            or "off_mer_hists" not in difCent.info.keys()
-            or len(self.function) < 1
-        ):
+        if self.function is None or difCent is None or 'off_mer_hists' not in difCent.info.keys() or len(self.function) < 1:
             return
 
-        if self.function[0] == "se":
+        if self.function[0] == 'se':
             self.function.append(int(round(x)))
             if len(self.function) == 3:
                 start = min(self.function[1:3])
                 end = max(self.function[1:3])
                 self.fixed_hull_range = (start, end)
-                difCent.removeInfo("off_mer_rmin_rmax")
+                difCent.removeInfo('off_mer_rmin_rmax')
                 self.function = None
                 self.mainwin.processImage()
 
@@ -183,25 +176,19 @@ class OffMeridianTab(QWidget):
             self.mainwin.pixel_detail.setText("")
             return
         else:
-            self.mainwin.pixel_detail.setText(
-                "x=" + str(np.round(x, 2)) + ", y=" + str(np.round(y, 2))
-            )
+            self.mainwin.pixel_detail.setText("x=" + str(np.round(x,2)) + ', y=' + str(np.round(y,2)))
 
         difCent = self.mainwin.getCurrentDifCent()
 
-        if (
-            self.function is None
-            or difCent is None
-            or "off_mer_hists" not in difCent.info.keys()
-        ):
+        if self.function is None or difCent is None or 'off_mer_hists' not in difCent.info.keys():
             return
 
-        if self.function[0] == "se":
+        if self.function[0] == 'se':
             for q in self.quadrants:
                 ax = self.allFiguresCanvas[q][2]
-                for i in range(len(ax.lines) - 1, len(self.function) - 1, -1):
+                for i in range(len(ax.lines)-1, len(self.function) - 1,-1):
                     ax.lines.pop(i)
-                ax.axvline(x, color="r")
+                ax.axvline(x, color = 'r')
                 canvas = self.allFiguresCanvas[q][1]
                 canvas.draw_idle()
 
@@ -210,10 +197,7 @@ class OffMeridianTab(QWidget):
         Trigger when a baseline value in table is changed
         :param item: table item
         """
-        if (
-            item.column() == self.tableHeader.index("baseline")
-            and not self.updateUIonly
-        ):
+        if item.column() == self.tableHeader.index("baseline") and not self.updateUIonly:
             difCent = self.mainwin.getCurrentDifCent()
             peak = self.resultTable.item(item.row(), 0).text()
             peak = peak.split(" ")
@@ -257,7 +241,7 @@ class OffMeridianTab(QWidget):
             ax.cla()
             title = q.replace("_", " ")
             ax.set_title(title)
-            ax.plot(hull, color="g")
+            ax.plot(hull, color = "g")
             # ax.plot(hist, color="k")
 
             names = ["59", "51"]
@@ -270,39 +254,39 @@ class OffMeridianTab(QWidget):
                 n = names[i]
                 name = q + " " + n
 
-                ax.plot((cent - width, cent + width), (b, b), color="m")  ## baseline
-                ax.plot((cent, cent), (0, hull[peaks[i]] + 10), color="b")  ## centroid
-                ax.plot(p, hull[p], "ro")  ## peak
-                ax.text(p + 2, hull[p], n, fontsize=13)  ## peak name
+                ax.plot((cent - width, cent + width), (b, b), color='m')  ## baseline
+                ax.plot((cent, cent), (0, hull[peaks[i]] + 10), color='b') ## centroid
+                ax.plot(p, hull[p], 'ro') ## peak
+                ax.text(p + 2, hull[p], n, fontsize=13) ## peak name
 
                 ### Update table ###
                 item = QTableWidgetItem(name)
                 item.setFlags(Qt.ItemIsEnabled)
-                self.resultTable.setItem(row, self.tableHeader.index("name"), item)
+                self.resultTable.setItem(row, self.tableHeader.index('name'), item)
 
                 item = QTableWidgetItem(str(cent))
                 item.setFlags(Qt.ItemIsEnabled)
-                self.resultTable.setItem(row, self.tableHeader.index("centroid"), item)
+                self.resultTable.setItem(row, self.tableHeader.index('centroid'), item)
 
                 item = QTableWidgetItem(str(b))
-                self.resultTable.setItem(row, self.tableHeader.index("baseline"), item)
+                self.resultTable.setItem(row, self.tableHeader.index('baseline'), item)
 
                 item = QTableWidgetItem(str(area))
                 item.setFlags(Qt.ItemIsEnabled)
-                self.resultTable.setItem(row, self.tableHeader.index("intensity"), item)
+                self.resultTable.setItem(row, self.tableHeader.index('intensity'), item)
 
                 item = QTableWidgetItem(str(p))
                 item.setFlags(Qt.ItemIsEnabled)
-                self.resultTable.setItem(row, self.tableHeader.index("center"), item)
+                self.resultTable.setItem(row, self.tableHeader.index('center'), item)
                 row += 1
 
-            ax.set_xlim((min(peaks) * 0.8, max(peaks) * 1.2))
+            ax.set_xlim((min(peaks)*0.8, max(peaks)*1.2))
             ax.set_ylim((0, max(hull[peaks]) * 1.1))
 
             fig.tight_layout()
             canvas.draw_idle()
 
-        self.setSEButton.setText("Set Convex hull range")
+        self.setSEButton.setText('Set Convex hull range')
         self.updateUIonly = False
         self.updated = True
 
@@ -314,16 +298,13 @@ class OffMeridianTab(QWidget):
         self.function = None
         for b in self.checkableButtons:
             b.setChecked(False)
-        self.setSEButton.setText("Set Convex hull range")
-
+        self.setSEButton.setText('Set Convex hull range')
 
 class DiffractionTab(QWidget):
     """
     A class for diffraction tab containnig a plot, display options, settings and result table
     """
-
     tableHeader = ["reject", "name", "centroid", "baseline", "intensity"]
-
     def __init__(self, mainwin, dif_side, fix_ranges=[]):
         """
         Initial tab
@@ -337,10 +318,10 @@ class DiffractionTab(QWidget):
         self.dif_side = dif_side
         self.fixed_se = None
         self.max_size = None
-        self.updated = False  # update status of tab
-        self.function = None  # current active function
-        self.updateUIonly = False  # param for UI sync
-        self.zoom = None  # zoom locations (x,y ranges) for plot
+        self.updated = False # update status of tab
+        self.function = None # current active function
+        self.updateUIonly = False # param for UI sync
+        self.zoom = None # zoom locations (x,y ranges) for plot
         self.initUI()
         self.setConnections()
 
@@ -410,12 +391,7 @@ class DiffractionTab(QWidget):
         self.manualSESelect = QPushButton("Select Start-End Convexhull Points")
         self.manualSESelect.setFixedSize(250, 40)
         self.manualSESelect.setCheckable(True)
-        self.checkableButtons = [
-            self.zoomInB,
-            self.zoomOutB,
-            self.manualPeakSelect,
-            self.manualSESelect,
-        ]
+        self.checkableButtons = [self.zoomInB, self.zoomOutB, self.manualPeakSelect, self.manualSESelect]
 
         self.calSettingsGrp = QGroupBox("Settings")
         self.calSettingsLayout = QGridLayout()
@@ -463,10 +439,7 @@ class DiffractionTab(QWidget):
         :param item:
         :return:
         """
-        if (
-            item.column() == DiffractionTab.tableHeader.index("baseline")
-            and not self.updateUIonly
-        ):
+        if item.column() == DiffractionTab.tableHeader.index("baseline") and not self.updateUIonly:
             self.mainwin.setBaseline(self.dif_side, item.row(), item.text())
 
     def handleItemClicked(self, item):
@@ -477,17 +450,15 @@ class DiffractionTab(QWidget):
         """
         if item.column() == DiffractionTab.tableHeader.index("reject"):
             # If a peak is rejected
-            peak_name = self.resultTable.item(
-                item.row(), DiffractionTab.tableHeader.index("name")
-            ).text()
+            peak_name = self.resultTable.item(item.row(), DiffractionTab.tableHeader.index("name")).text()
             # print peak, item.checkState()==2
             difCent = self.mainwin.getCurrentDifCent()
             reject_status = difCent.info["reject"][self.dif_side]
-            if item.checkState() == Qt.Checked and peak_name not in reject_status:
+            if item.checkState()==Qt.Checked and peak_name not in reject_status:
                 reject_status.append(peak_name)
                 difCent.cacheInfo()
                 self.mainwin.writeData()
-            elif item.checkState() == Qt.Unchecked and peak_name in reject_status:
+            elif item.checkState()==Qt.Unchecked and peak_name in reject_status:
                 reject_status.remove(peak_name)
                 difCent.cacheInfo()
                 self.mainwin.writeData()
@@ -508,8 +479,8 @@ class DiffractionTab(QWidget):
             ax = self.difAxes
             ax.cla()
             difCent = self.mainwin.getCurrentDifCent()
-            hist = difCent.info[self.dif_side + "_hist"]
-            ax.plot(hist, color="b")
+            hist = difCent.info[self.dif_side+"_hist"]
+            ax.plot(hist, color = "b")
             self.difCanvas.draw_idle()
         else:
             self.manualSESelect.setText("Select Start-End Convexhull Points")
@@ -604,19 +575,16 @@ class DiffractionTab(QWidget):
             y = min(y, ylim[0])
 
         if self.function is None:
-            self.function = ["move", (x, y)]
+            self.function = ["move", (x,y)]
         else:
             func = self.function
             if func[0] == "zoomin":
                 # Set zoom in location
-                func.append((x, y))
+                func.append((x,y))
                 if len(func) == 3:
                     p1 = func[1]
                     p2 = func[2]
-                    self.zoom = [
-                        (min(p1[0], p2[0]), max(p1[0], p2[0])),
-                        (min(p1[1], p2[1]), max(p1[1], p2[1])),
-                    ]
+                    self.zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
                     self.function = None
                     self.updated = False
                     self.mainwin.redrawPlots()
@@ -624,15 +592,13 @@ class DiffractionTab(QWidget):
                     self.updateUI()
             elif func[0] == "peaks":
                 # Set peak locations
-                hist = difCent.info[self.dif_side + "_hull"]
+                hist = difCent.info[self.dif_side+"_hull"]
                 selected_peaks = func[1]
                 x = int(round(x))
                 selected_peaks.append(x)
                 ax = self.difAxes
-                ax.axvline(x, color="r")
-                ax.text(
-                    x, hist[x] + 15, "peak#" + str(len(selected_peaks)), fontsize=15
-                )
+                ax.axvline(x, color = "r")
+                ax.text(x, hist[x]+15, "peak#"+str(len(selected_peaks)), fontsize=15)
                 self.difCanvas.draw_idle()
             elif func[0] == "se":
                 # Set start or end points foro convex hull
@@ -642,7 +608,7 @@ class DiffractionTab(QWidget):
                 if len(selected_peaks) == 1:
                     ax = self.difAxes
                     ax.plot((x, x), (0, ax.get_ylim()[1]), color="r")
-                    ax.text(x, 0, "start", fontsize=15, horizontalalignment="right")
+                    ax.text(x, 0, "start", fontsize=15, horizontalalignment = "right")
                     self.difCanvas.draw_idle()
                     self.manualSESelect.setText("Select End Point")
                 else:
@@ -684,15 +650,13 @@ class DiffractionTab(QWidget):
             y = max(y, 0)
             y = min(y, ylim[0])
         else:
-            self.mainwin.pixel_detail.setText(
-                "x=" + str(np.round(x, 2)) + ", y=" + str(np.round(y, 2))
-            )
+            self.mainwin.pixel_detail.setText("x=" + str(np.round(x,2)) + ', y=' + str(np.round(y,2)))
 
         if self.function is None or len(self.function) < 2:
             return
 
         func = self.function
-        hist = difCent.info[self.dif_side + "_hist"]
+        hist = difCent.info[self.dif_side+"_hist"]
 
         if func[0] == "zoomin":
             # draw rectangle
@@ -704,24 +668,15 @@ class DiffractionTab(QWidget):
             h = abs(start_pt[1] - y)
             x = min(start_pt[0], x)
             y = min(start_pt[1], y)
-            ax.add_patch(
-                patches.Rectangle(
-                    (x, y),
-                    w,
-                    h,
-                    linewidth=1,
-                    edgecolor="r",
-                    facecolor="none",
-                    linestyle="dotted",
-                )
-            )
+            ax.add_patch(patches.Rectangle((x,y), w, h,
+                                           linewidth=1, edgecolor="r", facecolor="none", linestyle="dotted"))
             self.difCanvas.draw_idle()
         elif func[0] == "move":
             # change zoom location (plot limit)
             if self.zoom is not None:
                 ax = self.difAxes
                 move = (func[1][0] - x, func[1][1] - y)
-                self.zoom = getNewZoom(self.zoom, move, len(hist), max(hist) * 1.1)
+                self.zoom = getNewZoom(self.zoom, move, len(hist), max(hist)*1.1)
                 ax.set_xlim(self.zoom[0])
                 ax.set_ylim(self.zoom[1])
                 self.difCanvas.draw_idle()
@@ -746,7 +701,7 @@ class DiffractionTab(QWidget):
         y = event.ydata
 
         if self.max_size is None:
-            hist = difCent.info[self.dif_side + "_hist"]
+            hist = difCent.info[self.dif_side + '_hist']
             self.max_size = (max(hist), len(hist))
 
         if self.zoom is None:
@@ -755,12 +710,12 @@ class DiffractionTab(QWidget):
         zoom_height = self.zoom[1][1] - self.zoom[1][0]
         zoom_width = self.zoom[0][1] - self.zoom[0][0]
 
-        clicked_x_percentage = 1.0 * (x - self.zoom[0][0]) / zoom_width
-        clicked_y_percentage = 1.0 * (y - self.zoom[1][0]) / zoom_height
+        clicked_x_percentage = 1. * (x - self.zoom[0][0]) / zoom_width
+        clicked_y_percentage = 1. * (y - self.zoom[1][0]) / zoom_height
 
-        step_x = 0.1 * zoom_width
-        step_y = 0.1 * zoom_height
-        if direction == "up":  # zoom in
+        step_x = .1 * zoom_width
+        step_y = .1 * zoom_height
+        if direction == 'up':  # zoom in
             step_x *= -1
             step_y *= -1
         zoom_width = min(self.max_size[1], max(zoom_width + step_x, 5))
@@ -812,13 +767,13 @@ class DiffractionTab(QWidget):
         :param info: DiffractionCentroids info
         :return: -
         """
-        orig_hist = info[self.dif_side + "_hist"]
-        hull_hist = info[self.dif_side + "_hull"]
-        centroids = info[self.dif_side + "_centroids"]
-        peaks = info[self.dif_side + "_peaks"]
-        baselines = info[self.dif_side + "_baselines"]
-        widths = info[self.dif_side + "_widths"]
-        names = info[self.dif_side + "_names"]
+        orig_hist = info[self.dif_side + '_hist']
+        hull_hist = info[self.dif_side + '_hull']
+        centroids = info[self.dif_side + '_centroids']
+        peaks = info[self.dif_side + '_peaks']
+        baselines = info[self.dif_side + '_baselines']
+        widths = info[self.dif_side + '_widths']
+        names = info[self.dif_side + '_names']
         x_range = None
         ax.cla()
 
@@ -830,49 +785,29 @@ class DiffractionTab(QWidget):
                 max_x = 0
                 for fr in self.fixRanges:
                     r = fr[1]
-                    new_hist[r[0] : r[1]] = hull_hist[r[0] : r[1]]
+                    new_hist[r[0]: r[1]] = hull_hist[r[0]: r[1]]
                     min_x = min(min_x, r[0])
                     max_x = max(max_x, r[1])
-                x_range = (min_x * 0.8, max_x * 1.2)
+                x_range = (min_x*.8, max_x*1.2)
                 hull_hist = new_hist
             elif len(peaks) > 0:
-                x_range = (min(peaks) * 0.8, max(peaks) * 1.2)
+                x_range = (min(peaks)*.8, max(peaks)*1.2)
 
         # Draw background subtracted histogram
-        ax.plot(hull_hist, color="g")
+        ax.plot(hull_hist, color='g')
         max_height = max(hull_hist) * 1.05
 
         if self.orignalChkBx.isChecked():
             # Draw original histogram
-            ax.plot(orig_hist, color="k")
+            ax.plot(orig_hist, color='k')
             max_height = max(orig_hist) * 1.05
 
         if self.seChkBx.isChecked():
             # Draw start and end points for convex hull
-            ax.plot(
-                (info[self.dif_side + "_se"][0], info[self.dif_side + "_se"][0]),
-                (0, max_height),
-                color="k",
-            )
-            ax.plot(
-                (info[self.dif_side + "_se"][1], info[self.dif_side + "_se"][1]),
-                (0, max_height),
-                color="k",
-            )
-            ax.text(
-                info[self.dif_side + "_se"][0],
-                0,
-                "start",
-                fontsize=15,
-                horizontalalignment="right",
-            )
-            ax.text(
-                info[self.dif_side + "_se"][1],
-                0,
-                "end",
-                fontsize=15,
-                horizontalalignment="left",
-            )
+            ax.plot((info[self.dif_side + '_se'][0], info[self.dif_side + '_se'][0]), (0, max_height), color='k')
+            ax.plot((info[self.dif_side + '_se'][1], info[self.dif_side + '_se'][1]), (0, max_height), color='k')
+            ax.text(info[self.dif_side + '_se'][0], 0, "start", fontsize=15, horizontalalignment='right')
+            ax.text(info[self.dif_side + '_se'][1], 0, "end", fontsize=15, horizontalalignment='left')
 
         if self.baselineChkBx.isChecked() or self.centroidChkBx.isChecked():
             for i, b in enumerate(baselines):
@@ -880,17 +815,17 @@ class DiffractionTab(QWidget):
                 cent = centroids[i]
                 if self.baselineChkBx.isChecked():
                     # Draw baseline
-                    ax.plot((cent - width, cent + width), (b, b), color="m")
+                    ax.plot((cent - width, cent + width), (b, b), color='m')
                 if self.centroidChkBx.isChecked():
                     # Draw centroid
-                    ax.plot((cent, cent), (0, hull_hist[peaks[i]] + 10), color="b")
+                    ax.plot((cent, cent), (0, hull_hist[peaks[i]] + 10), color='b')
 
         if self.peakChkBx.isChecked():
             # Draw peak lines
-            for i, p in enumerate(peaks):
+            for (i, p) in enumerate(peaks):
                 n = names[i]
-                ax.plot(p, hull_hist[p], "ro")
-                ax.text(p + 2, hull_hist[p], n, fontsize=13)
+                ax.plot(p, hull_hist[p], 'ro')
+                ax.text(p+2, hull_hist[p], n, fontsize=13)
 
         # Set display limit
         if self.zoom is not None and len(self.zoom) == 2:
@@ -915,40 +850,32 @@ class DiffractionTab(QWidget):
             return
         self.updateUIonly = True
         info = difCent.info
-        centroids = info[self.dif_side + "_centroids"]
+        centroids = info[self.dif_side+'_centroids']
         # peaks = info[self.dif_side+'_peaks']
-        baselines = info[self.dif_side + "_baselines"]
-        areas = info[self.dif_side + "_areas"]
+        baselines = info[self.dif_side+'_baselines']
+        areas = info[self.dif_side + '_areas']
         reject = info["reject"][self.dif_side]
-        names = info[self.dif_side + "_names"]
+        names = info[self.dif_side + '_names']
 
         # Draw plot
         self.drawPlot(self.difFigure, self.difCanvas, self.difAxes, info)
 
         # Update table
         self.resultTable.setRowCount(len(centroids))
-        for i, centroid in enumerate(centroids):
+        for (i, centroid) in enumerate(centroids):
             item = QTableWidgetItem(str(names[i]))
             item.setFlags(Qt.ItemIsEnabled)
-            self.resultTable.setItem(i, DiffractionTab.tableHeader.index("name"), item)
+            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('name'), item)
 
             item = QTableWidgetItem(str(centroid))
             item.setFlags(Qt.ItemIsEnabled)
-            self.resultTable.setItem(
-                i, DiffractionTab.tableHeader.index("centroid"), item
-            )
+            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('centroid'), item)
 
-            self.resultTable.setItem(
-                i,
-                DiffractionTab.tableHeader.index("baseline"),
-                QTableWidgetItem(str(baselines[i])),
-            )
+            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('baseline'), QTableWidgetItem(str(baselines[i])))
 
             item = QTableWidgetItem(str(areas[i]))
             item.setFlags(Qt.ItemIsEnabled)
-            self.resultTable.setItem(
-                i, DiffractionTab.tableHeader.index("intensity"), item
-            )
+            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('intensity'), item)
 
             chkBoxItem = QTableWidgetItem()
             chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
@@ -956,19 +883,15 @@ class DiffractionTab(QWidget):
                 chkBoxItem.setCheckState(Qt.Checked)
             else:
                 chkBoxItem.setCheckState(Qt.Unchecked)
-            self.resultTable.setItem(
-                i, DiffractionTab.tableHeader.index("reject"), chkBoxItem
-            )
+            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('reject'), chkBoxItem)
 
         self.updateUIonly = False
         self.updated = True
-
 
 class DiffractionCentroidProcessWindow(QMainWindow):
     """
     A class for Diffraction Centroids process window
     """
-
     def __init__(self, mainwin, dir_path, groupList, settings):
         """
         Initial window with
@@ -978,20 +901,20 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :param settings: settings from main window
         """
         super().__init__()
-        self.mainWindow = mainwin  # ptr to main window
-        self.dir_path = dir_path  # current directory path
-        self.groupList = groupList  # list of list of images
-        self.currentGroup = 0  # current active group
-        self.difCent = None  # DiffractionCentroids object
-        self.updateUIonly = False  # updating state
-        self.updated = False  # updated state for image
-        self.plots_updated = False  # updated state for plots
-        self.function = None  # current active function
-        self.img_zoom = None  # current zoom area
-        self.fixRanges = []  # fixed meridian peak ranges
-        self.firstImg = True  # boolean if the window has processed an image before
-        self.rotatedImg = None  # rotated avarage image of DiffractionCentroids
-        self.off_mer = None  # off-meridian settings
+        self.mainWindow = mainwin # ptr to main window
+        self.dir_path = dir_path # current directory path
+        self.groupList = groupList # list of list of images
+        self.currentGroup = 0 # current active group
+        self.difCent = None # DiffractionCentroids object
+        self.updateUIonly = False # updating state
+        self.updated = False # updated state for image
+        self.plots_updated = False # updated state for plots
+        self.function = None # current active function
+        self.img_zoom = None # current zoom area
+        self.fixRanges = [] # fixed meridian peak ranges
+        self.firstImg = True # boolean if the window has processed an image before
+        self.rotatedImg = None # rotated avarage image of DiffractionCentroids
+        self.off_mer = None # off-meridian settings
         self.orientationModel = None
         self.imageTab = None
         self.imageTabLayout = None
@@ -1046,34 +969,31 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
 
-        if "fix_ranges" in settings:
-            self.fixRanges = settings["fix_ranges"]
+        if 'fix_ranges' in settings:
+            self.fixRanges = settings['fix_ranges']
 
-        if "start_group" in settings:
-            self.currentGroup = settings["start_group"]
+        if 'start_group' in settings:
+            self.currentGroup = settings['start_group']
 
-        if "off_meridian" in settings:
-            self.off_mer = settings["off_meridian"]
+        if 'off_meridian' in settings:
+            self.off_mer = settings['off_meridian']
 
         from .widgets.output_dir_dialog import resolve_output_directory
         from ..utils.directory_context import DirectoryContext
-
         ctx = resolve_output_directory(dir_path, parent=self)
         self.dir_context = ctx if ctx else DirectoryContext.colocated(dir_path)
-        self.csvManager = DC_CSVManager(
-            self.dir_context.output_dir, settings["group"], self.fixRanges
-        )
-        self.initUI(settings["group"] > 0)
+        self.csvManager = DC_CSVManager(self.dir_context.output_dir, settings['group'], self.fixRanges)
+        self.initUI(settings['group'] > 0)
         self._create_menu_bar()
         QApplication.processEvents()
         self.setConnections()
         self.onImageChanged()
 
     def _create_menu_bar(self):
-        changeOutputDirAction = QAction("Change Output Directory...", self)
+        changeOutputDirAction = QAction('Change Output Directory...', self)
         changeOutputDirAction.triggered.connect(self._change_output_directory)
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu("&File")
+        fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(changeOutputDirAction)
 
     def _change_output_directory(self):
@@ -1089,9 +1009,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         new_output = dlg.chosen_output
         _persist_association(input_dir, new_output)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
-        self.csvManager = DC_CSVManager(
-            new_output, len(self.groupList[0]), self.fixRanges
-        )
+        self.csvManager = DC_CSVManager(new_output, len(self.groupList[0]), self.fixRanges)
 
     def getCurrentDifCent(self):
         """
@@ -1099,13 +1017,13 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         return self.difCent
 
-    def initUI(self, pnEnable=False):
+    def initUI(self, pnEnable = False):
         """
         Initial all UI in image tab and create other tabs
         :param pnEnable:
         :return:
         """
-        self.setWindowTitle("Muscle X Diffraction Centroids v." + __version__)
+        self.setWindowTitle("Muscle X Diffraction Centroids v."+__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -1122,11 +1040,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.initUIImageTab(pnEnable)
 
         ## Top Diffraction Tab ##
-        self.topDifTab = DiffractionTab(self, "top", self.fixRanges)
+        self.topDifTab = DiffractionTab(self, 'top', self.fixRanges)
         self.tabWidget.addTab(self.topDifTab, "Top Diffraction")
 
         ## Bottom Diffraction ##
-        self.bottomDifTab = DiffractionTab(self, "bottom", self.fixRanges)
+        self.bottomDifTab = DiffractionTab(self, 'bottom', self.fixRanges)
         self.tabWidget.addTab(self.bottomDifTab, "Bottom Diffraction")
 
         ## Off-meridian Tab ##
@@ -1136,7 +1054,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
         # Status bar
         self.statusBar = QStatusBar()
-        self.left_status = QLabel("Path : " + self.dir_path)
+        self.left_status = QLabel("Path : "+self.dir_path)
         self.right_status = QLabel()
         self.pixel_detail = QLabel()
         self.progressBar = QProgressBar()
@@ -1152,7 +1070,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.show()
         self.resize(1000, 750)
 
-    def initUIImageTab(self, pnEnable=True):
+    def initUIImageTab(self, pnEnable = True):
         """
         Initial layouts and widgets for image tab
         :param pnEnable: enable previous and next buttons
@@ -1178,7 +1096,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         ### image names group ###
         self.imageOptionsFrame = QFrame()
         self.imageOptionsFrame.setFixedWidth(300)
-        self.imageNameGrp = QGroupBox("Images")
+        self.imageNameGrp = QGroupBox('Images')
         self.imageNames = QLabel()
         self.imnLayout = QVBoxLayout()
         self.imnLayout.addWidget(self.imageNames)
@@ -1198,11 +1116,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.intensityLayout = QGridLayout()
         self.intensityGrp.setLayout(self.intensityLayout)
         self.maxInt = QDoubleSpinBox()
-        self.maxInt.setValue(1.0)
+        self.maxInt.setValue(1.)
         self.maxInt.setKeyboardTracking(False)
         self.maxIntLabel = QLabel("Max intensity")
         self.minInt = QDoubleSpinBox()
-        self.minInt.setValue(0.0)
+        self.minInt.setValue(0.)
         self.minInt.setKeyboardTracking(False)
         self.minIntLabel = QLabel("Min intensity")
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
@@ -1222,7 +1140,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.zoomLayout.addWidget(self.zoomOutB)
 
         self.displayOptionGrp = QGroupBox()
-        self.displayOptionGrp.setTitle("Display Options")
+        self.displayOptionGrp.setTitle('Display Options')
         self.displayOptionsLayout = QVBoxLayout()
         self.displayOptionsLayout.addWidget(self.areaChkBx)
         self.displayOptionsLayout.addWidget(self.offMerChkBx)
@@ -1234,22 +1152,20 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
         ### Image processing ###
         self.calSettingsGrp = QGroupBox()
-        self.calSettingsGrp.setTitle("Calculation Settings")
+        self.calSettingsGrp.setTitle('Calculation Settings')
         self.calSetttingsLayout = QGridLayout()
-        self.setCenterAngleB = QPushButton("Set Center and Rotation Angle")
+        self.setCenterAngleB = QPushButton('Set Center and Rotation Angle')
         self.setCenterAngleB.setCheckable(True)
-        self.setAngleB = QPushButton("Set Rotation Angle")
+        self.setAngleB = QPushButton('Set Rotation Angle')
         self.setAngleB.setCheckable(True)
         self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox(
-            "Do not show this message again"
-        )
-        self.selectIntArea = QPushButton("Set Meridian Area")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        self.selectIntArea = QPushButton('Set Meridian Area')
         self.selectIntArea.setCheckable(True)
-        self.setX1X2 = QPushButton("Set Left\nOff-Meridian Area")
+        self.setX1X2 = QPushButton('Set Left\nOff-Meridian Area')
         self.setX1X2.setCheckable(True)
         self.setX1X2.setEnabled(self.off_mer is not None)
-        self.setX3X4 = QPushButton("Set Right\nOff-Meridian Area")
+        self.setX3X4 = QPushButton('Set Right\nOff-Meridian Area')
         self.setX3X4.setCheckable(True)
         self.setX3X4.setEnabled(self.off_mer is not None)
         self.orientationCmbBx = QComboBox()
@@ -1271,28 +1187,18 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.calSetttingsLayout.addWidget(self.rotation90ChkBx, 7, 0, 1, 1)
         self.calSetttingsLayout.addWidget(self.forceRot90ChkBx, 7, 1, 1, 1)
 
-        self.checkableButtons = [
-            self.zoomInB,
-            self.zoomOutB,
-            self.setCenterAngleB,
-            self.setAngleB,
-            self.selectIntArea,
-            self.setX3X4,
-            self.setX1X2,
-        ]
+        self.checkableButtons = [self.zoomInB, self.zoomOutB, self.setCenterAngleB, self.setAngleB, self.selectIntArea, self.setX3X4, self.setX1X2]
 
         ### Process Folder Button
         self.processFolderButton = QPushButton("Process Current Folder")
-        self.processFolderButton.setStyleSheet(
-            "QPushButton { color: #ededed; background-color: #af6207}"
-        )
+        self.processFolderButton.setStyleSheet("QPushButton { color: #ededed; background-color: #af6207}")
         self.processFolderButton.setCheckable(True)
         ### Previous & Next buttons
         self.pnButtons = QGridLayout()
-        self.prevButton = QPushButton("<")
+        self.prevButton = QPushButton('<')
         self.prevButton.clearFocus()
         self.prevButton.setEnabled(pnEnable)
-        self.nextButton = QPushButton(">")
+        self.nextButton = QPushButton('>')
         self.nextButton.setEnabled(pnEnable)
         self.pnButtons.addWidget(self.processFolderButton, 0, 0, 1, 2)
         self.pnButtons.addWidget(self.prevButton, 1, 0, 1, 1)
@@ -1323,16 +1229,10 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.tabWidget.currentChanged.connect(self.updateUI)
 
         ### image tab
-        self.displayImgFigure.canvas.mpl_connect(
-            "button_press_event", self.imageClicked
-        )
-        self.displayImgFigure.canvas.mpl_connect(
-            "motion_notify_event", self.imageOnMotion
-        )
-        self.displayImgFigure.canvas.mpl_connect(
-            "button_release_event", self.imageReleased
-        )
-        self.displayImgFigure.canvas.mpl_connect("scroll_event", self.imgScrolled)
+        self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
+        self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
+        self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
+        self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
         self.areaChkBx.stateChanged.connect(self.imageSettingChanged)
         self.offMerChkBx.stateChanged.connect(self.imageSettingChanged)
         self.graphChkBx.stateChanged.connect(self.hidePlots)
@@ -1344,7 +1244,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
-        # self.processFolderButton.clicked.connect(self.processCurrentFolder)
+        #self.processFolderButton.clicked.connect(self.processCurrentFolder)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.selectIntArea.clicked.connect(self.selectIntAreaClicked)
         self.setCenterAngleB.clicked.connect(self.setCenterAngleClicked)
@@ -1408,29 +1308,24 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
             img = self.difCent.getRotatedImage()
             ax1 = self.doubleZoomAxes
-            x, y = (0, 0)
-            imgCropped = img[y - 10 : y + 10, x - 10 : x + 10]
-            if (
-                len(imgCropped) != 0
-                or imgCropped.shape[0] != 0
-                or imgCropped.shape[1] != 0
-            ):
-                imgScaled = cv2.resize(
-                    imgCropped.astype("float32"), (0, 0), fx=10, fy=10
-                )
+            x,y = (0, 0)
+            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
+            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 self.doubleZoomPt = (x, y)
                 ax1.imshow(imgScaled)
                 y, x = imgScaled.shape
                 # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines) - 1, -1, -1):
+                    for i in range(len(ax1.lines)-1,-1,-1):
                         ax1.lines.pop(i)
-                for i in range(len(ax1.patches) - 1, -1, -1):
+                for i in range(len(ax1.patches)-1,-1,-1):
                     ax1.patches.pop(i)
         else:
             self.displayImgFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
         self.displayImgCanvas.draw_idle()
+
 
     def imgZoomOutClicked(self):
         """
@@ -1560,26 +1455,23 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
         if self.doubleZoomMode:
             # If x, y is inside figure and image is clicked for first time in double zoom mode
-            print(x, y)
+            print(x,y)
             if not self.dontShowAgainDoubleZoomMessageResult:
                 msg = QMessageBox()
-                msg.setInformativeText("Please click on zoomed window on the top right")
-                dontShowAgainDoubleZoomMessage = QCheckBox(
-                    "Do not show this message again"
-                )
+                msg.setInformativeText(
+                    "Please click on zoomed window on the top right")
+                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
                 msg.setStandardButtons(QMessageBox.Ok)
                 msg.setWindowTitle("Double Zoom Guide")
                 msg.setStyleSheet("QLabel{min-width: 500px;}")
                 msg.setCheckBox(dontShowAgainDoubleZoomMessage)
                 msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = (
-                    dontShowAgainDoubleZoomMessage.isChecked()
-                )
+                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
             self.doubleZoomMode = False
             return
 
         if self.function is None:
-            self.function = ["move", (x, y)]
+            self.function = ["move", (x,y)]
         else:
             func = self.function
             if func[0] == "int_area":
@@ -1589,20 +1481,14 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                     self.doubleZoomMode = True
                 func.append(x)
                 ax = self.displayImgAxes
-                ax.axvline(x, color="r")
+                ax.axvline(x, color='r')
                 self.displayImgCanvas.draw_idle()
                 if len(func) == 3:
-                    self.difCent.info["int_area"] = (
-                        int(round(func[1])),
-                        int(round(func[2])),
-                    )
+                    self.difCent.info['int_area'] = (int(round(func[1])), int(round(func[2])))
                     center = self.difCent.info["center"]
-                    self.difCent.info["center"] = [
-                        int(round((func[1] + func[2]) / 2.0)),
-                        center[1],
-                    ]
-                    self.difCent.removeInfo("top_se")
-                    self.difCent.removeInfo("bottom_se")
+                    self.difCent.info["center"] = [int(round((func[1]+func[2])/2.)), center[1]]
+                    self.difCent.removeInfo('top_se')
+                    self.difCent.removeInfo('bottom_se')
                     self.function = None
                     self.selectIntArea.setChecked(False)
                     self.processImage()
@@ -1610,16 +1496,12 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                 # Set x1 or x2 (off-meridian left ranges)
                 func.append(x)
                 ax = self.displayImgAxes
-                ax.axvline(x, color="g")
+                ax.axvline(x, color='g')
                 self.displayImgCanvas.draw_idle()
                 if len(func) == 3:
-                    self.difCent.info["x1"] = max(
-                        int(round(func[1])), int(round(func[2]))
-                    )
-                    self.difCent.info["x2"] = min(
-                        int(round(func[1])), int(round(func[2]))
-                    )
-                    self.difCent.removeInfo("off_mer_rmin_rmax")
+                    self.difCent.info['x1'] = max(int(round(func[1])), int(round(func[2])))
+                    self.difCent.info['x2'] = min(int(round(func[1])), int(round(func[2])))
+                    self.difCent.removeInfo('off_mer_rmin_rmax')
                     self.function = None
                     self.setX1X2.setChecked(False)
                     self.processImage()
@@ -1627,16 +1509,12 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                 # Set x3 or x4 (off-meridian right ranges)
                 func.append(x)
                 ax = self.displayImgAxes
-                ax.axvline(x, color="r")
+                ax.axvline(x, color='r')
                 self.displayImgCanvas.draw_idle()
                 if len(func) == 3:
-                    self.difCent.info["x4"] = max(
-                        int(round(func[1])), int(round(func[2]))
-                    )
-                    self.difCent.info["x3"] = min(
-                        int(round(func[1])), int(round(func[2]))
-                    )
-                    self.difCent.removeInfo("off_mer_rmin_rmax")
+                    self.difCent.info['x4'] = max(int(round(func[1])), int(round(func[2])))
+                    self.difCent.info['x3'] = min(int(round(func[1])), int(round(func[2])))
+                    self.difCent.removeInfo('off_mer_rmin_rmax')
                     self.function = None
                     self.setX1X2.setChecked(False)
                     self.processImage()
@@ -1645,7 +1523,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                 if self.doubleZoom.isChecked() and not self.doubleZoomMode:
                     x, y = self.doubleZoomToOrigCoord(x, y)
                     self.doubleZoomMode = True
-                center = self.difCent.info["center"]
+                center = self.difCent.info['center']
                 if center[0] < x:
                     x1 = center[0]
                     y1 = center[1]
@@ -1660,13 +1538,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                 if abs(x2 - x1) == 0:
                     new_angle = -90
                 else:
-                    new_angle = -180.0 * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                new_angle += 90.0
+                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
+                new_angle += 90.
 
-                self.difCent.info["rotationAngle"] = (
-                    self.difCent.info["rotationAngle"] + new_angle
-                )
-                self.difCent.removeInfo("rmin")
+                self.difCent.info['rotationAngle'] = self.difCent.info['rotationAngle'] + new_angle
+                self.difCent.removeInfo('rmin')
                 self.setAngleB.setChecked(False)
                 self.function = None
                 self.processImage()
@@ -1677,18 +1553,10 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                 if self.doubleZoom.isChecked() and not self.doubleZoomMode:
                     x, y = self.doubleZoomToOrigCoord(x, y)
                     self.doubleZoomMode = True
-                ax.plot(
-                    (x - axis_size, x + axis_size),
-                    (y - axis_size, y + axis_size),
-                    color="r",
-                )
-                ax.plot(
-                    (x - axis_size, x + axis_size),
-                    (y + axis_size, y - axis_size),
-                    color="r",
-                )
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.displayImgCanvas.draw_idle()
-                func.append((x, y))
+                func.append((x,y))
                 if len(func) == 3:
                     self.setCursor(Qt.ArrowCursor)
 
@@ -1702,40 +1570,28 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                     if abs(x2 - x1) == 0:
                         new_angle = -90
                     else:
-                        new_angle = -180.0 * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                    new_angle += 90.0
+                        new_angle = -180.*np.arctan((y1 - y2) / abs(x1 - x2))/np.pi
+                    new_angle += 90.
 
-                    cx = int(round((x1 + x2) / 2.0))
-                    cy = int(round((y1 + y2) / 2.0))
-                    M = cv2.getRotationMatrix2D(
-                        tuple(self.difCent.info["center"]),
-                        self.difCent.info["rotationAngle"],
-                        1,
-                    )
+                    cx = int(round((x1 + x2) / 2.))
+                    cy = int(round((y1 + y2) / 2.))
+                    M = cv2.getRotationMatrix2D(tuple(self.difCent.info['center']), self.difCent.info['rotationAngle'], 1)
                     invM = cv2.invertAffineTransform(M)
-                    homo_coords = [cx, cy, 1.0]
+                    homo_coords = [cx, cy, 1.]
                     new_center = np.dot(invM, homo_coords)
-                    self.difCent.info["center"] = (
-                        int(round(new_center[0])),
-                        int(round(new_center[1])),
-                    )
-                    self.difCent.info["rotationAngle"] = (
-                        self.difCent.info["rotationAngle"] + new_angle
-                    )
-                    self.difCent.removeInfo("rmin")
+                    self.difCent.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+                    self.difCent.info['rotationAngle'] = self.difCent.info['rotationAngle'] + new_angle
+                    self.difCent.removeInfo('rmin')
                     self.setCenterAngleB.setChecked(False)
                     self.processImage()
 
             elif func[0] == "zoomin":
                 # Set zoom in area
-                func.append((x, y))
+                func.append((x,y))
                 if len(func) == 3:
                     p1 = func[1]
                     p2 = func[2]
-                    self.img_zoom = [
-                        (min(p1[0], p2[0]), max(p1[0], p2[0])),
-                        (min(p1[1], p2[1]), max(p1[1], p2[1])),
-                    ]
+                    self.img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
                     self.function = None
                     self.updated = False
                     self.zoomInB.setChecked(False)
@@ -1745,12 +1601,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         Trigger when mouse hovers on image
         """
-        if (
-            self.difCent is None
-            or event.xdata is None
-            or event.ydata is None
-            or self.rotatedImg is None
-        ):
+        if self.difCent is None or event.xdata is None or event.ydata is None or self.rotatedImg is None:
             self.pixel_detail.setText("")
             return
         x = int(round(event.xdata))
@@ -1762,40 +1613,18 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             if x < self.rotatedImg.shape[1] and y < self.rotatedImg.shape[0]:
-                self.pixel_detail.setText(
-                    "x="
-                    + str(x)
-                    + ", y="
-                    + str(y)
-                    + ", value="
-                    + str(self.rotatedImg[y][x])
-                )
-                if (
-                    self.doubleZoom.isChecked()
-                    and self.doubleZoomMode
-                    and x > 10
-                    and x < img.shape[1] - 10
-                    and y > 10
-                    and y < img.shape[0] - 10
-                ):
+                self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(self.rotatedImg[y][x]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
-                    imgCropped = img[
-                        int(y - 10) : int(y + 10), int(x - 10) : int(x + 10)
-                    ]
-                    if (
-                        len(imgCropped) != 0
-                        or imgCropped.shape[0] != 0
-                        or imgCropped.shape[1] != 0
-                    ):
-                        imgScaled = cv2.resize(
-                            imgCropped.astype("float32"), (0, 0), fx=10, fy=10
-                        )
-                        self.doubleZoomPt = (x, y)
+                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
+                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+                        self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines) - 1, -1, -1):
+                            for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
-                        for i in range(len(ax1.patches) - 1, -1, -1):
+                        for i in range(len(ax1.patches)-1,-1,-1):
                             ax1.patches.pop(i)
                         self.displayImgCanvas.draw_idle()
 
@@ -1830,45 +1659,37 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             # Draw verical lines
             if not self.doubleZoom.isChecked():
                 if len(ax.lines) > len(func) - 1:
-                    for i in range(len(ax.lines) - 1, len(func) - 2, -1):
+                    for i in range(len(ax.lines)-1, len(func) - 2,-1):
                         ax.lines.pop(i)
-                ax.axvline(x, color="r")
+                ax.axvline(x, color='r')
             else:
                 if (not self.doubleZoomMode) and x < 200 and y < 200:
                     axis_size = 1
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines) - 1, -1, -1):
+                        for i in range(len(ax1.lines)-1,-1,-1):
                             ax1.lines.pop(i)
-                    ax1.plot(
-                        (x - axis_size, x + axis_size),
-                        (y - axis_size, y + axis_size),
-                        color="r",
-                    )
-                    ax1.plot(
-                        (x - axis_size, x + axis_size),
-                        (y + axis_size, y - axis_size),
-                        color="r",
-                    )
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
                     if len(ax.lines) > len(func) - 1:
-                        for i in range(len(ax.lines) - 1, len(func) - 2, -1):
+                        for i in range(len(ax.lines)-1, len(func) - 2,-1):
                             ax.lines.pop(i)
-                    ax.axvline(x, color="r")
+                    ax.axvline(x, color='r')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "x1x2":
             # Draw vertical lines
             if len(ax.lines) > len(func) - 1:
-                for i in range(len(ax.lines) - 1, len(func) - 2, -1):
+                for i in range(len(ax.lines)-1, len(func) - 2,-1):
                     ax.lines.pop(i)
-            ax.axvline(x, color="g")
+            ax.axvline(x, color='g')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "x3x4":
             # Draw vertical lines
             if len(ax.lines) > len(func) - 1:
-                for i in range(len(ax.lines) - 1, len(func) - 2, -1):
+                for i in range(len(ax.lines)-1, len(func) - 2,-1):
                     ax.lines.pop(i)
-            ax.axvline(x, color="r")
+            ax.axvline(x, color='r')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "angle":
             # draw line as angle
@@ -1878,7 +1699,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             x2 = center[0] - deltax
             y2 = center[1] - deltay
             if not self.doubleZoom.isChecked():
-                for i in range(len(ax.lines) - 1, -1, -1):
+                for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines.pop(i)
                 ax.plot([x, x2], [y, y2], color="g")
             else:
@@ -1886,20 +1707,12 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                     axis_size = 1
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines) - 1, -1, -1):
+                        for i in range(len(ax1.lines)-1,-1,-1):
                             ax1.lines.pop(i)
-                    ax1.plot(
-                        (x - axis_size, x + axis_size),
-                        (y - axis_size, y + axis_size),
-                        color="r",
-                    )
-                    ax1.plot(
-                        (x - axis_size, x + axis_size),
-                        (y + axis_size, y - axis_size),
-                        color="r",
-                    )
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
-                    for i in range(len(ax.lines) - 1, -1, -1):
+                    for i in range(len(ax.lines)-1,-1,-1):
                         ax.lines.pop(i)
                     ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
@@ -1908,74 +1721,42 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             if len(func) == 1:
                 # draw X
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines) - 1, -1, -1):
+                    for i in range(len(ax.lines)-1,-1,-1):
                         ax.lines.pop(i)
                 if not self.doubleZoom.isChecked():
-                    ax.plot(
-                        (x - axis_size, x + axis_size),
-                        (y - axis_size, y + axis_size),
-                        color="r",
-                    )
-                    ax.plot(
-                        (x - axis_size, x + axis_size),
-                        (y + axis_size, y - axis_size),
-                        color="r",
-                    )
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
                     if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines) - 1, -1, -1):
+                            for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
-                        ax1.plot(
-                            (x - axis_size, x + axis_size),
-                            (y - axis_size, y + axis_size),
-                            color="r",
-                        )
-                        ax1.plot(
-                            (x - axis_size, x + axis_size),
-                            (y + axis_size, y - axis_size),
-                            color="r",
-                        )
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 # draw X and a line between points
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines) - 1, 1, -1):
+                    for i in range(len(ax.lines)-1,1,-1):
                         ax.lines.pop(i)
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
-                    ax.plot(
-                        (x - axis_size, x + axis_size),
-                        (y - axis_size, y + axis_size),
-                        color="r",
-                    )
-                    ax.plot(
-                        (x - axis_size, x + axis_size),
-                        (y + axis_size, y - axis_size),
-                        color="r",
-                    )
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color="r")
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
                     if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines) - 1, -1, -1):
+                            for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
-                        ax1.plot(
-                            (x - axis_size, x + axis_size),
-                            (y - axis_size, y + axis_size),
-                            color="r",
-                        )
-                        ax1.plot(
-                            (x - axis_size, x + axis_size),
-                            (y + axis_size, y - axis_size),
-                            color="r",
-                        )
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             self.displayImgCanvas.draw_idle()
 
@@ -1988,17 +1769,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             h = abs(start_pt[1] - y)
             rx = min(start_pt[0], x)
             ry = min(start_pt[1], y)
-            ax.add_patch(
-                patches.Rectangle(
-                    (rx, ry),
-                    w,
-                    h,
-                    linewidth=1,
-                    edgecolor="r",
-                    facecolor="none",
-                    linestyle="dotted",
-                )
-            )
+            ax.add_patch(patches.Rectangle((rx, ry), w, h,
+                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
         elif func[0] == "move" and len(func) > 1:
             # change zoom area
@@ -2030,7 +1802,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         direction = event.button
         x = event.xdata
         y = event.ydata
-        img = self.difCent.getRotatedImage()
+        img =  self.difCent.getRotatedImage()
         img_size = img.shape
         if self.img_zoom is None:
             self.img_zoom = [(0, img_size[1]), (0, img_size[0])]
@@ -2038,12 +1810,12 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         zoom_height = self.img_zoom[1][1] - self.img_zoom[1][0]
         zoom_width = self.img_zoom[0][1] - self.img_zoom[0][0]
 
-        clicked_x_percentage = 1.0 * (x - self.img_zoom[0][0]) / zoom_width
-        clicked_y_percentage = 1.0 * (y - self.img_zoom[1][0]) / zoom_height
+        clicked_x_percentage = 1. * (x - self.img_zoom[0][0]) / zoom_width
+        clicked_y_percentage = 1. * (y - self.img_zoom[1][0]) / zoom_height
 
-        step_x = 0.1 * zoom_width
-        step_y = 0.1 * zoom_height
-        if direction == "up":  # zoom in
+        step_x = .1 * zoom_width
+        step_y = .1 * zoom_height
+        if direction == 'up':  # zoom in
             step_x *= -1
             step_y *= -1
         zoom_width = min(img_size[1], max(zoom_width + step_x, 50))
@@ -2080,10 +1852,10 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         Compute the new x and y for double zoom to orig coord
         """
-        M = [[1 / 10, 0, 0], [0, 1 / 10, 0], [0, 0, 1]]
+        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
         dzx, dzy = self.doubleZoomPt
         x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx - 10 + x
+        newX = dzx -10 + x
         newY = dzy - 10 + y
         return (newX, newY)
 
@@ -2150,14 +1922,14 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.orientationModel = self.orientationCmbBx.currentIndex()
         if self.difCent is None:
             return
-        self.difCent.removeInfo("rotationAngle")
+        self.difCent.removeInfo('rotationAngle')
         self.processImage()
 
     def rotation90Checked(self):
         """
         Triggered when the rotation 90 degrees is checked
         """
-        self.difCent.removeInfo("rmin")
+        self.difCent.removeInfo('rmin')
         self.processImage()
 
     def forceRot90Checked(self):
@@ -2176,28 +1948,13 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         imgList = self.groupList[self.currentGroup]
         mw = self.mainWindow
-        dc_out = (
-            mw.dir_context.output_dir
-            if hasattr(mw, "dir_context") and mw.dir_context
-            else self.dir_path
-        )
-        self.difCent = DiffractionCentroids(
-            self.dir_path,
-            imgList,
-            self.currentGroup,
-            self.fixRanges,
-            self.off_mer,
-            output_dir=dc_out,
-        )
+        dc_out = mw.dir_context.output_dir if hasattr(mw, 'dir_context') and mw.dir_context else self.dir_path
+        self.difCent = DiffractionCentroids(self.dir_path, imgList, self.currentGroup, self.fixRanges, self.off_mer, output_dir=dc_out)
         img = self.difCent.avgImg
-        self.right_status.setText(
-            str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype)
-        )
+        self.right_status.setText(str(img.shape[0])+"x"+str(img.shape[1])+" "+str(img.dtype))
         self.initMinMaxIntensities(self.difCent.avgImg)
         if self.rotation90ChkBx.isEnabled():
-            self.rotation90ChkBx.setChecked(
-                "90rotation" in self.difCent.info and self.difCent.info["90rotation"]
-            )
+            self.rotation90ChkBx.setChecked('90rotation' in self.difCent.info and self.difCent.info['90rotation'])
         self.processImage()
 
     def getFlags(self):
@@ -2206,14 +1963,14 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :return:
         """
         flags = {}
-        flags["orientation_model"] = self.orientationModel
-        flags["90rotation"] = self.rotation90ChkBx.isChecked()
+        flags['orientation_model'] = self.orientationModel
+        flags['90rotation'] = self.rotation90ChkBx.isChecked()
         if self.bottomDifTab.fixed_se is not None:
-            flags["bottom_fixed_se"] = self.bottomDifTab.fixed_se
+            flags['bottom_fixed_se'] = self.bottomDifTab.fixed_se
         if self.topDifTab.fixed_se is not None:
-            flags["top_fixed_se"] = self.topDifTab.fixed_se
+            flags['top_fixed_se'] = self.topDifTab.fixed_se
         if self.off_mer is not None and self.offMerTab.fixed_hull_range is not None:
-            flags["fixed_offmer_hull_range"] = self.offMerTab.fixed_hull_range
+            flags['fixed_offmer_hull_range'] = self.offMerTab.fixed_hull_range
         return flags
 
     def processImage(self):
@@ -2230,14 +1987,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         except:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
-            errMsg.setText("Unexpected error")
-            msg = "Please report the problem with error message below and the input image\n\n"
-            msg += (
-                "Error : "
-                + str(sys.exc_info()[0])
-                + "\n\n"
-                + str(traceback.format_exc())
-            )
+            errMsg.setText('Unexpected error')
+            msg = 'Please report the problem with error message below and the input image\n\n'
+            msg += "Error : "+str(sys.exc_info()[0]) +'\n\n'+str(traceback.format_exc())
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
@@ -2262,8 +2014,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         Update parameters
         """
         info = self.difCent.info
-        if "orientation_model" in info:
-            self.orientationModel = info["orientation_model"]
+        if 'orientation_model' in info:
+            self.orientationModel = info['orientation_model']
 
     def refreshUI(self):
         """
@@ -2307,14 +2059,14 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.maxInt.setMaximum(img.max())
         self.minInt.setMinimum(img.min())
         self.minInt.setMaximum(img.max())
-        step = (img.max() - img.min()) * 0.05
+        step = (img.max()-img.min())*0.05
         self.maxInt.setSingleStep(step)
         self.minInt.setSingleStep(step)
         if self.firstImg:
             self.minInt.setValue(img.min())
-            self.maxInt.setValue(img.max() * 0.05)
+            self.maxInt.setValue(img.max()*.05)
             self.firstImg = False
-        self.minIntLabel.setText("Min intensity (" + str(img.min()) + ")")
+        self.minIntLabel.setText("Min intensity ("+str(img.min())+")")
         self.maxIntLabel.setText("Max intensity (" + str(img.max()) + ")")
         self.updateUIonly = False
 
@@ -2325,56 +2077,37 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         if not self.updated:
             img = copy.copy(self.difCent.getRotatedImage())
             self.rotatedImg = copy.copy(self.difCent.getRotatedImage())
-            # img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
+            #img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
             ax = self.displayImgAxes
             ax.cla()
             # cv2.circle(img, tuple(self.difCent.info['center']), 2, (255,255,0), thickness = 2)
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(
-                    img,
-                    cmap="gray",
-                    norm=LogNorm(
-                        vmin=max(1, self.minInt.value()), vmax=self.maxInt.value()
-                    ),
-                )
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minInt.value()), vmax=self.maxInt.value()))
             else:
-                ax.imshow(
-                    img,
-                    cmap="gray",
-                    norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()),
-                )
-            ax.set_facecolor("black")
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
+            ax.set_facecolor('black')
 
-            self.orientationCmbBx.setCurrentIndex(
-                0 if self.orientationModel is None else self.orientationModel
-            )
+            self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
             if self.rotation90ChkBx.isEnabled():
-                self.rotation90ChkBx.setChecked(
-                    "90rotation" in self.difCent.info
-                    and self.difCent.info["90rotation"]
-                )
+                self.rotation90ChkBx.setChecked('90rotation' in self.difCent.info and self.difCent.info['90rotation'])
 
-            if self.areaChkBx.isChecked() and "int_area" in self.difCent.info:
+            if self.areaChkBx.isChecked() and 'int_area' in self.difCent.info:
                 # Draw meridian lines
-                int_area = self.difCent.info["int_area"]
-                ax.plot((int_area[0], int_area[0]), (0, img.shape[0]), color="b")
-                ax.plot((int_area[1], int_area[1]), (0, img.shape[0]), color="b")
-                ax.plot(
-                    (int_area[0], int_area[1]),
-                    (self.difCent.info["center"][1], self.difCent.info["center"][1]),
-                    color="y",
-                )
+                int_area = self.difCent.info['int_area']
+                ax.plot((int_area[0], int_area[0]), (0, img.shape[0]), color='b')
+                ax.plot((int_area[1], int_area[1]), (0, img.shape[0]), color='b')
+                ax.plot((int_area[0], int_area[1]), (self.difCent.info['center'][1], self.difCent.info['center'][1]), color = 'y')
 
             if self.offMerChkBx.isChecked():
                 # Draw off-meridian lines
-                for i in range(1, 3):
-                    name = "x" + str(i)
+                for i in range(1,3):
+                    name = "x"+str(i)
                     x = self.difCent.info[name]
-                    ax.axvline(x, color="g")
-                for i in range(3, 5):
-                    name = "x" + str(i)
+                    ax.axvline(x, color = "g")
+                for i in range(3,5):
+                    name = "x"+str(i)
                     x = self.difCent.info[name]
-                    ax.axvline(x, color="r")
+                    ax.axvline(x, color = "r")
 
             # Set zoom area
             if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -2390,24 +2123,13 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             if len(self.groupList[self.currentGroup]) < 5:
                 self.imageNames.setText("\n".join(self.groupList[self.currentGroup]))
             else:
-                self.imageNames.setText(
-                    "\n".join(self.groupList[self.currentGroup][0:3])
-                    + "\n...\n"
-                    + self.groupList[self.currentGroup][-1]
-                )
+                self.imageNames.setText("\n".join(self.groupList[self.currentGroup][0:3])+'\n...\n'+self.groupList[self.currentGroup][-1])
 
             self.updated = True
 
         if not self.plots_updated:
-            self.topDifTab.drawPlot(
-                self.topDifFigure, self.topDifCanvas, self.topDifAxes, self.difCent.info
-            )
-            self.bottomDifTab.drawPlot(
-                self.bottomDifFigure,
-                self.bottomDifCanvas,
-                self.bottomDifAxes,
-                self.difCent.info,
-            )
+            self.topDifTab.drawPlot(self.topDifFigure, self.topDifCanvas, self.topDifAxes, self.difCent.info)
+            self.bottomDifTab.drawPlot(self.bottomDifFigure, self.bottomDifCanvas, self.bottomDifAxes, self.difCent.info)
             self.plots_updated = True
 
     def redrawPlots(self):
@@ -2422,12 +2144,10 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         self.mainWindow.childWindowClosed(self)
 
-
 class DiffractionCentroidStartWindow(QMainWindow):
     """
     A Class for startup window
     """
-
     def __init__(self):
         super().__init__()
         self.windowList = []
@@ -2435,7 +2155,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.imgList = []
         self.selectedImages = []
         self.dir_path = ""
-        self.setWindowTitle("Muscle X Diffraction Centroids v." + __version__)
+        self.setWindowTitle("Muscle X Diffraction Centroids v."+__version__)
         self.fixRanges = []
         self.fixRangeNames = []
         self.dir_context = None
@@ -2455,7 +2175,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.folderTab = QWidget()
         self.folderTab.setContentsMargins(0, 0, 0, 0)
         self.folderTabLayout = QGridLayout(self.folderTab)
-        self.selectedFolderTextField = QLineEdit("")  # Jiranun :: test only
+        self.selectedFolderTextField = QLineEdit("") # Jiranun :: test only
         self.selectedFolderTextField.setEnabled(False)
         # self.selectedFolderTextField.setDragEnabled(True)
         self.browseFolderButton = QPushButton("Browse")
@@ -2479,9 +2199,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.folderTabLayout.addWidget(self.selectedFolderTextField, 0, 0, 1, 3)
         self.folderTabLayout.addWidget(self.browseFolderButton, 0, 3, 1, 1)
         self.folderTabLayout.addWidget(self.folderDetails, 1, 0, 1, 4)
-        self.folderTabLayout.addWidget(
-            QLabel("Number of frames to average : "), 2, 0, 1, 2
-        )
+        self.folderTabLayout.addWidget(QLabel("Number of frames to average : "), 2, 0, 1, 2)
         self.folderTabLayout.addWidget(self.groupSpnBx, 2, 2, 1, 1)
         self.folderTabLayout.addWidget(QLabel("image(s)"), 2, 3, 1, 1)
         self.folderTabLayout.addWidget(QLabel("Start Group : "), 3, 0, 1, 2)
@@ -2528,7 +2246,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.endRange.setKeyboardTracking(True)
         self.fixRangesTable = QTableWidget()
         self.fixRangesTable.setColumnCount(3)
-        self.fixRangesTable.setHorizontalHeaderLabels(["Name", "Start", "End"])
+        self.fixRangesTable.setHorizontalHeaderLabels(['Name','Start', 'End'])
         self.fixRangesTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.fixRangesLayout.addWidget(QLabel("Name : "), 0, 0, 1, 1)
         self.fixRangesLayout.addWidget(QLabel("Start : "), 0, 1, 1, 1)
@@ -2603,14 +2321,14 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.tabWidget.addTab(self.filesTab, "Select File(s)")
         self.tabWidget.addTab(self.folderTab, "Select a Folder (auto-grouping)")
 
-        self.resize(1100, 100)
+        self.resize(1100,100)
         self.show()
 
     def _create_menu_bar(self):
-        changeOutputDirAction = QAction("Change Output Directory...", self)
+        changeOutputDirAction = QAction('Change Output Directory...', self)
         changeOutputDirAction.triggered.connect(self._change_output_directory)
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu("&File")
+        fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(changeOutputDirAction)
 
     def _change_output_directory(self):
@@ -2620,10 +2338,8 @@ class DiffractionCentroidStartWindow(QMainWindow):
 
         if not self.dir_context:
             QMessageBox.information(
-                self,
-                "No folder loaded",
-                "Please load a folder before changing the output directory.",
-            )
+                self, "No folder loaded",
+                "Please load a folder before changing the output directory.")
             return
 
         input_dir = self.dir_context.input_dir
@@ -2697,31 +2413,29 @@ class DiffractionCentroidStartWindow(QMainWindow):
         """
         if name == "":
             errMsg = QMessageBox()
-            errMsg.setText("Range name is missing")
-            errMsg.setInformativeText("Please specify range name")
+            errMsg.setText('Range name is missing')
+            errMsg.setInformativeText('Please specify range name')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif start >= end:
             errMsg = QMessageBox()
-            errMsg.setText("Invalid Range")
-            errMsg.setInformativeText("Start position must be less than End position.")
+            errMsg.setText('Invalid Range')
+            errMsg.setInformativeText('Start position must be less than End position.')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif (start, end) in self.fixRanges:
             errMsg = QMessageBox()
-            errMsg.setText(
-                "(" + str(start) + ", " + str(end) + ") has been added already"
-            )
-            errMsg.setInformativeText("Please select another range")
+            errMsg.setText('('+str(start)+', '+str(end)+') has been added already')
+            errMsg.setInformativeText('Please select another range')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif name in self.fixRangeNames:
             errMsg = QMessageBox()
-            errMsg.setText(str(name) + " has been added already")
-            errMsg.setInformativeText("Please select another name")
+            errMsg.setText( str(name)+' has been added already')
+            errMsg.setInformativeText('Please select another name')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
@@ -2731,18 +2445,12 @@ class DiffractionCentroidStartWindow(QMainWindow):
 
             # Add range to table
             self.fixRangesTable.setRowCount(len(self.fixRanges))
-            self.fixRangesTable.setItem(
-                len(self.fixRanges) - 1, 0, QTableWidgetItem(name)
-            )
-            self.fixRangesTable.setItem(
-                len(self.fixRanges) - 1, 1, QTableWidgetItem(str(start))
-            )
-            self.fixRangesTable.setItem(
-                len(self.fixRanges) - 1, 2, QTableWidgetItem(str(end))
-            )
+            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 0, QTableWidgetItem(name))
+            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 1, QTableWidgetItem(str(start)))
+            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 2, QTableWidgetItem(str(end)))
 
         self.setNameFocus()
-        col_width = self.fixRangesTable.width() // 3
+        col_width = self.fixRangesTable.width()//3
         self.fixRangesTable.setColumnWidth(0, col_width)
         self.fixRangesTable.setColumnWidth(1, col_width)
 
@@ -2761,7 +2469,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         fileList = getFiles()
         if len(fileList) < 1:
             return
-        self.numberOfImages.setText("Number of file(s) : " + str(len(fileList)))
+        self.numberOfImages.setText("Number of file(s) : "+str(len(fileList)))
         self.selectedImages = []
         nImg = 1
 
@@ -2772,7 +2480,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         for f in sorted(fileList):
             self.dir_path, filename = split(str(f))
             if isImg(filename):
-                self.imageNames.append(str(nImg) + ". " + filename)
+                self.imageNames.append(str(nImg)+". "+filename)
                 self.selectedImages.append(filename)
                 nImg += 1
         self.initSettings(self.dir_path)
@@ -2786,7 +2494,6 @@ class DiffractionCentroidStartWindow(QMainWindow):
             dir_path = str(dir_path)
             from .widgets.output_dir_dialog import resolve_output_directory
             from ..utils.directory_context import DirectoryContext
-
             ctx = resolve_output_directory(dir_path, parent=self)
             self.dir_context = ctx if ctx else DirectoryContext.colocated(dir_path)
             self.selectedFolderTextField.setText(dir_path)
@@ -2797,9 +2504,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         """
         Load the cached settings if they exist
         """
-        dc_out = (
-            self.dir_context.output_dir if hasattr(self, "dir_context") else dir_path
-        )
+        dc_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else dir_path
         file = fullPath(fullPath(dc_out, "dc_cache"), "settings.cache")
         if exists(file):
             settings = pickle.load(open(file, "rb"))
@@ -2818,7 +2523,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
             self.offMeridianGrp.setChecked("off_meridian" in settings)
             if "fix_ranges" in settings:
                 fix_ranges = settings["fix_ranges"]
-                for name, pos in fix_ranges:
+                for (name, pos) in fix_ranges:
                     self.addFixedRange(name, pos[0], pos[1])
             if "off_meridian" in settings:
                 off_mer = settings["off_meridian"]
@@ -2839,26 +2544,16 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.startGroup.clear()
         groupNum = 1
         for i in range(0, len(self.imgList), self.groupSpnBx.value()):
-            self.groupList.append(self.imgList[i : i + self.groupSpnBx.value()])
+            self.groupList.append(self.imgList[i:i + self.groupSpnBx.value()])
             if self.groupSpnBx.value() > 1:
                 if i + self.groupSpnBx.value() - 1 < len(self.imgList):
-                    self.startGroup.addItem(
-                        str(groupNum)
-                        + " - "
-                        + self.imgList[i]
-                        + ", ..., "
-                        + self.imgList[i + self.groupSpnBx.value() - 1]
-                    )
+                    self.startGroup.addItem(str(groupNum) + ' - ' + self.imgList[i] + ', ..., '+
+                                            self.imgList[i + self.groupSpnBx.value()-1])
                 else:
-                    self.startGroup.addItem(
-                        str(groupNum)
-                        + " - "
-                        + self.imgList[i]
-                        + ", ..., "
-                        + self.imgList[-1]
-                    )
+                    self.startGroup.addItem(str(groupNum) + ' - ' + self.imgList[i] + ', ..., '+
+                                            self.imgList[-1])
             else:
-                self.startGroup.addItem(str(groupNum) + " - " + self.imgList[i])
+                self.startGroup.addItem(str(groupNum) + ' - ' + self.imgList[i])
             groupNum += 1
 
     def preprocessFolder(self, dir_path):
@@ -2876,9 +2571,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
                 self.imgList.append(f)
         self.imgList.sort()
         self.groupImages()
-        self.folderDetails.setText(
-            "This folder contains " + str(len(self.imgList)) + " image(s)"
-        )
+        self.folderDetails.setText("This folder contains "+str(len(self.imgList))+" image(s)")
 
     def startProcess(self):
         """
@@ -2888,11 +2581,11 @@ class DiffractionCentroidStartWindow(QMainWindow):
             if len(self.imgList) == 0:
                 errMsg = QMessageBox()
                 if self.selectedFolderTextField.text() == "":
-                    errMsg.setText("No folder selected")
-                    errMsg.setInformativeText("Please select a folder to process")
+                    errMsg.setText('No folder selected')
+                    errMsg.setInformativeText('Please select a folder to process')
                 else:
-                    errMsg.setText("There are no image in this folder")
-                    errMsg.setInformativeText("Please select another folder to process")
+                    errMsg.setText('There are no image in this folder')
+                    errMsg.setInformativeText('Please select another folder to process')
 
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
@@ -2902,14 +2595,14 @@ class DiffractionCentroidStartWindow(QMainWindow):
             else:
                 dir_path = str(self.selectedFolderTextField.text())
                 settings = {}
-                settings["group"] = self.groupSpnBx.value()
-                settings["start_group"] = self.startGroup.currentIndex()
+                settings['group'] = self.groupSpnBx.value()
+                settings['start_group'] = self.startGroup.currentIndex()
                 grpList = copy.copy(self.groupList)
         else:
             if len(self.selectedImages) == 0:
                 errMsg = QMessageBox()
-                errMsg.setText("No image selected")
-                errMsg.setInformativeText("Please select files to process")
+                errMsg.setText('No image selected')
+                errMsg.setInformativeText('Please select files to process')
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
@@ -2917,26 +2610,20 @@ class DiffractionCentroidStartWindow(QMainWindow):
             else:
                 dir_path = self.dir_path
                 settings = {}
-                settings["group"] = 0
+                settings['group'] = 0
                 grpList = [self.selectedImages]
 
-        fix_ranges = sorted(
-            [
-                (str(self.fixRangeNames[i]), self.fixRanges[i])
-                for i in range(len(self.fixRanges))
-            ],
-            key=lambda nr: nr[1][0],
-        )
+        fix_ranges = sorted([(str(self.fixRangeNames[i]),self.fixRanges[i]) for i in range(len(self.fixRanges))], key = lambda nr : nr[1][0])
 
         if len(fix_ranges) == 0:
             errMsg = QMessageBox()
-            errMsg.setText("Meridian peak ranges is empty")
-            errMsg.setInformativeText("Please specify at least 1 fixed range.")
+            errMsg.setText('Meridian peak ranges is empty')
+            errMsg.setInformativeText('Please specify at least 1 fixed range.')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
             return
-        settings["fix_ranges"] = fix_ranges
+        settings['fix_ranges'] = fix_ranges
 
         if self.offMeridianGrp.isChecked():
             x1 = self.x1SpnBx.value()
@@ -2949,52 +2636,46 @@ class DiffractionCentroidStartWindow(QMainWindow):
             e59 = self.end59SpnBx.value()
             if x1 == 0 or x2 == 0 or x3 == 0 or x4 == 0 or x1 >= x2 or x3 >= x4:
                 errMsg = QMessageBox()
-                errMsg.setText("Off Meridian information is incorrect")
-                errMsg.setInformativeText(
-                    "Please specify all x1,x2,x3, and x4 with x1 < x2 and x3 < x4"
-                )
+                errMsg.setText('Off Meridian information is incorrect')
+                errMsg.setInformativeText('Please specify all x1,x2,x3, and x4 with x1 < x2 and x3 < x4')
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
             if s51 == 0 or e51 == 0 or s59 == 0 or e59 == 0:
                 errMsg = QMessageBox()
-                errMsg.setText("Off Meridian information is missing")
-                errMsg.setInformativeText("Please specify both 51 and 59 ranges")
+                errMsg.setText('Off Meridian information is missing')
+                errMsg.setInformativeText('Please specify both 51 and 59 ranges')
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
             if s51 > e51 or s59 > e59 or s59 > s51:
                 errMsg = QMessageBox()
-                errMsg.setText("Off Meridian information is incorrect")
-                errMsg.setInformativeText(
-                    "Please specify correct 51 and 59 ranges. Start point should be smaller than end point."
-                )
+                errMsg.setText('Off Meridian information is incorrect')
+                errMsg.setInformativeText('Please specify correct 51 and 59 ranges. Start point should be smaller than end point.')
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
 
             off_mer = {
-                "x1": x1,
-                "x2": x2,
+                "x1" : x1,
+                "x2" : x2,
                 "x3": x3,
                 "x4": x4,
-                "s51": s51,
-                "e51": e51,
-                "s59": s59,
-                "e59": e59,
+                "s51" : s51,
+                "e51" : e51,
+                "s59" : s59,
+                "e59" : e59
             }
             settings["off_meridian"] = off_mer
 
-        dc_out = (
-            self.dir_context.output_dir if hasattr(self, "dir_context") else dir_path
-        )
-        cache_path = fullPath(dc_out, "dc_cache")
+        dc_out = self.dir_context.output_dir if hasattr(self, 'dir_context') else dir_path
+        cache_path = fullPath(dc_out, 'dc_cache')
         self.delete_old_results(dc_out, cache_path, settings)
         createFolder(cache_path)
-        pickle.dump(settings, open(fullPath(cache_path, "settings.cache"), "wb"))
+        pickle.dump(settings, open(fullPath(cache_path,"settings.cache"), "wb"))
 
         # Create DiffractionCentroidProcessWindow object, execute it with all settings
         newWindow = DiffractionCentroidProcessWindow(self, dir_path, grpList, settings)

@@ -69,13 +69,9 @@ class QFAlignmentDialog(QDialog):
         self.workspace = workspace
         # row == file_manager index (QF does not group images)
         self._row_mapper = SingleRowMapper(
-            lambda: (
-                list(self.workspace.navigator.file_manager.names)
-                if self.workspace
-                and self.workspace.navigator
-                and self.workspace.navigator.file_manager
-                else []
-            )
+            lambda: list(self.workspace.navigator.file_manager.names)
+            if self.workspace and self.workspace.navigator
+            and self.workspace.navigator.file_manager else []
         )
 
         self._build_ui()
@@ -110,18 +106,11 @@ class QFAlignmentDialog(QDialog):
         }
         headers = [
             "Frame",
-            "Original\nCenter",
-            "Center\nMode",
-            "Dist\nfrom Base",
-            "Auto\nCenter",
-            "Auto Center\nDifference",
-            "Rotation",
-            "Rotation\nMode",
-            "Rot Diff\nfrom Base",
-            "Auto\nRotation",
-            "Auto Rot\nDifference",
-            "Size",
-            "Image\nDifference",
+            "Original\nCenter", "Center\nMode", "Dist\nfrom Base",
+            "Auto\nCenter", "Auto Center\nDifference",
+            "Rotation", "Rotation\nMode", "Rot Diff\nfrom Base",
+            "Auto\nRotation", "Auto Rot\nDifference",
+            "Size", "Image\nDifference",
             "Fold Std\n(sum)",
             "Fold Std\n(norm)",
         ]
@@ -167,8 +156,7 @@ class QFAlignmentDialog(QDialog):
         # Close button (bottom-right).
         self._close_btn = QPushButton("Close")
         self._close_btn.setToolTip(
-            "Close this dialog. If detection is running it will be stopped first."
-        )
+            "Close this dialog. If detection is running it will be stopped first.")
         self._close_btn.clicked.connect(self.accept)
         bottom_row = QHBoxLayout()
         bottom_row.addStretch()
@@ -198,8 +186,7 @@ class QFAlignmentDialog(QDialog):
         self.panel.detectionFinished.connect(self.alignmentChanged.emit)
         # Right-click Set Center/Rotation: guide user back to the main window.
         self.panel.requestSetCenterRotation.connect(
-            self._on_request_set_center_rotation
-        )
+            self._on_request_set_center_rotation)
 
         # Keep table in sync when the navigator navigates outside of this dialog.
         nav = self.workspace.navigator
@@ -219,7 +206,7 @@ class QFAlignmentDialog(QDialog):
 
         worker_dir = str(fm.dir_path) if fm.dir_path else ""
         self.panel.set_worker_dir_path(worker_dir)
-        self.panel.set_img_sizes(getattr(fm, "image_sizes", {}) or {})
+        self.panel.set_img_sizes(getattr(fm, 'image_sizes', {}) or {})
 
         # Compute initial percentile threshold for image-diff (safe if no data yet).
         try:
@@ -304,7 +291,7 @@ class QFAlignmentDialog(QDialog):
             "Please use the tools in the QF main window "
             "(Set Center, Set Rotation, or Center+Rotation) to adjust the "
             "selected image. Changes will be reflected in this table "
-            "automatically.",
+            "automatically."
         )
         # Proactively notify QF in case settings were already altered.
         self.alignmentChanged.emit()
@@ -317,9 +304,7 @@ class QFAlignmentDialog(QDialog):
         """Stop any running detection task before closing to prevent process-pool leaks."""
         try:
             if self.panel.is_detecting:
-                logger.info(
-                    "QFAlignmentDialog closing while detection is running; stopping"
-                )
+                logger.info("QFAlignmentDialog closing while detection is running; stopping")
                 self.panel.stopProcess()
         except Exception as exc:
             logger.warning("Failed to stop detection on dialog close: %s", exc)

@@ -13,6 +13,7 @@ import numpy as np
 
 from .adapters.base import FitCase, FitResult
 
+
 # --------------------------------------------------------------------------- #
 # Canonicalization
 # --------------------------------------------------------------------------- #
@@ -42,7 +43,6 @@ from .adapters.base import FitCase, FitResult
 # but are really just a labeling artifact. We sort symmetric blocks
 # canonically here so the consistency table reflects *physical* stability.
 
-
 def canonicalize_values(values: Mapping[str, float]) -> Dict[str, float]:
     """Return a copy of ``values`` with known symmetric blocks sorted.
 
@@ -61,10 +61,7 @@ def canonicalize_values(values: Mapping[str, float]) -> Dict[str, float]:
     s1 = out.get("center_sigma1")
     s2 = out.get("center_sigma2")
     if s1 is not None and s2 is not None and float(s1) < float(s2):
-        out["center_sigma1"], out["center_sigma2"] = (
-            out["center_sigma2"],
-            out["center_sigma1"],
-        )
+        out["center_sigma1"], out["center_sigma2"] = out["center_sigma2"], out["center_sigma1"]
         a1 = out.get("center_amplitude1")
         a2 = out.get("center_amplitude2")
         if a1 is not None and a2 is not None:
@@ -125,11 +122,7 @@ def per_param_diff(
     """
     if case.reference is None:
         return {}
-    ref = (
-        canonicalize_values(case.reference.values)
-        if canonicalize
-        else case.reference.values
-    )
+    ref = canonicalize_values(case.reference.values) if canonicalize else case.reference.values
     cand = canonicalize_values(result.values) if canonicalize else result.values
 
     if only_free:
@@ -160,11 +153,7 @@ def per_param_rows(
     """
     if case.reference is None:
         return
-    ref = (
-        canonicalize_values(case.reference.values)
-        if canonicalize
-        else case.reference.values
-    )
+    ref = canonicalize_values(case.reference.values) if canonicalize else case.reference.values
     cand = canonicalize_values(result.values) if canonicalize else result.values
 
     if only_free:

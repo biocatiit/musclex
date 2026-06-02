@@ -12,7 +12,6 @@ The extension must be compiled before use::
 If the ``.so`` / ``.pyd`` file is absent an ``ImportError`` is raised with
 a descriptive message explaining how to build it.
 """
-
 from __future__ import annotations
 
 import os
@@ -31,7 +30,6 @@ if _THIS_DIR not in sys.path:
 
 try:
     from _eval_cy import gaussian_eval_cy  # type: ignore[import]
-
     _CYTHON_AVAILABLE = True
 except ImportError as _cy_err:
     _CYTHON_AVAILABLE = False
@@ -49,9 +47,7 @@ def _gaussian_eval(x, amplitude, center, sigma):
         raise ImportError(_cy_err_msg)
     return gaussian_eval_cy(
         np.ascontiguousarray(x, dtype=np.float64),
-        float(amplitude),
-        float(center),
-        float(sigma),
+        float(amplitude), float(center), float(sigma),
     )
 
 
@@ -62,8 +58,6 @@ def _voigt_eval(x, amplitude, center, sigma, gamma):
 
 
 # Build model functions using the shared backbone
-from musclex.tests.fitting_ab.model_variants._backbone import (
-    build_model_functions,
-)  # noqa: E402
+from musclex.tests.fitting_ab.model_variants._backbone import build_model_functions  # noqa: E402
 
 layerlineModel, layerlineModelGMM = build_model_functions(_gaussian_eval, _voigt_eval)

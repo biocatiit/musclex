@@ -31,7 +31,8 @@ from matplotlib.patches import Circle
 
 from .interaction_tool import InteractionTool
 
-_PREVIEW_LABEL = "radius_preview"
+
+_PREVIEW_LABEL = 'radius_preview'
 
 
 class RadiusTool(InteractionTool):
@@ -48,7 +49,7 @@ class RadiusTool(InteractionTool):
     The result returned by :meth:`get_result` is an int pixel radius.
     """
 
-    def __init__(self, axes, canvas, get_center_func, color="yellow"):
+    def __init__(self, axes, canvas, get_center_func, color='yellow'):
         """
         Args:
             axes: matplotlib Axes
@@ -87,17 +88,11 @@ class RadiusTool(InteractionTool):
         r = float(np.hypot(event.xdata - cx, event.ydata - cy))
 
         self.remove_labeled_items([_PREVIEW_LABEL])
-        self.axes.add_patch(
-            Circle(
-                (cx, cy),
-                r,
-                fill=False,
-                ec=self.color,
-                ls="--",
-                lw=1.5,
-                label=_PREVIEW_LABEL,
-            )
-        )
+        self.axes.add_patch(Circle(
+            (cx, cy), r,
+            fill=False, ec=self.color, ls='--', lw=1.5,
+            label=_PREVIEW_LABEL,
+        ))
         self.canvas.draw_idle()
         return True
 

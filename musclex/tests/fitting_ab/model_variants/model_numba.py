@@ -20,7 +20,6 @@ Requirements
     pip install numba
     # or: conda install numba
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -38,9 +37,7 @@ try:
     import numba  # noqa: PLC0415
 
     @numba.njit(cache=True, fastmath=True)
-    def _gaussian_eval_inner(
-        x: np.ndarray, amplitude: float, center: float, sigma: float
-    ) -> np.ndarray:
+    def _gaussian_eval_inner(x: np.ndarray, amplitude: float, center: float, sigma: float) -> np.ndarray:
         """Numba-compiled Gaussian kernel (area-normalised, lmfit convention)."""
         factor = amplitude / (sigma * 2.5066282746310002)  # sqrt(2*pi) inlined
         n = x.shape[0]
@@ -53,9 +50,7 @@ try:
     def _gaussian_eval(x, amplitude, center, sigma):
         return _gaussian_eval_inner(
             np.ascontiguousarray(x, dtype=np.float64),
-            float(amplitude),
-            float(center),
-            float(sigma),
+            float(amplitude), float(center), float(sigma),
         )
 
     # ── warm-up: trigger JIT compilation now, not during the first fit ──────

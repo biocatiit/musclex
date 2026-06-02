@@ -46,19 +46,7 @@ import tifffile
 from musclex import __version__
 from ..utils.misc_utils import qFromCenter
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
-from ..utils.image_processor import (
-    getPerpendicularLineHomogenous,
-    calcSlope,
-    getIntersectionOfTwoLines,
-    getBGR,
-    get8bitImage,
-    getNewZoom,
-    getCenter,
-    rotateImageAboutPoint,
-    rotatePoint,
-    processImageForIntCenter,
-    getMaskThreshold,
-)
+from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
 from ..utils.image_data import ImageData
 from ..modules.ProjectionProcessor import ProjectionProcessor, ProcessingBox
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
@@ -72,12 +60,11 @@ from .widgets import ProcessingWorkspace
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .tools.placeholder_tool import PlaceholderTool
 
-
 class ProjectionParams:
     def __init__(self, settings, index, file_manager, gui, boxes_copy):
         """
         Parameters for Worker thread (batch processing).
-
+        
         Args:
             settings: Processing settings dict (for display/legacy purposes)
             index: Image index in file_manager.names
@@ -91,9 +78,8 @@ class ProjectionParams:
         self.gui = gui
         self.boxes_copy = boxes_copy  # Thread-safe copy of boxes configuration
 
-
 class WorkerSignals(QObject):
-
+    
     finished = Signal()
     error = Signal(tuple)
     result = Signal(object)
@@ -103,40 +89,38 @@ class Worker(QRunnable):
 
     def __init__(self, params=None, projProc=None, settings=None):
         super().__init__()
-        self.settings = (
-            settings if settings is not None else (params.settings if params else None)
-        )
+        self.settings = settings if settings is not None else (params.settings if params else None)
         self.params = params
         self.projProc = projProc
         self.signals = WorkerSignals()
-
+    
     @classmethod
     def fromProjProc(cls, projProc, settings):
         return cls(projProc=projProc, settings=settings)
-
+    
     @classmethod
     def fromParams(cls, params):
         return cls(params=params)
-
+    
     @staticmethod
     def _expand_peaks_mirrored(box: ProcessingBox):
         """
         Expand peaks in a ProcessingBox by mirroring the first half.
-
+        
         User-selected peaks (first half) are mirrored to create symmetric peaks.
         For example: [10, 20, 30] -> [10, 20, 30, -10, -20, -30]
-
+        
         Args:
             box: ProcessingBox with user-selected peaks (first half only)
         """
         if not box.peaks:
             return
-
+        
         # Mirror peaks: first half stays, add mirrored second half
         user_peaks = box.peaks
         mirrored_peaks = [-p for p in user_peaks]
         box.peaks = user_peaks + mirrored_peaks
-
+        
     @Slot()
     def run(self):
         try:
@@ -144,24 +128,23 @@ class Worker(QRunnable):
                 # Load image from FileManager
                 img = self.params.file_manager.get_image_by_index(self.params.index)
                 filename = self.params.file_manager.names[self.params.index]
-
+                
                 # Create ImageData using factory method
                 from ..utils.image_data import ImageData
-
                 image_data = ImageData.from_settings_panel(
-                    img,
-                    self.params.file_manager.dir_path,
+                    img, 
+                    self.params.file_manager.dir_path, 
                     filename,
-                    self.params.gui.workspace,
+                    self.params.gui.workspace
                 )
-
+                
                 # Create ProjectionProcessor with ImageData
                 pt_output = None
-                ws = getattr(self.params.gui, "workspace", None)
+                ws = getattr(self.params.gui, 'workspace', None)
                 if ws and ws.dir_context:
                     pt_output = ws.dir_context.output_dir
                 self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
-
+                
                 # Transfer folder template boxes to processor if cache is empty
                 if len(self.projProc.boxes) == 0 and self.params.boxes_copy:
                     for name, box in self.params.boxes_copy.items():
@@ -174,9 +157,7 @@ class Worker(QRunnable):
                             peaks=box.peaks.copy() if box.peaks else [],
                             merid_bg=box.merid_bg,
                             hull_range=box.hull_range,
-                            param_bounds=(
-                                box.param_bounds.copy() if box.param_bounds else {}
-                            ),
+                            param_bounds=box.param_bounds.copy() if box.param_bounds else {},
                             use_common_sigma=box.use_common_sigma,
                             peak_tolerance=box.peak_tolerance,
                             sigma_tolerance=box.sigma_tolerance,
@@ -184,28 +165,22 @@ class Worker(QRunnable):
                         # Expand peaks by mirroring (folder template only contains first half)
                         self._expand_peaks_mirrored(box_copy)
                         self.projProc.state.boxes[name] = box_copy
-
+            
             # Apply settings directly to state
             if self.settings:
-                if "mask_thres" in self.settings:
-                    self.projProc.state.mask_thres = self.settings["mask_thres"]
-                if "lambda_sdd" in self.settings:
-                    self.projProc.state.lambda_sdd = self.settings["lambda_sdd"]
-
+                if 'mask_thres' in self.settings:
+                    self.projProc.state.mask_thres = self.settings['mask_thres']
+                if 'lambda_sdd' in self.settings:
+                    self.projProc.state.lambda_sdd = self.settings['lambda_sdd']
+            
             self.projProc.process()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
             infMsg = QMessageBox()
-            img_name = (
-                self.params.file_manager.names[self.params.index]
-                if self.params
-                else "unknown"
-            )
+            img_name = self.params.file_manager.names[self.params.index] if self.params else "unknown"
             infMsg.setText("Error trying to open " + str(img_name))
-            infMsg.setInformativeText(
-                "This usually means that the image is corrupted or missing.  Skipping this image"
-            )
+            infMsg.setInformativeText("This usually means that the image is corrupted or missing.  Skipping this image")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
@@ -214,12 +189,10 @@ class Worker(QRunnable):
         finally:
             self.signals.finished.emit()
 
-
 class BoxDetails(QDialog):
     """
     This class is for Popup window when a box is added
     """
-
     def __init__(self, current_box_names, oriented=False):
         super().__init__(None)
         self.setWindowTitle("Adding a Box")
@@ -242,9 +215,8 @@ class BoxDetails(QDialog):
             self.axisChoice.addItem("Horizontal")
             self.axisChoice.addItem("Vertical")
 
-        self.bottons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self
-        )
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+                                              Qt.Horizontal, self)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
         self.bottons.setFixedWidth(200)
@@ -267,12 +239,10 @@ class BoxDetails(QDialog):
         box_name = str(self.boxName.text())
         if len(box_name) == 0:
             errMsg = QMessageBox()
-            errMsg.setText("Adding a box Error")
-            errMsg.setInformativeText("Please specify the box name")
+            errMsg.setText('Adding a box Error')
+            errMsg.setInformativeText('Please specify the box name')
             errMsg.setStandardButtons(QMessageBox.Ok)
-            errMsg.setInformativeText(
-                box_name + " has already been added. Please select another name"
-            )
+            errMsg.setInformativeText(box_name+' has already been added. Please select another name')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
@@ -286,15 +256,10 @@ class BoxDetails(QDialog):
         if self.oriented:
             return str(self.boxName.text()), self.bgChoice.currentIndex(), None
         else:
-            return (
-                str(self.boxName.text()),
-                self.bgChoice.currentIndex(),
-                self.axisChoice.currentIndex(),
-            )
-
-
+            return str(self.boxName.text()), self.bgChoice.currentIndex(), self.axisChoice.currentIndex()
+        
 class EditBoxDetails(QDialog):
-
+    
     def __init__(self, boxes):
         """
         Args:
@@ -305,13 +270,13 @@ class EditBoxDetails(QDialog):
         self.setWindowTitle("Edit a Box")
         print(boxes)
         self.initUI()
-
+        
     def initUI(self):
         self.boxLayout = QGridLayout(self)
         self.boxNames = QComboBox()
         for key in self.boxes.keys():
             self.boxNames.addItem(key)
-
+            
         self.box_height = QDoubleSpinBox()
         self.box_height.setDecimals(2)
         self.box_height.setMinimum(0)
@@ -320,23 +285,22 @@ class EditBoxDetails(QDialog):
         self.box_width.setDecimals(2)
         self.box_width.setMinimum(0)
         self.box_width.setMaximum(10000)
-
+        
         self.boxWidthLabel = QLabel("Box Width Mode : ")
         self.boxWidthMode = QComboBox()
-        width_modes = ["Center", "Left", "Right"]
+        width_modes = ['Center', 'Left', 'Right']
         self.boxWidthMode.addItems(width_modes)
         self.boxHeightLabel = QLabel("Box Height Mode : ")
         self.boxHeightMode = QComboBox()
-        height_modes = ["Center", "Top", "Bottom"]
+        height_modes = ['Center', 'Top', 'Bottom']
         self.boxHeightMode.addItems(height_modes)
-
-        self.bottons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self
-        )
+        
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+                                              Qt.Horizontal, self)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
         self.bottons.setFixedWidth(200)
-
+        
         self.boxLayout.addWidget(QLabel("Box name : "), 0, 0, 1, 1)
         self.boxLayout.addWidget(self.boxNames, 0, 1, 1, 1)
         self.boxLayout.addWidget(QLabel("Box Height : "), 1, 0, 1, 1)
@@ -348,42 +312,43 @@ class EditBoxDetails(QDialog):
         self.boxLayout.addWidget(self.boxWidthLabel, 4, 0, 1, 1)
         self.boxLayout.addWidget(self.boxWidthMode, 4, 1, 1, 1)
         self.boxLayout.addWidget(self.bottons, 5, 0, 1, 2, Qt.AlignCenter)
-
+        
         self.boxNames.currentIndexChanged.connect(self.updateBoxInfo)
-
+        
         self.updateBoxInfo()
-
+        
     def updateBoxInfo(self):
         box_name = str(self.boxNames.currentText())
         box_obj = self.boxes[box_name]
         box = box_obj.coordinates
-
-        if box_obj.type == "oriented":
+        
+        if box_obj.type == 'oriented':
             self.box_height.setValue(box[4])
             self.box_width.setValue(box[3])
-
+            
             # self.boxWidthLabel.setVisible(False)
             # self.boxWidthMode.setVisible(False)
             # self.boxHeightLabel.setVisible(False)
             # self.boxHeightMode.setVisible(False)
-
+            
         else:
-            x1, x2 = box[0]
+            x1,x2 = box[0]
             width = abs(x1 - x2)
             y1, y2 = box[1]
             height = abs(y1 - y2)
             print(height, width)
             self.box_height.setValue(height)
             self.box_width.setValue(width)
-
-            # self.boxWidthLabel.setVisible(True)
-            # self.boxWidthMode.setVisible(True)
-            # self.boxHeightLabel.setVisible(True)
-            # self.boxHeightMode.setVisible(True)
-
+                
+                # self.boxWidthLabel.setVisible(True)
+                # self.boxWidthMode.setVisible(True)
+                # self.boxHeightLabel.setVisible(True)
+                # self.boxHeightMode.setVisible(True)
+                
         self.boxHeightMode.setCurrentIndex(0)
         self.boxWidthMode.setCurrentIndex(0)
-
+        
+        
     def okClicked(self):
         """
         Triggered when OK is clicked
@@ -394,81 +359,79 @@ class EditBoxDetails(QDialog):
         self.height_mode = self.boxHeightMode.currentText()
         self.width_mode = self.boxWidthMode.currentText()
         self.accept()
-
+        
 
 class ProjectionTracesGUI(BaseGUI):
     """
     This class is for Projection Traces GUI Object
     """
-
     def __init__(self):
         """
         Initial window
         """
-
+        
         super().__init__()
         # Note: self.file_manager is now initialized by workspace.file_manager in _create_tabs()
-        self.filePath = ""  # current directory
+        self.filePath = "" # current directory
         self.current_file = 0
         self.dir_path = ""
-        self.update_plot = {"img": True}
+        self.update_plot = {'img':True}
         self.stop_process = False
         self.projProc = None
         self.syncUI = False
         self.csvManager = None
         self.masked = False
         self.img_zoom = None
-        self.function = None  # current active function
-
+        self.function = None # current active function
+        
         # Unified data structure: all box data in ProcessingBox objects
         self.boxes = {}  # Dict[str, ProcessingBox]
         self.boxes_on_img = {}  # Visual representations on matplotlib
-
+        
         self.centerx = None
         self.centery = None
         # Note: center_func, rotated, rotationAngle removed - rotation state now managed by ImageData
         self.numberOfFiles = 0
         self.refit = False
-        self.checkableButtons = []  # list of checkable buttons
-
+        self.checkableButtons = [] # list of checkable buttons
+        
         self.chordLines = []
         self.chordpoints = []
-
+        
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
         self.loop = QEventLoop()
         self.currentTask = None
-        self.worker = None
+        self.worker = None 
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
-
-        self.initUI()  # initial all GUI
-
-        self.setConnections()  # set triggered function for widgets
+        
+        self.initUI() # initial all GUI
+        
+        self.setConnections() # set triggered function for widgets
         self.resize(1200, 900)
-
+        
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
-
+        
         # Show warning dialog about non-axis aligned boxes
         self._show_oriented_box_warning()
 
     # ===== BaseGUI abstract methods implementation =====
-
+    
     def _setup_window(self):
         """Set window title"""
         from musclex import __version__
-
         self.setWindowTitle("Muscle X Projection Traces v." + __version__)
-
+    
     def _tabs_closable(self) -> bool:
         """PT allows closing tabs"""
         return True
-
+    
     def _tab_stylesheet(self) -> str:
         """PT uses smaller tabs"""
         return "QTabBar::tab { height: 20px; width: 200px; }"
-
+    
     def _create_tabs(self):
         """Create image tab and box tabs"""
 
@@ -479,7 +442,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
         self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
 
-        self.workspace = ProcessingWorkspace(settings_dir=self.filePath)
+        self.workspace = ProcessingWorkspace(
+            settings_dir=self.filePath
+        )
         self.imageTabLayout.addWidget(self.workspace, 1)
 
         # Expose navigator as standard attribute for BaseGUI
@@ -490,13 +455,13 @@ class ProjectionTracesGUI(BaseGUI):
         self.file_manager = self.workspace.file_manager
         self.navControls = self.workspace.navigator.nav_controls
         self.right_panel = self.workspace.right_panel
-
+        
         # Expose select buttons from navigator
         self.selectImageButton = self.workspace.navigator.select_image_btn
-
+        
         # Reference to leftWidget for compatibility
         self.leftWidget = self.workspace.navigator.select_panel
-
+        
         # Backward compatibility for display panel controls
         if self.image_viewer.display_panel:
             self.minIntSpnBx = self.image_viewer.display_panel.minIntSpnBx
@@ -505,20 +470,20 @@ class ProjectionTracesGUI(BaseGUI):
             self.persistIntensity = self.image_viewer.display_panel.persistChkBx
             self.minIntLabel = self.image_viewer.display_panel.minIntLabel
             self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
-
+        
         # Add PT-specific display options (only the 3 unique checkboxes)
         self._add_display_options()
-
+        
         # Setup right panel widgets in desired order
         self._setup_right_panel_widgets()
-
+        
         # Add navigation controls to right panel bottom (following QF pattern)
         self.right_panel.add_bottom_widget(self.navControls)
-
+    
     def _setup_right_panel_widgets(self):
         """
         Setup right panel widgets in desired order.
-
+        
         This method controls the layout of all settings widgets in the right panel.
         Order:
         1. Display Panel (already added by workspace)
@@ -534,15 +499,15 @@ class ProjectionTracesGUI(BaseGUI):
         # 2. Quadrant Folded checkbox (PT-specific)
         qf_checkbox = self.workspace.create_qf_checkbox()
         self.workspace.right_panel.add_widget(qf_checkbox)
-
+        
         # 3. Box Settings (placed after QF checkbox, before center settings)
         self._create_box_settings()
-
+        
         # 4-6. Add built-in settings widgets
         self.workspace.right_panel.add_widget(self.workspace._center_widget)
         self.workspace.right_panel.add_widget(self.workspace._rotation_widget)
         self.workspace.right_panel.add_widget(self.workspace._blank_mask_widget)
-
+        
         # 7-9. Add remaining PT-specific settings
         self._create_pattern_settings()
         self._create_peaks_settings()
@@ -551,7 +516,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.workspace.right_panel.add_widget(self.rejectChkBx)
         # Add comments editor
         self.workspace.right_panel.add_widget(self.commentsWidget)
-
+        
     def _create_pattern_settings(self):
         """Create pattern properties settings group (mask threshold only)"""
 
@@ -560,7 +525,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.propGrp = QGroupBox("Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
-
+        
         # Mask threshold spinbox (PT-specific)
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-10000)
@@ -569,12 +534,12 @@ class ProjectionTracesGUI(BaseGUI):
         self.maskThresSpnBx.setKeyboardTracking(False)
 
         # Layout - only mask threshold now
-        self.propLayout.addWidget(QLabel("Mask Threshold:"), 0, 0, 1, 2)
+        self.propLayout.addWidget(QLabel('Mask Threshold:'), 0, 0, 1, 2)
         self.propLayout.addWidget(self.maskThresSpnBx, 0, 2, 1, 2)
-
+        
         # Add to right panel
         self.workspace.right_panel.add_widget(self.propGrp)
-
+    
     def _create_box_settings(self):
         """Create box selection settings group"""
         # Box selection
@@ -585,29 +550,22 @@ class ProjectionTracesGUI(BaseGUI):
         self.addBoxButton.setCheckable(True)
         self.addBoxButton.setToolTip(
             "Activate axis-aligned box drawing.\n"
-            "Click and drag on the image to define a horizontal/vertical box for projection."
-        )
+            "Click and drag on the image to define a horizontal/vertical box for projection.")
         self.addOrientedBoxButton = QPushButton("Add Oriented Box")
         self.addOrientedBoxButton.setCheckable(True)
         self.addOrientedBoxButton.setEnabled(False)  # Temporarily disabled
         self.addOrientedBoxButton.setToolTip(
             "Activate oriented box drawing.\n"
-            "Define a rotated box by drawing its long axis and width on the image."
-        )
+            "Define a rotated box by drawing its long axis and width on the image.")
         self.addCenterOrientedBoxButton = QPushButton("Add Centered Oriented Box")
         self.addCenterOrientedBoxButton.setCheckable(True)
         self.addCenterOrientedBoxButton.setToolTip(
             "Activate centered oriented box drawing.\n"
-            "Define a rotated box that is centered on the diffraction pattern center."
-        )
-        self.editBoxButton = QPushButton("Edit Boxes")
-        self.editBoxButton.setToolTip(
-            "Open a dialog to edit the size, position, and background-subtraction settings of existing boxes"
-        )
-        self.clearBoxButton = QPushButton("Clear All Boxes")
-        self.clearBoxButton.setToolTip(
-            "Remove all projection boxes and their fit results"
-        )
+            "Define a rotated box that is centered on the diffraction pattern center.")
+        self.editBoxButton = QPushButton('Edit Boxes')
+        self.editBoxButton.setToolTip("Open a dialog to edit the size, position, and background-subtraction settings of existing boxes")
+        self.clearBoxButton = QPushButton('Clear All Boxes')
+        self.clearBoxButton.setToolTip("Remove all projection boxes and their fit results")
         self.checkableButtons.append(self.addBoxButton)
         self.checkableButtons.append(self.addOrientedBoxButton)
         self.checkableButtons.append(self.addCenterOrientedBoxButton)
@@ -617,10 +575,10 @@ class ProjectionTracesGUI(BaseGUI):
         self.boxesLayout.addWidget(self.editBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
         self.boxGrp.setLayout(self.boxesLayout)
-
+        
         # Add to right panel
         self.workspace.right_panel.add_widget(self.boxGrp)
-
+    
     def _create_peaks_settings(self):
         """Create peaks selection settings group"""
         # Peaks Selection
@@ -631,14 +589,13 @@ class ProjectionTracesGUI(BaseGUI):
         self.selectPeaksButton.setCheckable(True)
         self.selectPeaksButton.setToolTip(
             "Activate peak selection.\n"
-            "Click approximate peak locations on the projection plots to seed the fitting model."
-        )
+            "Click approximate peak locations on the projection plots to seed the fitting model.")
         self.checkableButtons.append(self.selectPeaksButton)
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
-
+        
         # Add to right panel
         self.workspace.right_panel.add_widget(self.selectPeaksGrp)
-
+        
     def _create_export_settings(self):
         """Create export settings group"""
         # Export Settings
@@ -646,20 +603,16 @@ class ProjectionTracesGUI(BaseGUI):
         self.exportLayout = QVBoxLayout(self.exportGrp)
         self.exportChkBx = QCheckBox("Export All 1-D Projections")
         self.exportChkBx.setChecked(False)
-        self.exportChkBx.setToolTip(
-            "Export original and background-subtracted histograms to text files"
-        )
+        self.exportChkBx.setToolTip("Export original and background-subtracted histograms to text files")
         self.exportLayout.addWidget(self.exportChkBx)
-
+        
         # Add to right panel
         self.workspace.right_panel.add_widget(self.exportGrp)
-
+        
         # Reject checkbox (outside Export Options group)
         self.rejectChkBx = QCheckBox("Reject this image")
         self.rejectChkBx.setChecked(False)
-        self.rejectChkBx.setToolTip(
-            "Mark this image as rejected. 'rejected' will be written to the reject column in CSV"
-        )
+        self.rejectChkBx.setToolTip("Mark this image as rejected. 'rejected' will be written to the reject column in CSV")
 
         # Comments editor (below reject checkbox)
         self.commentsWidget = QWidget()
@@ -669,16 +622,12 @@ class ProjectionTracesGUI(BaseGUI):
         # Display mode widgets
         self.commentsLabel = QLabel("No comments")
         self.commentsLabel.setWordWrap(True)
-        self.commentsLabel.setStyleSheet(
-            "padding: 5px; border: 1px solid #ccc; background-color: #f9f9f9;"
-        )
+        self.commentsLabel.setStyleSheet("padding: 5px; border: 1px solid #ccc; background-color: #f9f9f9;")
         self.commentsLabel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.editCommentsBtn = QPushButton("Edit")
         self.editCommentsBtn.setFixedWidth(60)
-        self.editCommentsBtn.setToolTip(
-            "Edit the comment recorded for this image in the output CSV"
-        )
+        self.editCommentsBtn.setToolTip("Edit the comment recorded for this image in the output CSV")
         self.clearCommentsBtn = QPushButton("Clear")
         self.clearCommentsBtn.setFixedWidth(60)
         self.clearCommentsBtn.setToolTip("Clear the comment recorded for this image")
@@ -720,100 +669,89 @@ class ProjectionTracesGUI(BaseGUI):
         self.peaksChkBx = QCheckBox("Peaks")
         self.peaksChkBx.setChecked(True)
         self.peaksChkBx.setToolTip("Show the selected peak locations on the image")
-
+        
         # Add to display panel's top slot
-        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(
-            self.centerChkBx
-        )
-        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(
-            self.boxesChkBx
-        )
-        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(
-            self.peaksChkBx
-        )
-
+        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
+        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.boxesChkBx)
+        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.peaksChkBx)
+        
+    
+ 
     def _create_menu_bar(self):
         """Create menu bar"""
-        selectImageAction = QAction("Select an Image...", self)
-        selectImageAction.setShortcut("Ctrl+I")
-        selectImageAction.setToolTip(
-            "Open an image file to load into Projection Traces (Ctrl+I)"
-        )
+        selectImageAction = QAction('Select an Image...', self)
+        selectImageAction.setShortcut('Ctrl+I')
+        selectImageAction.setToolTip("Open an image file to load into Projection Traces (Ctrl+I)")
         selectImageAction.triggered.connect(self._on_browse_file)
 
-        saveSettingAction = QAction("Save Current Settings", self)
-        saveSettingAction.setShortcut("Ctrl+S")
-        saveSettingAction.setToolTip(
-            "Save the current boxes, peaks, and parameters to a settings file (Ctrl+S)"
-        )
+        saveSettingAction = QAction('Save Current Settings', self)
+        saveSettingAction.setShortcut('Ctrl+S')
+        saveSettingAction.setToolTip("Save the current boxes, peaks, and parameters to a settings file (Ctrl+S)")
         saveSettingAction.triggered.connect(self.saveSettings)
 
-        loadSettingAction = QAction("Load Settings", self)
-        loadSettingAction.setShortcut("Ctrl+L")
-        loadSettingAction.setToolTip(
-            "Load boxes, peaks, and parameters from a previously saved settings file (Ctrl+L)"
-        )
+        loadSettingAction = QAction('Load Settings', self)
+        loadSettingAction.setShortcut('Ctrl+L')
+        loadSettingAction.setToolTip("Load boxes, peaks, and parameters from a previously saved settings file (Ctrl+L)")
         loadSettingAction.triggered.connect(self.loadSettings)
 
-        changeOutputDirAction = QAction("Change Output Directory...", self)
-        changeOutputDirAction.setToolTip(
-            "Choose a different folder to write CSV output and processed images"
-        )
+
+        changeOutputDirAction = QAction('Change Output Directory...', self)
+        changeOutputDirAction.setToolTip("Choose a different folder to write CSV output and processed images")
         changeOutputDirAction.triggered.connect(self.workspace.change_output_directory)
 
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
-        fileMenu = menubar.addMenu("&File")
+        fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(saveSettingAction)
         fileMenu.addAction(loadSettingAction)
         fileMenu.addSeparator()
         fileMenu.addAction(changeOutputDirAction)
 
-        aboutAct = QAction("About", self)
+        aboutAct = QAction('About', self)
         aboutAct.setToolTip("Show information about MuscleX and Projection Traces")
         aboutAct.triggered.connect(self.showAbout)
-        helpMenu = menubar.addMenu("&Help")
+        helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
-
+    
     # NOTE: _create_status_bars() removed - using BaseGUI's default implementation
     # BaseGUI provides all necessary status bar widgets:
     # - self.statusReport, self.imgCoordOnStatusBar, self.imgDetailOnStatusBar
     # - self.imgPathOnStatusBar, self.progressBar
     # - self.left_status (in lowerStatusBar)
-
+    
     def _finalize_ui(self):
         """Final UI setup - set window constraints"""
         # Set minimum size for central widget to ensure usable UI
         self.centralWidget.setMinimumSize(700, 500)
-
+        
         # Call parent to handle window resize and show
         super()._finalize_ui()
-
+    
     def _additional_setup(self):
         """Additional PT-specific setup"""
         # Call parent to setup scan monitoring
         super()._additional_setup()
-
+        
         # Create aliases for backward compatibility with PT code
         self.displayImgCanvas = self.workspace.navigator.image_viewer.canvas
         self.displayImgAxes = self.workspace.navigator.image_viewer.axes
         self.displayImgFigure = self.workspace.navigator.image_viewer.figure
-
+        
         # Backward compatibility: ProjectionBoxTab uses pixel_detail
         # This is an alias for imgDetailOnStatusBar from BaseGUI (created in _create_status_bars)
         self.pixel_detail = self.imgDetailOnStatusBar
-
+        
         # Connect workspace/navigator signals (following QF pattern)
         # fileLoaded: Folder-level initialization (csvManager, boxes, etc.) - happens BEFORE first image
         self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
-
+        
         # imageDataReady: Receives ImageData ready for processing (replaces imageChanged)
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
-
+        
         # needsReprocess: Settings changed, reprocess current image
         self.workspace.needsReprocess.connect(self._on_needs_reprocess)
-
+        
         # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
 
@@ -833,24 +771,22 @@ class ProjectionTracesGUI(BaseGUI):
         settings = QSettings("BioCAT", "MuscleX")
         if settings.value("pt/hide_oriented_box_warning", False, type=bool):
             return
-
+        
         # Create custom dialog
         dialog = QDialog(self)
         dialog.setWindowTitle("Projection Traces - Important Notice")
         dialog.setMinimumWidth(450)
-
+        
         layout = QVBoxLayout(dialog)
-
+        
         # Warning icon and message
         msg_layout = QHBoxLayout()
         icon_label = QLabel()
-        icon_label.setPixmap(
-            dialog.style()
-            .standardIcon(dialog.style().StandardPixmap.SP_MessageBoxWarning)
-            .pixmap(48, 48)
-        )
+        icon_label.setPixmap(dialog.style().standardIcon(
+            dialog.style().StandardPixmap.SP_MessageBoxWarning
+        ).pixmap(48, 48))
         msg_layout.addWidget(icon_label)
-
+        
         text_label = QLabel(
             "<b>Note about Oriented Boxes:</b><br><br>"
             "Non-axis aligned (oriented) boxes are currently experimental "
@@ -862,18 +798,16 @@ class ProjectionTracesGUI(BaseGUI):
         text_label.setWordWrap(True)
         msg_layout.addWidget(text_label, 1)
         layout.addLayout(msg_layout)
-
+        
         layout.addSpacing(10)
-
+        
         # Don't show again checkbox
         dont_show_checkbox = QCheckBox("Don't show this message again")
-        dont_show_checkbox.setToolTip(
-            "Suppress this notice in future Projection Traces sessions"
-        )
+        dont_show_checkbox.setToolTip("Suppress this notice in future Projection Traces sessions")
         layout.addWidget(dont_show_checkbox)
-
+        
         layout.addSpacing(10)
-
+        
         # OK button
         button_layout = QHBoxLayout()
         button_layout.addStretch()
@@ -884,9 +818,9 @@ class ProjectionTracesGUI(BaseGUI):
         button_layout.addWidget(ok_button)
         button_layout.addStretch()
         layout.addLayout(button_layout)
-
+        
         dialog.exec()
-
+        
         # Save preference if checkbox was checked
         if dont_show_checkbox.isChecked():
             settings.setValue("pt/hide_oriented_box_warning", True)
@@ -948,30 +882,24 @@ class ProjectionTracesGUI(BaseGUI):
         self.navControls.processFolderButton.clicked.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.clicked.connect(self.h5batchProcBtnToggled)
 
-        self.displayImgFigure.canvas.mpl_connect("button_press_event", self.imgClicked)
-        self.displayImgFigure.canvas.mpl_connect(
-            "motion_notify_event", self.imgOnMotion
-        )
-        self.displayImgFigure.canvas.mpl_connect(
-            "button_release_event", self.imgReleased
-        )
-        self.displayImgFigure.canvas.mpl_connect("figure_leave_event", self.leaveImage)
-        self.displayImgFigure.canvas.mpl_connect("scroll_event", self.imgScrolled)
+        self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
+        self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
+        self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
+        self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
+        self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
 
         # Register PlaceholderTool to block ImageViewerWidget's built-in pan during PT operations
-        if hasattr(self, "image_viewer") and self.image_viewer:
-            self.image_viewer.tool_manager.register_tool(
-                "pt_operation", PlaceholderTool
-            )
+        if hasattr(self, 'image_viewer') and self.image_viewer:
+            self.image_viewer.tool_manager.register_tool('pt_operation', PlaceholderTool)
 
     def _on_status_text_requested(self, text: str):
         """
         Handle status text update request from ProcessingWorkspace.
-
+        
         Args:
             text: Status text to display
         """
-        if hasattr(self, "statusReport"):
+        if hasattr(self, 'statusReport'):
             self.statusReport.setText(text)
 
     def maskThresChanged(self):
@@ -990,48 +918,50 @@ class ProjectionTracesGUI(BaseGUI):
 
     # Note: calibrationClicked() removed - calibration now handled by ProcessingWorkspace
 
+
+
     def clearImage(self):
         """
         Clear the image of all the plot on it
         """
         ax = self.displayImgAxes
-        for i in range(len(ax.lines) - 1, -1, -1):
+        for i in range(len(ax.lines)-1,-1,-1):
             ax.lines[i].remove()
         for _, box in self.boxes_on_img.items():
-            box["rect"].remove()
-            box["text"].remove()
+            box['rect'].remove()
+            box['text'].remove()
         self.displayImgCanvas.draw_idle()
+
 
     def updateImage(self):
         """
         Refresh image tab
         """
-        self.update_plot["img"] = True
+        self.update_plot['img'] = True
         self.updateUI()
+
 
     def updatePeaks(self, name, peaks):
         """
         Update peaks in both folder template and processor.
-
+        
         :param name: Box name
         :param peaks: Full mirrored peaks (e.g., [10, 20, -10, -20])
-
+        
         Design:
         - self.boxes[name].peaks: Store only first half (folder template)
         - projProc.boxes[name].peaks: Store full peaks (for immediate processing)
         """
         # Update folder template (only first half - user-selected side)
         if name in self.boxes:
-            self.boxes[name].peaks = peaks[: len(peaks) // 2] if peaks else []
-            print(
-                f"Updated folder template peaks for '{name}': {len(self.boxes[name].peaks)} peaks (first half)"
-            )
-
+            self.boxes[name].peaks = peaks[:len(peaks)//2] if peaks else []
+            print(f"Updated folder template peaks for '{name}': {len(self.boxes[name].peaks)} peaks (first half)")
+        
         # Update processor (full peaks for immediate processing)
         if self.projProc and name in self.projProc.boxes:
             self.projProc.boxes[name].peaks = peaks
             # Clear cached results to force re-fitting with new peaks
-            self.projProc.boxes[name].clear_results(from_stage="fit")
+            self.projProc.boxes[name].clear_results(from_stage='fit')
             print(f"Updated processor peaks for '{name}': {len(peaks)} peaks (full)")
 
     def addPeakstoBox(self, name, peaks):
@@ -1058,15 +988,14 @@ class ProjectionTracesGUI(BaseGUI):
             if self.function is None:
                 self.selectPeaksButton.setText("Done")
                 self.setLeftStatus(
-                    "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)"
-                )
+                    "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)")
                 peaks = {}
-                self.function = ["peaks", peaks]
+                self.function = ['peaks', peaks]
                 # Activate placeholder tool to block ImageViewerWidget's built-in pan
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.activate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
-                for i in range(len(ax.lines) - 1, -1, -1):
+                for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
                 self.displayImgCanvas.draw_idle()
             else:
@@ -1093,7 +1022,7 @@ class ProjectionTracesGUI(BaseGUI):
                 self.processFolder()
         else:
             self.stop_process = True
-
+    
     def h5batchProcBtnToggled(self):
         """
         Triggered when the batch process button is toggled
@@ -1119,14 +1048,12 @@ class ProjectionTracesGUI(BaseGUI):
         start_idx, end_idx = self.file_manager.get_current_h5_range()
         if start_idx is None or end_idx is None:
             return
-        self._process_image_list(
-            range(start_idx, end_idx + 1), text="Process Current H5 File"
-        )
+        self._process_image_list(range(start_idx, end_idx + 1), text="Process Current H5 File")
 
     def _process_image_list(self, img_ids, text):
         """
         Process a list of images by index.
-
+        
         Args:
             img_ids: Iterable of image indices to process
             text: Dialog title text
@@ -1136,36 +1063,33 @@ class ProjectionTracesGUI(BaseGUI):
 
         errMsg = QMessageBox()
         errMsg.setText(text)
-        info_text = "The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n"
+        info_text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         settings = self.getSettings()
 
         info_text += "\nCurrent Settings"
         for bn in self.boxes.keys():
             box = self.boxes[bn]
-            info_text += "\n\n  - Box " + str(bn) + " : " + str(box.coordinates)
+            info_text += "\n\n  - Box "+str(bn)+" : " + str(box.coordinates)
             info_text += "\n     - Peaks : "
             if box.peaks:
                 info_text += str(box.peaks)
             else:
                 info_text += "-"
 
-            info_text += "\n     - Background Subtraction : "
+            info_text += '\n     - Background Subtraction : '
             if box.bgsub == 0:
-                info_text += "Fitting Gaussians"
+                info_text += 'Fitting Gaussians'
             else:
-                info_text += "Convex Hull"
+                info_text += 'Convex Hull'
 
             if box.hull_range:
-                info_text += "\n     - Convex Hull Range : " + str(box.hull_range)
+                info_text += '\n     - Convex Hull Range : '+str(box.hull_range)
 
-        if "lambda_sdd" in settings:
+        if 'lambda_sdd' in settings:
             info_text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
 
-        info_text += (
-            "\n\nAre you sure you want to process "
-            + str(self.numberOfFiles)
-            + " image(s)? \nThis might take a long time."
-        )
+        info_text += '\n\nAre you sure you want to process ' + str(
+            self.numberOfFiles) + ' image(s)? \nThis might take a long time.'
         errMsg.setInformativeText(info_text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
@@ -1190,7 +1114,7 @@ class ProjectionTracesGUI(BaseGUI):
             # User cancelled the dialog, reset buttons
             self.navControls.processFolderButton.setChecked(False)
             self.navControls.processH5Button.setChecked(False)
-
+        
         # Reset button text based on mode
         if self.workspace.navigator.is_h5_mode:
             self.navControls.processFolderButton.setText("Process Current H5 File")
@@ -1203,11 +1127,11 @@ class ProjectionTracesGUI(BaseGUI):
         """
         self.boxes = {}
         self.boxes_on_img = {}
-
+        
         # Clear boxes from processor as well
         if self.projProc:
             self.projProc.boxes.clear()
-
+            
         self.removeAllTabs()
         self.processImage()
 
@@ -1224,13 +1148,11 @@ class ProjectionTracesGUI(BaseGUI):
             if self.function is None:
                 # Start function
                 self.addBoxButton.setText("Done")
-                self.setLeftStatus(
-                    "Add a box to the image by drawing a rectangle (ESC to cancel)"
-                )
-                self.function = ["box"]
+                self.setLeftStatus("Add a box to the image by drawing a rectangle (ESC to cancel)")
+                self.function = ['box']
                 # Activate placeholder tool to block ImageViewerWidget's built-in pan
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.activate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -1239,8 +1161,8 @@ class ProjectionTracesGUI(BaseGUI):
                 self.addBoxButton.setChecked(False)
                 self.function = None
                 # Deactivate placeholder tool
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.deactivate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 return
 
     def addOrientedBox(self):
@@ -1253,20 +1175,15 @@ class ProjectionTracesGUI(BaseGUI):
             self.addCenterOrientedBoxButton.setChecked(False)
             return
 
-        if (
-            self.addOrientedBoxButton.isChecked()
-            and not self.addCenterOrientedBoxButton.isChecked()
-        ):
+        if self.addOrientedBoxButton.isChecked() and not self.addCenterOrientedBoxButton.isChecked():
             if self.function is None:
                 # Start function
                 self.addOrientedBoxButton.setText("Done")
-                self.setLeftStatus(
-                    "Select a pivot point indicating the box center (ESC to cancel)"
-                )
-                self.function = ["oriented_box"]
+                self.setLeftStatus("Select a pivot point indicating the box center (ESC to cancel)")
+                self.function = ['oriented_box']
                 # Activate placeholder tool to block ImageViewerWidget's built-in pan
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.activate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -1275,25 +1192,20 @@ class ProjectionTracesGUI(BaseGUI):
                 self.addOrientedBoxButton.setChecked(False)
                 self.function = None
                 # Deactivate placeholder tool
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.deactivate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 return
 
-        elif (
-            self.addCenterOrientedBoxButton.isChecked()
-            and not self.addOrientedBoxButton.isChecked()
-        ):
+        elif self.addCenterOrientedBoxButton.isChecked() and not self.addOrientedBoxButton.isChecked():
             if self.function is None:
                 # Start function
                 self.addCenterOrientedBoxButton.setText("Done")
-                self.setLeftStatus(
-                    "Drag to select the rotation angle and length of the projection axis (ESC to cancel)"
-                )
-                self.function = ["center_oriented_box"]
+                self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
+                self.function = ['center_oriented_box']
                 self.function.append(self.projProc.center)
                 # Activate placeholder tool to block ImageViewerWidget's built-in pan
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.activate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -1302,14 +1214,14 @@ class ProjectionTracesGUI(BaseGUI):
                 self.addOrientedBoxButton.setChecked(False)
                 self.function = None
                 # Deactivate placeholder tool
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.deactivate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 return
         else:
             self.addCenterOrientedBoxButton.setChecked(False)
             self.addOrientedBoxButton.setChecked(False)
             self.resetUI()
-
+            
     def editBoxes(self):
         if len(self.boxes) > 0:
             dialog = EditBoxDetails(self.boxes)
@@ -1319,25 +1231,23 @@ class ProjectionTracesGUI(BaseGUI):
                 target_box = dialog.current_box
                 height_mode = dialog.height_mode
                 width_mode = dialog.width_mode
-                self.updateBoxDetails(
-                    target_box, height, width, height_mode, width_mode
-                )
+                self.updateBoxDetails(target_box, height, width, height_mode, width_mode)
         else:
             errMsg = QMessageBox()
-            errMsg.setText("No boxes to edit.")
-            msg = "Please add a box before editing."
+            errMsg.setText('No boxes to edit.')
+            msg = 'Please add a box before editing.'
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.setFixedWidth(600)
             errMsg.exec_()
-
+            
     def updateBoxDetails2(self, box_name, height, width, height_mode, width_mode):
-
+    
         box_obj = self.boxes[box_name]
         box = box_obj.coordinates
 
-        if box_obj.type == "oriented":
+        if box_obj.type == 'oriented':
             bx, by = box[2]
             current_width = box[3]
             current_height = box[4]
@@ -1349,26 +1259,26 @@ class ProjectionTracesGUI(BaseGUI):
             br = (bl[0] + current_width, bl[1])
             tl = (bl[0], bl[1] + current_height)
             tr = (bl[0] + current_width, bl[1] + current_height)
-
+            
             print(bl, br, tl, tr)
 
-            if height_mode == "Center":
+            if height_mode == 'Center':
                 bl = (bl[0], bl[1] - (height - current_height) / 2)
                 tl = (tl[0], tl[1] + (height - current_height) / 2)
-            elif height_mode == "Top":
+            elif height_mode == 'Top':
                 tl = (tl[0], tl[1] + (height - current_height))
                 tr = (tr[0], tr[1] + (height - current_height))
-            elif height_mode == "Bottom":
+            elif height_mode == 'Bottom':
                 bl = (bl[0], bl[1] - (height - current_height))
                 br = (br[0], br[1] - (height - current_height))
 
-            if width_mode == "Center":
+            if width_mode == 'Center':
                 bl = (bl[0] - (width - current_width) / 2, bl[1])
                 br = (br[0] + (width - current_width) / 2, br[1])
-            elif width_mode == "Left":
+            elif width_mode == 'Left':
                 bl = (bl[0] - (width - current_width), bl[1])
                 tl = (tl[0] - (width - current_width), tl[1])
-            elif width_mode == "Right":
+            elif width_mode == 'Right':
                 br = (br[0] + (width - current_width), br[1])
                 tr = (tr[0] + (width - current_width), tr[1])
 
@@ -1377,20 +1287,11 @@ class ProjectionTracesGUI(BaseGUI):
             br_rot = rotatePoint((cx, cy), br, np.radians(angle))
             tl_rot = rotatePoint((cx, cy), tl, np.radians(angle))
             tr_rot = rotatePoint((cx, cy), tr, np.radians(angle))
-
+            
             (bl_rot, br_rot, tl_rot, tr_rot)
 
             # Update the box with the new points
-            box_obj.coordinates = [
-                bl_rot,
-                br_rot,
-                tl_rot,
-                tr_rot,
-                width,
-                height,
-                angle,
-                (cx, cy),
-            ]
+            box_obj.coordinates = [bl_rot, br_rot, tl_rot, tr_rot, width, height, angle, (cx, cy)]
         else:
             # Handle non-oriented box (as in your original code)
             x1, x2 = box[0]
@@ -1401,28 +1302,28 @@ class ProjectionTracesGUI(BaseGUI):
             width_diff = width - current_width
 
             if height_diff != 0 or width_diff != 0:
-                if height_mode == "Center":
-                    y1 = y1 - height_diff / 2
-                    y2 = y2 + height_diff / 2
-                elif height_mode == "Top":
+                if height_mode == 'Center':
+                    y1 = y1 - height_diff/2
+                    y2 = y2 + height_diff/2
+                elif height_mode == 'Top':
                     y1 = y1 - height_diff
-                elif height_mode == "Bottom":
+                elif height_mode == 'Bottom':
                     y2 = y2 + height_diff
 
-                if width_mode == "Center":
-                    x1 = x1 - width_diff / 2
-                    x2 = x2 + width_diff / 2
-                elif width_mode == "Left":
+                if width_mode == 'Center':
+                    x1 = x1 - width_diff/2
+                    x2 = x2 + width_diff/2
+                elif width_mode == 'Left':
                     x1 = x1 - width_diff
-                elif width_mode == "Right":
+                elif width_mode == 'Right':
                     x2 = x2 + width_diff
 
                 box_obj.coordinates = [(x1, x2), (y1, y2)]
-
+            
     def updateBoxDetails(self, box_name, height, width, height_mode, width_mode):
         box_obj = self.boxes[box_name]
         box = box_obj.coordinates
-        if box_obj.type == "oriented":
+        if box_obj.type == 'oriented':
             bx, by = box[2]
             current_width = box[3]
             current_height = box[4]
@@ -1432,84 +1333,72 @@ class ProjectionTracesGUI(BaseGUI):
             cx, cy = box[6]
             new_point = rotatePoint((cx, cy), (bx, by), -np.radians(angle))
             if height_diff != 0 or width_diff != 0:
-                if height_mode == "Center":
-                    new_height = new_point[1] - height_diff / 2
-                elif height_mode == "Top":
+                if height_mode == 'Center':
+                    new_height = new_point[1] - height_diff/2
+                elif height_mode == 'Top':
                     new_height = new_point[1] - height_diff
-                    cy = cy - height_diff / 2
-                elif height_mode == "Bottom":
+                    cy = cy - height_diff/2
+                elif height_mode == 'Bottom':
                     new_height = new_point[1]
-                    cy = cy + height_diff / 2
-                if width_mode == "Center":
-                    new_width = new_point[0] - width_diff / 2
-                elif width_mode == "Left":
+                    cy = cy + height_diff/2
+                if width_mode == 'Center':
+                    new_width = new_point[0] - width_diff/2
+                elif width_mode == 'Left':
                     new_width = new_point[0] - width_diff
-                    cx = cx - width_diff / 2
-                elif width_mode == "Right":
+                    cx = cx - width_diff/2
+                elif width_mode == 'Right':
                     new_width = new_point[0]
-                    cx = cx + width_diff / 2
+                    cx = cx + width_diff/2
                 translated_point = (new_width, new_height)
-
-                new_bl = rotatePoint(
-                    (cx, cy),
-                    (translated_point[0], translated_point[1]),
-                    np.radians(angle),
-                )
+                
+                new_bl = rotatePoint((cx,cy), (translated_point[0], translated_point[1]), np.radians(angle))
                 x1, y1 = translated_point
                 x2 = x1 + width
                 y2 = y1 + height
-                box_obj.coordinates = (
-                    (x1, x2),
-                    (y1, y2),
-                    new_bl,
-                    width,
-                    height,
-                    angle,
-                    (cx, cy),
-                )
+                box_obj.coordinates = ((x1, x2), (y1, y2), new_bl, width, height, angle, (cx,cy))         
         else:
-            x1, x2 = box[0]
-            y1, y2 = box[1]
+            x1,x2 = box[0]
+            y1,y2 = box[1]
             current_width = abs(x1 - x2)
             current_height = abs(y1 - y2)
             height_diff = height - current_height
             width_diff = width - current_width
-
+            
             if height_diff != 0 or width_diff != 0:
                 print(height_mode)
                 print(width_mode)
-                if height_mode == "Center":
-                    y1 = y1 - height_diff / 2
-                    y2 = y2 + height_diff / 2
-                elif height_mode == "Top":
-                    y1 = y1 - height_diff
-                elif height_mode == "Bottom":
+                if height_mode == 'Center':
+                    y1 = y1 - height_diff/2
+                    y2 = y2 + height_diff/2
+                elif height_mode == 'Top':
+                    y1 = y1 - height_diff   
+                elif height_mode == 'Bottom':
                     y2 = y2 + height_diff
-
-                if width_mode == "Center":
-                    x1 = x1 - width_diff / 2
-                    x2 = x2 + width_diff / 2
-                elif width_mode == "Left":
+        
+                if width_mode == 'Center':
+                    x1 = x1 - width_diff/2
+                    x2 = x2 + width_diff/2
+                elif width_mode == 'Left':
                     x1 = x1 - width_diff
-                elif width_mode == "Right":
+                elif width_mode == 'Right':
                     x2 = x2 + width_diff
-
+    
                 box_obj.coordinates = [(x1, x2), (y1, y2)]
-
+        
         # Sync coordinates to processor
         if self.projProc and box_name in self.projProc.boxes:
             self.projProc.boxes[box_name].coordinates = box_obj.coordinates
             # Clear histogram results since box region changed
-            self.projProc.boxes[box_name].clear_results(from_stage="hist")
-
+            self.projProc.boxes[box_name].clear_results(from_stage='hist')
+        
         for artist in self.boxes_on_img[box_name].values():
             artist.remove()
-        del self.boxes_on_img[box_name]
-        self.boxes_on_img[box_name] = self.genBoxArtists(
-            box_name, box_obj.coordinates, box_obj.type
-        )
+        del self.boxes_on_img[box_name]     
+        self.boxes_on_img[box_name] = self.genBoxArtists(box_name, box_obj.coordinates, box_obj.type)
         self.processImage()
-
+            
+        
+            
     def keyPressEvent(self, event):
         """
         Manage key press event on keyboard
@@ -1519,13 +1408,9 @@ class ProjectionTracesGUI(BaseGUI):
         if key == Qt.Key_Escape:
             self.resetUI()
         elif key == Qt.Key_D:
-            self.tabWidget.setCurrentIndex(
-                (self.tabWidget.currentIndex() + 1) % self.tabWidget.count()
-            )
+            self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())
         elif key == Qt.Key_A:
-            self.tabWidget.setCurrentIndex(
-                (self.tabWidget.currentIndex() - 1) % self.tabWidget.count()
-            )
+            self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() - 1) % self.tabWidget.count())
         elif key == Qt.Key_Q:
             self.close()
 
@@ -1539,6 +1424,8 @@ class ProjectionTracesGUI(BaseGUI):
 
     # Note: PT navigation methods now use FileManager (from BaseGUI)
     # These are kept for backward compatibility but delegate to FileManager
+
+
 
     def setH5Mode(self, file_name):
         """
@@ -1563,10 +1450,7 @@ class ProjectionTracesGUI(BaseGUI):
             widget = self.tabWidget.widget(index)
             if widget is not None:
                 # Move navControls to safety if it's in the tab being removed
-                if (
-                    hasattr(widget, "right_panel")
-                    and self.navControls.parent() == widget.right_panel.bottom_widget
-                ):
+                if hasattr(widget, 'right_panel') and self.navControls.parent() == widget.right_panel.bottom_widget:
                     self._move_nav_controls_to_image_tab()
                 name = widget.name
                 # Remove from unified box storage
@@ -1596,7 +1480,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Add box tabs based on current image's boxes.
         Uses projProc.boxes if available (current image), otherwise uses folder template.
-
+        
         Handles open parameter editors during image switch:
         - Saves which boxes had open parameter editors and closes them
         - Stores the info in self._pending_param_editors for deferred reopening
@@ -1613,7 +1497,7 @@ class ProjectionTracesGUI(BaseGUI):
         current_tab_name = None
         if was_on_box_tab:
             current_tab_name = self.tabWidget.tabText(current_index).replace("Box ", "")
-
+        
         # Save info about open parameter editors before removing tabs
         # {box_name: QRect} - save geometry (position + size) for each open editor
         open_param_editors = {}
@@ -1627,15 +1511,13 @@ class ProjectionTracesGUI(BaseGUI):
                 if tab.param_editor_active:
                     # Save dialog geometry before closing
                     if tab.param_editor_dialog is not None:
-                        open_param_editors[tab.name] = (
-                            tab.param_editor_dialog.geometry()
-                        )
+                        open_param_editors[tab.name] = tab.param_editor_dialog.geometry()
                     else:
                         open_param_editors[tab.name] = None
                     # Close the dialog before removing the tab
                     # This ensures proper cleanup (onParameterEditorClosed will be triggered)
                     tab.closeParameterEditor()
-
+        
         self.removeAllTabs()
 
         # Use current image's boxes if available, otherwise use folder template
@@ -1652,13 +1534,13 @@ class ProjectionTracesGUI(BaseGUI):
             # Restore zoom1 from previous image's tab if available
             if name in saved_zooms:
                 proj_tab.zoom1 = saved_zooms[name]
-            self.tabWidget.addTab(proj_tab, "Box " + str(name))
+            self.tabWidget.addTab(proj_tab, "Box "+str(name))
             new_tabs[name] = proj_tab
-
+            
             # Check if this is the previously selected tab
             if current_tab_name == name:
                 restore_index = idx
-
+        
         # Restore tab selection:
         # 1. If the exact same box exists, select it
         # 2. If user was on a box tab but that box no longer exists, select first box tab
@@ -1668,7 +1550,7 @@ class ProjectionTracesGUI(BaseGUI):
         elif was_on_box_tab and len(boxes_to_display) > 0:
             # Was on a box tab, but that box no longer exists -> select first box tab
             self.tabWidget.setCurrentIndex(1)
-
+        
         # Store pending parameter editors to reopen AFTER processImage() completes.
         # At this point fit_results don't exist yet for the new image, so we defer
         # reopening until processing is done.
@@ -1677,15 +1559,15 @@ class ProjectionTracesGUI(BaseGUI):
     def _reopenPendingParameterEditors(self):
         """
         Reopen parameter editors that were saved by addBoxTabs().
-
+        
         Called after processImage() completes, so fit_results are available.
         Reads self._pending_param_editors, reopens editors for boxes that have
         fit_results, restores window geometry, then clears the pending dict.
         """
-        pending = getattr(self, "_pending_param_editors", {})
+        pending = getattr(self, '_pending_param_editors', {})
         if not pending:
             return
-
+        
         for box_name, saved_geometry in pending.items():
             # Find the tab for this box
             for i in range(1, self.tabWidget.count()):
@@ -1693,22 +1575,15 @@ class ProjectionTracesGUI(BaseGUI):
                 if isinstance(tab, ProjectionBoxTab) and tab.name == box_name:
                     box = tab.get_box()
                     if box and box.fit_results is not None:
-                        print(
-                            f"Reopening parameter editor for box '{box_name}' after processing"
-                        )
+                        print(f"Reopening parameter editor for box '{box_name}' after processing")
                         tab.openParameterEditor()
                         # Restore saved geometry (position + size)
-                        if (
-                            saved_geometry is not None
-                            and tab.param_editor_dialog is not None
-                        ):
+                        if saved_geometry is not None and tab.param_editor_dialog is not None:
                             tab.param_editor_dialog.setGeometry(saved_geometry)
                     else:
-                        print(
-                            f"Box '{box_name}' has no fit_results after processing, not reopening editor"
-                        )
+                        print(f"Box '{box_name}' has no fit_results after processing, not reopening editor")
                     break
-
+        
         self._pending_param_editors = {}
 
     def imgClicked(self, event):
@@ -1744,9 +1619,9 @@ class ProjectionTracesGUI(BaseGUI):
         # Provide different behavior depending on current active function
         if func is None:
             # Enable image panning when clicking on empty areas
-            self.function = ["im_move", (x, y)]
+            self.function = ['im_move', (x, y)]
 
-        elif func[0] == "box":
+        elif func[0] == 'box':
             # First draw two lines
             func.append((x, y))
             if len(func) == 3:
@@ -1760,7 +1635,7 @@ class ProjectionTracesGUI(BaseGUI):
                 result = boxDialog.exec_()
                 if result == 1:
                     name, bgsub, axis = boxDialog.getDetails()
-                    box_type = "h" if axis == 0 else "v"
+                    box_type = 'h' if axis == 0 else 'v'
                     # Create new ProcessingBox
                     new_box = ProcessingBox(
                         name=name,
@@ -1768,13 +1643,11 @@ class ProjectionTracesGUI(BaseGUI):
                         type=box_type,
                         bgsub=bgsub,
                         peaks=[],
-                        merid_bg=True,
+                        merid_bg=True
                     )
                     self.boxes[name] = new_box
-                    self.boxes_on_img[name] = self.genBoxArtists(
-                        name, new_box.coordinates, box_type
-                    )
-
+                    self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, box_type)
+                    
                     # Add new box to processor (create independent copy to avoid shared reference)
                     if self.projProc:
                         box_copy = ProcessingBox(
@@ -1785,11 +1658,7 @@ class ProjectionTracesGUI(BaseGUI):
                             peaks=new_box.peaks.copy() if new_box.peaks else [],
                             merid_bg=new_box.merid_bg,
                             hull_range=new_box.hull_range,
-                            param_bounds=(
-                                new_box.param_bounds.copy()
-                                if new_box.param_bounds
-                                else {}
-                            ),
+                            param_bounds=new_box.param_bounds.copy() if new_box.param_bounds else {},
                             use_common_sigma=new_box.use_common_sigma,
                             peak_tolerance=new_box.peak_tolerance,
                             sigma_tolerance=new_box.sigma_tolerance,
@@ -1797,34 +1666,24 @@ class ProjectionTracesGUI(BaseGUI):
                         # Expand peaks for processor (folder template keeps first half only)
                         self._expand_peaks_mirrored(box_copy)
                         self.projProc.state.boxes[name] = box_copy
-
+                        
                 self.function = None
                 # Deactivate placeholder tool after box operation completes
-                if hasattr(self, "image_viewer") and self.image_viewer:
-                    self.image_viewer.tool_manager.deactivate_tool("pt_operation")
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 self.addBoxTabs()
                 self.processImage()
 
-        elif func[0] == "oriented_box" or func[0] == "center_oriented_box":
-            if len(func) == 1:  # select a pivot
+        elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
+            if len(func) == 1: # select a pivot
                 axis_size = 5
-                ax.plot(
-                    (x - axis_size, x + axis_size),
-                    (y - axis_size, y + axis_size),
-                    color="r",
-                )
-                ax.plot(
-                    (x - axis_size, x + axis_size),
-                    (y + axis_size, y - axis_size),
-                    color="r",
-                )
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.displayImgCanvas.draw_idle()
-                func.append((x, y))
-                self.setLeftStatus(
-                    "Drag to select the rotation angle and length of the projection axis (ESC to cancel)"
-                )
+                func.append((x,y))
+                self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
 
-            elif len(func) == 2:  # rotate and extend around the pivot
+            elif len(func) == 2: # rotate and extend around the pivot
                 pivot = func[1]
                 deltax = x - pivot[0]
                 deltay = y - pivot[1]
@@ -1838,18 +1697,14 @@ class ProjectionTracesGUI(BaseGUI):
                 if abs(x - pivot[0]) == 0:
                     new_angle = -90
                 else:
-                    new_angle = (
-                        -180.0 * np.arctan((pivot[1] - y) / (pivot[0] - x)) / np.pi
-                    )
+                    new_angle = -180. * np.arctan((pivot[1] - y) / (pivot[0] - x)) / np.pi
 
-                func.append((x, x2, y, y2, new_angle))
-                self.setLeftStatus(
-                    "Drag to select the width of the box (must be less than the length) (ESC to cancel)"
-                )
+                func.append((x,x2,y,y2, new_angle))
+                self.setLeftStatus("Drag to select the width of the box (must be less than the length) (ESC to cancel)")
 
-            elif len(func) == 3:  # drag to select the width
+            elif len(func) == 3: # drag to select the width
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches) - 1, len(self.boxes.keys()) - 1, -1):
+                    for i in range(len(ax.patches)-1,len(self.boxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.boxes.keys())]
                 for line in list(ax.lines):
@@ -1859,8 +1714,8 @@ class ProjectionTracesGUI(BaseGUI):
                 angle = np.radians(90 - box_angle)
 
                 # display the box as it's drawn by the user
-                p_mouse = np.array([x, y])
-                if func[2][0] <= func[2][1]:  # p1 is to the left
+                p_mouse = np.array([x,y])
+                if func[2][0] <= func[2][1]: # p1 is to the left
                     p_left = np.array((func[2][0], func[2][2]))
                     p_right = np.array((func[2][1], func[2][3]))
                 else:
@@ -1870,80 +1725,38 @@ class ProjectionTracesGUI(BaseGUI):
                 v1 = p_left - p_right
                 v2 = p_mouse - p_right
 
-                u = v1 / np.linalg.norm(v1)
+                u = v1/np.linalg.norm(v1)
                 n = (-u[1], u[0])
 
                 height = np.abs(np.dot(v2, n))
                 width = np.linalg.norm(p_left - p_right)
 
-                if height * 2 < width:
-                    x1_left = p_left[0] - height * np.cos(angle)
-                    y1_left = p_left[1] - height * np.sin(angle)
-                    x2_left = p_left[0] + height * np.cos(angle)
-                    y2_left = p_left[1] + height * np.sin(angle)
-                    x1_right = p_right[0] - height * np.cos(angle)
-                    y1_right = p_right[1] - height * np.sin(angle)
-                    x2_right = p_right[0] + height * np.cos(angle)
-                    y2_right = p_right[1] + height * np.sin(angle)
+                if height*2 < width:
+                    x1_left = p_left[0] - height*np.cos(angle)
+                    y1_left = p_left[1] - height*np.sin(angle)
+                    x2_left = p_left[0] + height*np.cos(angle)
+                    y2_left = p_left[1] + height*np.sin(angle)
+                    x1_right = p_right[0] - height*np.cos(angle)
+                    y1_right = p_right[1] - height*np.sin(angle)
+                    x2_right= p_right[0] + height*np.cos(angle)
+                    y2_right= p_right[1] + height*np.sin(angle)
 
-                    ax.plot(
-                        [func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r"
-                    )
+                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
 
-                    ax.plot(
-                        [p_left[0], x2_left],
-                        [p_left[1], y2_left],
-                        color="r",
-                        linestyle="dotted",
-                    )
-                    ax.plot(
-                        [x1_left, p_left[0]],
-                        [y1_left, p_left[1]],
-                        color="r",
-                        linestyle="dotted",
-                    )
+                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
 
-                    ax.plot(
-                        [p_right[0], x2_right],
-                        [p_right[1], y2_right],
-                        color="r",
-                        linestyle="dotted",
-                    )
-                    ax.plot(
-                        [x1_right, p_right[0]],
-                        [y1_right, p_right[1]],
-                        color="r",
-                        linestyle="dotted",
-                    )
+                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
 
-                    ax.plot(
-                        [x1_left, x1_right],
-                        [y1_left, y1_right],
-                        color="r",
-                        linestyle="dotted",
-                    )
-                    ax.plot(
-                        [x2_left, x2_right],
-                        [y2_left, y2_right],
-                        color="r",
-                        linestyle="dotted",
-                    )
+                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
 
                     rot_angle = box_angle * -1
                     bottom_left = (x1_left, y1_left)
 
-                    ax.add_patch(
-                        patches.Rectangle(
-                            bottom_left,
-                            width,
-                            height * 2,
-                            angle=rot_angle,
-                            linewidth=1,
-                            edgecolor="g",
-                            facecolor="none",
-                            linestyle="dotted",
-                        )
-                    )
+                    ax.add_patch(patches.Rectangle(bottom_left, width, height*2, angle=rot_angle,
+                                                   linewidth=1, edgecolor='g', facecolor='none', linestyle='dotted'))
                     self.displayImgCanvas.draw_idle()
 
                     boxDialog = BoxDetails(self.boxes.keys(), oriented=True)
@@ -1959,42 +1772,28 @@ class ProjectionTracesGUI(BaseGUI):
                         # get the image rotated around the box center
                         img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
 
-                        x1, y1 = rotatePoint(
-                            (cx, cy), (blx, bly), -np.radians(rot_angle)
-                        )
+                        x1, y1 = rotatePoint((cx, cy), (blx, bly), -np.radians(rot_angle))
                         x2 = x1 + width
-                        y2 = y1 + height * 2
+                        y2 = y1 + height*2
 
                         # add the oriented box
                         name, bgsub, _ = boxDialog.getDetails()
                         # Create new ProcessingBox for oriented type
                         new_box = ProcessingBox(
                             name=name,
-                            coordinates=(
-                                (x1, x2),
-                                (y1, y2),
-                                bottom_left,
-                                width,
-                                height * 2,
-                                rot_angle,
-                                pivot,
-                            ),
-                            type="oriented",
+                            coordinates=((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot),
+                            type='oriented',
                             bgsub=bgsub,
                             peaks=[],
-                            merid_bg=True,
+                            merid_bg=True
                         )
                         self.boxes[name] = new_box
-                        self.boxes_on_img[name] = self.genBoxArtists(
-                            name, new_box.coordinates, "oriented"
-                        )
+                        self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, 'oriented')
                         self.function = None
                         # Deactivate placeholder tool after oriented box operation completes
-                        if hasattr(self, "image_viewer") and self.image_viewer:
-                            self.image_viewer.tool_manager.deactivate_tool(
-                                "pt_operation"
-                            )
-
+                        if hasattr(self, 'image_viewer') and self.image_viewer:
+                            self.image_viewer.tool_manager.deactivate_tool('pt_operation')
+                        
                         # Add new box to processor (create independent copy to avoid shared reference)
                         if self.projProc:
                             box_copy = ProcessingBox(
@@ -2005,11 +1804,7 @@ class ProjectionTracesGUI(BaseGUI):
                                 peaks=new_box.peaks.copy() if new_box.peaks else [],
                                 merid_bg=new_box.merid_bg,
                                 hull_range=new_box.hull_range,
-                                param_bounds=(
-                                    new_box.param_bounds.copy()
-                                    if new_box.param_bounds
-                                    else {}
-                                ),
+                                param_bounds=new_box.param_bounds.copy() if new_box.param_bounds else {},
                                 use_common_sigma=new_box.use_common_sigma,
                                 peak_tolerance=new_box.peak_tolerance,
                                 sigma_tolerance=new_box.sigma_tolerance,
@@ -2032,144 +1827,72 @@ class ProjectionTracesGUI(BaseGUI):
                     typ = box_obj.type
                     centerx = self.centerx
                     centery = self.centery
-                    comp_x, comp_y = x, y  # use a placeholder x,y for comparisons
+                    comp_x, comp_y = x, y # use a placeholder x,y for comparisons
 
                     # if oriented, then rotate x and y into the box
-                    if typ == "oriented":
+                    if typ == 'oriented':
                         # switch center to the box center
                         centerx, centery = box[6][0], box[6][1]
                         # d = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
-                        comp_x, comp_y = rotatePoint(
-                            (centerx, centery), (comp_x, comp_y), -np.radians(box[5])
-                        )
+                        comp_x, comp_y = rotatePoint((centerx, centery), (comp_x, comp_y), -np.radians(box[5]))
 
                     if boxx[0] <= comp_x <= boxx[1] and boxy[0] <= comp_y <= boxy[1]:
                         if name not in peaks:
                             peaks[name] = []
 
-                        if typ == "h":
-                            distance = int(round(abs(centerx - comp_x)))
+                        if typ == 'h':
+                            distance = int(round(abs(centerx-comp_x)))
                             peaks[name].append(distance)
-                            ax.plot(
-                                (centerx - distance, centerx - distance),
-                                boxy,
-                                color="r",
-                            )
-                            ax.plot(
-                                (centerx + distance, centerx + distance),
-                                boxy,
-                                color="r",
-                            )
-                        elif typ == "oriented":
-                            distance = np.sqrt(
-                                (centerx - comp_x) ** 2 + (centery - comp_y) ** 2
-                            )
-                            edge_1 = rotatePoint(
-                                (centerx, centery),
-                                (centerx - distance, boxy[0]),
-                                np.radians(box[5]),
-                            )
-                            edge_2 = rotatePoint(
-                                (centerx, centery),
-                                (centerx - distance, boxy[1]),
-                                np.radians(box[5]),
-                            )
-                            edge_3 = rotatePoint(
-                                (centerx, centery),
-                                (centerx + distance, boxy[0]),
-                                np.radians(box[5]),
-                            )
-                            edge_4 = rotatePoint(
-                                (centerx, centery),
-                                (centerx + distance, boxy[1]),
-                                np.radians(box[5]),
-                            )
+                            ax.plot((centerx-distance, centerx-distance), boxy, color='r')
+                            ax.plot((centerx+distance, centerx+distance), boxy, color='r')
+                        elif typ == 'oriented':
+                            distance = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
+                            edge_1 = rotatePoint((centerx, centery), (centerx-distance, boxy[0]), np.radians(box[5]))
+                            edge_2 = rotatePoint((centerx, centery), (centerx-distance, boxy[1]), np.radians(box[5]))
+                            edge_3 = rotatePoint((centerx, centery), (centerx+distance, boxy[0]), np.radians(box[5]))
+                            edge_4 = rotatePoint((centerx, centery), (centerx+distance, boxy[1]), np.radians(box[5]))
 
-                            ax.plot(
-                                (edge_1[0], edge_2[0]),
-                                (edge_1[1], edge_2[1]),
-                                color="r",
-                            )
-                            ax.plot(
-                                (edge_3[0], edge_4[0]),
-                                (edge_3[1], edge_4[1]),
-                                color="r",
-                            )
+                            ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r')
+                            ax.plot((edge_3[0], edge_4[0]), (edge_3[1], edge_4[1]), color='r')
 
                             peaks[name].append(distance)
                         else:
                             distance = int(round(abs(centery - comp_y)))
                             peaks[name].append(distance)
-                            ax.plot(
-                                boxx,
-                                (centery - distance, centery - distance),
-                                color="r",
-                            )
-                            ax.plot(
-                                boxx,
-                                (centery + distance, centery + distance),
-                                color="r",
-                            )
+                            ax.plot(boxx, (centery - distance, centery - distance), color='r')
+                            ax.plot(boxx, (centery + distance, centery + distance), color='r')
                         break
                 self.displayImgCanvas.draw_idle()
+
+
 
     def genBoxArtists(self, name, box, btype):
         """
         Generate aritists to represent a box on Axes.
         """
-        if btype in ("h", "v"):
+        if btype in ('h', 'v'):
             x, x2, y, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
             w, h = x2 - x, y2 - y
 
             box = {}
-            if btype == "h":
-                box["rect"] = patches.Rectangle(
-                    (x, y), w, h, linewidth=1, edgecolor="#95f70c", facecolor="none"
-                )
-                box["text"] = matplotlib.text.Text(
-                    x + w + 10,
-                    y + h / 2.0,
-                    name,
-                    color="#95f70c",
-                    fontsize=10,
-                    horizontalalignment="left",
-                    verticalalignment="center",
-                )
+            if btype == 'h':
+                box['rect'] = patches.Rectangle((x, y), w, h,
+                    linewidth=1, edgecolor='#95f70c', facecolor='none')
+                box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., name, color='#95f70c',
+                    fontsize=10, horizontalalignment='left', verticalalignment='center')
             else:
-                box["rect"] = patches.Rectangle(
-                    (x, y), w, h, linewidth=1, edgecolor="y", facecolor="none"
-                )
-                box["text"] = matplotlib.text.Text(
-                    x + w / 2.0,
-                    y - 20,
-                    name,
-                    color="y",
-                    fontsize=10,
-                    horizontalalignment="center",
-                    verticalalignment="center",
-                )
-        elif btype == "oriented":
+                box['rect'] = patches.Rectangle((x, y), w, h,
+                    linewidth=1, edgecolor='y', facecolor='none')
+                box['text'] = matplotlib.text.Text(x + w /2. , y - 20, name, color='y',
+                    fontsize=10, horizontalalignment='center', verticalalignment='center')
+        elif btype == 'oriented':
             bottom_left, w, h, angle = box[2], box[3], box[4], box[5]
             x, y = box[0][0], box[1][0]
             box = {}
-            box["rect"] = patches.Rectangle(
-                bottom_left,
-                w,
-                h,
-                angle=angle,
-                linewidth=1,
-                edgecolor="#95f70c",
-                facecolor="none",
-            )
-            box["text"] = matplotlib.text.Text(
-                bottom_left[0] - (20 * len(name)),
-                bottom_left[1] - 30,
-                name,
-                color="#95f70c",
-                fontsize=10,
-                horizontalalignment="left",
-                verticalalignment="center",
-            )
+            box['rect'] = patches.Rectangle(bottom_left, w, h, angle=angle,
+                linewidth=1, edgecolor='#95f70c', facecolor='none')
+            box['text'] = matplotlib.text.Text(bottom_left[0]-(20*len(name)), bottom_left[1]-30, name, color='#95f70c',
+                fontsize=10, horizontalalignment='left', verticalalignment='center')
         return box
 
     def imgOnMotion(self, event):
@@ -2187,17 +1910,11 @@ class ProjectionTracesGUI(BaseGUI):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
-            calSettings = (
-                self.workspace.calibration_settings
-                if hasattr(self, "workspace")
-                else None
-            )
+            calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
             if x < img.shape[1] and y < img.shape[0]:
-                if calSettings is not None and "scale" in calSettings:
+                if calSettings is not None and 'scale' in calSettings:
                     center = self.projProc.center
-                    q_x, q_y, q_R, unit = qFromCenter(
-                        [x, y], center, calSettings["scale"]
-                    )
+                    q_x, q_y, q_R, unit = qFromCenter([x, y], center, calSettings['scale'])
                     r_px = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
                     self.imgCoordOnStatusBar.setText(
                         f"x={x}, y={y}, r={r_px:.1f} px, "
@@ -2205,9 +1922,7 @@ class ProjectionTracesGUI(BaseGUI):
                     )
                 else:
                     center = self.projProc.center
-                    mouse_distance = np.sqrt(
-                        (center[0] - x) ** 2 + (center[1] - y) ** 2
-                    )
+                    mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
                     self.imgCoordOnStatusBar.setText(
                         f"x={x}, y={y}, value={img[y][x]}, distance={mouse_distance:.4f} px"
                     )
@@ -2235,19 +1950,19 @@ class ProjectionTracesGUI(BaseGUI):
         if func is None:
             return
 
-        if func[0] == "box":
+        if func[0] == 'box':
             if len(func) == 1:
                 # cross lines
                 for line in list(ax.lines):
                     if line.get_label() != "Blue Dot":
                         line.remove()
-                ax.axhline(y, color="y", linestyle="dotted")
-                ax.axvline(x, color="y", linestyle="dotted")
+                ax.axhline(y, color='y', linestyle='dotted')
+                ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 2:
                 # draw rectangle
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches) - 1, len(self.boxes.keys()) - 1, -1):
+                    for i in range(len(ax.patches)-1,len(self.boxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.boxes.keys())]
                 for line in list(ax.lines):
@@ -2258,35 +1973,18 @@ class ProjectionTracesGUI(BaseGUI):
                 h = abs(start_pt[1] - y)
                 x = min(start_pt[0], x)
                 y = min(start_pt[1], y)
-                ax.add_patch(
-                    patches.Rectangle(
-                        (x, y),
-                        w,
-                        h,
-                        linewidth=1,
-                        edgecolor="r",
-                        facecolor="none",
-                        linestyle="dotted",
-                    )
-                )
+                ax.add_patch(patches.Rectangle((x, y), w, h,
+                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
                 self.displayImgCanvas.draw_idle()
 
-        elif func[0] == "oriented_box" or func[0] == "center_oriented_box":
+        elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
             if len(func) == 1:
                 axis_size = 5
                 for line in list(ax.lines):
                     if line.get_label() != "Blue Dot":
                         line.remove()
-                ax.plot(
-                    (x - axis_size, x + axis_size),
-                    (y - axis_size, y + axis_size),
-                    color="r",
-                )
-                ax.plot(
-                    (x - axis_size, x + axis_size),
-                    (y + axis_size, y - axis_size),
-                    color="r",
-                )
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
                 self.displayImgCanvas.draw_idle()
             if len(func) == 2:
@@ -2301,15 +1999,15 @@ class ProjectionTracesGUI(BaseGUI):
                         line.remove()
                 ax.plot([x, x2], [y, y2], color="r")
                 self.displayImgCanvas.draw_idle()
-            elif len(func) == 3:  # get the width of the box
+            elif len(func) == 3: # get the width of the box
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches) - 1, len(self.boxes.keys()) - 1, -1):
+                    for i in range(len(ax.patches)-1,len(self.boxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.boxes.keys())]
 
                 angle = np.radians(90 - func[2][4])
-                p_mouse = np.array([x, y])
-                if func[2][0] < func[2][1]:  # p1 is to the left
+                p_mouse = np.array([x,y])
+                if func[2][0] < func[2][1]: # p1 is to the left
                     p_left = np.array((func[2][0], func[2][2]))
                     p_right = np.array((func[2][1], func[2][3]))
                 else:
@@ -2318,68 +2016,36 @@ class ProjectionTracesGUI(BaseGUI):
 
                 v1 = p_left - p_right
                 v2 = p_mouse - p_right
-                u = v1 / np.linalg.norm(v1)
+                u = v1/np.linalg.norm(v1)
                 n = (-u[1], u[0])
 
                 height = np.abs(np.dot(v2, n))
                 width = np.linalg.norm(p_left - p_right)
 
-                if height * 2 < width:
+                if height*2 < width:
 
-                    x1_left = p_left[0] - height * np.cos(angle)
-                    y1_left = p_left[1] - height * np.sin(angle)
-                    x2_left = p_left[0] + height * np.cos(angle)
-                    y2_left = p_left[1] + height * np.sin(angle)
-                    x1_right = p_right[0] - height * np.cos(angle)
-                    y1_right = p_right[1] - height * np.sin(angle)
-                    x2_right = p_right[0] + height * np.cos(angle)
-                    y2_right = p_right[1] + height * np.sin(angle)
+                    x1_left = p_left[0] - height*np.cos(angle)
+                    y1_left = p_left[1] - height*np.sin(angle)
+                    x2_left = p_left[0] + height*np.cos(angle)
+                    y2_left = p_left[1] + height*np.sin(angle)
+                    x1_right = p_right[0] - height*np.cos(angle)
+                    y1_right = p_right[1] - height*np.sin(angle)
+                    x2_right= p_right[0] + height*np.cos(angle)
+                    y2_right= p_right[1] + height*np.sin(angle)
 
                     for line in list(ax.lines):
                         if line.get_label() != "Blue Dot":
                             line.remove()
-                    ax.plot(
-                        [func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r"
-                    )
+                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
 
-                    ax.plot(
-                        [p_left[0], x2_left],
-                        [p_left[1], y2_left],
-                        color="r",
-                        linestyle="dotted",
-                    )
-                    ax.plot(
-                        [x1_left, p_left[0]],
-                        [y1_left, p_left[1]],
-                        color="r",
-                        linestyle="dotted",
-                    )
+                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
 
-                    ax.plot(
-                        [p_right[0], x2_right],
-                        [p_right[1], y2_right],
-                        color="r",
-                        linestyle="dotted",
-                    )
-                    ax.plot(
-                        [x1_right, p_right[0]],
-                        [y1_right, p_right[1]],
-                        color="r",
-                        linestyle="dotted",
-                    )
+                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
 
-                    ax.plot(
-                        [x1_left, x1_right],
-                        [y1_left, y1_right],
-                        color="r",
-                        linestyle="dotted",
-                    )
-                    ax.plot(
-                        [x2_left, x2_right],
-                        [y2_left, y2_right],
-                        color="r",
-                        linestyle="dotted",
-                    )
+                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
 
                     self.displayImgCanvas.draw_idle()
 
@@ -2387,13 +2053,12 @@ class ProjectionTracesGUI(BaseGUI):
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
                 move = (func[1][0] - x, func[1][1] - y)
-                self.img_zoom = getNewZoom(
-                    self.img_zoom, move, img.shape[1], img.shape[0]
-                )
+                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.displayImgCanvas.draw_idle()
+
 
     def imgReleased(self, event):
         """
@@ -2401,7 +2066,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         if self.function is not None:
             func = self.function
-            if func[0] == "im_move":
+            if func[0] == 'im_move':
                 self.function = None
 
     def leaveImage(self, event):
@@ -2429,12 +2094,12 @@ class ProjectionTracesGUI(BaseGUI):
         zoom_height = self.img_zoom[1][1] - self.img_zoom[1][0]
         zoom_width = self.img_zoom[0][1] - self.img_zoom[0][0]
 
-        clicked_x_percentage = 1.0 * (x - self.img_zoom[0][0]) / zoom_width
-        clicked_y_percentage = 1.0 * (y - self.img_zoom[1][0]) / zoom_height
+        clicked_x_percentage = 1. * (x - self.img_zoom[0][0]) / zoom_width
+        clicked_y_percentage = 1. * (y - self.img_zoom[1][0]) / zoom_height
 
-        step_x = 0.1 * zoom_width
-        step_y = 0.1 * zoom_height
-        if direction == "up":  # zoom in
+        step_x = .1 * zoom_width
+        step_y = .1 * zoom_height
+        if direction == 'up':  # zoom in
             step_x *= -1
             step_y *= -1
         zoom_width = min(img_size[1], max(zoom_width + step_x, 50))
@@ -2474,88 +2139,76 @@ class ProjectionTracesGUI(BaseGUI):
     # NOTE: _create_image_data() moved to ImageData.from_settings_panel() factory method
 
     # ==================== ProcessingWorkspace Integration (New Pattern) ====================
-
+    
     def _on_folder_loaded(self, dir_path: str):
         """
         Called when a new file/folder is loaded (BEFORE first image loads).
-
+        
         This is the folder-level initialization hook, following the QF pattern.
         Handles:
         - Loading cached boxes and peaks
         - Creating CSV manager
         - Updating UI state
         - Setting H5 mode
-
+        
         Args:
             dir_path: Directory path of the loaded file/folder
         """
         # Update directory path
         self.dir_path = dir_path
-
+        
         # Enable PT-specific settings groups
         self.propGrp.setEnabled(True)
         self.boxGrp.setEnabled(True)
-
+        
         # Load cached box configuration from previous session
         cache = self.loadBoxesConfig()
         if cache is not None:
-            self.boxes = cache["boxes"]
-            self.centerx = cache.get("centerx")
-            self.centery = cache.get("centery")
+            self.boxes = cache['boxes']
+            self.centerx = cache.get('centerx')
+            self.centery = cache.get('centery')
             # Create visual representations
             for name, box in self.boxes.items():
-                self.boxes_on_img[name] = self.genBoxArtists(
-                    name, box.coordinates, box.type
-                )
+                self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
         else:
             self.boxes = {}
-
+        
         # Create CSV manager for this folder (write to output dir)
-        csv_dir = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
+        csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
         self.csvManager = PT_CSVManager(csv_dir, self.boxes)
-
+        
         # Add box tabs for loaded boxes
         self.addBoxTabs()
         self.selectPeaksGrp.setEnabled(False)
-
+        
         print(f"Folder loaded: {dir_path}")
         print(f"  - Boxes loaded: {len(self.boxes)}")
-
+    
     def _on_image_data_ready(self, image_data):
         """
         Called when ImageData is ready for processing (main processing entry point).
-
+        
         Cache-first strategy:
         1. Create ProjectionProcessor (automatically loads image-level cache if exists)
         2. If cache exists → use it directly (skip folder template)
         3. If no cache → use folder template as initial config
         4. Process image
         5. Update folder cache with refined results
-
+        
         Args:
             image_data: ImageData instance ready for processing
         """
         try:
             # Create ProjectionProcessor (automatically loads image cache in __init__)
-            pt_output = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else None
-            )
+            pt_output = self.workspace.dir_context.output_dir if self.workspace.dir_context else None
             self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
-
+            
             # Check if image-level cache was loaded
             image_cache_loaded = len(self.projProc.boxes) > 0
             if image_cache_loaded:
                 for name, proc_box in self.projProc.boxes.items():
                     if name not in self.boxes_on_img:
-                        self.boxes_on_img[name] = self.genBoxArtists(
-                            name, proc_box.coordinates, proc_box.type
-                        )
+                        self.boxes_on_img[name] = self.genBoxArtists(name, proc_box.coordinates, proc_box.type)
             else:
                 # Transfer folder template to Processor (without results)
                 for name, box in self.boxes.items():
@@ -2565,80 +2218,73 @@ class ProjectionTracesGUI(BaseGUI):
                         coordinates=box.coordinates,
                         type=box.type,
                         bgsub=box.bgsub,
-                        peaks=(
-                            box.peaks.copy() if box.peaks else []
-                        ),  # Direct copy, already first half
+                        peaks=box.peaks.copy() if box.peaks else [],  # Direct copy, already first half
                         merid_bg=box.merid_bg,
                         hull_range=box.hull_range,
-                        param_bounds=(
-                            box.param_bounds.copy() if box.param_bounds else {}
-                        ),
+                        param_bounds=box.param_bounds.copy() if box.param_bounds else {},
                         use_common_sigma=box.use_common_sigma,
                         peak_tolerance=box.peak_tolerance,
                         sigma_tolerance=box.sigma_tolerance,
                         # Results fields default to None
                     )
                     print(f"  After direct copy: {len(box_copy.peaks)} peaks")
-
+                    
                     # Expand peaks by mirroring user-selected peaks
                     # (folder template only contains first half)
                     self._expand_peaks_mirrored(box_copy)
-
+                    
                     self.projProc.state.boxes[name] = box_copy
-
+                    
                     # Update visual representations
                     if name not in self.boxes_on_img:
-                        self.boxes_on_img[name] = self.genBoxArtists(
-                            name, box.coordinates, box.type
-                        )
-
+                        self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
+            
             # Update ProcessingWorkspace display
             self.workspace.update_display(image_data)
-
+            
             # Initialize non-view UI for new image
             self.initMaskThreshold(self.projProc)
             self.refreshStatusbar()
             self.updateCenter()
-
+            
             # Refresh box tabs to match current boxes
             # This ensures tabs are synchronized with the actual boxes for this image
             self.addBoxTabs()
-
+            
             # Process the image
             # If image-level cache exists, skip ProjectionProcessor.process() (expensive full pipeline)
             # and only run UI/data export steps using cached results.
             self.processImage(use_cache=image_cache_loaded)
-
+            
         except Exception as e:
             import traceback
-
             QMessageBox.critical(
-                self,
-                "Error Processing Image",
-                f"Failed to process image: {str(e)}\n\n{traceback.format_exc()}",
+                self, 
+                "Error Processing Image", 
+                f"Failed to process image: {str(e)}\n\n{traceback.format_exc()}"
             )
             print(f"Error in _on_image_data_ready: {e}")
             traceback.print_exc()
-
+    
     def _on_needs_reprocess(self):
         """
         Handle workspace needsReprocess signal.
-
+        
         Called when settings change (e.g., quadrant folded checkbox, center, rotation).
         Performs PT-specific UI updates before reprocessing.
         """
         if self.projProc is None:
             return
-
+        
         # Update center display
         self.updateCenter()
-
+        
         # Refresh box tabs (needed when quadrant folded state changes)
         self.addBoxTabs()
-
+        
         # Reprocess image with new settings
         self.processImage()
-
+        
         # Update image display
         self.updateImage()
 
@@ -2647,7 +2293,7 @@ class ProjectionTracesGUI(BaseGUI):
     def onTabChanged(self, index):
         """
         Handle tab switching by moving the shared navigation controls to the active tab.
-
+        
         NavigationControls is a single shared instance (from ImageNavigatorWidget).
         It is dynamically reparented to whichever tab is currently active, following
         the same pattern used by QuadrantFoldingGUI.onTabChanged().
@@ -2664,7 +2310,7 @@ class ProjectionTracesGUI(BaseGUI):
             self.right_panel.add_bottom_widget(self.navControls)
         else:  # Box tabs
             tab = self.tabWidget.widget(index)
-            if isinstance(tab, ProjectionBoxTab) and hasattr(tab, "right_panel"):
+            if isinstance(tab, ProjectionBoxTab) and hasattr(tab, 'right_panel'):
                 tab.right_panel.add_bottom_widget(self.navControls)
 
         # Trigger UI update
@@ -2673,7 +2319,7 @@ class ProjectionTracesGUI(BaseGUI):
     def _move_nav_controls_to_image_tab(self):
         """
         Move shared navControls back to Image tab's right panel.
-
+        
         Safety method called before destroying box tabs (addBoxTabs, removeTab)
         to prevent navControls from being destroyed along with its parent tab.
         """
@@ -2685,55 +2331,55 @@ class ProjectionTracesGUI(BaseGUI):
         self.right_panel.add_bottom_widget(self.navControls)
 
     # ==================== Navigation Interface (For Child Components) ====================
-
+    
     def prevClicked(self):
         """
         Navigate to previous image.
-
+        
         Public interface method for child components (e.g., ProjectionBoxTab).
         ProjectionBoxTab has prev/next buttons in each box tab that allow users to
         navigate between images without switching back to the main image tab.
-
+        
         This method provides a stable interface that child components can depend on,
         while hiding the internal implementation details (workspace/navigator structure).
         """
-        if hasattr(self, "workspace") and self.workspace.navigator:
+        if hasattr(self, 'workspace') and self.workspace.navigator:
             self.workspace.navigator.navigate_prev()
-
+    
     def nextClicked(self):
         """
         Navigate to next image.
-
+        
         Public interface method for child components (e.g., ProjectionBoxTab).
         ProjectionBoxTab has prev/next buttons in each box tab that allow users to
         navigate between images without switching back to the main image tab.
-
+        
         This method provides a stable interface that child components can depend on,
         while hiding the internal implementation details (workspace/navigator structure).
         """
-        if hasattr(self, "workspace") and self.workspace.navigator:
+        if hasattr(self, 'workspace') and self.workspace.navigator:
             self.workspace.navigator.navigate_next()
-
+    
     def prevFileClicked(self):
         """
         Navigate to previous H5 file.
-
+        
         Public interface method for child components that need H5 file navigation.
         Used when working with HDF5 files that contain multiple images.
         """
-        if hasattr(self, "workspace") and self.workspace.navigator:
+        if hasattr(self, 'workspace') and self.workspace.navigator:
             self.workspace.navigator.navigate_prev_file()
-
+    
     def nextFileClicked(self):
         """
         Navigate to next H5 file.
-
+        
         Public interface method for child components that need H5 file navigation.
         Used when working with HDF5 files that contain multiple images.
         """
-        if hasattr(self, "workspace") and self.workspace.navigator:
+        if hasattr(self, 'workspace') and self.workspace.navigator:
             self.workspace.navigator.navigate_next_file()
-
+    
     def _on_browse_file(self):
         """Handle file browse menu action."""
         self.workspace.navigator.browse_file()
@@ -2748,9 +2394,7 @@ class ProjectionTracesGUI(BaseGUI):
         img = projProc.orig_img
         self.syncUI = True
 
-        self.maskThresSpnBx.valueChanged.disconnect(
-            self.maskThresChanged
-        )  # Avoid an extra run at launch
+        self.maskThresSpnBx.valueChanged.disconnect(self.maskThresChanged)  # Avoid an extra run at launch
         if self.projProc.state.mask_thres is not None:
             self.maskThresSpnBx.setValue(self.projProc.state.mask_thres)
         elif self.maskThresSpnBx.value() == -999:
@@ -2763,13 +2407,13 @@ class ProjectionTracesGUI(BaseGUI):
     def updateCenter(self, refit=False):
         """
         Update the image center (simplified - center is now managed by ImageData).
-
+        
         This method now mainly syncs legacy variables (centerx/centery) from
         the ImageData's dynamic center property and ensures checkbox state is correct.
         """
         if self.projProc is None:
             return
-
+        
         # Get center from ImageData (handles quadrant_folded, manual, computed automatically)
         center = self.projProc.center
         self.centerx = center[0]
@@ -2782,7 +2426,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Process Image by applying settings and calling process() of ProjectionProcessor.
         Then, write data and update UI.
-
+        
         Args:
             use_cache: If True, use cached computation results (rotation still applied)
         """
@@ -2799,35 +2443,30 @@ class ProjectionTracesGUI(BaseGUI):
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
-            errMsg.setText("Unexpected error")
-            msg = "Please report the problem with error message below and the input image\n\n"
-            msg += (
-                "Error : "
-                + str(sys.exc_info()[0])
-                + "\n\n"
-                + str(traceback.format_exc())
-            )
+            errMsg.setText('Unexpected error')
+            msg = 'Please report the problem with error message below and the input image\n\n'
+            msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.setFixedWidth(300)
             errMsg.exec_()
             raise
-
+        
         print("after")
         print("Center:", self.projProc.center)
-        if hasattr(self, "projProc") and self.projProc:
+        if hasattr(self, 'projProc') and self.projProc:
             # Update center display with coordinates from ProjectionProcessor
             self.workspace._center_widget.update_current_center(
                 self.projProc.center  # Current center coordinates
             )
-
+        
         # === Update folder cache with refined results ===
         self._update_folder_cache_from_results()
-
+        
         # Note: Keep self.boxes as folder template (config-only, peaks = first half)
         # Don't sync full results back to maintain clean state
-
+        
         self.resetUI()
         self.refreshStatusbar()
 
@@ -2835,38 +2474,38 @@ class ProjectionTracesGUI(BaseGUI):
         self.csvManager.setColumnNames(self.projProc.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
-
+        
         # Restore reject checkbox state from cache
         self.rejectChkBx.blockSignals(True)
         self.rejectChkBx.setChecked(self.projProc.state.rejected)
         self.rejectChkBx.blockSignals(False)
-
+        
         # Restore comments from cache
         self._restoreCommentsDisplay()
-
+        
         # Reopen parameter editors that were deferred by addBoxTabs().
         # Now fit_results are available after processing.
         self._reopenPendingParameterEditors()
-
+        
         QApplication.restoreOverrideCursor()
 
     def thread_done(self, projProc):
         if self.lock is not None:
             self.lock.acquire()
         self.projProc = projProc
-
+        
         self.onProcessingFinished()
-
+        
         if self.lock is not None:
             self.lock.release()
-
-    # placeholder method
+        
+    # placeholder method 
     def thread_finished(self):
         print("thread finished")
         if self.progressBar.isVisible():
             self.tasksDone += 1
-            self.progressBar.setValue(int(100.0 / self.numberOfFiles * self.tasksDone))
-
+            self.progressBar.setValue(int(100. / self.numberOfFiles * self.tasksDone))
+        
         if not self.tasksQueue.empty():
             self.startNextTask()
         else:
@@ -2874,10 +2513,10 @@ class ProjectionTracesGUI(BaseGUI):
                 print("all threads are done")
                 self.progressBar.setVisible(False)
                 self.csvManager.sortCSV()
-
+    
     def addTask(self, i, boxes_copy=None):
         """Add a processing task to the queue (for batch processing).
-
+        
         Args:
             i: Image index to process
             boxes_copy: Pre-copied boxes configuration (shared across batch)
@@ -2887,16 +2526,15 @@ class ProjectionTracesGUI(BaseGUI):
             index=i,
             file_manager=self.file_manager,
             gui=self,
-            boxes_copy=boxes_copy or self._create_boxes_copy(),
+            boxes_copy=boxes_copy or self._create_boxes_copy()
         )
         self.tasksQueue.put(params)
-
+        
         self.startNextTask()
-
+    
     def _create_boxes_copy(self):
         """Create a deep copy of folder template boxes for batch processing."""
         from copy import deepcopy
-
         boxes_copy = {}
         for name, box in self.boxes.items():
             boxes_copy[name] = ProcessingBox(
@@ -2913,45 +2551,43 @@ class ProjectionTracesGUI(BaseGUI):
                 sigma_tolerance=box.sigma_tolerance,
             )
         return boxes_copy
-
+            
     def startNextTask(self):
-        while (
-            not self.tasksQueue.empty()
-            and self.threadPool.activeThreadCount()
-            < self.threadPool.maxThreadCount() / 2
-        ):
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
             self.currentTask = Worker.fromParams(params)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             self.threadPool.start(self.currentTask)
-
+    
+    
     def onProcessingFinished(self):
         # Update folder cache with refined results
         self._update_folder_cache_from_results()
-
+        
         # Note: Keep self.boxes as folder template (config-only, peaks = first half)
         # Don't sync full results back to maintain clean state
-
+        
         self.resetUI()
         self.refreshStatusbar()
-
+        
         # Use projProc.boxes for CSV columns (has full peaks info from processing)
         self.csvManager.setColumnNames(self.projProc.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
-
+        
         # Restore reject checkbox state from cache
         self.rejectChkBx.blockSignals(True)
         self.rejectChkBx.setChecked(self.projProc.state.rejected)
         self.rejectChkBx.blockSignals(False)
-
+        
         # Restore comments from cache
         self._restoreCommentsDisplay()
-
+        
         QApplication.restoreOverrideCursor()
         self.currentTask = None
         print("all done")
+        
 
     def _restoreCommentsDisplay(self):
         """Restore comments display from cache and ensure display mode is active."""
@@ -2975,10 +2611,10 @@ class ProjectionTracesGUI(BaseGUI):
         if self.projProc is not None:
             # Update ProcessingState
             self.projProc.state.rejected = self.rejectChkBx.isChecked()
-
+            
             # Save to cache
             self.projProc.cacheInfo()
-
+            
             # Update CSV
             if self.csvManager is not None:
                 self.csvManager.writeNewData(self.projProc)
@@ -2987,12 +2623,12 @@ class ProjectionTracesGUI(BaseGUI):
         """Switch comments to edit mode."""
         if self.projProc is None:
             return
-
+        
         # Hide display mode widgets
         self.commentsLabel.hide()
         self.editCommentsBtn.hide()
         self.clearCommentsBtn.hide()
-
+        
         # Show edit mode widgets
         self.commentsLineEdit.setText(self.projProc.state.comments)
         self.commentsLineEdit.show()
@@ -3004,13 +2640,13 @@ class ProjectionTracesGUI(BaseGUI):
         """Clear comments, save to cache and CSV."""
         if self.projProc is None:
             return
-
+        
         self.projProc.state.comments = ""
         self.commentsLabel.setText("No comments")
-
+        
         # Save to cache
         self.projProc.cacheInfo()
-
+        
         # Update CSV
         if self.csvManager is not None:
             self.csvManager.writeNewData(self.projProc)
@@ -3019,14 +2655,14 @@ class ProjectionTracesGUI(BaseGUI):
         """Submit edited comments, save to cache and CSV."""
         if self.projProc is None:
             return
-
+        
         # Update state
         new_comments = self.commentsLineEdit.text().strip()
         self.projProc.state.comments = new_comments
-
+        
         # Update display
         self.commentsLabel.setText(new_comments if new_comments else "No comments")
-
+        
         # Switch back to display mode
         self.commentsLineEdit.hide()
         self.submitCommentsBtn.hide()
@@ -3034,10 +2670,10 @@ class ProjectionTracesGUI(BaseGUI):
         self.commentsLabel.show()
         self.editCommentsBtn.show()
         self.clearCommentsBtn.show()
-
+        
         # Save to cache
         self.projProc.cacheInfo()
-
+        
         # Update CSV
         if self.csvManager is not None:
             self.csvManager.writeNewData(self.projProc)
@@ -3057,123 +2693,95 @@ class ProjectionTracesGUI(BaseGUI):
         :return:
         """
         if self.exportChkBx.isChecked() and self.projProc:
-            pt_out = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else self.dir_path
-            )
-            path = fullPath(pt_out, os.path.join("pt_results", "1d_projections"))
+            pt_out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+            path = fullPath(pt_out, os.path.join('pt_results', '1d_projections'))
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
-            orig_hists = {
-                name: box.hist
-                for name, box in self.projProc.boxes.items()
-                if box.hist is not None
-            }
-            subtr_hists = {
-                name: box.subtracted_hist
-                for name, box in self.projProc.boxes.items()
-                if box.subtracted_hist is not None
-            }
+            orig_hists = {name: box.hist for name, box in self.projProc.boxes.items() if box.hist is not None}
+            subtr_hists = {name: box.subtracted_hist for name, box in self.projProc.boxes.items() if box.subtracted_hist is not None}
 
             for k in orig_hists.keys():
                 hist = orig_hists[k]
                 xs = np.arange(len(hist))
-                f = open(
-                    fullPath(path, filename + "_box_" + str(k) + "_original.txt"), "w"
-                )
+                f = open(fullPath(path, filename+'_box_'+str(k)+'_original.txt'), 'w')
                 coords = zip(xs, hist)
-                f.write(
-                    "\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords)))
-                )
+                f.write("\n".join(list(map(lambda c : str(c[0])+"\t"+str(c[1]), coords))))
                 if k in subtr_hists:
                     sub_hist = subtr_hists[k]
-                    f = open(
-                        fullPath(path, filename + "_box_" + str(k) + "_subtracted.txt"),
-                        "w",
-                    )
+                    f = open(fullPath(path, filename+'_box_' + str(k) + '_subtracted.txt'), 'w')
                     coords = zip(xs, sub_hist)
-                    f.write(
-                        "\n".join(
-                            list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))
-                        )
-                    )
+                    f.write("\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))))
 
     def _expand_peaks_mirrored(self, box: ProcessingBox):
         """
         Expand peaks in a ProcessingBox by mirroring the first half.
-
+        
         User-selected peaks (first half) are mirrored to create symmetric peaks.
         For example: [10, 20, 30] -> [10, 20, 30, -10, -20, -30]
-
+        
         Modifies box.peaks in-place.
-
+        
         Note: hull_range is NOT mirrored because it's already a symmetric concept:
         hull_range = (start, end) means distance from center, applied to both sides.
-
+        
         Args:
             box: ProcessingBox with user-selected peaks (first half only)
         """
         if not box.peaks:
             print(f"  [_expand_peaks_mirrored] Box '{box.name}': No peaks to expand")
             return
-
+        
         # Mirror peaks: first half stays, add mirrored second half
         user_peaks = box.peaks  # Already only the first half
         mirrored_peaks = [-p for p in user_peaks]
         box.peaks = user_peaks + mirrored_peaks
-
-        print(
-            f"  [_expand_peaks_mirrored] Box '{box.name}': {len(user_peaks)} user peaks → {len(box.peaks)} total peaks"
-        )
+        
+        print(f"  [_expand_peaks_mirrored] Box '{box.name}': {len(user_peaks)} user peaks → {len(box.peaks)} total peaks")
         print(f"    User selected: {user_peaks}")
         print(f"    After mirroring: {box.peaks}")
-
+        
         # hull_range doesn't need mirroring - it's already symmetric
         # (start, end) defines distance ranges from center for both positive and negative sides
-
+    
     def _box_to_dict(self, box: ProcessingBox) -> dict:
         return {
-            "name": box.name,
-            "coordinates": box.coordinates,
-            "type": box.type,
-            "bgsub": box.bgsub,
-            "peaks": box.peaks,
-            "merid_bg": box.merid_bg,
-            "hull_range": box.hull_range,
-            "param_bounds": box.param_bounds,
-            "use_common_sigma": box.use_common_sigma,
-            "peak_tolerance": box.peak_tolerance,
-            "sigma_tolerance": box.sigma_tolerance,
+            'name': box.name,
+            'coordinates': box.coordinates,
+            'type': box.type,
+            'bgsub': box.bgsub,
+            'peaks': box.peaks,
+            'merid_bg': box.merid_bg,
+            'hull_range': box.hull_range,
+            'param_bounds': box.param_bounds,
+            'use_common_sigma': box.use_common_sigma,
+            'peak_tolerance': box.peak_tolerance,
+            'sigma_tolerance': box.sigma_tolerance,
         }
 
     def _dict_to_box(self, box_dict: dict) -> ProcessingBox:
         # Convert lists back to tuples where needed (JSON doesn't preserve tuple type)
-        coordinates = box_dict["coordinates"]
+        coordinates = box_dict['coordinates']
         if isinstance(coordinates, list):
-            coordinates = tuple(
-                tuple(item) if isinstance(item, list) else item for item in coordinates
-            )
-
-        hull_range = box_dict.get("hull_range")
+            coordinates = tuple(tuple(item) if isinstance(item, list) else item 
+                              for item in coordinates)
+        
+        hull_range = box_dict.get('hull_range')
         if hull_range is not None and isinstance(hull_range, list):
             hull_range = tuple(hull_range)
-
+        
         return ProcessingBox(
-            name=box_dict["name"],
+            name=box_dict['name'],
             coordinates=coordinates,
-            type=box_dict["type"],
-            bgsub=box_dict["bgsub"],
-            peaks=box_dict.get("peaks", []),
-            merid_bg=box_dict.get("merid_bg", False),
+            type=box_dict['type'],
+            bgsub=box_dict['bgsub'],
+            peaks=box_dict.get('peaks', []),
+            merid_bg=box_dict.get('merid_bg', False),
             hull_range=hull_range,
-            param_bounds=box_dict.get("param_bounds", {}),
-            use_common_sigma=box_dict.get("use_common_sigma", False),
-            peak_tolerance=box_dict.get("peak_tolerance", 2.0),
-            sigma_tolerance=box_dict.get(
-                "sigma_tolerance", 100.0
-            ),  # Default 100% (changed from 5.0)
+            param_bounds=box_dict.get('param_bounds', {}),
+            use_common_sigma=box_dict.get('use_common_sigma', False),
+            peak_tolerance=box_dict.get('peak_tolerance', 2.0),
+            sigma_tolerance=box_dict.get('sigma_tolerance', 100.0),  # Default 100% (changed from 5.0)
         )
 
     def saveBoxesConfig(self):
@@ -3182,41 +2790,36 @@ class ProjectionTracesGUI(BaseGUI):
         This serves as a template for new images in the folder.
         """
         cache = {
-            "boxes": {name: self._box_to_dict(box) for name, box in self.boxes.items()},
-            "centerx": self.centerx,
-            "centery": self.centery,
-            "mask_thres": self.maskThresSpnBx.value(),
+            'boxes': {
+                name: self._box_to_dict(box)
+                for name, box in self.boxes.items()
+            },
+            'centerx': self.centerx,
+            'centery': self.centery,
+            'mask_thres': self.maskThresSpnBx.value()
         }
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
-        cache_dir = fullPath(out, "pt_cache")
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_dir = fullPath(out, 'pt_cache')
         createFolder(cache_dir)
-        cache_file = fullPath(cache_dir, "boxes_config.json")
+        cache_file = fullPath(cache_dir, 'boxes_config.json')
         with open(cache_file, "w") as f:
             json.dump(cache, f, indent=2)
-
+ 
     def loadBoxesConfig(self):
         """
         Load folder-level box configuration from cache.
         Returns dict with 'boxes', 'centerx', 'centery', 'mask_thres' or None.
         """
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
-        cache_file = fullPath(fullPath(out, "pt_cache"), "boxes_config.json")
+        out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_file = fullPath(fullPath(out, 'pt_cache'), 'boxes_config.json')
         if exists(cache_file):
             try:
                 with open(cache_file, "r") as f:
                     cache = json.load(f)
                 if cache is not None:
-                    cache["boxes"] = {
+                    cache['boxes'] = {
                         name: self._dict_to_box(box_dict)
-                        for name, box_dict in cache["boxes"].items()
+                        for name, box_dict in cache['boxes'].items()
                     }
                     return cache
             except Exception as e:
@@ -3230,53 +2833,52 @@ class ProjectionTracesGUI(BaseGUI):
         """
         if self.projProc is None:
             return
-
+        
         cache = {
-            "boxes": {name: self._box_to_dict(box) for name, box in self.boxes.items()},
-            "centerx": self.centerx,
-            "centery": self.centery,
-            "mask_thres": self.maskThresSpnBx.value(),
+            'boxes': {
+                name: self._box_to_dict(box)
+                for name, box in self.boxes.items()
+            },
+            'centerx': self.centerx,
+            'centery': self.centery,
+            'mask_thres': self.maskThresSpnBx.value()
         }
-
+        
         # Add calibration settings if available
         # These are needed by headless mode to reproduce the same processing
-        calSettings = (
-            self.workspace.calibration_settings if hasattr(self, "workspace") else None
-        )
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
         if calSettings is not None:
             # Calibration type (determines which formula to use)
-            if "type" in calSettings:
-                cache["type"] = calSettings["type"]
-
+            if 'type' in calSettings:
+                cache['type'] = calSettings['type']
+            
             # Image-based calibration parameters (using silver behenate)
-            if "radius" in calSettings:
-                cache["radius"] = calSettings["radius"]
-            if "silverB" in calSettings:
-                cache["silverB"] = calSettings["silverB"]
-
+            if 'radius' in calSettings:
+                cache['radius'] = calSettings['radius']
+            if 'silverB' in calSettings:
+                cache['silverB'] = calSettings['silverB']
+            
             # Instrument-based calibration parameters
-            if "lambda" in calSettings:
-                cache["lambda"] = calSettings["lambda"]
-            if "sdd" in calSettings:
-                cache["sdd"] = calSettings["sdd"]
-            if "pixel_size" in calSettings:
-                cache["pixel_size"] = calSettings["pixel_size"]
-
+            if 'lambda' in calSettings:
+                cache['lambda'] = calSettings['lambda']
+            if 'sdd' in calSettings:
+                cache['sdd'] = calSettings['sdd']
+            if 'pixel_size' in calSettings:
+                cache['pixel_size'] = calSettings['pixel_size']
+            
             # Calibration center (may differ from centerx/centery)
-            if "center" in calSettings:
-                cache["center"] = calSettings["center"]
-
+            if 'center' in calSettings:
+                cache['center'] = calSettings['center']
+            
             # Detector type
-            if "detector" in calSettings:
-                cache["detector"] = calSettings["detector"]
+            if 'detector' in calSettings:
+                cache['detector'] = calSettings['detector']
 
-        filename = getSaveFile(
-            os.path.join("musclex", "settings", "ptsettings.json"), None
-        )
+        filename = getSaveFile(os.path.join("musclex", "settings", "ptsettings.json"), None)
         if filename != "":
             with open(filename, "w") as f:
                 json.dump(cache, f, indent=2)
-
+    
     def loadSettings(self):
         """
         Load template from a JSON file and apply to current folder.
@@ -3290,45 +2892,41 @@ class ProjectionTracesGUI(BaseGUI):
             self,
             "Load Template",
             os.path.join("musclex", "settings"),
-            "JSON Files (*.json)",
+            "JSON Files (*.json)"
         )
-
+        
         if filename == "":
             return
-
+        
         if not self.dir_path:
             print("Warning: No directory loaded")
             return
-
-        pt_out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
-        cache_dir = fullPath(pt_out, "pt_cache")
+        
+        pt_out = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
+        cache_dir = fullPath(pt_out, 'pt_cache')
         createFolder(cache_dir)
-        cache_file = fullPath(cache_dir, "boxes_config.json")
+        cache_file = fullPath(cache_dir, 'boxes_config.json')
         shutil.copyfile(filename, cache_file)
-
+        
         # Load configuration
         cache = self.loadBoxesConfig()
         if cache is None:
             print("Warning: Failed to load template configuration")
             return
-
+        
         # Clear existing boxes
         self.boxes = {}
         self.boxes_on_img = {}
-
+        
         # Apply configuration to runtime variables
-        self.boxes = cache["boxes"]
-        self.centerx = cache.get("centerx")
-        self.centery = cache.get("centery")
-
+        self.boxes = cache['boxes']
+        self.centerx = cache.get('centerx')
+        self.centery = cache.get('centery')
+        
         # Update mask threshold spinbox
-        if "mask_thres" in cache:
-            self.maskThresSpnBx.setValue(cache["mask_thres"])
-
+        if 'mask_thres' in cache:
+            self.maskThresSpnBx.setValue(cache['mask_thres'])
+        
         # Sync with projProc if it exists
         if self.projProc is not None:
             for name, box in self.boxes.items():
@@ -3351,93 +2949,89 @@ class ProjectionTracesGUI(BaseGUI):
                 # Update projProc's boxes to match
                 self.projProc.state.boxes[name] = box_copy
             # Update mask threshold
-            if "mask_thres" in cache:
-                self.projProc.state.mask_thres = cache["mask_thres"]
-
+            if 'mask_thres' in cache:
+                self.projProc.state.mask_thres = cache['mask_thres']
+        
         # Create visual representations for boxes
         for name, box in self.boxes.items():
-            self.boxes_on_img[name] = self.genBoxArtists(
-                name, box.coordinates, box.type
-            )
-
+            self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
+        
         # Update CSV manager with new boxes (write to output dir)
         if self.csvManager is not None:
-            csv_dir = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else self.dir_path
-            )
+            csv_dir = self.workspace.dir_context.output_dir if self.workspace.dir_context else self.dir_path
             self.csvManager = PT_CSVManager(csv_dir, self.boxes)
-
+        
         # Redraw image with new boxes
-        if hasattr(self, "displayImgCanvas"):
+        if hasattr(self, 'displayImgCanvas'):
             self.displayImgCanvas.draw_idle()
-
+        
         print(f"Template loaded: {filename}")
         print(f"  - Boxes applied: {len(self.boxes)}")
-
+        
         # If image is loaded, rebuild tabs and reprocess
         if self.projProc is not None:
             self.addBoxTabs()
             self.processImage()
             print("  ✓ Image reprocessed with new template")
+                
 
+
+
+        
     def _extract_refined_peaks(self, proc_box: ProcessingBox):
         """
         Extract refined peak positions from fit results.
-
+        
         The fit results contain p_0, p_1, p_2... which are the optimal peak positions
         found by the fitter (relative to centerX).
-
+        
         IMPORTANT: Returns only the FIRST HALF of refined peaks (user-selected side).
         The fitting preserves peak order, so the first half corresponds to the original
         user-selected peaks.
-
+        
         NOTE: This method assumes proc_box.fit_results is not None.
         Caller must check this before calling.
-
+        
         Returns:
             List of refined peak positions (first half only)
         """
         fit_results = proc_box.fit_results
         refined_peaks = []
-
+        
         # Extract all p_i parameters
         i = 0
-        while f"p_{i}" in fit_results:
-            peak_pos = fit_results[f"p_{i}"]
+        while f'p_{i}' in fit_results:
+            peak_pos = fit_results[f'p_{i}']
             refined_peaks.append(float(peak_pos))
             i += 1
-
+        
         # Return only the first half (user-selected side)
-        result = refined_peaks[: len(refined_peaks) // 2]
-        print(
-            f"  [_extract_refined_peaks] Box '{proc_box.name}': {len(refined_peaks)} refined peaks → {len(result)} (first half)"
-        )
+        result = refined_peaks[:len(refined_peaks)//2]
+        print(f"  [_extract_refined_peaks] Box '{proc_box.name}': {len(refined_peaks)} refined peaks → {len(result)} (first half)")
         print(f"    All refined: {refined_peaks}")
         print(f"    Saved (first half): {result}")
         return result
-
+    
     def _update_folder_cache_from_results(self):
         """
         Update folder-level cache with refined results from current image processing.
-
+        
         Key updates:
         1. peaks: Use refined peak positions from fit results
         2. param_bounds: Parameter bounds learned during fitting
         3. Other configuration parameters
-
+        
         This allows subsequent images to benefit from improved initial values.
         """
         for name, proc_box in self.projProc.boxes.items():
-
+            
             # Skip boxes without fit results
             if proc_box.fit_results is None:
                 continue
-
+            
             # Extract refined peak positions
             refined_peaks = self._extract_refined_peaks(proc_box)
-
+            
             if name not in self.boxes:
                 # New box: add to folder cache with refined peaks
                 self.boxes[name] = ProcessingBox(
@@ -3458,138 +3052,108 @@ class ProjectionTracesGUI(BaseGUI):
             else:
                 # Existing box: update configuration
                 folder_box = self.boxes[name]
-
+                
                 # Update basic configuration
                 folder_box.coordinates = proc_box.coordinates
                 folder_box.type = proc_box.type
                 folder_box.bgsub = proc_box.bgsub
                 folder_box.merid_bg = proc_box.merid_bg
                 folder_box.hull_range = proc_box.hull_range
-
+                
                 # === Key: Update with refined peak positions ===
                 old_peaks = folder_box.peaks
                 folder_box.peaks = refined_peaks
-
+                
                 # Show refinement progress
                 if old_peaks != refined_peaks and len(old_peaks) == len(refined_peaks):
                     print(f"Box {name}: Refined peaks")
                     for i, (old, new) in enumerate(zip(old_peaks, refined_peaks)):
                         delta = new - old
                         print(f"  Peak {i}: {old:.2f} → {new:.2f} (Δ{delta:+.3f})")
-
+                
                 # Update fitting parameters
                 folder_box.param_bounds = {}
                 folder_box.use_common_sigma = proc_box.use_common_sigma
                 folder_box.peak_tolerance = proc_box.peak_tolerance
                 folder_box.sigma_tolerance = proc_box.sigma_tolerance
-
+        
         # Save updated configuration to disk
         self.saveBoxesConfig()
 
     def applySettings(self):
         """
         Apply current UI settings directly to ProjectionProcessor state.
-
+        
         Note: This method writes settings directly to projProc.state instead of
         returning a settings dict. Box configurations are managed by ProcessingBox
         objects in projProc.boxes.
         """
         if self.projProc is None:
             return
-
+        
         # Mask threshold
         self.projProc.state.mask_thres = self.maskThresSpnBx.value()
-
+        
         # Handle refit flag - clear fit results directly
         if self.refit:
             for box in self.projProc.boxes.values():
-                box.clear_results(from_stage="fit")
+                box.clear_results(from_stage='fit')
             self.refit = False
 
         # Calibration settings
-        calSettings = (
-            self.workspace.calibration_settings if hasattr(self, "workspace") else None
-        )
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
         if calSettings is not None:
-            if "type" in calSettings:
+            if 'type' in calSettings:
                 if calSettings["type"] == "img":
                     if "silverB" in calSettings and "radius" in calSettings:
-                        self.projProc.state.lambda_sdd = (
-                            calSettings["silverB"] * calSettings["radius"]
-                        )
+                        self.projProc.state.lambda_sdd = calSettings["silverB"] * calSettings["radius"]
                 elif calSettings["type"] == "cont":
-                    self.projProc.state.lambda_sdd = (
-                        1.0
-                        * calSettings["lambda"]
-                        * calSettings["sdd"]
-                        / calSettings["pixel_size"]
-                    )
+                    self.projProc.state.lambda_sdd = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
 
             if "detector" in calSettings:
                 self.projProc.state.detector = calSettings["detector"]
-
+    
     def getSettings(self):
         """
         Get current settings for display purposes (batch processing dialogs).
-
+        
         Note: For processing, use applySettings() instead which writes directly to state.
         This method is kept for backward compatibility with batch processing UI.
         """
         settings = {}
-        settings["mask_thres"] = self.maskThresSpnBx.value()
-
-        calSettings = (
-            self.workspace.calibration_settings if hasattr(self, "workspace") else None
-        )
+        settings['mask_thres'] = self.maskThresSpnBx.value()
+        
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
         if calSettings is not None:
-            if "type" in calSettings:
+            if 'type' in calSettings:
                 if calSettings["type"] == "img":
                     if "silverB" in calSettings and "radius" in calSettings:
-                        settings["lambda_sdd"] = (
-                            calSettings["silverB"] * calSettings["radius"]
-                        )
+                        settings["lambda_sdd"] = calSettings["silverB"] * calSettings["radius"]
                 elif calSettings["type"] == "cont":
-                    settings["lambda_sdd"] = (
-                        1.0
-                        * calSettings["lambda"]
-                        * calSettings["sdd"]
-                        / calSettings["pixel_size"]
-                    )
-
+                    settings["lambda_sdd"] = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
+        
         return settings
 
     def refreshStatusbar(self):
         """
         Update status bar with image information.
-
+        
         Note: File path display is now automatically handled by BaseGUI
         through ImageNavigatorWidget.filePathTextReady signal.
         """
         if self.projProc is None:
             return
-
+        
         # File path update moved to BaseGUI._setup_file_path_updates()
         # The navigator automatically emits filePathTextReady when images change
-
+        
         # Update image details
         img = self.projProc.orig_img
-        calSettings = (
-            self.workspace.calibration_settings if hasattr(self, "workspace") else None
-        )
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
         if calSettings:
-            self.imgDetailOnStatusBar.setText(
-                str(img.shape[0])
-                + "x"
-                + str(img.shape[1])
-                + " "
-                + str(img.dtype)
-                + " "
-                + "(Image Calibrated)"
-            )
+            self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype) + " " + "(Image Calibrated)")
         else:
-            self.imgDetailOnStatusBar.setText(
-                str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype)
-            )
+            self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
         self.imgCoordOnStatusBar.setText("")
         # QApplication.processEvents()
 
@@ -3607,8 +3171,8 @@ class ProjectionTracesGUI(BaseGUI):
         """
         self.function = None
         # Deactivate placeholder tool when resetting UI (e.g., ESC pressed)
-        if hasattr(self, "image_viewer") and self.image_viewer:
-            self.image_viewer.tool_manager.deactivate_tool("pt_operation")
+        if hasattr(self, 'image_viewer') and self.image_viewer:
+            self.image_viewer.tool_manager.deactivate_tool('pt_operation')
         # self.graph_zoom = None
         QApplication.restoreOverrideCursor()
         self.selectPeaksButton.setText("Select Approximate Peak Locations")
@@ -3643,92 +3207,82 @@ class ProjectionTracesGUI(BaseGUI):
     def updateImageTab(self):
         """
         Draw all UI in image tab using ImageViewerWidget API.
-
+        
         Note: Image rotation is now performed in ProjectionProcessor.process(),
         so we directly display self.projProc.orig_img which is already rotated if needed.
         This simplifies the display logic and ensures GUI shows the processed image.
         """
 
-        if self.projProc is None or self.syncUI or not self.update_plot["img"]:
+        if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
-
+        
         # Get the image to display (already rotated in process() if needed)
         img = self.projProc.orig_img
-
+        
         # Use ImageViewerWidget's API to display image
         # - Automatically uses vmin/vmax/log_scale/colormap from display_panel
         # - Automatically preserves zoom (if not first time)
         # - Sets _current_image so intensity changes work
         self.image_viewer.display_image(img)
-
+        
         # Get axes for drawing overlays (boxes, peaks, center)
         ax = self.displayImgAxes
-
+        
         # Draw boxes
         if len(self.boxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
                 for name, aritists in self.boxes_on_img.items():
-                    ax.add_patch(aritists["rect"])
-                    ax.add_artist(aritists["text"])
+                    ax.add_patch(aritists['rect'])
+                    ax.add_artist(aritists['text'])
 
             # Draw peaks (from fit results - subpixel accuracy)
             if self.peaksChkBx.isChecked():
                 for name in self.projProc.boxes.keys():
                     box_obj = self.projProc.boxes[name]
-
+                    
                     # Use fit_results for accurate peak positions (subpixel precision)
                     if not box_obj.fit_results:
                         continue
-
+                    
                     center = self.projProc.center
                     centerx = center[0]
                     centery = center[1]
                     box = box_obj.coordinates
-
+                    
                     # Extract all p_i from fit_results (already includes both sides)
                     i = 0
-                    while f"p_{i}" in box_obj.fit_results:
-                        p_rel = box_obj.fit_results[
-                            f"p_{i}"
-                        ]  # Relative to center (float)
-
-                        if box_obj.type == "h":
+                    while f'p_{i}' in box_obj.fit_results:
+                        p_rel = box_obj.fit_results[f'p_{i}']  # Relative to center (float)
+                        
+                        if box_obj.type == 'h':
                             abs_x = centerx + p_rel  # Absolute position (subpixel)
-                            ax.plot((abs_x, abs_x), box[1], color="m", linewidth=1)
-                        elif box_obj.type == "oriented":
+                            ax.plot((abs_x, abs_x), box[1], color='m', linewidth=1)
+                        elif box_obj.type == 'oriented':
                             # For oriented boxes, p_rel is relative to box center
                             box_center = box[6]  # (cx, cy)
                             angle = np.radians(box[5])
-
+                            
                             # Calculate edge points for this peak
-                            edge_1 = rotatePoint(
-                                box_center, (box_center[0] + p_rel, box[1][0]), angle
-                            )
-                            edge_2 = rotatePoint(
-                                box_center, (box_center[0] + p_rel, box[1][1]), angle
-                            )
-                            ax.plot(
-                                (edge_1[0], edge_2[0]),
-                                (edge_1[1], edge_2[1]),
-                                color="r",
-                                linewidth=1,
-                            )
+                            edge_1 = rotatePoint(box_center, (box_center[0] + p_rel, box[1][0]), angle)
+                            edge_2 = rotatePoint(box_center, (box_center[0] + p_rel, box[1][1]), angle)
+                            ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r', linewidth=1)
                         else:  # vertical
                             abs_y = centery + p_rel  # Absolute position (subpixel)
-                            ax.plot(box[0], (abs_y, abs_y), color="r", linewidth=1)
-
+                            ax.plot(box[0], (abs_y, abs_y), color='r', linewidth=1)
+                        
                         i += 1
 
         # Draw center circle
         if self.centerChkBx.isChecked():
             center = self.projProc.center
-            circle = plt.Circle(center, 10, color="g")
+            circle = plt.Circle(center, 10, color='g')
             ax.add_patch(circle)
 
         # Update calibration dialog center values
         center = self.projProc.center
 
+        
         # Apply layout and redraw to show overlays
         # Note: Zoom is automatically managed by ImageViewerWidget.display_image()
         self.displayImgFigure.tight_layout()
@@ -3738,10 +3292,10 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Compute the new x and y for double zoom to orig coord
         """
-        M = [[1 / 10, 0, 0], [0, 1 / 10, 0], [0, 0, 1]]
+        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
         dzx, dzy = self.doubleZoomPt
         x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx - 10 + x
+        newX = dzx -10 + x
         newY = dzy - 10 + y
         return (newX, newY)
 
@@ -3753,9 +3307,9 @@ class ProjectionTracesGUI(BaseGUI):
         points = self.chordpoints
         self.chordLines = []
         for i, p1 in enumerate(points):
-            for p2 in points[i + 1 :]:
+            for p2 in points[i + 1:]:
                 slope, cent = getPerpendicularLineHomogenous(p1, p2)
-                if slope == float("inf"):
+                if slope == float('inf'):
                     y_vals = np.array(ax.get_ylim())
                     x_vals = cent[0] + np.zeros(y_vals.shape)
                     self.chordLines.append([slope, cent[0]])
@@ -3763,7 +3317,7 @@ class ProjectionTracesGUI(BaseGUI):
                     x_vals = np.array(ax.get_xlim())
                     y_vals = (x_vals - cent[0]) * slope + cent[1]
                     self.chordLines.append([slope, cent[1] - slope * cent[0]])
-                ax.plot(x_vals, y_vals, linestyle="dashed", color="b")
+                ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
 
     def showAbout(self):
         """
@@ -3772,26 +3326,18 @@ class ProjectionTracesGUI(BaseGUI):
         msgBox = QMessageBox()
         msgBox.setWindowTitle("About")
         msgBox.setTextFormat(Qt.RichText)
-        msgBox.setText(
-            "<br><br><br>"
-            + "Projection Traces is running under"
-            + "<h2>Muscle X v"
-            + __version__
-            + "</h2><br><br>"
-            + "&copy;2023 BioCAT <br>"
-            + "<a href='{0}'>{0}</a><br><br>".format("https://www.bio.aps.anl.gov/")
-            + "Documentation : <br>"
-            + "<a href='{0}'>{0}</a><br><br>".format(
-                "https://musclex.readthedocs.io/en/latest/"
-            )
-            + "GitHub : <br>"
-            + "<a href='{0}'>{0}</a><br><br>".format(
-                "https://github.com/biocatiit/musclex"
-            )
-            + "Send Feedback or Issues : <br>"
-            + "<a href='{0}'>{0}</a><br><br>".format(
-                "https://github.com/biocatiit/musclex/issues"
-            )
-        )
+        msgBox.setText("<br><br><br>" +
+                       "Projection Traces is running under" +
+                       "<h2>Muscle X v" +
+                       __version__ +
+                       "</h2><br><br>" +
+                       "&copy;2023 BioCAT <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://www.bio.aps.anl.gov/") +
+                       "Documentation : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://musclex.readthedocs.io/en/latest/") +
+                       "GitHub : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex") +
+                       "Send Feedback or Issues : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec_()

@@ -52,7 +52,15 @@ from PySide6.QtCore import Qt
 
 
 class SetAngleDialog(QDialog):
-    def __init__(self, parent, img, center, base_rotation, isLogScale, vmin, vmax):
+    def __init__(self,
+                parent,
+                img,
+                center,
+                base_rotation,
+                isLogScale,
+                vmin,
+                vmax
+        ):
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Set Angle")
@@ -63,23 +71,28 @@ class SetAngleDialog(QDialog):
 
         # Import ImageViewerWidget
         from .widgets.image_viewer_widget import ImageViewerWidget
-
+        
         # Create ImageViewerWidget with display panel
         self.image_viewer = ImageViewerWidget(
-            parent=self, show_display_panel=True, show_double_zoom=False
+            parent=self,
+            show_display_panel=True,
+            show_double_zoom=False
         )
-
+        
         # Set initial display options
         self.image_viewer.set_display_options(
-            vmin=vmin, vmax=vmax, log_scale=isLogScale, colormap="gray"
+            vmin=vmin,
+            vmax=vmax,
+            log_scale=isLogScale,
+            colormap='gray'
         )
-
+        
         # Display the image
         self.image_viewer.display_image(img)
-
+        
         # Draw center crosshair
-        self.image_viewer.axes.axvline(x, color="y", linewidth=1)
-        self.image_viewer.axes.axhline(y, color="y", linewidth=1)
+        self.image_viewer.axes.axvline(x, color='y', linewidth=1)
+        self.image_viewer.axes.axhline(y, color='y', linewidth=1)
         self.image_viewer.canvas.draw_idle()
 
         self.rotate30Btn = QPushButton("Rotate 30°")
@@ -131,12 +144,12 @@ class SetAngleDialog(QDialog):
 
         self.setAngleTextLayout = QHBoxLayout()
 
-        self.setAngleTextLayout.addWidget(
-            QLabel("Clockwise Rotation Angle (Original coords): ")
-        )
+        self.setAngleTextLayout.addWidget(QLabel("Clockwise Rotation Angle (Original coords): "))
         self.setAngleTextLayout.addWidget(self.angleSpnBox)
 
         self.setAngleLayout.addLayout(self.setAngleTextLayout)
+
+
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -220,15 +233,22 @@ class SetAngleDialog(QDialog):
         angle = self.get_angle()
 
         # Note: get_angle() already negates the angle for correct direction
-        M = cv2.getRotationMatrix2D((x, y), angle, 1)
+        M = cv2.getRotationMatrix2D(
+            (x, y),
+            angle,
+            1
+        )
 
         # Simplified: directly rotate the current image
-        transformed_img = cv2.warpAffine(self.img, M, (width, height))
+        transformed_img = cv2.warpAffine(
+            self.img,
+            M,
+            (width, height))
 
         # Display rotated image using ImageViewerWidget
         self.image_viewer.display_image(transformed_img)
-
+        
         # Redraw center crosshair
-        self.image_viewer.axes.axvline(x, color="y", linewidth=1)
-        self.image_viewer.axes.axhline(y, color="y", linewidth=1)
+        self.image_viewer.axes.axvline(x, color='y', linewidth=1)
+        self.image_viewer.axes.axhline(y, color='y', linewidth=1)
         self.image_viewer.canvas.draw_idle()

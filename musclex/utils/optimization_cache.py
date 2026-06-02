@@ -38,9 +38,7 @@ def _atomic_write_json(file_path, data):
     tmp_path = f"{file_path}.tmp"
     try:
         with open(tmp_path, "w", encoding="utf-8") as handle:
-            json.dump(
-                _to_jsonable(data), handle, ensure_ascii=False, indent=2, sort_keys=True
-            )
+            json.dump(_to_jsonable(data), handle, ensure_ascii=False, indent=2, sort_keys=True)
         os.replace(tmp_path, file_path)
     except Exception:
         if os.path.exists(tmp_path):
@@ -51,10 +49,10 @@ def _atomic_write_json(file_path, data):
 def load_optimization_cache(file_path):
     """Load optimization cache from file with validation."""
     default_cache = {"version": CACHE_VERSION, "entries": {}}
-
+    
     if not os.path.exists(file_path):
         return default_cache
-
+    
     try:
         with open(file_path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -64,11 +62,11 @@ def load_optimization_cache(file_path):
     # Validate structure
     if not isinstance(data, dict):
         return default_cache
-
+    
     data.setdefault("version", CACHE_VERSION)
     if not isinstance(data.get("entries"), dict):
         data["entries"] = {}
-
+    
     return data
 
 
@@ -79,12 +77,10 @@ def _ensure_entry_defaults(entry):
     entry.setdefault("user_background_configurations", [])
     return entry
 
-
 def _normalize_dataset_key(cache_key):
     """Normalize cache key to dataset identifier."""
     dataset_key = str(cache_key or "").strip()
     return dataset_key or "__default_dataset__"
-
 
 def _sanitize_user_configuration(item):
     """Validate and sanitize user configuration item."""
@@ -99,7 +95,7 @@ def _sanitize_user_configuration(item):
     params = item.get("params", {})
     if not isinstance(params, dict):
         params = {}
-
+    
     # Get defaults from params
     params_downsample = params.get("downsample", 1)
     params_smooth_image = params.get("smooth_image", False)
@@ -123,7 +119,6 @@ def _sanitize_user_configuration(item):
 
     return cleaned
 
-
 def _make_configuration_key(method, params, downsample=1, smooth_image=False):
     payload = {
         "method": str(method),
@@ -139,7 +134,7 @@ def get_user_background_configurations(file_path, cache_key):
     cache = load_optimization_cache(file_path)
     dataset_key = _normalize_dataset_key(cache_key)
     entry = cache.get("entries", {}).get(dataset_key)
-
+    
     if not entry:
         return []
 
@@ -150,7 +145,7 @@ def get_user_background_configurations(file_path, cache_key):
 
     rows = []
     seen_by_config_key = set()
-
+    
     for item in user_configs:
         clean_item = _sanitize_user_configuration(item)
         if clean_item is None:
@@ -162,12 +157,13 @@ def get_user_background_configurations(file_path, cache_key):
             downsample=clean_item["downsample"],
             smooth_image=clean_item["smooth_image"],
         )
-
+        
         if cfg_key not in seen_by_config_key:
             seen_by_config_key.add(cfg_key)
             rows.append(clean_item)
 
     return rows
+
 
 
 def set_user_background_configurations(file_path, cache_key, configurations):
@@ -181,7 +177,7 @@ def set_user_background_configurations(file_path, cache_key, configurations):
     cleaned_rows = []
     seen_names = set()
     now_text = str(datetime.fromtimestamp(time.time()))
-
+    
     for item in configurations or []:
         clean_item = _sanitize_user_configuration(item)
         if clean_item is None:
@@ -200,5 +196,5 @@ def set_user_background_configurations(file_path, cache_key, configurations):
     entry["dataset"] = dataset_key
     entry["updated_at"] = now_text
     entries[dataset_key] = entry
-
+    
     _atomic_write_json(file_path, cache)

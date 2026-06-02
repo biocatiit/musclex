@@ -28,20 +28,17 @@ authorization from Illinois Institute of Technology.
 
 from os import makedirs
 import csv
-
 try:
     from ..utils.file_manager import *
-except:  # for coverage
+except: # for coverage
     from utils.file_manager import *
 
-
-class DC_CSVManager:
+class DC_CSVManager():
     """
     A class taking care of writing summary file
     """
-
     def __init__(self, dir_path, nFrames, fix_ranges=[]):
-        self.nFrames = nFrames  # number of frames that average
+        self.nFrames = nFrames # number of frames that average
 
         sum_path = fullPath(dir_path, "dc_results")
 
@@ -50,7 +47,7 @@ class DC_CSVManager:
 
         if self.nFrames > 0:
             # if number of frames that average is specified, summary fill will be summary_nf.csv while n is number of frames
-            self.filename = fullPath(sum_path, "summary_" + str(nFrames) + "f")
+            self.filename = fullPath(sum_path, "summary_"+str(nFrames)+"f")
         else:
             # otherwise, summary file will be summary_m.csv
             self.filename = fullPath(sum_path, "summary_m")
@@ -58,18 +55,16 @@ class DC_CSVManager:
         fix_range_names = [fr[0] for fr in fix_ranges]
         if len(fix_range_names) > 0:
             for n in fix_range_names:
-                self.filename += "_" + str(n)
+                self.filename += ("_" + str(n))
         self.filename += ".csv"
 
-        self.allpeaks_data = {}  # Collect meridian peaks data
-        self.offmer_data = {}  # Collect off-meridian peaks data
-        self.grp_to_key = {}  # Map group number with key
-        self.gen_data = (
-            {}
-        )  # general data of Diffraction Centroid. Now, there's only integrated width
-        self.headers = []  # header of csv file
-        self.keyToImages = {}  # Map key to image names
-        self.loadSummary()  # load exist summary file before adding new data
+        self.allpeaks_data = {} # Collect meridian peaks data
+        self.offmer_data = {} # Collect off-meridian peaks data
+        self.grp_to_key = {} # Map group number with key
+        self.gen_data = {} # general data of Diffraction Centroid. Now, there's only integrated width
+        self.headers = [] # header of csv file
+        self.keyToImages = {} # Map key to image names
+        self.loadSummary() # load exist summary file before adding new data
 
     def getRow(self, key):
         """
@@ -131,42 +126,12 @@ class DC_CSVManager:
                                 if "_" in head[0] and head[1] == "59":
                                     quadrant = head[0]
                                     off_mer[quadrant] = {
-                                        "centroid": [
-                                            row[
-                                                header.index(
-                                                    quadrant + " 59 " + "centroid"
-                                                )
-                                            ],
-                                            row[
-                                                header.index(
-                                                    quadrant + " 51 " + "centroid"
-                                                )
-                                            ],
-                                        ],
-                                        "baseline": [
-                                            row[
-                                                header.index(
-                                                    quadrant + " 59 " + "baseline"
-                                                )
-                                            ],
-                                            row[
-                                                header.index(
-                                                    quadrant + " 51 " + "baseline"
-                                                )
-                                            ],
-                                        ],
-                                        "intensity": [
-                                            row[
-                                                header.index(
-                                                    quadrant + " 59 " + "intensity"
-                                                )
-                                            ],
-                                            row[
-                                                header.index(
-                                                    quadrant + " 51 " + "intensity"
-                                                )
-                                            ],
-                                        ],
+                                        "centroid": [row[header.index(quadrant + " 59 " +"centroid")],
+                                                     row[header.index(quadrant + " 51 " +"centroid")]],
+                                        "baseline": [row[header.index(quadrant + " 59 " + "baseline")],
+                                                     row[header.index(quadrant + " 51 " + "baseline")]],
+                                        "intensity": [row[header.index(quadrant + " 59 " + "intensity")],
+                                                     row[header.index(quadrant + " 51 " + "intensity")]],
                                     }
                                 else:
                                     side = head[0]
@@ -175,16 +140,8 @@ class DC_CSVManager:
                                         "side": side,
                                         "name": name,
                                         "centroid": row[i],
-                                        "baseline": row[
-                                            header.index(
-                                                side + " " + name + " " + "baseline"
-                                            )
-                                        ],
-                                        "intensity": row[
-                                            header.index(
-                                                side + " " + name + " " + "intensity"
-                                            )
-                                        ],
+                                        "baseline": row[header.index(side + " " + name + " " + "baseline")],
+                                        "intensity": row[header.index(side + " " + name + " " + "intensity")]
                                     }
                                     peak_data.append(new_peak)
                     else:
@@ -207,7 +164,7 @@ class DC_CSVManager:
         k = "...".join([fileList[0], fileList[-1]])
         if "summary_m" in self.filename:
             grpnum = len(self.grp_to_key.keys()) + 1
-            for group, key in self.grp_to_key.items():
+            for (group, key) in self.grp_to_key.items():
                 if key == k:
                     grpnum = group
             self.grp_to_key[grpnum] = k
@@ -234,10 +191,10 @@ class DC_CSVManager:
                 peak_dict["side"] = side
                 peak_dict["name"] = names[i]
                 if names[i] in reject_state:
-                    peak_dict["centroid"] = "_" + str(centroids[i])
-                    peak_dict["peak"] = "_" + str(peaks[i])
-                    peak_dict["intensity"] = "_" + str(areas[i])
-                    peak_dict["baseline"] = "_" + str(baselines[i])
+                    peak_dict["centroid"] = "_"+str(centroids[i])
+                    peak_dict["peak"] = "_"+str(peaks[i])
+                    peak_dict["intensity"] = "_"+str(areas[i])
+                    peak_dict["baseline"] = "_"+str(baselines[i])
                 else:
                     peak_dict["centroid"] = str(centroids[i])
                     peak_dict["peak"] = str(peaks[i])
@@ -250,16 +207,16 @@ class DC_CSVManager:
         if "off_mer_baselines" in info:
             for q in ["top_left", "top_right", "bottom_left", "bottom_right"]:
                 dat = {
-                    "baseline": info["off_mer_baselines"][q],
-                    "centroid": info["off_mer_peak_info"][q]["centroids"],
-                    "intensity": info["off_mer_peak_info"][q]["areas"],
+                    "baseline" : info["off_mer_baselines"][q],
+                    "centroid" : info["off_mer_peak_info"][q]["centroids"],
+                    "intensity" : info["off_mer_peak_info"][q]["areas"]
                 }
                 off_mer_data[q] = dat
 
         self.allpeaks_data[k] = data
         self.offmer_data[k] = off_mer_data
-        l, r = info["int_area"]
-        self.gen_data[k] = {"integration area width": abs(r - l)}
+        l,r = info["int_area"]
+        self.gen_data[k] = {"integration area width":abs(r-l)}
         self.rewriteSummary()
 
     def getOffMerHeaders(self):
@@ -270,8 +227,8 @@ class DC_CSVManager:
         for t in ["centroid", "baseline", "intensity"]:
             for p in ["59", "51"]:
                 for q in ["top_left", "top_right", "bottom_left", "bottom_right"]:
-                    header.append(q + " " + p + " " + t)
-                header.append(p + " average " + t)
+                    header.append(q + " " + p + " "+t)
+                header.append(p + " average "+t)
         return header
 
     def toInt(self, s):
@@ -298,30 +255,22 @@ class DC_CSVManager:
 
             ### write header for all group ###
             header = ["group", "filename", "integration area width"]
-            top_peaks = sorted(
-                [d for d in peak_data if d["side"] == "top"],
-                key=lambda d: self.toInt(d["name"]),
-            )
-            bottom_peaks = sorted(
-                [d for d in peak_data if d["side"] == "bottom"],
-                key=lambda d: self.toInt(d["name"]),
-            )
+            top_peaks = sorted([d for d in peak_data if d["side"] == "top"], key=lambda d: self.toInt(d["name"]))
+            bottom_peaks = sorted([d for d in peak_data if d["side"] == "bottom"], key=lambda d: self.toInt(d["name"]))
             nTop = len(top_peaks)
             nBottom = len(bottom_peaks)
             min_nPeaks = min(nTop, nBottom)
 
             for i in range(min_nPeaks):
-                peak_header = [
-                    "top " + top_peaks[i]["name"] + " centroid",
-                    "bottom " + bottom_peaks[i]["name"] + " centroid",
-                    "average " + bottom_peaks[i]["name"] + " centroid",
-                    "top " + top_peaks[i]["name"] + " baseline",
-                    "bottom " + bottom_peaks[i]["name"] + " baseline",
-                    "average " + bottom_peaks[i]["name"] + " baseline",
-                    "top " + top_peaks[i]["name"] + " intensity",
-                    "bottom " + bottom_peaks[i]["name"] + " intensity",
-                    "average " + bottom_peaks[i]["name"] + " intensity",
-                ]
+                peak_header = ["top " + top_peaks[i]["name"] + " centroid",
+                               "bottom " + bottom_peaks[i]["name"] + " centroid",
+                               "average " + bottom_peaks[i]["name"] + " centroid",
+                               "top " + top_peaks[i]["name"] + " baseline",
+                               "bottom " + bottom_peaks[i]["name"] + " baseline",
+                               "average " + bottom_peaks[i]["name"] + " baseline",
+                               "top " + top_peaks[i]["name"] + " intensity",
+                               "bottom " + bottom_peaks[i]["name"] + " intensity",
+                               "average " + bottom_peaks[i]["name"] + " intensity"]
                 header.extend(peak_header)
             header.extend(self.getOffMerHeaders())
 
@@ -329,65 +278,36 @@ class DC_CSVManager:
             self.headers = header
 
             ### Write data for each group ###
-            for g, k in grpKey:
+            for (g, k) in grpKey:
                 off_mer = self.offmer_data[k]
                 peak_data = self.allpeaks_data[k]
                 g_data = self.gen_data[k]
                 filelist = self.keyToImages[k]
-                top_peaks = sorted(
-                    [d for d in peak_data if d["side"] == "top"],
-                    key=lambda d: d["name"],
-                )
-                bottom_peaks = sorted(
-                    [d for d in peak_data if d["side"] == "bottom"],
-                    key=lambda d: d["name"],
-                )
+                top_peaks = sorted([d for d in peak_data if d["side"] == "top"], key=lambda d: d["name"])
+                bottom_peaks = sorted([d for d in peak_data if d["side"] == "bottom"], key=lambda d: d["name"])
 
                 for i in range(len(filelist)):
                     if i != 0:
                         write_row = ["", str(filelist[i])]
                     else:
-                        write_row = [
-                            str(g),
-                            str(filelist[i]),
-                            g_data["integration area width"],
-                        ]
+                        write_row = [str(g), str(filelist[i]), g_data["integration area width"]]
                         for j in range(min_nPeaks):
-                            peak_detail = [
-                                top_peaks[j]["centroid"],
-                                bottom_peaks[j]["centroid"],
-                                self.average(
-                                    top_peaks[j]["centroid"],
-                                    bottom_peaks[j]["centroid"],
-                                ),
-                                top_peaks[j]["baseline"],
-                                bottom_peaks[j]["baseline"],
-                                self.average(
-                                    top_peaks[j]["baseline"],
-                                    bottom_peaks[j]["baseline"],
-                                ),
-                                top_peaks[j]["intensity"],
-                                bottom_peaks[j]["intensity"],
-                                self.average(
-                                    top_peaks[j]["intensity"],
-                                    bottom_peaks[j]["intensity"],
-                                ),
-                            ]
+                            peak_detail = [top_peaks[j]["centroid"], bottom_peaks[j]["centroid"],
+                                           self.average(top_peaks[j]["centroid"], bottom_peaks[j]["centroid"]),
+                                           top_peaks[j]["baseline"], bottom_peaks[j]["baseline"],
+                                           self.average(top_peaks[j]["baseline"], bottom_peaks[j]["baseline"]),
+                                           top_peaks[j]["intensity"], bottom_peaks[j]["intensity"],
+                                           self.average(top_peaks[j]["intensity"], bottom_peaks[j]["intensity"])]
                             write_row.extend(peak_detail)
 
                         if len(off_mer.keys()) > 0:
                             for h in ["centroid", "baseline", "intensity"]:
-                                for p in [0, 1]:
-                                    sum_val = 0.0
-                                    for q in [
-                                        "top_left",
-                                        "top_right",
-                                        "bottom_left",
-                                        "bottom_right",
-                                    ]:
+                                for p in [0,1]:
+                                    sum_val = 0.
+                                    for q in ["top_left", "top_right", "bottom_left", "bottom_right"]:
                                         write_row.append(off_mer[q][h][p])
                                         sum_val += float(off_mer[q][h][p])
-                                    write_row.append(sum_val / 4.0)
+                                    write_row.append(sum_val/4.)
 
                     writer.writerow(write_row)
 
@@ -403,7 +323,7 @@ class DC_CSVManager:
             rejected = True
             s2 = s2.lstrip("_")
 
-        result = str(1.0 * (float(s1) + float(s2)) / 2.0)
-        if rejected:
+        result = str(1.*(float(s1)+float(s2))/2.)
+        if rejected :
             result = "_" + result
         return result

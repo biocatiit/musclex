@@ -39,7 +39,6 @@ def _drawmask_child_entrypoint(input_path: str) -> None:
     """
     sys.argv = ["pyFAI-drawmask", str(input_path)]
     from pyFAI.app.drawmask import main as drawmask_main
-
     drawmask_main()
 
 
@@ -58,14 +57,18 @@ def run_pyfai_drawmask(input_path: PathLike) -> int:
     # 2. Non-frozen interpreters can run the module directly even without
     #    the console script on PATH.
     if not getattr(sys, "frozen", False):
-        return subprocess.call([sys.executable, "-m", "pyFAI.app.drawmask", input_path])
+        return subprocess.call(
+            [sys.executable, "-m", "pyFAI.app.drawmask", input_path]
+        )
 
     # 3. PyInstaller-frozen build (e.g. the .deb): there is no separate
     #    Python interpreter and no pyFAI-drawmask script on PATH. Run the
     #    drawmask main in a multiprocessing child so its eventual
     #    sys.exit() / QApplication only affects the child, not MuscleX.
     ctx = multiprocessing.get_context("spawn")
-    proc = ctx.Process(target=_drawmask_child_entrypoint, args=(input_path,))
+    proc = ctx.Process(
+        target=_drawmask_child_entrypoint, args=(input_path,)
+    )
     proc.start()
     proc.join()
     return proc.exitcode if proc.exitcode is not None else 1

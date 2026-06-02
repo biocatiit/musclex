@@ -30,7 +30,6 @@ import os
 import sys
 import json
 import unittest
-
 # import subprocess
 import shutil
 import pandas as pd
@@ -38,76 +37,58 @@ import numpy as np
 from time import gmtime, strftime
 from math import floor, log10
 from musclex import __version__
-
 try:
     from ..headless.EQStartWindowh import EQStartWindowh
     from ..headless.QuadrantFoldingh import QuadrantFoldingh
     from ..headless.DIImageWindowh import DIImageWindowh
     from ..headless.ProjectionTracesh import ProjectionTracesh
     from ..headless.AddIntensitiesExph import AddIntensitiesExph
-except:  # for coverage
+except: # for coverage
     from headless.EQStartWindowh import EQStartWindowh
     from headless.QuadrantFoldingh import QuadrantFoldingh
     from headless.DIImageWindowh import DIImageWindowh
     from headless.ProjectionTracesh import ProjectionTracesh
     from headless.AddIntensitiesExph import AddIntensitiesExph
 
-N = 4  # number of significant digits
+N = 4 # number of significant digits
 ignore_columns = []  # Columns to ignore, 1-based index
 sort_key = 1  # Column to sort by, 1-based index
 rtol = 1e-03
 atol = 1e-06
 
-
 class MuscleXGlobalTester(unittest.TestCase):
     """
     Unittest class testing musclex through headless version and comparing it to saved results created with GUI
     """
-
     @classmethod
     def setUpClass(cls):
-        if getattr(sys, "frozen", False):
+        if getattr(sys, 'frozen', False):
             cls.currdir = sys._MEIPASS
             cls.run_cmd = "./musclex-main"
         else:
             cls.currdir = os.path.dirname(__file__)
             cls.run_cmd = "musclex"
         cls.inpath = os.path.join(cls.currdir, "test_images")
-        cls.testversion = __version__  # change this to test against a different version
-        cls.input_types = [
-            ".adsc",
-            ".cbf",
-            ".edf",
-            ".fit2d",
-            ".mar345",
-            ".marccd",
-            ".pilatus",
-            ".tif",
-            ".hdf5",
-            ".smv",
-        ]
-        cls.logname = os.path.join(cls.currdir, "test_logs", "test.log")
+        cls.testversion = __version__ # change this to test against a different version
+        cls.input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+        cls.logname = os.path.join(cls.currdir,"test_logs", "test.log")
         if not os.path.isdir(os.path.dirname(cls.logname)):
             os.mkdir(os.path.dirname(cls.logname))
         if os.path.exists(cls.logname):
-            append_write = "a"
+            append_write = 'a'
         else:
-            append_write = "w"
+            append_write = 'w'
 
         with open(cls.logname, append_write) as lf:
-            lf.write("\n{}\n".format("-" * 80))
-            lf.write(
-                "Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-            )
+            lf.write("\n{}\n".format("-"*80))
+            lf.write("Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
             lf.write(f"Testing MuscleX version: {__version__}\n")
             lf.write("\nSummary of Test Results\n")
 
     @classmethod
     def tearDownClass(cls):
-        with open(cls.logname, "a") as lf:
-            lf.write(
-                "Ending test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-            )
+        with open(cls.logname, 'a') as lf:
+            lf.write("Ending test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
             lf.write(f'\n{"-"*80}\n')
 
     ####### EQUATOR TEST #######
@@ -120,37 +101,21 @@ class MuscleXGlobalTester(unittest.TestCase):
                 EQStartWindowh(f, True, True, os.path.join(mar_dir, "eqsettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "eq", "-h", "-i", f, "-s", os.path.join(mar_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(mar_dir, "eq_results", "summary2.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "MARimages", "eq_results", "summary2.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "MARimages", "eq_results", "summary2.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(3) # Rounds up to 3 decimals to avoid computer errors
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(3)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting Equator on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting Equator on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
             print(f"Testing Equator on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Equator MAR Image")
@@ -158,11 +123,10 @@ class MuscleXGlobalTester(unittest.TestCase):
             mar_dir,
             os.path.join(mar_dir, "eq_results", "summary.csv"),
             "Equator MAR",
-            gui_subdir="eq_results_gui",
-            gui_filename="summary.csv",
+            gui_subdir="eq_results_gui", gui_filename="summary.csv",
             ignore_cols=(),
         )
-        self.assertTrue(pass_test, "Equator Image Headless Test for MAR image failed.")
+        self.assertTrue(pass_test,"Equator Image Headless Test for MAR image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(mar_dir, "eq_cache")):
@@ -174,42 +138,24 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(eiger_dir, filename)
-                EQStartWindowh(
-                    f, True, True, os.path.join(eiger_dir, "eqsettings.json")
-                )
+                EQStartWindowh(f, True, True, os.path.join(eiger_dir, "eqsettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "eq", "-h", "-i", f, "-s", os.path.join(eiger_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "eq_results", "summary2.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "EIGERimages", "eq_results", "summary2.csv"
-        )
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "eq_results", "summary2.csv")
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(1)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(1)
         # res = pd.merge(file1, file2)
-
+        
         # if len(res.index) != len(file1.index):
         #     pass_test = False
         if not pass_test:
-            print(
-                f"\nTesting Equator on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting Equator on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
             print(f"Testing Equator on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Equator EIGER Image")
@@ -217,13 +163,10 @@ class MuscleXGlobalTester(unittest.TestCase):
             eiger_dir,
             os.path.join(eiger_dir, "eq_results", "summary.csv"),
             "Equator EIGER",
-            gui_subdir="eq_results_gui",
-            gui_filename="summary.csv",
+            gui_subdir="eq_results_gui", gui_filename="summary.csv",
             ignore_cols=(),
         )
-        self.assertTrue(
-            pass_test, "Equator Image Headless Test for EIGER image failed."
-        )
+        self.assertTrue(pass_test,"Equator Image Headless Test for EIGER image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(eiger_dir, "eq_cache")):
@@ -235,58 +178,35 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pilatus_dir, filename)
-                EQStartWindowh(
-                    f, True, True, os.path.join(pilatus_dir, "eqsettings.json")
-                )
+                EQStartWindowh(f, True, True, os.path.join(pilatus_dir, "eqsettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "eq", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "eq_results", "summary2.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "PILATUSimages", "eq_results", "summary2.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "eq_results", "summary2.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(2)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(1)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting Equator on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting Equator on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing Equator on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing Equator on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Equator PILATUS Image")
         self._compareToGuiBaselineIfPresent(
             pilatus_dir,
             os.path.join(pilatus_dir, "eq_results", "summary.csv"),
             "Equator PILATUS",
-            gui_subdir="eq_results_gui",
-            gui_filename="summary.csv",
+            gui_subdir="eq_results_gui", gui_filename="summary.csv",
             ignore_cols=(),
         )
-        self.assertTrue(
-            pass_test, "Equator Image Headless Test for PILATUS image failed."
-        )
+        self.assertTrue(pass_test,"Equator Image Headless Test for PILATUS image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(pilatus_dir, "eq_cache")):
@@ -294,15 +214,10 @@ class MuscleXGlobalTester(unittest.TestCase):
 
     ####### QUADRANT FOLDER TEST #######
     def _compareToGuiBaselineIfPresent(
-        self,
-        dataset_dir,
-        generated_results,
-        label,
-        gui_subdir="qf_results_gui",
-        gui_filename="summary.csv",
+        self, dataset_dir, generated_results, label,
+        gui_subdir="qf_results_gui", gui_filename="summary.csv",
         ignore_cols=(5,),
-        rtol_override=None,
-        atol_override=None,
+        rtol_override=None, atol_override=None,
     ):
         """
         Optional secondary check: if <dataset_dir>/<gui_subdir>/<gui_filename>
@@ -336,34 +251,23 @@ class MuscleXGlobalTester(unittest.TestCase):
         effective_rtol = rtol if rtol_override is None else rtol_override
         effective_atol = atol if atol_override is None else atol_override
 
-        print(
-            f"\033[3;33m\nVerifying that headless {label} matches GUI summary at "
-            f"{gui_results}\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that headless {label} matches GUI summary at "
+              f"{gui_results}\033[0;3140m")
         pass_test = compare_csv_files(
-            generated_results,
-            gui_results,
+            generated_results, gui_results,
             ignore_columns=list(ignore_cols),
             sort_key=sort_key,
-            rtol=effective_rtol,
-            atol=effective_atol,
+            rtol=effective_rtol, atol=effective_atol,
         )
         if pass_test:
-            print(
-                f"Testing {label} headless-vs-GUI on {dataset_dir} ..... "
-                f"\033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing {label} headless-vs-GUI on {dataset_dir} ..... "
+                  f"\033[0;32mPASSED\033[0;3140m")
         else:
-            print(
-                f"\nTesting {label} headless-vs-GUI on {dataset_dir} ..... "
-                f"\033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nGUI reference file: {p2}\n".format(
-                    p1=generated_results, p2=gui_results
-                )
-            )
+            print(f"\nTesting {label} headless-vs-GUI on {dataset_dir} ..... "
+                  f"\033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nGUI reference file: {p2}\n" \
+                    .format(p1=generated_results, p2=gui_results))
         self.log_results(pass_test, f"{label} headless-vs-GUI")
         self.assertTrue(
             pass_test,
@@ -376,53 +280,29 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(mar_dir, filename)
-                QuadrantFoldingh(
-                    f, True, True, os.path.join(mar_dir, "qfsettings.json")
-                )
+                QuadrantFoldingh(f, True, True, os.path.join(mar_dir, "qfsettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "qf", "-h", "-i", f, "-s", os.path.join(mar_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(mar_dir, "qf_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "MARimages", "qf_results", "summary.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "MARimages", "qf_results", "summary.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=[5],
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=[5], sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting QuadrantFolder on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting QuadrantFolder on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing QuadrantFolder on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing QuadrantFolder on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "QuadrantFolder MAR Image")
-        self._compareToGuiBaselineIfPresent(
-            mar_dir, generated_results, "QuadrantFolder MAR"
-        )
-        self.assertTrue(
-            pass_test, "QuadrantFolder Image Headless Test for MAR image failed."
-        )
+        self._compareToGuiBaselineIfPresent(mar_dir, generated_results, "QuadrantFolder MAR")
+        self.assertTrue(pass_test,"QuadrantFolder Image Headless Test for MAR image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(mar_dir, "qf_cache")):
@@ -434,53 +314,29 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(eiger_dir, filename)
-                QuadrantFoldingh(
-                    f, True, True, os.path.join(eiger_dir, "qfsettings.json")
-                )
+                QuadrantFoldingh(f, True, True, os.path.join(eiger_dir, "qfsettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "qf", "-h", "-i", f, "-s", os.path.join(eiger_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "qf_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "EIGERimages", "qf_results", "summary.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "qf_results", "summary.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=[5],
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=[5], sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting QuadrantFolder on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting QuadrantFolder on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing QuadrantFolder on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing QuadrantFolder on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "QuadrantFolder EIGER Image")
-        self._compareToGuiBaselineIfPresent(
-            eiger_dir, generated_results, "QuadrantFolder EIGER"
-        )
-        self.assertTrue(
-            pass_test, "QuadrantFolder Image Headless Test for EIGER image failed."
-        )
+        self._compareToGuiBaselineIfPresent(eiger_dir, generated_results, "QuadrantFolder EIGER")
+        self.assertTrue(pass_test,"QuadrantFolder Image Headless Test for EIGER image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(eiger_dir, "qf_cache")):
@@ -492,57 +348,34 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pilatus_dir, filename)
-                QuadrantFoldingh(
-                    f, True, True, os.path.join(pilatus_dir, "qfsettings.json")
-                )
+                QuadrantFoldingh(f, True, True, os.path.join(pilatus_dir, "qfsettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "qf", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "qf_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "PILATUSimages", "qf_results", "summary.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "qf_results", "summary.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=[5],
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=[5], sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting QuadrantFolder on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting QuadrantFolder on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing QuadrantFolder on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing QuadrantFolder on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "QuadrantFolder PILATUS Image")
-        self._compareToGuiBaselineIfPresent(
-            pilatus_dir, generated_results, "QuadrantFolder PILATUS"
-        )
-        self.assertTrue(
-            pass_test, "QuadrantFolder Image Headless Test for PILATUS image failed."
-        )
+        self._compareToGuiBaselineIfPresent(pilatus_dir, generated_results, "QuadrantFolder PILATUS")
+        self.assertTrue(pass_test,"QuadrantFolder Image Headless Test for PILATUS image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(pilatus_dir, "qf_cache")):
             shutil.rmtree(os.path.join(pilatus_dir, "qf_cache"))
+
 
     ####### QF SETTINGS BINDINGS SCHEMA TEST #######
     def testQFSettingsBindingsSchema(self):
@@ -568,20 +401,19 @@ class MuscleXGlobalTester(unittest.TestCase):
             path = os.path.join(self.currdir, "testImages", ds, "qfsettings.json")
             if not os.path.isfile(path):
                 continue
-            with open(path, "r") as f:
+            with open(path, 'r') as f:
                 settings = json.load(f)
             unknown = sorted(
-                k for k in settings if classify_qf_setting_key(k) == "unknown"
+                k for k in settings
+                if classify_qf_setting_key(k) == 'unknown'
             )
             if unknown:
                 all_problems[ds] = unknown
 
         pass_test = not all_problems
         if pass_test:
-            print(
-                "\nTesting QF Settings bindings schema ..... "
-                "\033[0;32mPASSED\033[0;3140m"
-            )
+            print("\nTesting QF Settings bindings schema ..... "
+                  "\033[0;32mPASSED\033[0;3140m")
         else:
             print(
                 "\nTesting QF Settings bindings schema ..... "
@@ -594,6 +426,7 @@ class MuscleXGlobalTester(unittest.TestCase):
             f"qfsettings.json contains keys not handled by loadSettings(): "
             f"{all_problems}",
         )
+
 
     ####### EQ SETTINGS BINDINGS SCHEMA TEST #######
     def testEQSettingsBindingsSchema(self):
@@ -619,20 +452,19 @@ class MuscleXGlobalTester(unittest.TestCase):
             path = os.path.join(self.currdir, "testImages", ds, "eqsettings.json")
             if not os.path.isfile(path):
                 continue
-            with open(path, "r") as f:
+            with open(path, 'r') as f:
                 settings = json.load(f)
             unknown = sorted(
-                k for k in settings if classify_eq_setting_key(k) == "unknown"
+                k for k in settings
+                if classify_eq_setting_key(k) == 'unknown'
             )
             if unknown:
                 all_problems[ds] = unknown
 
         pass_test = not all_problems
         if pass_test:
-            print(
-                "\nTesting EQ Settings bindings schema ..... "
-                "\033[0;32mPASSED\033[0;3140m"
-            )
+            print("\nTesting EQ Settings bindings schema ..... "
+                  "\033[0;32mPASSED\033[0;3140m")
         else:
             print(
                 "\nTesting EQ Settings bindings schema ..... "
@@ -645,6 +477,7 @@ class MuscleXGlobalTester(unittest.TestCase):
             f"eqsettings.json contains keys not handled by loadSettings(): "
             f"{all_problems}",
         )
+
 
     def testDeriveProcessingCalibration(self):
         """
@@ -674,98 +507,66 @@ class MuscleXGlobalTester(unittest.TestCase):
         import pathlib
 
         def _make_cache(tmpdir, settings):
-            d = pathlib.Path(tmpdir, "settings")
+            d = pathlib.Path(tmpdir, 'settings')
             d.mkdir(parents=True, exist_ok=True)
-            with open(d / "calibration.info", "wb") as f:
-                pickle.dump({"version": "test", "path": "", "settings": settings}, f)
+            with open(d / 'calibration.info', 'wb') as f:
+                pickle.dump({'version': 'test', 'path': '',
+                             'settings': settings}, f)
             return tmpdir
 
         cases = []
 
         with tempfile.TemporaryDirectory() as t:
-            cases.append(
-                (
-                    "no settings dir at all",
-                    SettingsManager("").derive_processing_calibration(),
-                    {},
-                )
-            )
-            cases.append(
-                (
-                    "missing calibration.info",
-                    SettingsManager(t).derive_processing_calibration(),
-                    {},
-                )
-            )
+            cases.append(("no settings dir at all",
+                          SettingsManager('').derive_processing_calibration(),
+                          {}))
+            cases.append(("missing calibration.info",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {}))
 
         with tempfile.TemporaryDirectory() as t:
             _make_cache(t, {})
-            cases.append(
-                (
-                    "empty settings dict",
-                    SettingsManager(t).derive_processing_calibration(),
-                    {},
-                )
-            )
+            cases.append(("empty settings dict",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {}))
 
         with tempfile.TemporaryDirectory() as t:
-            _make_cache(
-                t,
-                {
-                    "type": "img",
-                    "silverB": 5.838,
-                    "radius": 884.0,
-                    "detector": "pilatus3_2m",
-                },
-            )
-            cases.append(
-                (
-                    "img-type with detector",
-                    SettingsManager(t).derive_processing_calibration(),
-                    {"lambda_sdd": 5.838 * 884.0, "detector": "pilatus3_2m"},
-                )
-            )
+            _make_cache(t, {'type': 'img',
+                            'silverB': 5.838, 'radius': 884.0,
+                            'detector': 'pilatus3_2m'})
+            cases.append(("img-type with detector",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {'lambda_sdd': 5.838 * 884.0,
+                           'detector': 'pilatus3_2m'}))
 
         with tempfile.TemporaryDirectory() as t:
-            _make_cache(
-                t, {"type": "cont", "lambda": 1.5, "sdd": 200.0, "pixel_size": 0.075}
-            )
-            cases.append(
-                (
-                    "cont-type without detector",
-                    SettingsManager(t).derive_processing_calibration(),
-                    {"lambda_sdd": 1.5 * 200.0 / 0.075},
-                )
-            )
+            _make_cache(t, {'type': 'cont',
+                            'lambda': 1.5, 'sdd': 200.0, 'pixel_size': 0.075})
+            cases.append(("cont-type without detector",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {'lambda_sdd': 1.5 * 200.0 / 0.075}))
 
         with tempfile.TemporaryDirectory() as t:
-            _make_cache(t, {"type": "img", "silverB": 1.0})
-            cases.append(
-                (
-                    "img-type missing radius -> no lambda_sdd",
-                    SettingsManager(t).derive_processing_calibration(),
-                    {},
-                )
-            )
+            _make_cache(t, {'type': 'img', 'silverB': 1.0})
+            cases.append(("img-type missing radius -> no lambda_sdd",
+                          SettingsManager(t).derive_processing_calibration(),
+                          {}))
 
-        problems = [(label, got, want) for label, got, want in cases if got != want]
+        problems = [(label, got, want)
+                    for label, got, want in cases if got != want]
         pass_test = not problems
         if pass_test:
-            print(
-                "\nTesting SettingsManager.derive_processing_calibration"
-                " ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print("\nTesting SettingsManager.derive_processing_calibration"
+                  " ..... \033[0;32mPASSED\033[0;3140m")
         else:
-            print(
-                "\nTesting SettingsManager.derive_processing_calibration"
-                " ..... \033[0;31mFAILED\033[0;3140m"
-            )
+            print("\nTesting SettingsManager.derive_processing_calibration"
+                  " ..... \033[0;31mFAILED\033[0;3140m")
             for label, got, want in problems:
                 print(f"  case {label!r}: got={got}, want={want}")
         self.log_results(pass_test, "SettingsManager.derive_processing_calibration")
-        self.assertTrue(
-            pass_test, f"derive_processing_calibration contract drift: {problems}"
-        )
+        self.assertTrue(pass_test,
+                        f"derive_processing_calibration contract drift: {problems}")
+
 
     ####### QF _apply_existing_or_default_bg REGRESSION #######
     def testApplyExistingOrDefaultBgRespectsUserChoice(self):
@@ -807,40 +608,34 @@ class MuscleXGlobalTester(unittest.TestCase):
         # holds the literal-string 'None' method with empty params.
         qf1 = QuadrantFolder.__new__(QuadrantFolder)
         qf1.info = {
-            "bgsub": "Circularly-symmetric",
-            "cirmin": 0.0,
-            "cirmax": 25.0,
-            "radial_bin": 10,
-            "smooth": 0.1,
-            "tension": 1.0,
-            "result_bg": {
-                "method": "None",
-                "final_params": {},
-                "selected_configuration_name": "-",
-                "optimized": False,
+            'bgsub': 'Circularly-symmetric',
+            'cirmin': 0.0, 'cirmax': 25.0,
+            'radial_bin': 10, 'smooth': 0.1, 'tension': 1.0,
+            'result_bg': {
+                'method': 'None',
+                'final_params': {},
+                'selected_configuration_name': '-',
+                'optimized': False,
             },
         }
         qf1._apply_existing_or_default_bg()
 
-        if qf1.info["bgsub"] != "Circularly-symmetric":
+        if qf1.info['bgsub'] != 'Circularly-symmetric':
             problems.append(
                 f"Scenario 1: bgsub was silently reverted to "
                 f"{qf1.info['bgsub']!r} (expected 'Circularly-symmetric')"
             )
-        if qf1.info["result_bg"]["method"] != "Circularly-symmetric":
+        if qf1.info['result_bg']['method'] != 'Circularly-symmetric':
             problems.append(
                 f"Scenario 1: result_bg.method = "
                 f"{qf1.info['result_bg']['method']!r} (expected "
                 f"'Circularly-symmetric')"
             )
         expected_params = {
-            "smooth": 0.1,
-            "tension": 1.0,
-            "radial_bin": 10,
-            "cirmin": 0.0,
-            "cirmax": 25.0,
+            'smooth': 0.1, 'tension': 1.0, 'radial_bin': 10,
+            'cirmin': 0.0, 'cirmax': 25.0,
         }
-        if qf1.info["result_bg"]["final_params"] != expected_params:
+        if qf1.info['result_bg']['final_params'] != expected_params:
             problems.append(
                 f"Scenario 1: result_bg.final_params not rebuilt from "
                 f"current info: got {qf1.info['result_bg']['final_params']!r} "
@@ -852,29 +647,26 @@ class MuscleXGlobalTester(unittest.TestCase):
         # behavior).
         qf2 = QuadrantFolder.__new__(QuadrantFolder)
         prior_params = {
-            "smooth": 0.05,
-            "tension": 1.0,
-            "radial_bin": 10,
-            "cirmin": 0,
-            "cirmax": 25,
+            'smooth': 0.05, 'tension': 1.0, 'radial_bin': 10,
+            'cirmin': 0, 'cirmax': 25,
         }
         qf2.info = {
-            "bgsub": "None",
-            "result_bg": {
-                "method": "Circularly-symmetric",
-                "final_params": dict(prior_params),
-                "selected_configuration_name": "-",
-                "optimized": False,
+            'bgsub': 'None',
+            'result_bg': {
+                'method': 'Circularly-symmetric',
+                'final_params': dict(prior_params),
+                'selected_configuration_name': '-',
+                'optimized': False,
             },
         }
         qf2._apply_existing_or_default_bg()
 
-        if qf2.info["bgsub"] != "Circularly-symmetric":
+        if qf2.info['bgsub'] != 'Circularly-symmetric':
             problems.append(
                 f"Scenario 2: sticky reuse did not fire; bgsub = "
                 f"{qf2.info['bgsub']!r} (expected 'Circularly-symmetric')"
             )
-        if qf2.info.get("smooth") != 0.05:
+        if qf2.info.get('smooth') != 0.05:
             problems.append(
                 f"Scenario 2: prior final_params not propagated back "
                 f"to top-level info (smooth = {qf2.info.get('smooth')!r}, "
@@ -887,21 +679,22 @@ class MuscleXGlobalTester(unittest.TestCase):
         # the bogus stale state).
         qf3 = QuadrantFolder.__new__(QuadrantFolder)
         qf3.info = {
-            "bgsub": "None",
-            "result_bg": {
-                "method": "None",
-                "final_params": {},
-                "selected_configuration_name": "-",
-                "optimized": False,
+            'bgsub': 'None',
+            'result_bg': {
+                'method': 'None',
+                'final_params': {},
+                'selected_configuration_name': '-',
+                'optimized': False,
             },
         }
         qf3._apply_existing_or_default_bg()
 
-        if qf3.info["bgsub"] != "None":
+        if qf3.info['bgsub'] != 'None':
             problems.append(
-                f"Scenario 3: bgsub mutated unexpectedly to " f"{qf3.info['bgsub']!r}"
+                f"Scenario 3: bgsub mutated unexpectedly to "
+                f"{qf3.info['bgsub']!r}"
             )
-        if qf3.info["result_bg"]["method"] != "None":
+        if qf3.info['result_bg']['method'] != 'None':
             problems.append(
                 f"Scenario 3: result_bg.method mutated to "
                 f"{qf3.info['result_bg']['method']!r}"
@@ -916,13 +709,16 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(
                 "\nTesting QF _apply_existing_or_default_bg ..... "
-                f"\033[0;31mFAILED\033[0;3140m\n  - " + "\n  - ".join(problems)
+                f"\033[0;31mFAILED\033[0;3140m\n  - "
+                + "\n  - ".join(problems)
             )
         self.log_results(pass_test, "QF _apply_existing_or_default_bg")
         self.assertTrue(
             pass_test,
-            "_apply_existing_or_default_bg regressed: " + "; ".join(problems),
+            "_apply_existing_or_default_bg regressed: "
+            + "; ".join(problems),
         )
+
 
     ####### QF FINGERPRINT WIDGET-TRUNCATION REGRESSION #######
     def testQFFingerprintIgnoresWidgetTruncation(self):
@@ -950,7 +746,6 @@ class MuscleXGlobalTester(unittest.TestCase):
         actually hashes, with no Qt dependency.
         """
         import json, hashlib
-
         try:
             from ..modules.QuadrantFolder import QuadrantFolder
         except ImportError:
@@ -969,50 +764,36 @@ class MuscleXGlobalTester(unittest.TestCase):
             return v
 
         def params_hash(info):
-            params = {
-                k: normalize(v)
-                for k, v in info.items()
-                if k not in non_fp and k not in non_img
-            }
+            params = {k: normalize(v) for k, v in info.items()
+                      if k not in non_fp and k not in non_img}
             blob = json.dumps(params, sort_keys=True, default=str).encode()
             return hashlib.sha256(blob).hexdigest()
 
         base = {
-            "bgsub": "Circularly-symmetric",
-            "cirmin": 0.0,
-            "cirmax": 25.0,
-            "rmin": 25,
-            "rmax": 1533,
-            "fixed_rmin": 25,
-            "fixed_rmax": 1533,
-            "optimize": False,
-            "bg_options": 0,
-            "downsample": 2,
+            'bgsub': 'Circularly-symmetric',
+            'cirmin': 0.0, 'cirmax': 25.0,
+            'rmin': 25, 'rmax': 1533,
+            'fixed_rmin': 25, 'fixed_rmax': 1533,
+            'optimize': False, 'bg_options': 0, 'downsample': 2,
         }
         # Values the pipeline writes back to info (full FP precision).
-        high_prec = dict(
-            base,
-            **{
-                "evaluation_baseline": 11234.567891234,  # decimals=2 widget
-                "synthetic_amplitude": 543.7,  # decimals=0 widget
-                "synthetic_sigma_x": 4.3137081,  # decimals=2 widget
-                "synthetic_sigma_y": 8.6274163,  # decimals=2 widget
-                "m1": 100,  # int spinbox
-                "layer_line_width": 5,  # int spinbox
-            },
-        )
+        high_prec = dict(base, **{
+            'evaluation_baseline': 11234.567891234,   # decimals=2 widget
+            'synthetic_amplitude': 543.7,             # decimals=0 widget
+            'synthetic_sigma_x': 4.3137081,           # decimals=2 widget
+            'synthetic_sigma_y': 8.6274163,           # decimals=2 widget
+            'm1': 100,                                # int spinbox
+            'layer_line_width': 5,                    # int spinbox
+        })
         # The same info after a getFlags() round-trip through Qt spinboxes.
-        widget_trunc = dict(
-            base,
-            **{
-                "evaluation_baseline": 11234.57,
-                "synthetic_amplitude": 544.0,
-                "synthetic_sigma_x": 4.31,
-                "synthetic_sigma_y": 8.63,
-                "m1": 100,
-                "layer_line_width": 5,
-            },
-        )
+        widget_trunc = dict(base, **{
+            'evaluation_baseline': 11234.57,
+            'synthetic_amplitude': 544.0,
+            'synthetic_sigma_x': 4.31,
+            'synthetic_sigma_y': 8.63,
+            'm1': 100,
+            'layer_line_width': 5,
+        })
         # A genuine parameter change -- fingerprint must still reject this.
         real_change = dict(high_prec, cirmin=2.0)
 
@@ -1046,13 +827,16 @@ class MuscleXGlobalTester(unittest.TestCase):
         else:
             print(
                 "\nTesting QF fingerprint widget-truncation stability ..... "
-                f"\033[0;31mFAILED\033[0;3140m\n  - " + "\n  - ".join(problems)
+                f"\033[0;31mFAILED\033[0;3140m\n  - "
+                + "\n  - ".join(problems)
             )
         self.log_results(pass_test, "QF fingerprint widget-truncation stability")
         self.assertTrue(
             pass_test,
-            "QF fingerprint widget-truncation regression: " + "; ".join(problems),
+            "QF fingerprint widget-truncation regression: "
+            + "; ".join(problems),
         )
+
 
     ####### DIFFRACTION TEST #######
     def testHeadlessMarDiffraction(self):
@@ -1061,54 +845,28 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(mar_dir, filename)
-                DIImageWindowh(
-                    filename,
-                    mar_dir,
-                    True,
-                    True,
-                    os.path.join(mar_dir, "disettings.json"),
-                )
+                DIImageWindowh(filename, mar_dir, True, True, os.path.join(mar_dir, "disettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "di", "-h", "-i", f, "-s", os.path.join(mar_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(mar_dir, "di_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "MARimages", "di_results", "summary.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "MARimages", "di_results", "summary.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting Diffraction on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting Diffraction on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing Diffraction on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing Diffraction on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Diffraction MAR Image")
-        self.assertTrue(
-            pass_test, "Diffraction Image Headless Test for MAR image failed."
-        )
+        self.assertTrue(pass_test,"Diffraction Image Headless Test for MAR image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(mar_dir, "di_cache")):
@@ -1120,54 +878,28 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(eiger_dir, filename)
-                DIImageWindowh(
-                    filename,
-                    eiger_dir,
-                    True,
-                    True,
-                    os.path.join(eiger_dir, "disettings.json"),
-                )
+                DIImageWindowh(filename, eiger_dir, True, True, os.path.join(eiger_dir, "disettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "di", "-h", "-i", f, "-s", os.path.join(eiger_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "di_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "EIGERimages", "di_results", "summary.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "di_results", "summary.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting Diffraction on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting Diffraction on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing Diffraction on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing Diffraction on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Diffraction EIGER Image")
-        self.assertTrue(
-            pass_test, "Diffraction Image Headless Test for EIGER image failed."
-        )
+        self.assertTrue(pass_test,"Diffraction Image Headless Test for EIGER image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(eiger_dir, "di_cache")):
@@ -1179,54 +911,28 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pilatus_dir, filename)
-                DIImageWindowh(
-                    filename,
-                    pilatus_dir,
-                    True,
-                    True,
-                    os.path.join(pilatus_dir, "disettings.json"),
-                )
+                DIImageWindowh(filename, pilatus_dir, True, True, os.path.join(pilatus_dir, "disettings.json"))
                 # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "di", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "di_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "PILATUSimages", "di_results", "summary.csv"
-        )
+        release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "di_results", "summary.csv")
         # pass_test = True
         # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
         # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=rtol,
-            atol=atol,
-        )
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting Diffraction on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting Diffraction on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing Diffraction on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing Diffraction on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "Diffraction PILATUS Image")
-        self.assertTrue(
-            pass_test, "Diffraction Image Headless Test for PILATUS image failed."
-        )
+        self.assertTrue(pass_test,"Diffraction Image Headless Test for PILATUS image failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(pilatus_dir, "di_cache")):
@@ -1240,54 +946,28 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pt_dir, filename)
-                ProjectionTracesh(
-                    f, True, True, os.path.join(pt_dir, "ptsettings.json")
-                )
+                ProjectionTracesh(f, True, True, os.path.join(pt_dir, "ptsettings.json"))
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
         generated_results = os.path.join(pt_dir, "pt_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "MAR_PT_Convex_Hull_Vertical", "summary.csv"
-        )
-
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=1,
-            atol=atol,
-        )
+        release_results = os.path.join(self.currdir, "testResults", "MAR_PT_Convex_Hull_Vertical", "summary.csv")
+        
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "ProjectionTraces MAR_PT_Convex_Hull_Vertical")
         self._compareToGuiBaselineIfPresent(
-            pt_dir,
-            generated_results,
+            pt_dir, generated_results,
             "ProjectionTraces MAR_PT_Convex_Hull_Vertical",
-            gui_subdir="pt_results_gui",
-            gui_filename="summary.csv",
-            ignore_cols=(),
-            rtol_override=1,
+            gui_subdir="pt_results_gui", gui_filename="summary.csv",
+            ignore_cols=(), rtol_override=1,
         )
-        self.assertTrue(
-            pass_test,
-            "ProjectionTraces Image Headless Test for MAR_PT_Convex_Hull_Vertical failed.",
-        )
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for MAR_PT_Convex_Hull_Vertical failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(pt_dir, "pt_cache")):
@@ -1295,61 +975,33 @@ class MuscleXGlobalTester(unittest.TestCase):
 
     def testHeadlessEigerPTConvexHullVertical(self):
         """Test ProjectionTraces with EIGER_PT_Convex_Hull_Vertical (new format with embedded box config)"""
-        pt_dir = os.path.join(
-            self.currdir, "testImages", "EIGER_PT_Convex_Hull_Vertical"
-        )
+        pt_dir = os.path.join(self.currdir, "testImages", "EIGER_PT_Convex_Hull_Vertical")
         for filename in os.listdir(pt_dir):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pt_dir, filename)
-                ProjectionTracesh(
-                    f, True, True, os.path.join(pt_dir, "ptsettings.json")
-                )
+                ProjectionTracesh(f, True, True, os.path.join(pt_dir, "ptsettings.json"))
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
         generated_results = os.path.join(pt_dir, "pt_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "EIGER_PT_Convex_Hull_Vertical", "summary.csv"
-        )
-
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=1,
-            atol=atol,
-        )
+        release_results = os.path.join(self.currdir, "testResults", "EIGER_PT_Convex_Hull_Vertical", "summary.csv")
+        
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "ProjectionTraces EIGER_PT_Convex_Hull_Vertical")
         self._compareToGuiBaselineIfPresent(
-            pt_dir,
-            generated_results,
+            pt_dir, generated_results,
             "ProjectionTraces EIGER_PT_Convex_Hull_Vertical",
-            gui_subdir="pt_results_gui",
-            gui_filename="summary.csv",
-            ignore_cols=(),
-            rtol_override=1,
+            gui_subdir="pt_results_gui", gui_filename="summary.csv",
+            ignore_cols=(), rtol_override=1,
         )
-        self.assertTrue(
-            pass_test,
-            "ProjectionTraces Image Headless Test for EIGER_PT_Convex_Hull_Vertical failed.",
-        )
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for EIGER_PT_Convex_Hull_Vertical failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(pt_dir, "pt_cache")):
@@ -1357,109 +1009,63 @@ class MuscleXGlobalTester(unittest.TestCase):
 
     def testHeadlessPTFittingGaussiansHorizontal(self):
         """Test ProjectionTraces with PT_FittingGaussians_Horizontal (Gaussian fitting, horizontal box, quadrant folded)"""
-        pt_dir = os.path.join(
-            self.currdir, "testImages", "PT_FittingGaussians_Horizontal"
-        )
+        pt_dir = os.path.join(self.currdir, "testImages", "PT_FittingGaussians_Horizontal")
         for filename in os.listdir(pt_dir):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pt_dir, filename)
-                ProjectionTracesh(
-                    f, True, True, os.path.join(pt_dir, "ptsettings.json")
-                )
+                ProjectionTracesh(f, True, True, os.path.join(pt_dir, "ptsettings.json"))
 
-        print(
-            f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m"
-        )
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
         generated_results = os.path.join(pt_dir, "pt_results", "summary.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "PT_FittingGaussians_Horizontal", "summary.csv"
-        )
-
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=ignore_columns,
-            sort_key=sort_key,
-            rtol=1,
-            atol=atol,
-        )
+        release_results = os.path.join(self.currdir, "testResults", "PT_FittingGaussians_Horizontal", "summary.csv")
+        
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=atol)
         if not pass_test:
-            print(
-                f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
+            print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
         self.log_results(pass_test, "ProjectionTraces PT_FittingGaussians_Horizontal")
         self._compareToGuiBaselineIfPresent(
-            pt_dir,
-            generated_results,
+            pt_dir, generated_results,
             "ProjectionTraces PT_FittingGaussians_Horizontal",
-            gui_subdir="pt_results_gui",
-            gui_filename="summary.csv",
-            ignore_cols=(),
-            rtol_override=1,
+            gui_subdir="pt_results_gui", gui_filename="summary.csv",
+            ignore_cols=(), rtol_override=1,
         )
-        self.assertTrue(
-            pass_test,
-            "ProjectionTraces Image Headless Test for PT_FittingGaussians_Horizontal failed.",
-        )
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for PT_FittingGaussians_Horizontal failed.")
 
         # Remove cache folders
         if os.path.exists(os.path.join(pt_dir, "pt_cache")):
             shutil.rmtree(os.path.join(pt_dir, "pt_cache"))
-
+            
     def testHeadlessAISE(self):
         aise_dir = os.path.join(self.currdir, "test_images")
         aise_settings = os.path.join(self.currdir, "test_images", "aismesettings.json")
-
-        AddIntensitiesExph(aise_dir, aise_settings, "folder", "aise")
-
-        print(
-            f"\033[3;33m\nVerifying that generated headless AISE is equivalent to GUI AISE\033[0;3140m"
-        )
+        
+        AddIntensitiesExph(aise_dir, aise_settings, 'folder', 'aise')
+        
+        print(f"\033[3;33m\nVerifying that generated headless AISE is equivalent to GUI AISE\033[0;3140m")
         generated_results = os.path.join(aise_dir, "aise_results", "intensities.csv")
-        release_results = os.path.join(
-            self.currdir, "testResults", "AISEimages", "intensities.csv"
-        )
-
+        release_results = os.path.join(self.currdir, "testResults", "AISEimages", "intensities.csv")
+        
         pass_test = True
-
-        pass_test = compare_csv_files(
-            generated_results,
-            release_results,
-            ignore_columns=[2],
-            sort_key=sort_key,
-            rtol=1,
-            atol=1e-3,
-        )
-
+        
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=[2], sort_key=sort_key, rtol=1, atol=1e-3)
+        
         if not pass_test:
-            print(
-                f"\nTesting AISEHeadless on {aise_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m"
-            )
-            print(
-                "Compare the following files for more information:\n"
-                "File generated for testing: {p1}\nReference file: {p2}\n".format(
-                    p1=generated_results, p2=release_results
-                )
-            )
+            print(f"\nTesting AISEHeadless on {aise_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
         else:
-            print(
-                f"Testing AISEHeadless on {aise_dir} ..... \033[0;32mPASSED\033[0;3140m"
-            )
-
+            print(f"Testing AISEHeadless on {aise_dir} ..... \033[0;32mPASSED\033[0;3140m")
+            
         self.log_results(pass_test, "AISE Results")
-        self.assertTrue(pass_test, "AISE Image Headless Test for images failed.")
-
+        self.assertTrue(pass_test,"AISE Image Headless Test for images failed.")
+        
         results_dir = os.path.join(aise_dir, "aise_results")
         if os.path.exists(results_dir):
             shutil.rmtree(results_dir)
@@ -1468,14 +1074,13 @@ class MuscleXGlobalTester(unittest.TestCase):
     def log_results(self, pass_test, testname):
         """
         Save the result in the log file
-        """
+        """ 
         if pass_test:
-            result = "pass"
+            result = 'pass'
         else:
-            result = "fail"
-        with open(self.logname, "a") as lf:
+            result = 'fail'
+        with open(self.logname, 'a') as lf:
             lf.write(f"{testname} Test: {result}\n")
-
 
 def custom_round(x):
     if isinstance(x, float) or isinstance(x, int):
@@ -1488,28 +1093,16 @@ def custom_round(x):
                 return x
     else:
         return x
-
-
-def compare_csv_files(
-    file1,
-    file2,
-    ignore_columns=None,
-    sort_key=None,
-    rtol=1e-03,
-    atol=1e-05,
-    ignore_keys=["date", "version"],
-):
+    
+def compare_csv_files(file1, file2, ignore_columns=None, sort_key=None, rtol=1e-03, atol=1e-05, ignore_keys=["date", "version"]):
     # Read the CSV files into DataFrames
     df1 = pd.read_csv(file1)
     df2 = pd.read_csv(file2)
 
     if ignore_keys is not None:
-        df1 = df1.drop(
-            columns=[col for col in ignore_keys if col in df1.columns], errors="ignore"
-        )
-        df2 = df2.drop(
-            columns=[col for col in ignore_keys if col in df2.columns], errors="ignore"
-        )
+        df1 = df1.drop(columns=[col for col in ignore_keys if col in df1.columns], errors='ignore')
+        df2 = df2.drop(columns=[col for col in ignore_keys if col in df2.columns], errors='ignore')
+
 
     # Ensure both DataFrames have the same shape
     if df1.shape != df2.shape:
@@ -1541,30 +1134,22 @@ def compare_csv_files(
             return False
 
         # Check if the column is numeric
-        if pd.api.types.is_numeric_dtype(df1[column]) and pd.api.types.is_numeric_dtype(
-            df2[column]
-        ):
+        if pd.api.types.is_numeric_dtype(df1[column]) and pd.api.types.is_numeric_dtype(df2[column]):
             # Handle NaN values by treating them as equal
-            if not np.allclose(
-                df1[column].fillna(0).values,
-                df2[column].fillna(0).values,
-                rtol=rtol,
-                atol=atol,
-            ):
+            if not np.allclose(df1[column].fillna(0).values, df2[column].fillna(0).values, rtol=rtol, atol=atol):
                 print("Not Equal: ", column)
                 print("df1:", df1[column].fillna(0).values)
                 print("df2:", df2[column].fillna(0).values)
                 return False
         else:
             # Handle non-numeric columns, treating NaNs as equal
-            df1[column] = df1[column].astype(str).fillna("")
-            df2[column] = df2[column].astype(str).fillna("")
+            df1[column] = df1[column].astype(str).fillna('')
+            df2[column] = df2[column].astype(str).fillna('')
             if not df1[column].equals(df2[column]):
                 print("notequal", column)
                 return False
 
     return True
 
-
-if __name__ == "__main__":
+if __name__=="__main__":
     unittest.main(verbosity=2)

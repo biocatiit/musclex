@@ -3,7 +3,6 @@ import math
 import os
 from PyQt5 import QtWidgets, QtGui, QtCore
 
-
 class ImageWidget(QtWidgets.QWidget):
     # Signal to communicate updated center coordinates (as text)
     centerChanged = QtCore.pyqtSignal(str)
@@ -12,7 +11,7 @@ class ImageWidget(QtWidgets.QWidget):
         super().__init__(parent)
         # Set a fixed widget size (canvas size)
         self.setFixedSize(800, 600)
-
+        
         # Load the image as a QImage
         print(f"Loading image from: {image_path}")
         print("Exists?", os.path.exists(image_path))
@@ -21,11 +20,9 @@ class ImageWidget(QtWidgets.QWidget):
             raise Exception(f"Unable to load image from: {image_path}")
         self.image_width = self.image.width()
         self.image_height = self.image.height()
-
+        
         # Start with the original image center mapped to the canvas center
-        self.current_center = QtCore.QPointF(
-            self.image_width / 2, self.image_height / 2
-        )
+        self.current_center = QtCore.QPointF(self.image_width / 2, self.image_height / 2)
         self.angle = 0.0  # in radians
         self.scale = 1.0  # will be computed
         self.update_scale()
@@ -42,7 +39,7 @@ class ImageWidget(QtWidgets.QWidget):
             QtCore.QPointF(0, 0),
             QtCore.QPointF(self.image_width, 0),
             QtCore.QPointF(self.image_width, self.image_height),
-            QtCore.QPointF(0, self.image_height),
+            QtCore.QPointF(0, self.image_height)
         ]
         max_rx = 0
         max_ry = 0
@@ -61,6 +58,8 @@ class ImageWidget(QtWidgets.QWidget):
             new_scale = min((self.width() / 2) / max_rx, (self.height() / 2) / max_ry)
         self.scale = new_scale
 
+
+
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         # Build and set the transformation to draw the image.
@@ -73,27 +72,25 @@ class ImageWidget(QtWidgets.QWidget):
         transform.translate(-self.current_center.x(), -self.current_center.y())
         painter.setTransform(transform)
         painter.drawImage(0, 0, self.image)
-
+    
         # Reset the transformation so that the crosshair is drawn in widget coordinates.
         painter.resetTransform()
-
+    
         # Set up the pen for drawing the crosshair (red, 2 pixels wide).
         pen = QtGui.QPen(QtCore.Qt.red, 2)
         painter.setPen(pen)
-
+    
         # Compute the center point of the widget.
         center_x = self.width() / 2
         center_y = self.height() / 2
-
+    
         # Draw a small crosshair (e.g., 20 pixels in length).
-        painter.drawLine(
-            int(center_x - 10), int(center_y), int(center_x + 10), int(center_y)
-        )
-        painter.drawLine(
-            int(center_x), int(center_y - 10), int(center_x), int(center_y + 10)
-        )
-
+        painter.drawLine(int(center_x - 10), int(center_y), int(center_x + 10), int(center_y))
+        painter.drawLine(int(center_x), int(center_y - 10), int(center_x), int(center_y + 10))
+    
         painter.end()
+
+
 
     def paintEventALT(self, event):
         """
@@ -103,7 +100,7 @@ class ImageWidget(QtWidgets.QWidget):
           - The image is rotated by self.angle (in degrees) and uniformly scaled by self.scale.
         """
         painter = QtGui.QPainter(self)
-        # Build the transformation:
+        # Build the transformation: 
         # T = translate(canvas_center) * rotate(angle) * scale(scale, scale) * translate(-current_center)
         transform = QtGui.QTransform()
         canvas_center_x = self.width() / 2
@@ -120,9 +117,9 @@ class ImageWidget(QtWidgets.QWidget):
         """
         Map the mouse click (in widget coordinates) back to the original image coordinates
         using the inverse transform:
-
+        
           original = current_center + (1/scale) * R(-angle) * (clicked_point - canvas_center)
-
+          
         Update the current center accordingly, recompute the scale and update the display.
         """
         canvas_center = QtCore.QPointF(self.width() / 2, self.height() / 2)
@@ -134,15 +131,12 @@ class ImageWidget(QtWidgets.QWidget):
         sin_a = math.sin(self.angle)
         orig_dx = (dx * cos_a + dy * sin_a) / self.scale
         orig_dy = (-dx * sin_a + dy * cos_a) / self.scale
-        new_center = QtCore.QPointF(
-            self.current_center.x() + orig_dx, self.current_center.y() + orig_dy
-        )
+        new_center = QtCore.QPointF(self.current_center.x() + orig_dx,
+                                    self.current_center.y() + orig_dy)
         self.current_center = new_center
         self.update_scale()
         # Emit the updated center (in original image coordinates) for display.
-        self.centerChanged.emit(
-            f"Center: ({self.current_center.x():.1f}, {self.current_center.y():.1f})"
-        )
+        self.centerChanged.emit(f"Center: ({self.current_center.x():.1f}, {self.current_center.y():.1f})")
         self.update()
 
     def rotateImage(self):
@@ -152,39 +146,34 @@ class ImageWidget(QtWidgets.QWidget):
         """
         self.angle += math.radians(45)
         self.update_scale()
-        self.centerChanged.emit(
-            f"Center: ({self.current_center.x():.1f}, {self.current_center.y():.1f})"
-        )
+        self.centerChanged.emit(f"Center: ({self.current_center.x():.1f}, {self.current_center.y():.1f})")
         self.update()
 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, image_path):
         super().__init__()
-        self.setWindowTitle(
-            "PyQt5 Image Viewer â€“ Click to Recenter, Button to Rotate"
-        )
-
+        self.setWindowTitle("PyQt5 Image Viewer â€“ Click to Recenter, Button to Rotate")
+        
         # Set up the central widget and layout.
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         layout = QtWidgets.QVBoxLayout(central_widget)
-
+        
         # Create the image widget.
         self.image_widget = ImageWidget(image_path)
         layout.addWidget(self.image_widget)
-
+        
         # Create a control layout with a rotate button and a label to show the center.
         control_layout = QtWidgets.QHBoxLayout()
         self.rotate_button = QtWidgets.QPushButton("Rotate 45Â°")
         self.rotate_button.clicked.connect(self.image_widget.rotateImage)
         control_layout.addWidget(self.rotate_button)
         self.center_label = QtWidgets.QLabel(
-            f"Center: ({self.image_widget.current_center.x():.1f}, {self.image_widget.current_center.y():.1f})"
-        )
+            f"Center: ({self.image_widget.current_center.x():.1f}, {self.image_widget.current_center.y():.1f})")
         control_layout.addWidget(self.center_label)
         layout.addLayout(control_layout)
-
+        
         # Connect the image widget signal to update the label.
         self.image_widget.centerChanged.connect(self.center_label.setText)
 

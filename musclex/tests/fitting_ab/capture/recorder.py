@@ -40,6 +40,7 @@ from ..adapters.base import (
     save_case,
 )
 
+
 # --------------------------------------------------------------------------- #
 # Default location
 # --------------------------------------------------------------------------- #
@@ -95,7 +96,7 @@ def _build_inputs(
     *,
     x: np.ndarray,
     y: np.ndarray,
-    params: Any,  # lmfit.Parameters
+    params: Any,                  # lmfit.Parameters
     int_vars: Mapping[str, Any],
     model_kind: str,
     has_voigt: bool,
@@ -151,13 +152,11 @@ def _build_meta(
     }
     try:
         from musclex import __version__ as musclex_version
-
         invocation["musclex_version"] = musclex_version
     except Exception:  # pragma: no cover
         pass
     try:
         import lmfit
-
         invocation["lmfit_version"] = lmfit.__version__
     except Exception:  # pragma: no cover
         pass
@@ -170,13 +169,13 @@ def _build_meta(
         f"voigt={has_voigt}",
         f"bgsub={getattr(box, 'bgsub', None)}",
     ]
-    if getattr(box, "fixed_center", None):
+    if getattr(box, 'fixed_center', None):
         tags.append("has_fixed_center")
-    if getattr(box, "fixed_sigma", None):
+    if getattr(box, 'fixed_sigma', None):
         tags.append("has_fixed_sigma")
-    if getattr(box, "fixed_amplitude", None):
+    if getattr(box, 'fixed_amplitude', None):
         tags.append("has_fixed_amp")
-    if getattr(box, "fixed_common_sigma", None) is not None:
+    if getattr(box, 'fixed_common_sigma', None) is not None:
         tags.append("has_fixed_common_sigma")
 
     source_image = None
@@ -226,7 +225,9 @@ def _build_reference(
 
     for name in free_param_names:
         p = result.params.get(name) if hasattr(result, "params") else None
-        stderr[name] = None if p is None or p.stderr is None else float(p.stderr)
+        stderr[name] = (
+            None if p is None or p.stderr is None else float(p.stderr)
+        )
 
     # Recompute chi2 / r2 from actual residuals so we don't inherit lmfit's
     # "fit aborted" reporting quirk (where ``result.chisqr`` is sometimes
@@ -241,7 +242,7 @@ def _build_reference(
             best_fit = np.asarray(result.best_fit, dtype=np.float64)
             if np.all(np.isfinite(best_fit)):
                 residuals = data - best_fit
-                chi2 = float(np.sum(residuals**2))
+                chi2 = float(np.sum(residuals ** 2))
                 ss_tot = float(np.sum((data - np.mean(data)) ** 2))
                 if ss_tot > 0:
                     r2 = 1.0 - chi2 / ss_tot
@@ -254,16 +255,8 @@ def _build_reference(
         chi2 = r2 = redchi = None
 
     if chi2 is None:
-        chi2 = (
-            float(result.chisqr)
-            if getattr(result, "chisqr", None) is not None
-            else None
-        )
-        redchi = (
-            float(result.redchi)
-            if getattr(result, "redchi", None) is not None
-            else None
-        )
+        chi2 = float(result.chisqr) if getattr(result, "chisqr", None) is not None else None
+        redchi = float(result.redchi) if getattr(result, "redchi", None) is not None else None
 
     return ReferenceResult(
         adapter=adapter_label,
@@ -299,13 +292,11 @@ def _build_equator_meta(
     }
     try:
         from musclex import __version__ as musclex_version
-
         invocation["musclex_version"] = musclex_version
     except Exception:  # pragma: no cover
         pass
     try:
         import lmfit
-
         invocation["lmfit_version"] = lmfit.__version__
     except Exception:  # pragma: no cover
         pass
@@ -346,9 +337,9 @@ def maybe_record_equator_fit(
     image_name: str,
     x: np.ndarray,
     y: np.ndarray,
-    params: Any,  # lmfit.Parameters used in fit
+    params: Any,                          # lmfit.Parameters used in fit
     int_vars: Mapping[str, Any],
-    result: Any,  # lmfit ModelResult
+    result: Any,                          # lmfit ModelResult
     elapsed_s: float,
     extra_tags: Optional[list] = None,
 ) -> Optional[Path]:
@@ -366,19 +357,16 @@ def maybe_record_equator_fit(
         idx = _next_index()
         # short suffix from image basename for traceability
         from os.path import basename, splitext
-
         img_short = splitext(basename(image_name or "unknown"))[0][:20]
         case_id = (
-            f"{_capture_tag()}_eq_{img_short}_" f"{idx:05d}_" f"{uuid.uuid4().hex[:6]}"
+            f"{_capture_tag()}_eq_{img_short}_"
+            f"{idx:05d}_"
+            f"{uuid.uuid4().hex[:6]}"
         )
 
         inputs = _build_inputs(
-            x=x,
-            y=y,
-            params=params,
-            int_vars=int_vars,
-            model_kind="cardiac",
-            has_voigt=has_voigt,
+            x=x, y=y, params=params, int_vars=int_vars,
+            model_kind="cardiac", has_voigt=has_voigt,
         )
         meta = _build_equator_meta(
             case_id=case_id,
@@ -388,9 +376,7 @@ def maybe_record_equator_fit(
             extra_tags=extra_tags,
         )
         reference = _build_reference(
-            result,
-            list(inputs.free_params.keys()),
-            elapsed_s,
+            result, list(inputs.free_params.keys()), elapsed_s,
         )
 
         case = FitCase(
@@ -423,10 +409,10 @@ def maybe_record_fit(
     processor: Any,
     x: np.ndarray,
     y: np.ndarray,
-    params: Any,  # lmfit.Parameters used in fit
+    params: Any,                          # lmfit.Parameters used in fit
     int_vars: Mapping[str, Any],
     use_gmm: bool,
-    result: Any,  # lmfit ModelResult
+    result: Any,                          # lmfit ModelResult
     elapsed_s: float,
 ) -> Optional[Path]:
     """Persist a single fit invocation to disk if capture is enabled.
@@ -445,29 +431,22 @@ def maybe_record_fit(
         n_peaks = len(getattr(box, "peaks", []) or [])
         idx = _next_index()
         case_id = (
-            f"{_capture_tag()}_{box_name}_" f"{idx:05d}_" f"{uuid.uuid4().hex[:6]}"
+            f"{_capture_tag()}_{box_name}_"
+            f"{idx:05d}_"
+            f"{uuid.uuid4().hex[:6]}"
         )
 
         inputs = _build_inputs(
-            x=x,
-            y=y,
-            params=params,
-            int_vars=int_vars,
+            x=x, y=y, params=params, int_vars=int_vars,
             model_kind=("gmm" if use_gmm else "standard"),
             has_voigt=has_voigt,
         )
         meta = _build_meta(
-            case_id=case_id,
-            box_name=box_name,
-            box=box,
-            processor=processor,
-            n_peaks=n_peaks,
-            has_voigt=has_voigt,
+            case_id=case_id, box_name=box_name, box=box,
+            processor=processor, n_peaks=n_peaks, has_voigt=has_voigt,
         )
         reference = _build_reference(
-            result,
-            list(inputs.free_params.keys()),
-            elapsed_s,
+            result, list(inputs.free_params.keys()), elapsed_s,
         )
 
         case = FitCase(

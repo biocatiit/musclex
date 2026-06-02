@@ -31,23 +31,18 @@ import os as _os
 import sys as _sys
 import subprocess as _subprocess
 
-_DEV_SUFFIX = ".dev1"
-
+_DEV_SUFFIX = '.dev1'
 
 def _get_version():
-    _base = "2.0.0"
+    _base = '2.0.0'
     try:
-        _branch = (
-            _subprocess.check_output(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=_subprocess.DEVNULL
-            )
-            .decode()
-            .strip()
-        )
+        _branch = _subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            stderr=_subprocess.DEVNULL
+        ).decode().strip()
     except Exception:
-        _branch = ""
-    return f"{_base}{_DEV_SUFFIX}" if _branch == "dev" else _base
-
+        _branch = ''
+    return f'{_base}{_DEV_SUFFIX}' if _branch == 'dev' else _base
 
 __version__ = _get_version()
 
@@ -64,14 +59,14 @@ def _looks_like_test_runner() -> bool:
     keep the auto-enable strictly for interactive ``musclex pt`` / ``pth``
     style sessions.
     """
-    if "PYTEST_CURRENT_TEST" in _os.environ:
+    if 'PYTEST_CURRENT_TEST' in _os.environ:
         return True
-    argv0 = _os.path.basename(_sys.argv[0]) if _sys.argv else ""
-    if argv0 in ("pytest", "py.test"):
+    argv0 = _os.path.basename(_sys.argv[0]) if _sys.argv else ''
+    if argv0 in ('pytest', 'py.test'):
         return True
-    if "unittest" in _sys.argv:
+    if 'unittest' in _sys.argv:
         return True
-    if any("unittest" in a for a in _sys.argv[:2]):  # `python -m unittest ...`
+    if any('unittest' in a for a in _sys.argv[:2]):  # `python -m unittest ...`
         return True
     return False
 
@@ -98,21 +93,19 @@ def _maybe_enable_dev_capture():
         return
     if _looks_like_test_runner():
         return
-    if "MUSCLEX_CAPTURE_FITS" in _os.environ:
+    if 'MUSCLEX_CAPTURE_FITS' in _os.environ:
         return  # respect explicit user choice (set or unset to '0')
 
     today = _datetime.date.today().isoformat()
-    default_dir = _os.path.expanduser(
-        _os.path.join("~", ".musclex", "fit_captures", today)
-    )
+    default_dir = _os.path.expanduser(_os.path.join('~', '.musclex', 'fit_captures', today))
 
-    _os.environ["MUSCLEX_CAPTURE_FITS"] = "1"
-    _os.environ.setdefault("MUSCLEX_CAPTURE_DIR", default_dir)
-    _os.environ.setdefault("MUSCLEX_CAPTURE_TAG", "dev")
+    _os.environ['MUSCLEX_CAPTURE_FITS'] = '1'
+    _os.environ.setdefault('MUSCLEX_CAPTURE_DIR', default_dir)
+    _os.environ.setdefault('MUSCLEX_CAPTURE_TAG', 'dev')
 
     _sys.stderr.write(
-        f"[musclex] dev build: A/B fit capture ENABLED -> {default_dir}\n"
-        f"[musclex]   disable with: export MUSCLEX_CAPTURE_FITS=0\n"
+        f'[musclex] dev build: A/B fit capture ENABLED -> {default_dir}\n'
+        f'[musclex]   disable with: export MUSCLEX_CAPTURE_FITS=0\n'
     )
 
 
@@ -124,12 +117,11 @@ def _show_fatal_dialog(title, message):
     dialog could itself crash. Tkinter ships with CPython and is completely
     independent.
     """
-    if not (_os.environ.get("DISPLAY") or _os.environ.get("WAYLAND_DISPLAY")):
+    if not (_os.environ.get('DISPLAY') or _os.environ.get('WAYLAND_DISPLAY')):
         return False
     try:
         import tkinter as _tk
         from tkinter import messagebox as _mb
-
         root = _tk.Tk()
         root.withdraw()
         _mb.showerror(title, message)
@@ -148,20 +140,19 @@ def _check_pyside6_environment():
     keyboard input. We fail fast with a clear message instead of crashing
     later in C++.
     """
-    if _os.environ.get("MUSCLEX_SKIP_ENV_CHECK"):
+    if _os.environ.get('MUSCLEX_SKIP_ENV_CHECK'):
         return
     try:
         import importlib.util
-
-        spec = importlib.util.find_spec("PySide6")
+        spec = importlib.util.find_spec('PySide6')
         if spec is None or not spec.origin:
             return
         ps6_path = _os.path.realpath(spec.origin)
         py_prefix = _os.path.realpath(_sys.prefix)
-        base_prefix = _os.path.realpath(getattr(_sys, "base_prefix", _sys.prefix))
+        base_prefix = _os.path.realpath(getattr(_sys, 'base_prefix', _sys.prefix))
         if ps6_path.startswith(py_prefix) or ps6_path.startswith(base_prefix):
             return
-        title = "MuscleX: PySide6 environment mismatch"
+        title = 'MuscleX: PySide6 environment mismatch'
         message = (
             "PySide6 environment mismatch (will cause segfaults).\n\n"
             f"Loaded from: {ps6_path}\n"
@@ -174,7 +165,7 @@ def _check_pyside6_environment():
             "       export PYTHONNOUSERSITE=1\n\n"
             "  3. Don't use conda — use a venv or pip install instead."
         )
-        _sys.stderr.write("\n[musclex] FATAL: " + message + "\n")
+        _sys.stderr.write('\n[musclex] FATAL: ' + message + '\n')
         _show_fatal_dialog(title, message)
         _sys.exit(1)
     except SystemExit:

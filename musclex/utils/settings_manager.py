@@ -111,8 +111,8 @@ class SettingsManager:
 
     def get_center(self, filename: str) -> Optional[Tuple[float, float]]:
         data = self._center.get(filename)
-        if data and "center" in data:
-            return tuple(data["center"])
+        if data and 'center' in data:
+            return tuple(data['center'])
         return None
 
     def get_center_data(self, filename: str) -> Optional[dict]:
@@ -121,8 +121,8 @@ class SettingsManager:
 
     def set_center(self, filename: str, center, source: str):
         self._center[filename] = {
-            "center": list(center),
-            "source": source,
+            'center': list(center),
+            'source': source,
         }
 
     def clear_center(self, filename: str):
@@ -135,8 +135,8 @@ class SettingsManager:
 
     def get_rotation(self, filename: str) -> Optional[float]:
         data = self._rotation.get(filename)
-        if data and "rotation" in data:
-            return data["rotation"]
+        if data and 'rotation' in data:
+            return data['rotation']
         return None
 
     def get_rotation_data(self, filename: str) -> Optional[dict]:
@@ -144,8 +144,8 @@ class SettingsManager:
 
     def set_rotation(self, filename: str, rotation: float, source: str):
         self._rotation[filename] = {
-            "rotation": rotation,
-            "source": source,
+            'rotation': rotation,
+            'source': source,
         }
 
     def clear_rotation(self, filename: str):
@@ -226,20 +226,20 @@ class SettingsManager:
 
     def get_auto_center(self, filename: str) -> Optional[Tuple[float, float]]:
         data = self._auto_cache.get(filename)
-        if data and data.get("center"):
-            return tuple(data["center"])
+        if data and data.get('center'):
+            return tuple(data['center'])
         return None
 
     def get_auto_rotation(self, filename: str) -> Optional[float]:
         data = self._auto_cache.get(filename)
-        if data and data.get("rotation") is not None:
-            return data["rotation"]
+        if data and data.get('rotation') is not None:
+            return data['rotation']
         return None
 
     def set_auto_cache(self, filename: str, center, rotation):
         self._auto_cache[filename] = {
-            "center": list(center) if center else None,
-            "rotation": rotation if rotation is not None else None,
+            'center': list(center) if center else None,
+            'rotation': rotation if rotation is not None else None,
         }
 
     # ===== Global base =====
@@ -250,7 +250,7 @@ class SettingsManager:
 
     def set_global_base(self, base_filename: str):
         self._global_base = {
-            "base_image": base_filename,
+            'base_image': base_filename,
         }
 
     def clear_global_base(self):
@@ -277,18 +277,14 @@ class SettingsManager:
     @property
     def blank_enabled(self) -> bool:
         """Config exists AND the disabled-flag is absent."""
-        return (
-            self.has_blank_config()
-            and not (self.settings_path / ".blank_image_disabled").exists()
-        )
+        return (self.has_blank_config()
+                and not (self.settings_path / ".blank_image_disabled").exists())
 
     @property
     def mask_enabled(self) -> bool:
         """mask.tif exists AND the disabled-flag is absent."""
-        return (
-            self.has_mask_file()
-            and not (self.settings_path / ".mask_disabled").exists()
-        )
+        return (self.has_mask_file()
+                and not (self.settings_path / ".mask_disabled").exists())
 
     @property
     def blank_weight(self) -> float:
@@ -296,8 +292,8 @@ class SettingsManager:
         if not self.has_blank_config():
             return 1.0
         try:
-            with open(self.blank_config_path, "r") as f:
-                return json.load(f).get("weight", 1.0)
+            with open(self.blank_config_path, 'r') as f:
+                return json.load(f).get('weight', 1.0)
         except Exception:
             return 1.0
 
@@ -342,10 +338,10 @@ class SettingsManager:
         blank_config_file = self.blank_config_path
         if blank_config_file.exists():
             try:
-                with open(blank_config_file, "r") as f:
+                with open(blank_config_file, 'r') as f:
                     config = json.load(f)
-                file_path = Path(config.get("file_path", ""))
-                blank_weight = config.get("weight", 1.0)
+                file_path = Path(config.get('file_path', ''))
+                blank_weight = config.get('weight', 1.0)
                 if file_path.exists():
                     blank_img = fabio.open(str(file_path)).data
             except Exception as e:
@@ -378,7 +374,7 @@ class SettingsManager:
         path = self.settings_path / "calibration.info"
         if path.exists():
             try:
-                with open(path, "rb") as f:
+                with open(path, 'rb') as f:
                     cache = pickle.load(f)
                 if cache is not None and "version" in cache:
                     return cache
@@ -393,7 +389,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "calibration.info", "wb") as f:
+            with open(d / "calibration.info", 'wb') as f:
                 pickle.dump(cache, f)
         except Exception as e:
             print(f"Error saving calibration cache: {e}")
@@ -427,22 +423,19 @@ class SettingsManager:
         (headless) call into it so the two paths cannot drift.
         """
         cache = self.load_calibration_cache()
-        if not cache or "settings" not in cache:
+        if not cache or 'settings' not in cache:
             return {}
-        cs = cache["settings"]
+        cs = cache['settings']
         out: dict = {}
-        cal_type = cs.get("type")
-        if cal_type == "img":
-            if "silverB" in cs and "radius" in cs:
-                out["lambda_sdd"] = cs["silverB"] * cs["radius"]
+        cal_type = cs.get('type')
+        if cal_type == 'img':
+            if 'silverB' in cs and 'radius' in cs:
+                out['lambda_sdd'] = cs['silverB'] * cs['radius']
         else:
-            if (
-                all(k in cs for k in ("lambda", "sdd", "pixel_size"))
-                and cs["pixel_size"]
-            ):
-                out["lambda_sdd"] = cs["lambda"] * cs["sdd"] / cs["pixel_size"]
-        if "detector" in cs:
-            out["detector"] = cs["detector"]
+            if all(k in cs for k in ('lambda', 'sdd', 'pixel_size')) and cs['pixel_size']:
+                out['lambda_sdd'] = cs['lambda'] * cs['sdd'] / cs['pixel_size']
+        if 'detector' in cs:
+            out['detector'] = cs['detector']
         return out
 
     # Keys that GUI getFlags() derives from calibration_settings and
@@ -450,7 +443,7 @@ class SettingsManager:
     # the GUI's saveSettings (to strip them from exported JSON) and by
     # headless eq/qf to inject the same derived values from
     # calibration.info, so the two paths stay symmetric.
-    PROCESSING_CALIBRATION_KEYS = ("lambda_sdd", "detector")
+    PROCESSING_CALIBRATION_KEYS = ('lambda_sdd', 'detector')
 
     def derive_processing_calibration(self) -> dict:
         """Translate ``calibration.info`` into the per-image processing
@@ -473,22 +466,24 @@ class SettingsManager:
         cache = self.load_calibration_cache()
         if not cache:
             return {}
-        cs = cache.get("settings")
+        cs = cache.get('settings')
         if not cs:
             return {}
 
         derived: dict = {}
-        cal_type = cs.get("type")
-        if cal_type == "img":
-            if "silverB" in cs and "radius" in cs:
-                derived["lambda_sdd"] = cs["silverB"] * cs["radius"]
+        cal_type = cs.get('type')
+        if cal_type == 'img':
+            if 'silverB' in cs and 'radius' in cs:
+                derived['lambda_sdd'] = cs['silverB'] * cs['radius']
         else:
-            if "lambda" in cs and "sdd" in cs and "pixel_size" in cs:
-                pixel_size = cs["pixel_size"]
+            if 'lambda' in cs and 'sdd' in cs and 'pixel_size' in cs:
+                pixel_size = cs['pixel_size']
                 if pixel_size:
-                    derived["lambda_sdd"] = 1.0 * cs["lambda"] * cs["sdd"] / pixel_size
-        if "detector" in cs:
-            derived["detector"] = cs["detector"]
+                    derived['lambda_sdd'] = (
+                        1.0 * cs['lambda'] * cs['sdd'] / pixel_size
+                    )
+        if 'detector' in cs:
+            derived['detector'] = cs['detector']
         return derived
 
     def load_calibration_dialog(self) -> Optional[dict]:
@@ -496,7 +491,7 @@ class SettingsManager:
         path = self.settings_path / "calibrationDialog.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     return json.load(f)
             except Exception as e:
                 print(f"Error loading calibrationDialog.json: {e}")
@@ -509,7 +504,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "calibrationDialog.json", "w") as f:
+            with open(d / "calibrationDialog.json", 'w') as f:
                 json.dump(info, f)
         except Exception as e:
             print(f"Error saving calibrationDialog.json: {e}")
@@ -532,7 +527,7 @@ class SettingsManager:
         path = self.settings_path / "center_settings.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._center = json.load(f)
                 print(f"Loaded center settings for {len(self._center)} images")
             except Exception as e:
@@ -545,7 +540,7 @@ class SettingsManager:
         path = self.settings_path / "rotation_settings.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._rotation = json.load(f)
                 print(f"Loaded rotation settings for {len(self._rotation)} images")
             except Exception as e:
@@ -558,7 +553,7 @@ class SettingsManager:
         path = self.settings_path / "auto_geometry_cache.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._auto_cache = json.load(f)
             except Exception as e:
                 print(f"Error loading auto geometry cache: {e}")
@@ -570,7 +565,7 @@ class SettingsManager:
         path = self.settings_path / "global_base.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._global_base = json.load(f)
             except Exception as e:
                 print(f"Error loading global base settings: {e}")
@@ -584,7 +579,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "center_settings.json", "w") as f:
+            with open(d / "center_settings.json", 'w') as f:
                 json.dump(self._center, f, indent=2)
             print(f"Saved center settings for {len(self._center)} images")
         except Exception as e:
@@ -596,7 +591,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "rotation_settings.json", "w") as f:
+            with open(d / "rotation_settings.json", 'w') as f:
                 json.dump(self._rotation, f, indent=2)
             print(f"Saved rotation settings for {len(self._rotation)} images")
         except Exception as e:
@@ -608,7 +603,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(parents=True, exist_ok=True)
         try:
-            with open(d / "auto_geometry_cache.json", "w") as f:
+            with open(d / "auto_geometry_cache.json", 'w') as f:
                 json.dump(self._auto_cache, f, indent=2)
         except Exception as e:
             print(f"Error saving auto geometry cache: {e}")
@@ -619,7 +614,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "global_base.json", "w") as f:
+            with open(d / "global_base.json", 'w') as f:
                 json.dump(self._global_base, f, indent=2)
         except Exception as e:
             print(f"Error saving global base settings: {e}")
@@ -628,7 +623,7 @@ class SettingsManager:
         path = self.settings_path / "transform_settings.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._transform = json.load(f)
             except Exception as e:
                 print(f"Error loading transform settings: {e}")
@@ -642,7 +637,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "transform_settings.json", "w") as f:
+            with open(d / "transform_settings.json", 'w') as f:
                 json.dump(self._transform, f, indent=2)
         except Exception as e:
             print(f"Error saving transform settings: {e}")
@@ -651,7 +646,7 @@ class SettingsManager:
         path = self.settings_path / "ignore_settings.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._ignore = json.load(f)
                 print(f"Loaded ignore settings for {len(self._ignore)} images")
             except Exception as e:
@@ -666,7 +661,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "ignore_settings.json", "w") as f:
+            with open(d / "ignore_settings.json", 'w') as f:
                 json.dump(self._ignore, f, indent=2)
         except Exception as e:
             print(f"Error saving ignore settings: {e}")
@@ -675,7 +670,7 @@ class SettingsManager:
         path = self.settings_path / "image_diff_cache.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._image_diff = json.load(f)
             except Exception as e:
                 print(f"Error loading image diff cache: {e}")
@@ -689,7 +684,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "image_diff_cache.json", "w") as f:
+            with open(d / "image_diff_cache.json", 'w') as f:
                 json.dump(self._image_diff, f, indent=2)
         except Exception as e:
             print(f"Error saving image diff cache: {e}")
@@ -699,7 +694,7 @@ class SettingsManager:
         path = self.settings_path / "fold_std_sum_cache.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._fold_std_sum = json.load(f)
             except Exception as e:
                 print(f"Error loading fold std-sum cache: {e}")
@@ -714,7 +709,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "fold_std_sum_cache.json", "w") as f:
+            with open(d / "fold_std_sum_cache.json", 'w') as f:
                 json.dump(self._fold_std_sum, f, indent=2)
         except Exception as e:
             print(f"Error saving fold std-sum cache: {e}")
@@ -724,7 +719,7 @@ class SettingsManager:
         path = self.settings_path / "fold_std_norm_cache.json"
         if path.exists():
             try:
-                with open(path, "r") as f:
+                with open(path, 'r') as f:
                     self._fold_std_norm = json.load(f)
             except Exception as e:
                 print(f"Error loading fold std-norm cache: {e}")
@@ -739,7 +734,7 @@ class SettingsManager:
         d = self.settings_path
         d.mkdir(exist_ok=True)
         try:
-            with open(d / "fold_std_norm_cache.json", "w") as f:
+            with open(d / "fold_std_norm_cache.json", 'w') as f:
                 json.dump(self._fold_std_norm, f, indent=2)
         except Exception as e:
             print(f"Error saving fold std-norm cache: {e}")

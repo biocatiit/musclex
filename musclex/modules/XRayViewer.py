@@ -40,7 +40,6 @@ class XRayViewer:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-
     def __init__(self, img, img_path=None, img_name=None):
         """
         Initialize viewer with an already-loaded image array.
@@ -81,12 +80,9 @@ class XRayViewer:
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape
-        db, dl = (bnew - b) // 2, (lnew - l) // 2
-        final_rotImg = rotImg[db : bnew - db, dl : lnew - dl]
-        self.dl, self.db = (
-            dl,
-            db,
-        )  # storing the cropped off section to recalculate coordinates when manual center is given
+        db, dl = (bnew - b)//2, (lnew-l)//2
+        final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
+        self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
         return final_rotImg
 
@@ -98,13 +94,8 @@ class XRayViewer:
         # accurate than just using the geometric center.
         if self.is_folded:
             self.orig_image_center = self._geometric_center()
-            print(
-                "Folded image detected, using geometric center = "
-                + str(self.orig_image_center)
-            )
+            print("Folded image detected, using geometric center = " + str(self.orig_image_center))
             return
         print("Center is being calculated ... ")
-        self.orig_img, self.orig_image_center = processImageForIntCenter(
-            self.orig_img, getCenter(self.orig_img)
-        )
+        self.orig_img, self.orig_image_center = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
         print("Done. Center = " + str(self.orig_image_center))

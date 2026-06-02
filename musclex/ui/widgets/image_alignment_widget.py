@@ -75,17 +75,9 @@ class ImageAlignmentWidget(QWidget):
     globalBaseChanged = Signal()
     detectionFinished = Signal()
 
-    def __init__(
-        self,
-        workspace,
-        row_mapper,
-        col_map,
-        headers,
-        worker_dir_path="",
-        enable_symmetry_test=False,
-        detection_button_position="top",
-        parent=None,
-    ):
+    def __init__(self, workspace, row_mapper, col_map, headers,
+                 worker_dir_path="", enable_symmetry_test=False,
+                 detection_button_position="top", parent=None):
         super().__init__(parent)
         self.workspace = workspace
         self._row_mapper = row_mapper
@@ -162,23 +154,23 @@ class ImageAlignmentWidget(QWidget):
         root.setSpacing(4)
 
         self.misaligned_detection_group = CollapsibleGroupBox(
-            "Detect Misaligned Images"
-        )
+            "Detect Misaligned Images")
         layout = QVBoxLayout()
         layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(4)
 
         # Build the detection toggle button up-front; it may be inserted at the
         # top *or* at the bottom of ``layout`` depending on configuration.
-        self.start_detection_btn = QPushButton("Detect Centers && Rotations")
+        self.start_detection_btn = QPushButton(
+            "Detect Centers && Rotations")
         self.start_detection_btn.setCheckable(True)
         self.start_detection_btn.setToolTip(
             "Start batch detection of center and rotation angle for all loaded images.\n"
             "If the symmetry test is enabled, the sum-of-std fold symmetry score is "
             "also computed for each image.\n"
-            "Click again (Stop) to cancel the running batch."
-        )
-        self.start_detection_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            "Click again (Stop) to cancel the running batch.")
+        self.start_detection_btn.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         if self._detection_button_position == "top":
             detection_row = QHBoxLayout()
@@ -192,8 +184,7 @@ class ImageAlignmentWidget(QWidget):
         self._dist_thresh_chk.setChecked(True)
         self._dist_thresh_chk.setToolTip(
             "Highlight images whose center deviates from the base by more than the threshold.\n"
-            "Uncheck to disable this highlighting."
-        )
+            "Uncheck to disable this highlighting.")
         dist_row.addWidget(self._dist_thresh_chk)
         self._dist_thresh_spin = QDoubleSpinBox()
         self._dist_thresh_spin.setRange(0.0, 10000.0)
@@ -214,8 +205,7 @@ class ImageAlignmentWidget(QWidget):
         self._rot_diff_thresh_chk.setChecked(True)
         self._rot_diff_thresh_chk.setToolTip(
             "Highlight images whose auto-detected rotation angle differs from the base by more than the threshold.\n"
-            "Uncheck to disable this highlighting."
-        )
+            "Uncheck to disable this highlighting.")
         rot_row.addWidget(self._rot_diff_thresh_chk)
         self._rot_diff_thresh_spin = QDoubleSpinBox()
         self._rot_diff_thresh_spin.setRange(0.0, 360.0)
@@ -232,13 +222,13 @@ class ImageAlignmentWidget(QWidget):
         # Image-diff threshold
         diff_row = QHBoxLayout()
         diff_row.setSpacing(6)
-        self._diff_thresh_chk = QCheckBox("Image diff threshold (default: 80th pct):")
+        self._diff_thresh_chk = QCheckBox(
+            "Image diff threshold (default: 80th pct):")
         self._diff_thresh_chk.setChecked(True)
         self._diff_thresh_chk.setToolTip(
             "Highlight images whose pairwise image-diff score exceeds this threshold.\n"
             "The default is automatically set to the 80th percentile of all diff scores.\n"
-            "Uncheck to disable this highlighting."
-        )
+            "Uncheck to disable this highlighting.")
         diff_row.addWidget(self._diff_thresh_chk)
         self._diff_thresh_spin = QDoubleSpinBox()
         self._diff_thresh_spin.setRange(0.0, 1e9)
@@ -261,13 +251,11 @@ class ImageAlignmentWidget(QWidget):
                 "When checked, batch detection additionally computes the sum of "
                 "per-pixel standard deviation across the 4 quadrants (after "
                 "centering and rotating each image, before actual folding).\n"
-                "A lower score means a more symmetric image."
-            )
+                "A lower score means a more symmetric image.")
             sym_row.addWidget(self._symmetry_enable_chk)
 
             self._symmetry_thresh_chk = QCheckBox(
-                "Symmetry std threshold (default: 80th pct):"
-            )
+                "Symmetry std threshold (default: 80th pct):")
             # Pre-checked so highlighting kicks in automatically once the
             # symmetry test has populated values — the master toggle below
             # still gates the *Enabled* state until the test is turned on.
@@ -277,8 +265,7 @@ class ImageAlignmentWidget(QWidget):
                 "Highlight images whose fold-symmetry std-sum exceeds this threshold.\n"
                 "The default is automatically set to the 80th percentile of all "
                 "symmetry scores after detection completes.\n"
-                "Uncheck to disable this highlighting."
-            )
+                "Uncheck to disable this highlighting.")
             sym_row.addWidget(self._symmetry_thresh_chk)
 
             self._symmetry_thresh_spin = QDoubleSpinBox()
@@ -296,8 +283,7 @@ class ImageAlignmentWidget(QWidget):
             norm_row = QHBoxLayout()
             norm_row.setSpacing(6)
             self._norm_thresh_chk = QCheckBox(
-                "Symmetry norm threshold (default: 80th pct):"
-            )
+                "Symmetry norm threshold (default: 80th pct):")
             self._norm_thresh_chk.setChecked(True)
             self._norm_thresh_chk.setEnabled(False)
             self._norm_thresh_chk.setToolTip(
@@ -305,8 +291,7 @@ class ImageAlignmentWidget(QWidget):
                 "(fold_std_sum / Σ I_fg) exceeds this threshold.\n"
                 "The default is automatically set to the 80th percentile of "
                 "all normalised scores after detection completes.\n"
-                "Uncheck to disable this highlighting."
-            )
+                "Uncheck to disable this highlighting.")
             norm_row.addWidget(self._norm_thresh_chk)
 
             self._norm_thresh_spin = QDoubleSpinBox()
@@ -327,29 +312,37 @@ class ImageAlignmentWidget(QWidget):
             layout.addLayout(detection_row)
 
         # Wire threshold signals
-        self._dist_thresh_chk.toggled.connect(self._on_dist_threshold_toggled)
-        self._dist_thresh_spin.valueChanged.connect(self._on_dist_threshold_changed)
-        self._rot_diff_thresh_chk.toggled.connect(self._on_rot_diff_threshold_toggled)
+        self._dist_thresh_chk.toggled.connect(
+            self._on_dist_threshold_toggled)
+        self._dist_thresh_spin.valueChanged.connect(
+            self._on_dist_threshold_changed)
+        self._rot_diff_thresh_chk.toggled.connect(
+            self._on_rot_diff_threshold_toggled)
         self._rot_diff_thresh_spin.valueChanged.connect(
-            self._on_rot_diff_threshold_changed
-        )
-        self._diff_thresh_chk.toggled.connect(self._on_diff_thresh_toggled)
-        self._diff_thresh_spin.valueChanged.connect(self._on_diff_thresh_changed)
+            self._on_rot_diff_threshold_changed)
+        self._diff_thresh_chk.toggled.connect(
+            self._on_diff_thresh_toggled)
+        self._diff_thresh_spin.valueChanged.connect(
+            self._on_diff_thresh_changed)
 
         if self._enable_symmetry_test:
-            self._symmetry_enable_chk.toggled.connect(self._on_symmetry_enable_toggled)
-            self._symmetry_thresh_chk.toggled.connect(self._on_symmetry_thresh_toggled)
+            self._symmetry_enable_chk.toggled.connect(
+                self._on_symmetry_enable_toggled)
+            self._symmetry_thresh_chk.toggled.connect(
+                self._on_symmetry_thresh_toggled)
             self._symmetry_thresh_spin.valueChanged.connect(
-                self._on_symmetry_thresh_changed
-            )
-            self._norm_thresh_chk.toggled.connect(self._on_norm_thresh_toggled)
-            self._norm_thresh_spin.valueChanged.connect(self._on_norm_thresh_changed)
+                self._on_symmetry_thresh_changed)
+            self._norm_thresh_chk.toggled.connect(
+                self._on_norm_thresh_toggled)
+            self._norm_thresh_spin.valueChanged.connect(
+                self._on_norm_thresh_changed)
 
         self.misaligned_detection_group.set_content_layout(layout)
         root.addWidget(self.misaligned_detection_group)
 
         # Detection button signal
-        self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
+        self.start_detection_btn.toggled.connect(
+            self._on_detection_btn_toggled)
 
         # Progress bar and status label (for parent to place in a status bar)
         self.progressBar = QProgressBar()
@@ -411,7 +404,7 @@ class ImageAlignmentWidget(QWidget):
     def on_global_base_changed(self):
         """Re-read the global base from settings and refresh the table."""
         base = self.workspace.settings_manager.get_global_base()
-        self._base_image_filename = base.get("base_image")
+        self._base_image_filename = base.get('base_image')
         self._update_table_data()
 
     @property
@@ -460,11 +453,8 @@ class ImageAlignmentWidget(QWidget):
 
         effective_center = self._get_effective_center(name)
         self.table.fill_auto_manual_dist(
-            row,
-            auto_center,
-            effective_center,
-            self._dist_threshold_enabled,
-            self._dist_threshold,
+            row, auto_center, effective_center,
+            self._dist_threshold_enabled, self._dist_threshold,
         )
 
         manual_r = sm.get_rotation(name)
@@ -479,51 +469,41 @@ class ImageAlignmentWidget(QWidget):
 
         effective_rotation = self._get_effective_rotation(name)
         self.table.fill_auto_rot_diff(
-            row,
-            auto_rotation,
-            effective_rotation,
-            self._rot_diff_threshold_enabled,
-            self._rot_diff_threshold,
+            row, auto_rotation, effective_rotation,
+            self._rot_diff_threshold_enabled, self._rot_diff_threshold,
         )
 
         self.table.fill_distance_deviation(
-            row,
-            effective_center,
-            effective_rotation,
-            self._get_base_center(),
-            self._get_base_rotation(),
+            row, effective_center, effective_rotation,
+            self._get_base_center(), self._get_base_rotation(),
         )
 
-        self.table.fill_size(row, self._img_sizes.get(name, ""), self._most_common_size)
+        self.table.fill_size(
+            row, self._img_sizes.get(name, ""), self._most_common_size)
 
         diff_val = sm.get_image_diff(name)
         self.table.fill_diff(
-            row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value
-        )
+            row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value)
 
         if self._enable_symmetry_test and ColKey.FOLD_STD in self.table._col:
-            sym_val = (
-                sm.get_fold_std_sum(name) if hasattr(sm, "get_fold_std_sum") else None
-            )
+            sym_val = sm.get_fold_std_sum(name) if hasattr(
+                sm, 'get_fold_std_sum') else None
             self.table.fill_fold_std(
-                row,
-                sym_val,
-                self._symmetry_thresh_enabled,
-                self._symmetry_threshold,
+                row, sym_val,
+                self._symmetry_thresh_enabled, self._symmetry_threshold,
             )
         if self._enable_symmetry_test and ColKey.FOLD_STD_NORM in self.table._col:
-            norm_val = (
-                sm.get_fold_std_norm(name) if hasattr(sm, "get_fold_std_norm") else None
-            )
+            norm_val = sm.get_fold_std_norm(name) if hasattr(
+                sm, 'get_fold_std_norm') else None
             self.table.fill_fold_std_norm(
-                row,
-                norm_val,
-                self._norm_thresh_enabled,
-                self._norm_threshold,
+                row, norm_val,
+                self._norm_thresh_enabled, self._norm_threshold,
             )
 
-        self.table.apply_misaligned_highlight(row, name, self.misaligned_names)
-        self.table.apply_base_marker(row, name, self._base_image_filename)
+        self.table.apply_misaligned_highlight(
+            row, name, self.misaligned_names)
+        self.table.apply_base_marker(
+            row, name, self._base_image_filename)
         if row in self._ignored_rows:
             self.table.dim_row(row)
 
@@ -564,7 +544,6 @@ class ImageAlignmentWidget(QWidget):
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""
         from collections import Counter
-
         counts = Counter(s for s in self._img_sizes.values() if s)
         self._most_common_size = counts.most_common(1)[0][0] if counts else ""
 
@@ -600,10 +579,10 @@ class ImageAlignmentWidget(QWidget):
         are available (percentile is ill-defined and the default 0.0 from
         construction stays in place).
         """
-        if not getattr(self, "_enable_symmetry_test", False):
+        if not getattr(self, '_enable_symmetry_test', False):
             return
         sm = self.workspace.settings_manager
-        if not hasattr(sm, "get_fold_std_sum"):
+        if not hasattr(sm, 'get_fold_std_sum'):
             return
         values = [
             sm.get_fold_std_sum(self._row_mapper.name_for_row(r))
@@ -628,10 +607,10 @@ class ImageAlignmentWidget(QWidget):
         FOLD_STD_NORM column. The normalised score is dimensionless (typically
         in the range 0–1) so the spinbox decimals are set accordingly.
         """
-        if not getattr(self, "_enable_symmetry_test", False):
+        if not getattr(self, '_enable_symmetry_test', False):
             return
         sm = self.workspace.settings_manager
-        if not hasattr(sm, "get_fold_std_norm"):
+        if not hasattr(sm, 'get_fold_std_norm'):
             return
         values = [
             sm.get_fold_std_norm(self._row_mapper.name_for_row(r))
@@ -640,9 +619,11 @@ class ImageAlignmentWidget(QWidget):
         ]
         values = [v for v in values if v is not None]
         if len(values) >= 2:
-            self._fold_std_norm_percentile_threshold = float(np.percentile(values, 80))
+            self._fold_std_norm_percentile_threshold = float(
+                np.percentile(values, 80))
             self._norm_thresh_spin.blockSignals(True)
-            self._norm_thresh_spin.setValue(self._fold_std_norm_percentile_threshold)
+            self._norm_thresh_spin.setValue(
+                self._fold_std_norm_percentile_threshold)
             self._norm_thresh_spin.blockSignals(False)
             self._norm_threshold = self._fold_std_norm_percentile_threshold
         else:
@@ -729,12 +710,9 @@ class ImageAlignmentWidget(QWidget):
     def _apply_threshold_highlighting(self):
         """Delegate threshold highlighting to the table widget."""
         self.table.apply_threshold_highlighting(
-            self._dist_threshold_enabled,
-            self._dist_threshold,
-            self._rot_diff_threshold_enabled,
-            self._rot_diff_threshold,
-            self._diff_thresh_enabled,
-            self._diff_thresh_value,
+            self._dist_threshold_enabled, self._dist_threshold,
+            self._rot_diff_threshold_enabled, self._rot_diff_threshold,
+            self._diff_thresh_enabled, self._diff_thresh_value,
             symmetry_enabled=self._symmetry_thresh_enabled,
             symmetry_thresh=self._symmetry_threshold,
             norm_enabled=self._norm_thresh_enabled,
@@ -798,7 +776,8 @@ class ImageAlignmentWidget(QWidget):
         global_pos = self.table.viewport().mapToGlobal(pos)
         menu = QMenu(self)
 
-        selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
+        selected_rows = sorted(
+            set(idx.row() for idx in self.table.selectedIndexes()))
 
         set_cr_act = None
         set_global_act = None
@@ -848,7 +827,8 @@ class ImageAlignmentWidget(QWidget):
     def _do_navigate_to_selected_row(self):
         if self._navigating_from_table:
             return
-        selected_rows = set(idx.row() for idx in self.table.selectedIndexes())
+        selected_rows = set(
+            idx.row() for idx in self.table.selectedIndexes())
         if len(selected_rows) != 1:
             return
         row = self.table.currentRow()
@@ -884,13 +864,11 @@ class ImageAlignmentWidget(QWidget):
         """Create a persistent ProcessPoolExecutor for batch detection."""
         from concurrent.futures import ProcessPoolExecutor
         import multiprocessing as _mp
-
         worker_count = max(1, (os.cpu_count() or 2) - 2)
         try:
-            mp_ctx = _mp.get_context("spawn")
+            mp_ctx = _mp.get_context('spawn')
             self.processExecutor = ProcessPoolExecutor(
-                max_workers=worker_count, mp_context=mp_ctx
-            )
+                max_workers=worker_count, mp_context=mp_ctx)
             print(f"Process pool initialised with {worker_count} workers (spawn)")
         except Exception as e:
             print(f"Failed to create process pool: {e}")
@@ -912,14 +890,11 @@ class ImageAlignmentWidget(QWidget):
             self.processExecutor.shutdown(wait=False, cancel_futures=True)
         running_count = self.taskManager.get_running_count()
 
-        msg = (
-            f"Stopping Batch Processing\n\n"
-            f"Waiting for {running_count} tasks to complete..."
-        )
+        msg = (f"Stopping Batch Processing\n\n"
+               f"Waiting for {running_count} tasks to complete...")
         self._stopProgress = QProgressDialog(msg, None, 0, 0, self)
         self._stopProgress.setWindowFlags(
-            Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-        )
+            Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self._stopProgress.setModal(False)
         self._stopProgress.show()
 
@@ -929,13 +904,11 @@ class ImageAlignmentWidget(QWidget):
         self._stopMsgTimer.start()
 
     def _updateStopProgress(self):
-        if not hasattr(self, "_stopProgress") or self._stopProgress is None:
+        if not hasattr(self, '_stopProgress') or self._stopProgress is None:
             return
         running_count = self.taskManager.get_running_count()
-        msg = (
-            f"Stopping Batch Processing\n\n"
-            f"Waiting for {running_count} tasks to complete..."
-        )
+        msg = (f"Stopping Batch Processing\n\n"
+               f"Waiting for {running_count} tasks to complete...")
         self._stopProgress.setLabelText(msg)
 
         if running_count == 0:
@@ -969,33 +942,30 @@ class ImageAlignmentWidget(QWidget):
         # the user toggling it mid-run does not desync workers and result-
         # handling logic.
         self._batch_do_symmetry = bool(
-            self._enable_symmetry_test and self._symmetry_enabled
-        )
+            self._enable_symmetry_test and self._symmetry_enabled)
 
         self.progressBar.setMaximum(n)
         self.progressBar.setMinimum(0)
         self.progressBar.setValue(0)
         self.progressBar.setVisible(True)
         if self._batch_do_symmetry:
-            self.statusLabel.setText("Detecting center/rotation + fold symmetry...")
+            self.statusLabel.setText(
+                "Detecting center/rotation + fold symmetry...")
         else:
             self.statusLabel.setText("Detecting center/rotation...")
 
-        orientation_model = getattr(self.workspace, "_orientation_model", 0)
+        orientation_model = getattr(self.workspace, '_orientation_model', 0)
 
         for row in range(n):
             img_name = self._row_mapper.name_for_row(row)
             if img_name is None:
                 continue
             fm_idx = self._row_mapper.fm_index_for_row(row)
-            spec = (
-                fm.specs[fm_idx]
-                if fm_idx is not None and fm_idx < len(fm.specs)
-                else None
-            )
-            manual_center, manual_rotation = self.workspace.get_manual_settings(
-                img_name
-            )
+            spec = (fm.specs[fm_idx]
+                    if fm_idx is not None and fm_idx < len(fm.specs)
+                    else None)
+            manual_center, manual_rotation = \
+                self.workspace.get_manual_settings(img_name)
             if self._batch_do_symmetry:
                 job_args = (
                     self._worker_dir_path,
@@ -1007,8 +977,7 @@ class ImageAlignmentWidget(QWidget):
                     True,
                 )
                 future = self.processExecutor.submit(
-                    _compute_geometry_with_symmetry, job_args
-                )
+                    _compute_geometry_with_symmetry, job_args)
             else:
                 job_args = (
                     self._worker_dir_path,
@@ -1018,32 +987,30 @@ class ImageAlignmentWidget(QWidget):
                     manual_rotation,
                     orientation_model,
                 )
-                future = self.processExecutor.submit(_compute_geometry, job_args)
+                future = self.processExecutor.submit(
+                    _compute_geometry, job_args)
             self.taskManager.submit_task(img_name, row, future)
             future.add_done_callback(self._on_future_done)
 
-        print(
-            f"Batch detection started: {n} images submitted "
-            f"(symmetry={self._batch_do_symmetry})"
-        )
+        print(f"Batch detection started: {n} images submitted "
+              f"(symmetry={self._batch_do_symmetry})")
 
     def _on_future_done(self, future):
         """Route future callback to the main thread via QTimer."""
-        QTimer.singleShot(0, self, lambda f=future: self._on_batch_result(f))
+        QTimer.singleShot(
+            0, self, lambda f=future: self._on_batch_result(f))
 
     def _on_batch_result(self, future):
         """Handle a single completed future in the main thread."""
         try:
             try:
                 result = future.result()
-                error = result.get("error")
+                error = result.get('error')
             except Exception as fut_exc:
                 error = str(fut_exc)
                 result = {
-                    "img_name": None,
-                    "center": None,
-                    "rotation": None,
-                    "error": error,
+                    'img_name': None, 'center': None,
+                    'rotation': None, 'error': error,
                 }
             task = self.taskManager.complete_task(future, result, error)
             if task is None:
@@ -1057,17 +1024,17 @@ class ImageAlignmentWidget(QWidget):
                 sm = self.workspace.settings_manager
                 sm.set_auto_cache(
                     task.filename,
-                    result["center"],
-                    result["rotation"],
+                    result['center'],
+                    result['rotation'],
                 )
                 # Persist the fold-symmetry scores when present (only emitted by
                 # the symmetry-aware worker). ``None`` simply means the symmetry
                 # test was not requested for this image.
-                fold_std = result.get("fold_std_sum")
-                if fold_std is not None and hasattr(sm, "set_fold_std_sum"):
+                fold_std = result.get('fold_std_sum')
+                if fold_std is not None and hasattr(sm, 'set_fold_std_sum'):
                     sm.set_fold_std_sum(task.filename, fold_std)
-                fold_norm = result.get("fold_std_norm")
-                if fold_norm is not None and hasattr(sm, "set_fold_std_norm"):
+                fold_norm = result.get('fold_std_norm')
+                if fold_norm is not None and hasattr(sm, 'set_fold_std_norm'):
                     sm.set_fold_std_norm(task.filename, fold_norm)
 
             # When the user asked to stop, leave UI updates and the completion
@@ -1080,7 +1047,7 @@ class ImageAlignmentWidget(QWidget):
                 print(f"Detection error for {task.filename}: {error}")
 
             stats = self.taskManager.get_statistics()
-            self.progressBar.setValue(stats["completed"] + stats["failed"])
+            self.progressBar.setValue(stats['completed'] + stats['failed'])
             self.statusLabel.setText(
                 f"Detecting: {stats['completed'] + stats['failed']}"
                 f"/{stats['total']}"
@@ -1091,7 +1058,7 @@ class ImageAlignmentWidget(QWidget):
                 if name is not None:
                     self._update_row_data(task.job_index, name)
 
-            if stats["pending"] == 0:
+            if stats['pending'] == 0:
                 self._on_batch_complete()
 
         except Exception as e:
@@ -1108,10 +1075,10 @@ class ImageAlignmentWidget(QWidget):
         # because ``_on_batch_result`` only writes to the in-memory cache.
         sm = self.workspace.settings_manager
         sm.save_auto_cache()
-        ran_symmetry = getattr(self, "_batch_do_symmetry", False)
-        if ran_symmetry and hasattr(sm, "save_fold_std_sum"):
+        ran_symmetry = getattr(self, '_batch_do_symmetry', False)
+        if ran_symmetry and hasattr(sm, 'save_fold_std_sum'):
             sm.save_fold_std_sum()
-        if ran_symmetry and hasattr(sm, "save_fold_std_norm"):
+        if ran_symmetry and hasattr(sm, 'save_fold_std_norm'):
             sm.save_fold_std_norm()
         # When the batch ran with the symmetry test enabled, derive a sensible
         # default highlight threshold (80th percentile of all scores) and push
@@ -1165,8 +1132,7 @@ class ImageAlignmentWidget(QWidget):
     def _trigger_diff_for_row(self, row):
         """Recompute the (at most) two diff pairs that involve *row*."""
         active = [
-            i
-            for i in range(self._row_mapper.row_count())
+            i for i in range(self._row_mapper.row_count())
             if i not in self._ignored_rows
         ]
         if row not in active:
@@ -1182,7 +1148,8 @@ class ImageAlignmentWidget(QWidget):
         for idx_a, idx_b in pairs:
             if (idx_a, idx_b) in self._diff_pairs_in_flight:
                 continue
-            if not self._row_has_geometry(idx_a) or not self._row_has_geometry(idx_b):
+            if (not self._row_has_geometry(idx_a)
+                    or not self._row_has_geometry(idx_b)):
                 continue
             self._diff_pairs_in_flight.add((idx_a, idx_b))
             self._submit_diff_pair(idx_a, idx_b)
@@ -1200,14 +1167,11 @@ class ImageAlignmentWidget(QWidget):
         if self.diffExecutor is None:
             worker_count = max(1, (os.cpu_count() or 2) - 2)
             try:
-                mp_ctx = _mp.get_context("spawn")
+                mp_ctx = _mp.get_context('spawn')
                 self.diffExecutor = ProcessPoolExecutor(
-                    max_workers=worker_count, mp_context=mp_ctx
-                )
-                print(
-                    f"Diff process pool initialised with "
-                    f"{worker_count} workers (spawn)"
-                )
+                    max_workers=worker_count, mp_context=mp_ctx)
+                print(f"Diff process pool initialised with "
+                      f"{worker_count} workers (spawn)")
             except Exception as e:
                 print(f"Failed to create diff process pool: {e}")
                 self.diffExecutor = None
@@ -1228,18 +1192,13 @@ class ImageAlignmentWidget(QWidget):
 
         job_args = (
             self._worker_dir_path,
-            name_a,
-            name_b,
-            (
-                fm.specs[fm_idx_a]
-                if fm_idx_a is not None and fm_idx_a < len(fm.specs)
-                else None
-            ),
-            (
-                fm.specs[fm_idx_b]
-                if fm_idx_b is not None and fm_idx_b < len(fm.specs)
-                else None
-            ),
+            name_a, name_b,
+            (fm.specs[fm_idx_a]
+             if fm_idx_a is not None and fm_idx_a < len(fm.specs)
+             else None),
+            (fm.specs[fm_idx_b]
+             if fm_idx_b is not None and fm_idx_b < len(fm.specs)
+             else None),
             self._get_effective_center(name_a),
             self._get_effective_rotation(name_a),
             self._get_effective_center(name_b),
@@ -1262,40 +1221,37 @@ class ImageAlignmentWidget(QWidget):
         try:
             try:
                 result = future.result()
-                error = result.get("error")
+                error = result.get('error')
             except Exception as fut_exc:
                 error = str(fut_exc)
                 result = {
-                    "pair_index": None,
-                    "diff": None,
-                    "error": error,
+                    'pair_index': None, 'diff': None, 'error': error,
                 }
 
             self.diffTaskManager.complete_task(future, result, error)
 
             name_b = (
                 self._row_mapper.name_for_row(idx_b)
-                if idx_b < self.table.rowCount()
-                else None
+                if idx_b < self.table.rowCount() else None
             )
             if error:
                 print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
             elif name_b is not None:
                 sm = self.workspace.settings_manager
-                sm.set_image_diff(name_b, result["diff"])
+                sm.set_image_diff(name_b, result['diff'])
                 sm.save_image_diff()
                 self._compute_diff_percentile_threshold()
 
             if name_b is not None and idx_b < self.table.rowCount():
-                diff_val = self.workspace.settings_manager.get_image_diff(name_b)
+                diff_val = self.workspace.settings_manager.get_image_diff(
+                    name_b)
                 self.table.fill_diff(
-                    idx_b,
-                    diff_val,
-                    self._diff_thresh_enabled,
-                    self._diff_thresh_value,
+                    idx_b, diff_val,
+                    self._diff_thresh_enabled, self._diff_thresh_value,
                 )
 
-            if not self._diff_pairs_in_flight and self.diffExecutor is not None:
+            if (not self._diff_pairs_in_flight
+                    and self.diffExecutor is not None):
                 self.diffExecutor.shutdown(wait=False)
                 self.diffExecutor = None
 

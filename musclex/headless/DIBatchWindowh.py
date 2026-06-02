@@ -35,19 +35,17 @@ from ..modules.ScanningDiffraction import *
 from ..csv_manager import DI_CSVManager
 from ..headless.DIImageWindowh import DIImageWindowh
 
-
-class HDFBrowser:
+class HDFBrowser():
     """
     Provide options for HDF Browser - select or create one
     """
-
     def __init__(self, msg, setting_path):
         """
         initial dialog
         :param msg: message which appear in dialog
         :param setting_path: path that HDF file will be saved
         """
-        # super(self).__init__(None)
+        #super(self).__init__(None)
         self.msg = msg
         self.path = setting_path
         self.hdf_file = ""
@@ -58,37 +56,26 @@ class HDFBrowser:
         Handle when OK is clicked
         """
         # Generate HDF file
-        self.hdf_file = join(self.path, "file.hdf")
-        filename = fullPath(self.path, "dihdf.json")
+        self.hdf_file = join(self.path, 'file.hdf')
+        filename=fullPath(self.path, 'dihdf.json')
         try:
             with open(filename) as f:
-                print("hdf step size file provided at", filename)
-                dihdf = json.load(f)
+                print('hdf step size file provided at', filename)
+                dihdf=json.load(f)
                 print(dihdf)
-                print(
-                    "If you need to change the step size, go to the interactive version"
-                )
+                print('If you need to change the step size, go to the interactive version')
         except Exception:
-            print("hdf step file not detected, step size use default settings:")
-            print("x_start:0, x_end:100, x_step:1")
-            print("y_start:0, y_end:100, y_step:1")
-            print(
-                "To create different step size, use the interactive version, step size will be saved automatically"
-            )
-            dihdf = {
-                "x_start": 0.0,
-                "y_start": 0.0,
-                "x_end": 100.0,
-                "y_end": 100.0,
-                "x_step": 1,
-                "y_step": 1,
-            }
-        x_start = dihdf["x_start"]
-        y_start = dihdf["y_start"]
-        x_end = dihdf["x_end"]
-        y_end = dihdf["y_end"]
-        x_step = dihdf["x_step"]
-        y_step = dihdf["y_step"]
+            print('hdf step file not detected, step size use default settings:')
+            print('x_start:0, x_end:100, x_step:1')
+            print('y_start:0, y_end:100, y_step:1')
+            print('To create different step size, use the interactive version, step size will be saved automatically')
+            dihdf={"x_start": 0.0, "y_start": 0.0, "x_end": 100.0, "y_end": 100.0, "x_step": 1, "y_step": 1}
+        x_start=dihdf['x_start']
+        y_start=dihdf['y_start']
+        x_end=dihdf['x_end']
+        y_end=dihdf['y_end']
+        x_step=dihdf['x_step']
+        y_step=dihdf['y_step']
 
         # The total size divided by the step size is the number of steps in
         # both directions
@@ -106,53 +93,39 @@ class HDFBrowser:
 
         data = []
         for j in range(0, y_nStep):
-            y = y_start + j * y_step
+            y = y_start + j*y_step
             for i in range(0, x_nStep):
-                x = x_start + i * x_step
+                x = x_start + i*x_step
                 data.append((x, y))
 
-        hf = h5py.File(self.hdf_file, "w")
+        hf = h5py.File(self.hdf_file, 'w')
         data_grp = hf.create_group("data")
         data_grp.create_dataset("BL", data=data)
         hf.close()
 
-
-class DIBatchWindowh:
+class DIBatchWindowh():
     """
     A class to process Scanning diffraction on folders (headless)
     """
-
-    def __init__(
-        self,
-        dir_path="",
-        inputsetting=False,
-        delcache=False,
-        settingspath=None,
-        output_dir=None,
-    ):
+    def __init__(self, dir_path="",inputsetting=False,delcache=False,settingspath=None, output_dir=None):
         if os.path.isfile(dir_path):
             self.filePath, self.fileName = os.path.split(dir_path)
         else:
             self.filePath = dir_path
             self.fileName = None
-        self.inputsetting = inputsetting
-        self.delcache = delcache
-        self.settingspath = settingspath
+        self.inputsetting=inputsetting
+        self.delcache=delcache
+        self.settingspath=settingspath
         self.hdf_filename = ""
         if output_dir:
             self.output_dir = output_dir
         elif os.access(self.filePath, os.W_OK):
             self.output_dir = self.filePath
         else:
-            print(
-                f"Error: input directory is not writable and no output directory was specified.\n"
-                f"  Input : {self.filePath}\n"
-                f"  Fix   : re-run with -o <output_dir>",
-                flush=True,
-            )
-            import sys
-
-            sys.exit(1)
+            print(f"Error: input directory is not writable and no output directory was specified.\n"
+                  f"  Input : {self.filePath}\n"
+                  f"  Fix   : re-run with -o <output_dir>", flush=True)
+            import sys; sys.exit(1)
 
         self.csvManager = DI_CSVManager(self.output_dir)
 
@@ -163,9 +136,9 @@ class DIBatchWindowh:
         Browse HDF files
         """
         hdf_filename = ""
-        path = join(dir_path, "settings")
+        path = join(dir_path, 'settings')
         createFolder(path)
-        hdf_cache = join(path, "hdf.info")
+        hdf_cache = join(path, 'hdf.info')
 
         if exists(hdf_cache):
             hdf_filename = pickle.load(open(hdf_cache, "rb"))
@@ -175,15 +148,9 @@ class DIBatchWindowh:
                 hdf_filename = join(dir_path, hdfList[0])
             else:
                 if len(hdfList) == 0:
-                    dlg = HDFBrowser(
-                        "No HDF file detected.\nPlease select an HDF file to process or create a new one.",
-                        path,
-                    )
+                    dlg = HDFBrowser('No HDF file detected.\nPlease select an HDF file to process or create a new one.', path)
                 else:
-                    dlg = HDFBrowser(
-                        "There are more than one HDF file detected. \nPlease select an HDF file to process or create a new one.",
-                        path,
-                    )
+                    dlg = HDFBrowser('There are more than one HDF file detected. \nPlease select an HDF file to process or create a new one.', path)
                 hdf_filename = dlg.hdf_file
 
         if hdf_filename != "":
@@ -194,18 +161,18 @@ class DIBatchWindowh:
         """
         Convert i to float
         """
-        return float(i) if i.replace(".", "", 1).replace("-", "").isdigit() else i
+        return float(i) if i.replace('.', '', 1).replace('-', '').isdigit() else i
 
     def get_scan_data(self, filename):
         """
         Give the scanned data
         """
         if h5py.is_hdf5(filename):
-            hf = h5py.File(filename, "r")
-            return np.array(hf.get("data").get("BL"))
+            hf = h5py.File(filename, 'r')
+            return np.array(hf.get('data').get('BL'))
         elif os.path.isdir(filename):
             return sorted(self.parse_logfiles_dir(filename), key=lambda x: (x[1], x[0]))
-        elif filename.endswith(".log"):
+        elif filename.endswith('.log'):
             return self.parse_logfile(filename)
         return None
 
@@ -216,26 +183,24 @@ class DIBatchWindowh:
         data_dir, fname = os.path.split(filename)
         count_filename = os.path.join(data_dir, fname)
 
-        with open(count_filename, "r") as f:
+        with open(count_filename, 'r') as f:
             all_lines = f.readlines()
 
         line_num = 0
         for i, line in enumerate(all_lines):
-            if not line.startswith("#"):
+            if not line.startswith('#'):
                 line_num = i
                 break
 
-        headers = all_lines[line_num - 1].replace("\n", "").split("\t")
-        x_index = headers.index("x")
-        y_index = headers.index("y")
+        headers = all_lines[line_num - 1].replace('\n', '').split('\t')
+        x_index = headers.index('x')
+        y_index = headers.index('y')
 
-        print(f"Log Headers: {headers},\n x index: {x_index},\n y index: {y_index}")
+        print(f'Log Headers: {headers},\n x index: {x_index},\n y index: {y_index}')
         scans = []
         for i in range(line_num, len(all_lines)):
-            data = all_lines[i].replace("\n", "").split("\t")
-            scans.append(
-                list(map(self.convert_to_float, [data[x_index], data[y_index]]))
-            )
+            data = all_lines[i].replace('\n', '').split('\t')
+            scans.append(list(map(self.convert_to_float, [data[x_index], data[y_index]])))
         return scans
 
     def parse_logfiles_dir(self, dir_name):
@@ -245,7 +210,7 @@ class DIBatchWindowh:
         files = os.listdir(dir_name)
         data = []
         for f in files:
-            if f.endswith(".log"):
+            if f.endswith('.log'):
                 scans = self.parse_logfile(os.path.join(dir_name, f))
                 data.extend(scans)
         return data
@@ -254,76 +219,34 @@ class DIBatchWindowh:
         """
         Process the folder selected
         """
-        hdf_path = fullPath(self.output_dir, "settings")
+        hdf_path=fullPath(self.output_dir,'settings')
         if os.path.exists(hdf_path):
-            if os.path.exists(fullPath(hdf_path, "file.hdf")):
-                os.remove(fullPath(hdf_path, "file.hdf"))
-            if os.path.exists(fullPath(hdf_path, "hdf.info")):
-                os.remove(fullPath(hdf_path, "hdf.info"))
-        inpt_types = [
-            ".adsc",
-            ".cbf",
-            ".edf",
-            ".fit2d",
-            ".mar345",
-            ".marccd",
-            ".pilatus",
-            ".tif",
-            ".tiff",
-            ".smv",
-        ]
+            if os.path.exists(fullPath(hdf_path,'file.hdf')):
+                os.remove(fullPath(hdf_path,'file.hdf'))
+            if os.path.exists(fullPath(hdf_path,'hdf.info')):
+                os.remove(fullPath(hdf_path,'hdf.info'))
+        inpt_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
 
         if self.filePath != "":
-            imgList = (
-                os.listdir(self.filePath) if self.fileName is None else [self.fileName]
-            )
+            imgList = os.listdir(self.filePath) if self.fileName is None else [self.fileName]
             imgList.sort()
         from multiprocessing import Lock, Process, cpu_count
-
         lock = Lock()
         procs = []
         for image in imgList:
-            file_name = os.path.join(self.filePath, image)
+            file_name=os.path.join(self.filePath,image)
             if os.path.isfile(file_name):
                 _, ext = os.path.splitext(str(file_name))
                 if ext in inpt_types:
                     # DIImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
-                    proc = Process(
-                        target=DIImageWindowh,
-                        args=(
-                            image,
-                            self.filePath,
-                            self.inputsetting,
-                            self.delcache,
-                            self.settingspath,
-                            lock,
-                        ),
-                        kwargs={"output_dir": self.output_dir},
-                    )
+                    proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock), kwargs={'output_dir': self.output_dir})
                     procs.append(proc)
                     proc.start()
-                elif ext in [".h5", ".hdf5"]:
-                    _, himgList, _, hfileList, _ = getImgFiles(
-                        str(file_name), headless=True
-                    )
+                elif ext in ['.h5', '.hdf5']:
+                    _, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
                     for ind in range(len(himgList)):
                         print("filename is", himgList[ind])
-                        proc = Process(
-                            target=DIImageWindowh,
-                            args=(
-                                image,
-                                self.filePath,
-                                self.inputsetting,
-                                self.delcache,
-                                self.settingspath,
-                                lock,
-                                himgList,
-                                ind,
-                                hfileList,
-                                ext,
-                            ),
-                            kwargs={"output_dir": self.output_dir},
-                        )
+                        proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock, himgList, ind, hfileList, ext), kwargs={'output_dir': self.output_dir})
                         procs.append(proc)
                         proc.start()
                         if len(procs) % cpu_count() == 0:
@@ -340,9 +263,8 @@ class DIBatchWindowh:
         imgList, hdfList = getFilesAndHdf(self.filePath)
         self.browseHDF(self.filePath, hdfList)
 
-
 def convertRadtoDegreesEllipse(rad):
     """
     Convert radian to degrees
     """
-    return rad * 180.0 / np.pi
+    return rad * 180. / np.pi

@@ -32,10 +32,10 @@ from abc import ABC, abstractmethod
 class InteractionTool(ABC):
     """
     Base class for interactive tools that handle mouse events on matplotlib axes.
-
+    
     Tools are pure logic handlers - they do NOT inherit from QWidget.
     They process mouse events and modify the axes/canvas accordingly.
-
+    
     Lifecycle:
         1. Tool is created and registered with ToolManager
         2. activate() is called when user selects the tool
@@ -43,11 +43,11 @@ class InteractionTool(ABC):
         4. get_result() returns the tool's output (e.g., calculated center point)
         5. deactivate() is called when user switches to another tool
     """
-
+    
     def __init__(self, axes, canvas):
         """
         Initialize the tool.
-
+        
         Args:
             axes: matplotlib axes object where the tool draws
             canvas: matplotlib canvas object to trigger redraws
@@ -55,7 +55,7 @@ class InteractionTool(ABC):
         self.axes = axes
         self.canvas = canvas
         self.is_active = False
-
+    
     def activate(self):
         """
         Activate the tool.
@@ -63,7 +63,7 @@ class InteractionTool(ABC):
         """
         self.is_active = True
         self._on_activate()
-
+    
     def deactivate(self):
         """
         Deactivate the tool.
@@ -71,7 +71,7 @@ class InteractionTool(ABC):
         """
         self.is_active = False
         self._on_deactivate()
-
+    
     @abstractmethod
     def _on_activate(self):
         """
@@ -79,7 +79,7 @@ class InteractionTool(ABC):
         Use this to reset state, clear axes, etc.
         """
         pass
-
+    
     @abstractmethod
     def _on_deactivate(self):
         """
@@ -87,56 +87,56 @@ class InteractionTool(ABC):
         Use this to clean up, remove drawings, etc.
         """
         pass
-
+    
     @abstractmethod
     def handle_click(self, event) -> bool:
         """
         Handle mouse button press event.
-
+        
         Args:
             event: matplotlib mouse button press event
-
+            
         Returns:
             True if event was handled, False otherwise
         """
         pass
-
+    
     @abstractmethod
     def handle_motion(self, event) -> bool:
         """
         Handle mouse motion event.
-
+        
         Args:
             event: matplotlib mouse motion event
-
+            
         Returns:
             True if event was handled, False otherwise
         """
         pass
-
+    
     @abstractmethod
     def handle_release(self, event) -> bool:
         """
         Handle mouse button release event.
-
+        
         Args:
             event: matplotlib mouse button release event
-
+            
         Returns:
             True if event was handled, False otherwise
         """
         pass
-
+    
     def get_result(self):
         """
         Get the result of the tool's operation.
-
+        
         Returns:
             Tool-specific result (e.g., center point tuple, angle float, etc.)
             or None if no valid result
         """
         return None
-
+    
     def clear_axes(self):
         """
         Remove all lines and patches from axes.
@@ -145,18 +145,18 @@ class InteractionTool(ABC):
         # Remove all lines
         for line in self.axes.lines[:]:
             line.remove()
-
+        
         # Remove all patches
         for patch in self.axes.patches[:]:
             patch.remove()
-
+        
         # Redraw
         self.canvas.draw_idle()
-
+    
     def remove_labeled_items(self, labels):
         """
         Remove only items with specific labels.
-
+        
         Args:
             labels: list of label strings to remove
         """
@@ -164,10 +164,11 @@ class InteractionTool(ABC):
         for line in self.axes.lines[:]:
             if line.get_label() in labels:
                 line.remove()
-
+        
         # Remove matching patches
         for patch in self.axes.patches[:]:
             if patch.get_label() in labels:
                 patch.remove()
-
+        
         self.canvas.draw_idle()
+

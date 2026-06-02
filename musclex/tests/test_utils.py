@@ -38,15 +38,14 @@ from pyFAI import detector_factory
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import numpy as np
 from musclex import __version__
-
 try:
     from ..modules.EquatorImage import EquatorImage
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..modules.DiffractionCentroids import DiffractionCentroids
     from ..modules.ProjectionProcessor import ProjectionProcessor
     from ..modules.ScanningDiffraction import ScanningDiffraction
-    from ..csv_manager.DI_CSVManager import DI_CSVManager
-except:  # for coverage
+    from ..csv_manager.DI_CSVManager import DI_CSVManager    
+except: # for coverage
     from musclex.modules.EquatorImage import EquatorImage
     from musclex.modules.QuadrantFolder import QuadrantFolder
     from musclex.modules.DiffractionCentroids import DiffractionCentroids
@@ -55,16 +54,8 @@ except:  # for coverage
     from musclex.csv_manager.DI_CSVManager import DI_CSVManager
 
 
-def module_test(
-    mode,
-    settings,
-    pickledir,
-    inputpath,
-    compdir=None,
-    testrecord=False,
-    testversion=__version__,
-    keeppickles=False,
-):
+def module_test(mode, settings, pickledir, inputpath, compdir=None,
+                testrecord=False, testversion=__version__, keeppickles=False):
     """
     Run or prepare a test of a module output. In testrecord
     mode, data from the inputpath directory is analyzed and the fit results
@@ -93,53 +84,46 @@ def module_test(
         compdir = os.path.abspath(compdir)
     inputpath = os.path.abspath(inputpath)
 
-    pass_test = True  # tracks whether the entire test passed
-    if mode == "di":
+    pass_test = True # tracks whether the entire test passed
+    if mode == 'di':
         inputpath = os.path.join(inputpath, "di_test_data")
     filelist = [f for f in os.listdir(inputpath) if f.endswith(".tif")]
     if len(filelist) == 0:
-        print(
-            "No images found in the input path - please specify a set of test images to input."
-        )
+        print("No images found in the input path - please specify a set of test images to input.")
         return
-    failed_tests = {filename: [] for filename in filelist}
+    failed_tests = {filename : [] for filename in filelist}
 
     for filename in filelist:
         pass_file = True
 
-        if mode == "eq":
+        if mode == 'eq':
             import fabio
             from musclex.utils.file_manager import fullPath
             from musclex.utils.image_data import ImageData
-
             img = fabio.open(fullPath(inputpath, filename)).data
             image_data = ImageData(img=img, img_path=inputpath, img_name=filename)
             test_object = EquatorImage(image_data, None)
             test_name = "EQUATOR IMAGE"
-        elif mode == "qf":
+        elif mode == 'qf':
             import fabio
             from musclex.utils.file_manager import fullPath
-
             img = fabio.open(fullPath(inputpath, filename)).data
             test_object = QuadrantFolder(img, inputpath, filename, None)
             test_name = "QUADRANT FOLDER"
-        elif mode == "dc":
-            test_object = DiffractionCentroids(
-                inputpath, [filename], 0, [("peak1", (100, 900))], None
-            )
+        elif mode == 'dc':
+            test_object = DiffractionCentroids(inputpath, [filename], 0,
+                                               [('peak1',(100,900))], None)
             test_name = "DIFFRACTION CENTROIDS"
-        elif mode == "pt":
+        elif mode == 'pt':
             test_object = ProjectionProcessor(inputpath, filename)
             test_name = "PROJECTION TRACES"
-        elif mode == "di":
+        elif mode == 'di':
             test_object = ScanningDiffraction(inputpath, filename)
             test_name = "SCANNING DIFFRACTION"
         else:
             raise ValueError("No program mode {}".format(mode))
 
-        print(
-            "\n\033[3;33m---- Processing file {f} ----\033[0;3140m\n".format(f=filename)
-        )
+        print("\n\033[3;33m---- Processing file {f} ----\033[0;3140m\n".format(f=filename))
         test_object.process(settings.copy())
         print(test_object.info.keys())
         res = flatten(test_object.info)
@@ -152,36 +136,25 @@ def module_test(
                 results[key] = res[key]
 
         prefix = "_record" if testrecord else "_verify"
-        imgname = filename.split(".")[0]
-        picklename = "_{mode}_{name}v{version}.p".format(
-            mode=mode, name=imgname, version=__version__
-        )
+        imgname = filename.split('.')[0]
+        picklename = "_{mode}_{name}v{version}.p".format(mode=mode,
+                                                         name=imgname,
+                                                         version=__version__)
 
-        print(
-            "\033[0;33m\nProcessing complete. Writing results to {p}.\033[0;3140m".format(
-                p=pickledir
-            )
-        )
+        print("\033[0;33m\nProcessing complete. Writing results to {p}.\033[0;3140m".format(p=pickledir))
 
         if not testrecord:
-            print(
-                "\033[0;33mBeginning test comparisons to recorded pickles in {cd}\033[0;3140m.".format(
-                    cd=compdir
-                )
-            )
+            print("\033[0;33mBeginning test comparisons to recorded pickles in {cd}\033[0;3140m.".format(cd=compdir))
 
             # Check that the test version is present
-            vlist = glob.glob(compdir + "/*v" + testversion + ".p")
+            vlist = glob.glob(compdir+"/*v"+testversion+".p")
             if len(vlist) == 0:
                 print("\033[1;31m \nTEST FAILED -- NO TEST PICKLES FOUND --")
-                print(
-                    "\033[0;3840mNo test pickle files corresponding to "
-                    " version {ver} found in folder {p}."
-                    "\033[0;3140mDid you run 'python test_utils.py testrecord'"
-                    " from the MuscleX version you're trying to test against?\n".format(
-                        ver=testversion, p=compdir
-                    )
-                )
+                print("\033[0;3840mNo test pickle files corresponding to " \
+                      " version {ver} found in folder {p}." \
+                      "\033[0;3140mDid you run \'python test_utils.py testrecord\'" \
+                      " from the MuscleX version you're trying to test against?\n"
+                      .format(ver=testversion, p=compdir))
                 pass_test = False
 
                 return pass_test
@@ -189,33 +162,23 @@ def module_test(
         # Test each field in info for equivalence with the field in the test directory
         for field in results:
             # Write the current info field to a pickle file
-            picklepath = os.path.join(pickledir, field + prefix + picklename)
+            picklepath = os.path.join(pickledir, field+prefix+picklename)
             picklefile = open(picklepath, "wb")
             pickle.dump(results[field], picklefile, protocol=2)
             picklefile.close()
-            if mode == "di":
+            if mode == 'di':
                 di_csvmgr = DI_CSVManager(dir_path=inputpath)
                 di_csvmgr.write_new_data(test_object)
 
             if not testrecord:
                 # If the version is present, get the pickle to test against
-                globstr = "{cd}/{fld}_record_{mode}_{im}v{v}*.p".format(
-                    cd=compdir, fld=field, mode=mode, im=imgname, v=testversion
-                )
+                globstr = "{cd}/{fld}_record_{mode}_{im}v{v}*.p".format(cd=compdir, fld=field, mode=mode, im=imgname, v=testversion)
                 plist = glob.glob(globstr)
 
                 if len(plist) == 0:
-                    print(
-                        "Testing {data} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m".format(
-                            data=field
-                        )
-                    )
-                    print(
-                        "---> \033[0;31mNo corresponding test pickle was found. Perhaps this field "
-                        "did not exist in MuscleX Version {ver}?\033[0;3840m".format(
-                            ver=testversion
-                        )
-                    )
+                    print("Testing {data} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m".format(data=field))
+                    print("---> \033[0;31mNo corresponding test pickle was found. Perhaps this field " \
+                          "did not exist in MuscleX Version {ver}?\033[0;3840m".format(ver=testversion))
                     pass_file = False
                     pass_test = False
                     failed_tests[filename].append(field)
@@ -227,45 +190,26 @@ def module_test(
 
                 # If the two files aren't identical, return some error
                 # Program_version is usually contained as well, but do not compare those
-                if field != "program_version" and not pass_field:
-                    print(
-                        "Testing {data} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m".format(
-                            data=field
-                        )
-                    )
-                    print(
-                        "Compare the following files for more information:\n"
-                        "File generated for testing: {p1}\nReference file: {p2}".format(
-                            p1=picklepath, p2=test_pickle
-                        )
-                    )
+                if field != 'program_version' and not pass_field:
+                    print("Testing {data} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m".format(data=field))
+                    print("Compare the following files for more information:\n" \
+                          "File generated for testing: {p1}\nReference file: {p2}" \
+                          .format(p1 = picklepath, p2 = test_pickle))
                     keeppickles = True
                     pass_test = False
                     pass_file = False
                     failed_tests[filename].append(field)
                 else:
-                    print(
-                        "Testing {data} ..... \033[0;32mPASSED\033[0;3140m".format(
-                            data=field
-                        )
-                    )
-                if not keeppickles:  # Remove the verify pickles
+                    print("Testing {data} ..... \033[0;32mPASSED\033[0;3140m".format(data=field))
+                if not keeppickles: # Remove the verify pickles
                     os.remove(picklepath)
 
         # Print the results of the test for the current file
         if not testrecord:
             if pass_file:
-                print(
-                    "\n\033[0;32m--- Test successful for file {f}---\033[0;3140m".format(
-                        f=filename
-                    )
-                )
+                print("\n\033[0;32m--- Test successful for file {f}---\033[0;3140m".format(f=filename))
             else:
-                print(
-                    "\n\033[0;31m--- Test failed for file {f}---\033[0;3140m".format(
-                        f=filename
-                    )
-                )
+                print ("\n\033[0;31m--- Test failed for file {f}---\033[0;3140m".format(f=filename))
 
     # Remove some cache folders for the two modules that don't have no cache options
     if os.path.exists(os.path.join(inputpath, "eq_cache")):
@@ -275,68 +219,50 @@ def module_test(
 
     # Print the results of the test over all files
     if not testrecord:
-        if mode == "di":
+        if mode == 'di':
             print("\033[3;33mComparing Scanning Diffraction results...\033[0;3140m\n")
-            summ_compare = filecmp.cmp(
-                os.path.join(inputpath, "di_results", "summary.csv"),
-                os.path.join(inputpath, "di_results", "rcd_summary.csv"),
-            )
-            ring_compare = filecmp.cmp(
-                os.path.join(inputpath, "di_results", "rings.csv"),
-                os.path.join(inputpath, "di_results", "rcd_rings.csv"),
-            )
+            summ_compare = filecmp.cmp(os.path.join(inputpath, 'di_results', 'summary.csv'),
+                            os.path.join(inputpath, 'di_results', 'rcd_summary.csv'))
+            ring_compare = filecmp.cmp(os.path.join(inputpath, 'di_results', 'rings.csv'),
+                            os.path.join(inputpath, 'di_results', 'rcd_rings.csv'))
             pass_test = summ_compare and ring_compare
-            os.remove(os.path.join(inputpath, "di_results", "summary.csv"))
-            os.remove(os.path.join(inputpath, "di_results", "rings.csv"))
+            os.remove(os.path.join(inputpath, 'di_results', 'summary.csv'))
+            os.remove(os.path.join(inputpath, 'di_results', 'rings.csv'))
         if pass_test:
-            print(
-                "\n\033[4;32m---- {} TEST SUCCESSFUL ----\033[0;3140m".format(test_name)
-            )
+            print("\n\033[4;32m---- {} TEST SUCCESSFUL ----\033[0;3140m"
+                  .format(test_name))
         else:
-            print("\n\033[4;31m---- {} TEST FAILED ----\033[0;3140m".format(test_name))
+            print("\n\033[4;31m---- {} TEST FAILED ----\033[0;3140m"
+                  .format(test_name))
             print("\nThe following tests failed:")
             for test in failed_tests:
-                print(
-                    "Image: \033[0;35m{im}\033[0;3140m"
-                    " ---> Fields: \033[0;35m{fd}\033[0;3140m".format(
-                        im=test, fd=failed_tests[test]
-                    )
-                )
+                print("Image: \033[0;35m{im}\033[0;3140m" \
+                      " ---> Fields: \033[0;35m{fd}\033[0;3140m"
+                      .format(im=test, fd=failed_tests[test]))
     else:
         print("\033[4;32m ---- Test files written ---- \033[0;3140m")
-        if mode == "di":
-            os.rename(
-                os.path.join(inputpath, "di_results", "summary.csv"),
-                os.path.join(inputpath, "di_results", "rcd_summary.csv"),
-            )
-            os.rename(
-                os.path.join(inputpath, "di_results", "rings.csv"),
-                os.path.join(inputpath, "di_results", "rcd_rings.csv"),
-            )
+        if mode == 'di':
+            os.rename(os.path.join(inputpath, 'di_results', 'summary.csv'),
+                      os.path.join(inputpath, 'di_results', 'rcd_summary.csv'))
+            os.rename(os.path.join(inputpath, 'di_results', 'rings.csv'),
+                      os.path.join(inputpath, 'di_results', 'rcd_rings.csv'))
         return
 
     return pass_test
 
-
 def hdf_read_test(hdfpath, rcd_pickle, testrecord=False):
     hdffile = h5py.File(hdfpath)
-    data = np.array(hdffile.get("data").get("BL"))
+    data = np.array(hdffile.get('data').get('BL'))
 
     if testrecord:
         with open(rcd_pickle, "wb") as rp:
             pickle.dump(data, rp, protocol=2)
-            print(
-                "\033[3;33m\nPickling HDF5 data to {}..\033[0;3140m\n".format(
-                    rcd_pickle
-                )
-            )
+            print("\033[3;33m\nPickling HDF5 data to {}..\033[0;3140m\n"
+                  .format(rcd_pickle))
             return
     else:
-        print(
-            "\033[3;33m\nVerifying that data read from {} is equivalent to previously recorded data in {}\033[0;3140m\n".format(
-                hdfpath, rcd_pickle
-            )
-        )
+        print("\033[3;33m\nVerifying that data read from {} is equivalent to previously recorded data in {}\033[0;3140m\n"
+              .format(hdfpath, rcd_pickle))
         vfy_pickle = os.path.join(os.path.dirname(hdfpath), "hdfdata_verify.p")
         with open(vfy_pickle, "wb") as pf:
             pickle.dump(data, pf, protocol=2)
@@ -348,11 +274,9 @@ def hdf_read_test(hdfpath, rcd_pickle, testrecord=False):
             print("\n\033[4;31m---- HDF5 TEST FAILED ----\033[0;3140m")
         return pass_test
 
-
 def gpu_device_test():
     try:
         from pyFAI import opencl
-
         platform = opencl.pyopencl.get_platforms()[0]
         gpu_devices = platform.get_devices(device_type=opencl.pyopencl.device_type.GPU)
         if len(gpu_devices) > 0:
@@ -360,9 +284,7 @@ def gpu_device_test():
             print("GPU acceleration of pyFAI using OpenCL is available")
             print("GPU devices available to pyFAI and OpenCL:\n{}".format(gpu_devices))
             return True
-        print(
-            "OpenCL is installed, but no GPU devices were found. GPU acceleration of pyFAI is unavailable."
-        )
+        print("OpenCL is installed, but no GPU devices were found. GPU acceleration of pyFAI is unavailable.")
         return False
     except Exception:
         print("\n\033[4;31m---- OPENCL DEVICE TEST FAILED ----\033[0;3140m")
@@ -373,7 +295,7 @@ def gpu_device_test():
 
 def pyfai_gpu_integrate_test():
     ai = AzimuthalIntegrator(detector=detector_factory("agilent_titan"))
-    data = np.random.random((2048, 2048))
+    data = np.random.random((2048,2048))
     npt = 1000
     pass_test = True
     try:
@@ -385,14 +307,11 @@ def pyfai_gpu_integrate_test():
         print("\n\033[4;32m---- PYFAI GPU TEST SUCCESSFUL ----\033[0;3140m")
     else:
         print("\n\033[4;31m---- PYFAI GPU TEST FAILED ----\033[0;3140m")
-        print(
-            "\n\033[4;31mGPU acceleration of integration methods is not available on this machine..\033[0;3140m"
-        )
+        print("\n\033[4;31mGPU acceleration of integration methods is not available on this machine..\033[0;3140m")
     return pass_test
 
-
 # Flattens nested dictionaries
-def flatten(d, parent_key="", sep="_"):
+def flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
         k = str(k)
@@ -403,190 +322,117 @@ def flatten(d, parent_key="", sep="_"):
             items.append((new_key, v))
     return dict(items)
 
+if __name__=="__main__":
 
-if __name__ == "__main__":
-
-    inpath = os.path.abspath(os.path.join(os.path.dirname(__file__), "test_images"))
+    inpath = os.path.abspath(os.path.join(os.path.dirname(__file__),"test_images"))
     settingsA = {
-        "left_sigmac": 1.0,
-        "right_sigmac": 1.0,
-        "orientation_model": 0,
-        "nPeaks": 2,
-        "model": "Gaussian",
-        "isSkeletal": True,
-        "isExtraPeak": False,
-        "mask_thres": -1.0,
-        "90rotation": False,
-        "blank_mask": False,
-        "no_cache": True,
-    }
+        "left_sigmac" : 1.0, "right_sigmac" : 1.0, "orientation_model" : 0,
+        "nPeaks" : 2, "model" : "Gaussian", "isSkeletal" : True, "isExtraPeak": False,
+        "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : False,
+        "no_cache" : True
+        }
     settingsB = {
-        "left_sigmac": 1.0,
-        "right_sigmac": 1.0,
-        "orientation_model": 0,
-        "nPeaks": 5,
-        "model": "Voigt",
-        "isSkeletal": True,
-        "isExtraPeak": False,
-        "mask_thres": -1.0,
-        "90rotation": False,
-        "blank_mask": True,
-        "no_cache": True,
-    }
+        "left_sigmac" : 1.0, "right_sigmac" : 1.0, "orientation_model" : 0,
+        "nPeaks" : 5, "model" : "Voigt", "isSkeletal" : True, "isExtraPeak": False,
+        "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : True,
+        "no_cache" : True
+        }
     settingsQF = {
-        "bgsub": "None",
-        "sigmoid": 0.0,
-        "no_cache": True,
-        "orientation_model": 0,
-        "fold_image": False,
+        'bgsub' : 'None',
+        'sigmoid' : 0.0,
+        'no_cache' : True,
+        'orientation_model' : 0,
+        'fold_image' : False
     }
     settingsPT = {
-        "boxes": {"box1": ((200, 800), (500, 600))},
-        "bgsubs": {"box1": 0},
-        "merid_bg": {"box1": 0},
-        "types": {"box1": "h"},
-        "peaks": {"box1": [100]},
-        "bgsub": "None",
-        "sigmoid": 0.0,
-        "no_cache": True,
-        "orientation_model": 0,
+        'boxes' : {'box1' : ((200, 800),(500, 600))},
+        'bgsubs' : {'box1' : 0},
+        'merid_bg': {'box1' : 0},
+        'types' : {'box1' : 'h'},
+        'peaks' : {'box1' : [100]},
+        'bgsub' : 'None',
+        'sigmoid' : 0.0,
+        'no_cache' : True,
+        'orientation_model' : 0
     }
-    settingsDC = {"orientation_model": 0, "90rotation": False, "no_cache": True}
+    settingsDC = {
+        'orientation_model' : 0,
+        '90rotation' : False,
+        'no_cache' : True
+    }
     settingsDI = {}
 
     args = sys.argv
 
-    if args[1] == "testrecord":
-        module_test(
-            mode="eq",
-            settings=settingsA,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "eq", "test_pickles_settingsA"
-            ),
-            inputpath=inpath,
-            testrecord=True,
-        )
-        module_test(
-            mode="eq",
-            settings=settingsB,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "eq", "test_pickles_settingsB"
-            ),
-            inputpath=inpath,
-            testrecord=True,
-        )
-        module_test(
-            mode="qf",
-            settings=settingsQF,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "qf", "test_pickles_settingsQF"
-            ),
-            inputpath=inpath,
-            testrecord=True,
-        )
-        module_test(
-            mode="dc",
-            settings=settingsDC,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "dc", "test_pickles_settingsDC"
-            ),
-            inputpath=inpath,
-            testrecord=True,
-        )
-        module_test(
-            mode="pt",
-            settings=settingsPT,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "pt", "test_pickles_settingsPT"
-            ),
-            inputpath=inpath,
-            testrecord=True,
-        )
-        module_test(
-            mode="di",
-            settings=settingsDI,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "di", "test_pickles_settingsDI"
-            ),
-            inputpath=inpath,
-            testrecord=True,
-        )
-        hdf_read_test(
-            hdfpath=os.path.join(inpath, "di_test_data", "test.hdf"),
-            rcd_pickle=os.path.join(inpath, "hdf_record", "hdfdata_record.p"),
-            testrecord=True,
-        )
+    if args[1] == 'testrecord':
+        module_test(mode="eq",
+                    settings=settingsA,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq", "test_pickles_settingsA"),
+                    inputpath=inpath,
+                    testrecord=True)
+        module_test(mode="eq",
+                    settings=settingsB,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq", "test_pickles_settingsB"),
+                    inputpath=inpath,
+                    testrecord=True)
+        module_test(mode="qf",
+                    settings=settingsQF,
+                    pickledir=os.path.join(os.path.dirname(__file__), "qf", "test_pickles_settingsQF"),
+                    inputpath=inpath,
+                    testrecord=True)
+        module_test(mode="dc",
+                    settings=settingsDC,
+                    pickledir=os.path.join(os.path.dirname(__file__), "dc", "test_pickles_settingsDC"),
+                    inputpath=inpath,
+                    testrecord=True)
+        module_test(mode="pt",
+                    settings=settingsPT,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt", "test_pickles_settingsPT"),
+                    inputpath=inpath,
+                    testrecord=True)
+        module_test(mode="di",
+                    settings=settingsDI,
+                    pickledir=os.path.join(os.path.dirname(__file__), "di", "test_pickles_settingsDI"),
+                    inputpath=inpath,
+                    testrecord=True)
+        hdf_read_test(hdfpath=os.path.join(inpath, "di_test_data", "test.hdf"),
+                      rcd_pickle=os.path.join(inpath, "hdf_record", "hdfdata_record.p"),
+                      testrecord=True)
 
-    if args[1] == "testverify":
-        module_test(
-            mode="eq",
-            settings=settingsA,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "eq", "tmp_verify_settingsA"
-            ),
-            inputpath=inpath,
-            compdir=os.path.join(
-                os.path.dirname(__file__), "eq", "test_pickles_settingsA"
-            ),
-            testrecord=False,
-        )
-        module_test(
-            mode="eq",
-            settings=settingsB,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "eq", "tmp_verify_settingsB"
-            ),
-            inputpath=inpath,
-            compdir=os.path.join(
-                os.path.dirname(__file__), "eq", "test_pickles_settingsB"
-            ),
-            testrecord=False,
-        )
-        module_test(
-            mode="qf",
-            settings=settingsQF,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "pt", "tmp_verify_settingsQF"
-            ),
-            inputpath=inpath,
-            compdir=os.path.join(
-                os.path.dirname(__file__), "pt", "test_pickles_settingsQF"
-            ),
-            testrecord=False,
-        )
-        module_test(
-            mode="dc",
-            settings=settingsDC,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "pt", "tmp_verify_settingsDC"
-            ),
-            inputpath=inpath,
-            compdir=os.path.join(
-                os.path.dirname(__file__), "pt", "test_pickles_settingsDC"
-            ),
-            testrecord=False,
-        )
-        module_test(
-            mode="pt",
-            settings=settingsPT,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "pt", "tmp_verify_settingsPT"
-            ),
-            inputpath=inpath,
-            compdir=os.path.join(
-                os.path.dirname(__file__), "pt", "test_pickles_settingsPT"
-            ),
-            testrecord=False,
-        )
-        module_test(
-            mode="di",
-            settings=settingsDI,
-            pickledir=os.path.join(
-                os.path.dirname(__file__), "di", "tmp_verify_settingsDI"
-            ),
-            inputpath=inpath,
-            compdir=os.path.join(
-                os.path.dirname(__file__), "di", "test_pickles_settingsDI"
-            ),
-            testrecord=False,
-        )
+    if args[1] == 'testverify':
+        module_test(mode="eq",
+                    settings=settingsA,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq", "tmp_verify_settingsA"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "eq", "test_pickles_settingsA"),
+                    testrecord=False)
+        module_test(mode="eq",
+                    settings=settingsB,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq", "tmp_verify_settingsB"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "eq", "test_pickles_settingsB"),
+                    testrecord=False)
+        module_test(mode="qf",
+                    settings=settingsQF,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt", "tmp_verify_settingsQF"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "pt", "test_pickles_settingsQF"),
+                    testrecord=False)
+        module_test(mode="dc",
+                    settings=settingsDC,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt", "tmp_verify_settingsDC"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "pt", "test_pickles_settingsDC"),
+                    testrecord=False)
+        module_test(mode="pt",
+                    settings=settingsPT,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt", "tmp_verify_settingsPT"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "pt", "test_pickles_settingsPT"),
+                    testrecord=False)
+        module_test(mode="di",
+                    settings=settingsDI,
+                    pickledir=os.path.join(os.path.dirname(__file__), "di", "tmp_verify_settingsDI"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "di", "test_pickles_settingsDI"),
+                    testrecord=False)

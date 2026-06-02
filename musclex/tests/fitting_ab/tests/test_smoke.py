@@ -63,42 +63,32 @@ def _make_synthetic_case(seed: int = 0) -> FitCase:
 
     # Truth values used to synthesize y; the fit will recover these.
     truth = dict(
-        bg_sigma=60.0,
-        bg_amplitude=2000.0,
-        center_sigma1=15.0,
-        center_amplitude1=300.0,
-        center_sigma2=5.0,
-        center_amplitude2=400.0,
-        p_0=-30.0,
-        sigma0=4.0,
-        amplitude0=900.0,
-        p_1=+40.0,
-        sigma1=5.0,
-        amplitude1=700.0,
+        bg_sigma=60.0, bg_amplitude=2000.0,
+        center_sigma1=15.0, center_amplitude1=300.0,
+        center_sigma2=5.0, center_amplitude2=400.0,
+        p_0=-30.0, sigma0=4.0, amplitude0=900.0,
+        p_1=+40.0, sigma1=5.0, amplitude1=700.0,
     )
     y_clean = layerlineModel(
-        x=x,
-        centerX=centerX,
-        bg_line=bg_line,
-        **truth,
+        x=x, centerX=centerX, bg_line=bg_line, **truth,
     )
     y = y_clean + rng.normal(0.0, np.sqrt(np.maximum(y_clean, 1.0)) * 0.5)
 
     # Initial values are intentionally a bit off from truth to exercise
     # the optimizer (but inside the bounds).
     free = {
-        "bg_sigma": ParamSpec(init=80.0, min=1.0, max=2 * n + 1.0),
-        "bg_amplitude": ParamSpec(init=0.0, min=-1.0, max=float(y.sum() + 1)),
-        "center_sigma1": ParamSpec(init=15.0, min=1.0, max=n + 1.0),
-        "center_amplitude1": ParamSpec(init=200.0, min=-1.0, max=float(y.sum() + 1)),
-        "center_sigma2": ParamSpec(init=5.0, min=1.0, max=n + 1.0),
-        "center_amplitude2": ParamSpec(init=200.0, min=-1.0, max=float(y.sum() + 1)),
-        "p_0": ParamSpec(init=-32.0, min=-35.0, max=-28.0),
-        "sigma0": ParamSpec(init=5.0, min=1.0, max=10.0),
-        "amplitude0": ParamSpec(init=float(y.sum() / 10.0), min=-1.0, max=None),
-        "p_1": ParamSpec(init=42.0, min=37.0, max=45.0),
-        "sigma1": ParamSpec(init=5.0, min=1.0, max=10.0),
-        "amplitude1": ParamSpec(init=float(y.sum() / 10.0), min=-1.0, max=None),
+        "bg_sigma":         ParamSpec(init=80.0, min=1.0, max=2 * n + 1.0),
+        "bg_amplitude":     ParamSpec(init=0.0, min=-1.0, max=float(y.sum() + 1)),
+        "center_sigma1":    ParamSpec(init=15.0, min=1.0, max=n + 1.0),
+        "center_amplitude1":ParamSpec(init=200.0, min=-1.0, max=float(y.sum() + 1)),
+        "center_sigma2":    ParamSpec(init=5.0, min=1.0, max=n + 1.0),
+        "center_amplitude2":ParamSpec(init=200.0, min=-1.0, max=float(y.sum() + 1)),
+        "p_0":              ParamSpec(init=-32.0, min=-35.0, max=-28.0),
+        "sigma0":           ParamSpec(init=5.0, min=1.0, max=10.0),
+        "amplitude0":       ParamSpec(init=float(y.sum() / 10.0), min=-1.0, max=None),
+        "p_1":              ParamSpec(init=42.0, min=37.0, max=45.0),
+        "sigma1":           ParamSpec(init=5.0, min=1.0, max=10.0),
+        "amplitude1":       ParamSpec(init=float(y.sum() / 10.0), min=-1.0, max=None),
     }
 
     inputs = FitInputs(
@@ -212,25 +202,17 @@ class SmokeTests(unittest.TestCase):
                 self.success = success
                 self.message = message
 
-        self.assertTrue(
-            _is_aborted(
-                _R(False, "Fit aborted: number of function evaluations > 28000")
-            )
-        )
+        self.assertTrue(_is_aborted(_R(False, "Fit aborted: number of function evaluations > 28000")))
         self.assertTrue(_is_aborted(_R(False, "Maximum number of iterations exceeded")))
-        self.assertFalse(
-            _is_aborted(_R(True, "`ftol` termination condition is satisfied."))
-        )
+        self.assertFalse(_is_aborted(_R(True, "`ftol` termination condition is satisfied.")))
 
     def test_manual_chi2_matches_unweighted_sum(self):
         rng = np.random.default_rng(7)
         y = rng.normal(100.0, 10.0, size=64)
         predicted = y + rng.normal(0.0, 1.0, size=64)
         residuals = y - predicted
-        expected = float(np.sum(residuals**2))
-        self.assertAlmostEqual(
-            _manual_chi2(y, predicted, weights=None), expected, places=8
-        )
+        expected = float(np.sum(residuals ** 2))
+        self.assertAlmostEqual(_manual_chi2(y, predicted, weights=None), expected, places=8)
 
     def test_manual_chi2_handles_non_finite(self):
         y = np.array([1.0, 2.0, 3.0])
@@ -268,7 +250,7 @@ class CanonicalizationTests(unittest.TestCase):
 
     def test_meridian_pair_swap(self):
         vals = {
-            "center_sigma1": 5.0,  # smaller -> should swap
+            "center_sigma1": 5.0,    # smaller -> should swap
             "center_amplitude1": 100.0,
             "center_sigma2": 30.0,
             "center_amplitude2": 200.0,
@@ -293,19 +275,13 @@ class CanonicalizationTests(unittest.TestCase):
         # Peaks given out of order: p_0=10, p_1=-5, p_2=3.
         # Expect them re-labeled by ascending position.
         vals = {
-            "p_0": 10.0,
-            "amplitude0": 100.0,
-            "sigma0": 1.0,
-            "p_1": -5.0,
-            "amplitude1": 200.0,
-            "sigma1": 2.0,
-            "p_2": 3.0,
-            "amplitude2": 300.0,
-            "sigma2": 3.0,
+            "p_0": 10.0, "amplitude0": 100.0, "sigma0": 1.0,
+            "p_1": -5.0, "amplitude1": 200.0, "sigma1": 2.0,
+            "p_2":  3.0, "amplitude2": 300.0, "sigma2": 3.0,
         }
         canon = canonicalize_values(vals)
         self.assertEqual(canon["p_0"], -5.0)
-        self.assertEqual(canon["p_1"], 3.0)
+        self.assertEqual(canon["p_1"],  3.0)
         self.assertEqual(canon["p_2"], 10.0)
         # The companion blocks must move with their peak.
         self.assertEqual(canon["amplitude0"], 200.0)
@@ -323,30 +299,22 @@ class CanonicalizationTests(unittest.TestCase):
     def test_per_param_diff_zero_on_swap(self):
         # Two value sets that are equivalent up to a sigma1<->2 swap.
         ref = {
-            "center_sigma1": 30.0,
-            "center_amplitude1": 200.0,
-            "center_sigma2": 5.0,
-            "center_amplitude2": 100.0,
+            "center_sigma1": 30.0, "center_amplitude1": 200.0,
+            "center_sigma2": 5.0, "center_amplitude2": 100.0,
         }
         cand = {
-            "center_sigma1": 5.0,
-            "center_amplitude1": 100.0,
-            "center_sigma2": 30.0,
-            "center_amplitude2": 200.0,
+            "center_sigma1": 5.0, "center_amplitude1": 100.0,
+            "center_sigma2": 30.0, "center_amplitude2": 200.0,
         }
 
         class _DummyCase:
             class _Inputs:
                 free_params = {
-                    "center_sigma1": None,
-                    "center_amplitude1": None,
-                    "center_sigma2": None,
-                    "center_amplitude2": None,
+                    "center_sigma1": None, "center_amplitude1": None,
+                    "center_sigma2": None, "center_amplitude2": None,
                 }
-
             class _Ref:
                 values = ref
-
             inputs = _Inputs()
             reference = _Ref()
 
@@ -388,8 +356,7 @@ class ConsistencyTableTests(unittest.TestCase):
         replay = LmfitBaselineAdapter().fit(self.case)
         rows = list(per_param_rows(replay, self.case))
         self.assertEqual(
-            len(rows),
-            len(self.case.inputs.free_params),
+            len(rows), len(self.case.inputs.free_params),
             msg=f"expected one row per free param, got {len(rows)}",
         )
         keys = {"param_name", "ref_value", "cand_value", "diff", "abs_diff", "rel_diff"}
@@ -403,7 +370,6 @@ class ConsistencyTableTests(unittest.TestCase):
             summarize_consistency,
             summarize_dataframe,
         )
-
         df, param_df = run_ab(
             adapters=[LmfitBaselineAdapter()],
             cases=[self.case],
@@ -418,27 +384,13 @@ class ConsistencyTableTests(unittest.TestCase):
 
         # Summary tables include the new dispersion columns.
         summary = summarize_dataframe(df)
-        for col in (
-            "elapsed_std",
-            "elapsed_iqr",
-            "chi2_ratio_mean",
-            "chi2_ratio_std",
-            "r2_mean",
-            "r2_std",
-        ):
+        for col in ("elapsed_std", "elapsed_iqr", "chi2_ratio_mean",
+                    "chi2_ratio_std", "r2_mean", "r2_std"):
             self.assertIn(col, summary.columns, msg=f"missing column {col}")
 
         consistency = summarize_consistency(param_df)
-        for col in (
-            "cand_mean",
-            "cand_std",
-            "diff_mean",
-            "diff_std",
-            "abs_diff_mean",
-            "abs_diff_max",
-            "ref_value",
-            "n_trials",
-        ):
+        for col in ("cand_mean", "cand_std", "diff_mean", "diff_std",
+                    "abs_diff_mean", "abs_diff_max", "ref_value", "n_trials"):
             self.assertIn(col, consistency.columns, msg=f"missing column {col}")
 
         # With 4 trials and 10% perturbation, we expect at least *some* of
@@ -446,8 +398,7 @@ class ConsistencyTableTests(unittest.TestCase):
         # exactly on the same value when it starts from a different init).
         max_std = consistency["cand_std"].max()
         self.assertGreater(
-            max_std,
-            0.0,
+            max_std, 0.0,
             msg="all params have zero std under perturbation; sweep was a no-op",
         )
 
@@ -459,7 +410,6 @@ class ConsistencyTableTests(unittest.TestCase):
             run_ab,
             summarize_consistency,
         )
-
         df, param_df = run_ab(
             adapters=[LmfitBaselineAdapter()],
             cases=[self.case],
@@ -490,22 +440,21 @@ class TestHullRangeSlice(unittest.TestCase):
     """
 
     # ── fixture parameters ─────────────────────────────────────────────────
-    N_FULL = 2000  # full array length (pixels)
-    CENTER_X = 1000.0  # beam centre in array coordinates
-    HULL_START = 30.0  # inner edge of valid window (distance from centre)
-    HULL_END = 350.0  # outer edge
+    N_FULL = 2000       # full array length (pixels)
+    CENTER_X = 1000.0   # beam centre in array coordinates
+    HULL_START = 30.0   # inner edge of valid window (distance from centre)
+    HULL_END = 350.0    # outer edge
     N_PEAKS = 4
     PEAK_POSITIONS = [-280.0, -130.0, +130.0, +280.0]  # all within hull_end
     PEAK_AMPLITUDES = [800.0, 600.0, 600.0, 800.0]
     PEAK_SIGMA = 8.0
-    TIMING_REPS = 30  # repetitions used for timing comparison
+    TIMING_REPS = 30    # repetitions used for timing comparison
 
     @classmethod
     def setUpClass(cls):
         from musclex.tests.fitting_ab.model_variants.model_numpy import (
             layerlineModelGMM,
         )
-
         rng = np.random.default_rng(42)
 
         x = np.arange(cls.N_FULL, dtype=np.float64)
@@ -513,20 +462,18 @@ class TestHullRangeSlice(unittest.TestCase):
         # Build clean signal (background params all zero → only peaks)
         common_sigma = cls.PEAK_SIGMA
         kwargs = {}
-        for i, (p, amp) in enumerate(zip(cls.PEAK_POSITIONS, cls.PEAK_AMPLITUDES)):
+        for i, (p, amp) in enumerate(
+            zip(cls.PEAK_POSITIONS, cls.PEAK_AMPLITUDES)
+        ):
             kwargs[f"p_{i}"] = p
             kwargs[f"amplitude{i}"] = amp
 
         y_clean = layerlineModelGMM(
             x=x,
             centerX=cls.CENTER_X,
-            bg_line=0.0,
-            bg_sigma=1.0,
-            bg_amplitude=0.0,
-            center_sigma1=1.0,
-            center_amplitude1=0.0,
-            center_sigma2=1.0,
-            center_amplitude2=0.0,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
             common_sigma=common_sigma,
             **kwargs,
         )
@@ -561,11 +508,8 @@ class TestHullRangeSlice(unittest.TestCase):
         }
 
         inputs = FitInputs(
-            x=x,
-            y=y,
-            weights=None,
-            model_kind="gmm",
-            has_voigt=False,
+            x=x, y=y, weights=None,
+            model_kind="gmm", has_voigt=False,
             free_params=free,
             independent_vars=indep,
             fixed_params={},
@@ -595,47 +539,38 @@ class TestHullRangeSlice(unittest.TestCase):
             LmfitTRFAdapter,
             LmfitTRFHullSliceAdapter,
         )
-
-        cls.full_adapter = LmfitTRFAdapter(seed=0)
+        cls.full_adapter  = LmfitTRFAdapter(seed=0)
         cls.slice_adapter = LmfitTRFHullSliceAdapter(seed=0)
-        cls.full_result = cls.full_adapter.fit(cls.full_case)
-        cls.slice_result = cls.slice_adapter.fit(cls.full_case)
+        cls.full_result   = cls.full_adapter.fit(cls.full_case)
+        cls.slice_result  = cls.slice_adapter.fit(cls.full_case)
 
     # ── helpers ────────────────────────────────────────────────────────────
 
     def _sliced_array_length(self):
         """Expected length of the sliced histogram."""
         from musclex.tests.fitting_ab.adapters.lmfit_adapters import _HULL_SLICE_MARGIN
-
         lo = max(0, int(self.CENTER_X - self.HULL_END) - _HULL_SLICE_MARGIN)
-        hi = min(
-            self.N_FULL, int(self.CENTER_X + self.HULL_END) + _HULL_SLICE_MARGIN + 1
-        )
+        hi = min(self.N_FULL,
+                 int(self.CENTER_X + self.HULL_END) + _HULL_SLICE_MARGIN + 1)
         return hi - lo
 
     # ── correctness tests ──────────────────────────────────────────────────
 
     def test_both_fits_succeed(self):
-        self.assertTrue(
-            self.full_result.success,
-            msg=f"full-array fit failed: {self.full_result.message}",
-        )
-        self.assertTrue(
-            self.slice_result.success,
-            msg=f"hull-slice fit failed: {self.slice_result.message}",
-        )
+        self.assertTrue(self.full_result.success,
+                        msg=f"full-array fit failed: {self.full_result.message}")
+        self.assertTrue(self.slice_result.success,
+                        msg=f"hull-slice fit failed: {self.slice_result.message}")
 
     def test_r2_is_close(self):
         """R² difference must be < 0.005 (fits of a zero-padded array converge
         to the same optimum whether or not the zero padding is included)."""
-        r2_full = self.full_result.r2
+        r2_full  = self.full_result.r2
         r2_slice = self.slice_result.r2
         self.assertIsNotNone(r2_full)
         self.assertIsNotNone(r2_slice)
         self.assertAlmostEqual(
-            r2_full,
-            r2_slice,
-            delta=0.005,
+            r2_full, r2_slice, delta=0.005,
             msg=f"R² diverged: full={r2_full:.4f}  slice={r2_slice:.4f}",
         )
 
@@ -643,23 +578,19 @@ class TestHullRangeSlice(unittest.TestCase):
         """Fitted peak positions must agree within 0.5 px."""
         for i in range(self.N_PEAKS):
             key = f"p_{i}"
-            p_full = self.full_result.values[key]
+            p_full  = self.full_result.values[key]
             p_slice = self.slice_result.values[key]
             self.assertAlmostEqual(
-                p_full,
-                p_slice,
-                delta=0.5,
+                p_full, p_slice, delta=0.5,
                 msg=f"{key}: full={p_full:.3f}  slice={p_slice:.3f}",
             )
 
     def test_common_sigma_close(self):
         """Fitted common_sigma must agree within 0.5."""
-        s_full = self.full_result.values["common_sigma"]
+        s_full  = self.full_result.values["common_sigma"]
         s_slice = self.slice_result.values["common_sigma"]
         self.assertAlmostEqual(
-            s_full,
-            s_slice,
-            delta=0.5,
+            s_full, s_slice, delta=0.5,
             msg=f"common_sigma: full={s_full:.3f}  slice={s_slice:.3f}",
         )
 
@@ -668,14 +599,12 @@ class TestHullRangeSlice(unittest.TestCase):
         model sees.  We verify via the hull-range arithmetic."""
         sliced_len = self._sliced_array_length()
         self.assertLess(
-            sliced_len,
-            self.N_FULL,
+            sliced_len, self.N_FULL,
             msg=f"sliced length ({sliced_len}) is not shorter than full ({self.N_FULL})",
         )
         # Expect at least a 2× reduction for these fixture parameters.
         self.assertLess(
-            sliced_len,
-            self.N_FULL // 2,
+            sliced_len, self.N_FULL // 2,
             msg=f"sliced length ({sliced_len}) is less than 2× smaller than full",
         )
 
@@ -700,13 +629,12 @@ class TestHullRangeSlice(unittest.TestCase):
             self.slice_adapter.fit(self.full_case)
             slice_times.append(time.perf_counter() - t0)
 
-        med_full = float(np.median(full_times))
+        med_full  = float(np.median(full_times))
         med_slice = float(np.median(slice_times))
 
         # Allow 20 % margin: slice must be at least 0.8× full to pass.
         self.assertLess(
-            med_slice,
-            med_full * 0.80,
+            med_slice, med_full * 0.80,
             msg=(
                 f"hull-slice adapter is not faster: "
                 f"median full={med_full*1000:.1f} ms  "
@@ -748,7 +676,6 @@ class TestVectorisedBatch(unittest.TestCase):
         from musclex.tests.fitting_ab.model_variants.model_numpy import (
             layerlineModelGMM as ref_gmm,
         )
-
         rng = np.random.default_rng(0)
         x = np.arange(cls.N_FULL, dtype=np.float64)
 
@@ -760,48 +687,34 @@ class TestVectorisedBatch(unittest.TestCase):
         y_clean = ref_gmm(
             x=x,
             centerX=cls.CENTER_X,
-            bg_line=0.0,
-            bg_sigma=1.0,
-            bg_amplitude=0.0,
-            center_sigma1=1.0,
-            center_amplitude1=0.0,
-            center_sigma2=1.0,
-            center_amplitude2=0.0,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
             common_sigma=cls.PEAK_SIGMA,
             **kwargs,
         )
         y = y_clean + rng.normal(0.0, np.sqrt(np.maximum(y_clean, 1.0)) * 0.2)
 
         from musclex.tests.fitting_ab.adapters import (
-            FitCase,
-            FitInputs,
-            CaseMeta,
-            ParamSpec,
+            FitCase, FitInputs, CaseMeta, ParamSpec,
         )
 
         free_params = {}
         for i, (p, amp) in enumerate(zip(cls.PEAK_POSITIONS, cls.PEAK_AMPLITUDES)):
-            free_params[f"p_{i}"] = ParamSpec(init=p, min=p - 60, max=p + 60)
-            free_params[f"amplitude{i}"] = ParamSpec(init=amp, min=0.0, max=5000.0)
+            free_params[f"p_{i}"]        = ParamSpec(init=p,   min=p-60, max=p+60)
+            free_params[f"amplitude{i}"] = ParamSpec(init=amp, min=0.0,  max=5000.0)
         free_params["common_sigma"] = ParamSpec(init=cls.PEAK_SIGMA, min=1.0, max=40.0)
 
         indep_vars = {
             "centerX": cls.CENTER_X,
-            "bg_line": 0.0,
-            "bg_sigma": 1.0,
-            "bg_amplitude": 0.0,
-            "center_sigma1": 1.0,
-            "center_amplitude1": 0.0,
-            "center_sigma2": 1.0,
-            "center_amplitude2": 0.0,
+            "bg_line": 0.0, "bg_sigma": 1.0, "bg_amplitude": 0.0,
+            "center_sigma1": 1.0, "center_amplitude1": 0.0,
+            "center_sigma2": 1.0, "center_amplitude2": 0.0,
         }
 
         inputs = FitInputs(
-            x=x,
-            y=y,
-            weights=None,
-            model_kind="gmm",
-            has_voigt=False,
+            x=x, y=y, weights=None,
+            model_kind="gmm", has_voigt=False,
             free_params=free_params,
             independent_vars=indep_vars,
             fixed_params={},
@@ -820,14 +733,14 @@ class TestVectorisedBatch(unittest.TestCase):
         )
         case = FitCase(schema_version=SCHEMA_VERSION, meta=meta, inputs=inputs)
 
-        cls.case = case
-        cls.ref_adapter = LmfitTRFNumpyAdapter()
-        cls.l3_adapter = LmfitTRFNumpyVectorizedAdapter()
-        cls.l4_adapter = LmfitTRFNumbaVectorizedAdapter()
+        cls.case    = case
+        cls.ref_adapter  = LmfitTRFNumpyAdapter()
+        cls.l3_adapter   = LmfitTRFNumpyVectorizedAdapter()
+        cls.l4_adapter   = LmfitTRFNumbaVectorizedAdapter()
 
         cls.ref_result = cls.ref_adapter.fit(case)
-        cls.l3_result = cls.l3_adapter.fit(case)
-        cls.l4_result = cls.l4_adapter.fit(case)
+        cls.l3_result  = cls.l3_adapter.fit(case)
+        cls.l4_result  = cls.l4_adapter.fit(case)
 
     # ── numerical equivalence ──────────────────────────────────────────────
 
@@ -839,9 +752,7 @@ class TestVectorisedBatch(unittest.TestCase):
             c_val = result.values.get(key)
             self.assertIsNotNone(c_val, msg=f"{tag}: missing param {key!r}")
             self.assertAlmostEqual(
-                r_val,
-                c_val,
-                delta=0.5,
+                r_val, c_val, delta=0.5,
                 msg=f"{tag}: {key}: ref={r_val:.4f}  got={c_val:.4f}",
             )
 
@@ -853,21 +764,17 @@ class TestVectorisedBatch(unittest.TestCase):
 
     def test_l3_r2_close_to_reference(self):
         ref_r2 = self.ref_result.r2 or 0.0
-        l3_r2 = self.l3_result.r2 or 0.0
+        l3_r2  = self.l3_result.r2  or 0.0
         self.assertAlmostEqual(
-            ref_r2,
-            l3_r2,
-            delta=0.01,
+            ref_r2, l3_r2, delta=0.01,
             msg=f"L3 R² {l3_r2:.4f} deviates too far from ref {ref_r2:.4f}",
         )
 
     def test_l4_r2_close_to_reference(self):
         ref_r2 = self.ref_result.r2 or 0.0
-        l4_r2 = self.l4_result.r2 or 0.0
+        l4_r2  = self.l4_result.r2  or 0.0
         self.assertAlmostEqual(
-            ref_r2,
-            l4_r2,
-            delta=0.01,
+            ref_r2, l4_r2, delta=0.01,
             msg=f"L4 R² {l4_r2:.4f} deviates too far from ref {ref_r2:.4f}",
         )
 
@@ -881,7 +788,6 @@ class TestVectorisedBatch(unittest.TestCase):
         from musclex.tests.fitting_ab.model_variants.model_numpy_vectorized import (
             layerlineModelGMM as l3_gmm,
         )
-
         x = np.linspace(0.0, 2000.0, 800)
         kw = {}
         for i, (p, amp) in enumerate(zip(self.PEAK_POSITIONS, self.PEAK_AMPLITUDES)):
@@ -889,21 +795,15 @@ class TestVectorisedBatch(unittest.TestCase):
             kw[f"amplitude{i}"] = amp
         common = dict(
             centerX=self.CENTER_X,
-            bg_line=0.0,
-            bg_sigma=1.0,
-            bg_amplitude=0.0,
-            center_sigma1=1.0,
-            center_amplitude1=0.0,
-            center_sigma2=1.0,
-            center_amplitude2=0.0,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
             common_sigma=self.PEAK_SIGMA,
         )
         y1 = l1_gmm(x=x, **common, **kw)
         y3 = l3_gmm(x=x, **common, **kw)
         np.testing.assert_allclose(
-            y3,
-            y1,
-            rtol=1e-10,
+            y3, y1, rtol=1e-10,
             err_msg="L3 numpy-vectorized model deviates from L1 reference",
         )
 
@@ -915,7 +815,6 @@ class TestVectorisedBatch(unittest.TestCase):
         from musclex.tests.fitting_ab.model_variants.model_numba_vectorized import (
             layerlineModelGMM as l4_gmm,
         )
-
         x = np.linspace(0.0, 2000.0, 800)
         kw = {}
         for i, (p, amp) in enumerate(zip(self.PEAK_POSITIONS, self.PEAK_AMPLITUDES)):
@@ -923,21 +822,15 @@ class TestVectorisedBatch(unittest.TestCase):
             kw[f"amplitude{i}"] = amp
         common = dict(
             centerX=self.CENTER_X,
-            bg_line=0.0,
-            bg_sigma=1.0,
-            bg_amplitude=0.0,
-            center_sigma1=1.0,
-            center_amplitude1=0.0,
-            center_sigma2=1.0,
-            center_amplitude2=0.0,
+            bg_line=0.0, bg_sigma=1.0, bg_amplitude=0.0,
+            center_sigma1=1.0, center_amplitude1=0.0,
+            center_sigma2=1.0, center_amplitude2=0.0,
             common_sigma=self.PEAK_SIGMA,
         )
         y1 = l1_gmm(x=x, **common, **kw)
         y4 = l4_gmm(x=x, **common, **kw)
         np.testing.assert_allclose(
-            y4,
-            y1,
-            rtol=1e-7,
+            y4, y1, rtol=1e-7,
             err_msg="L4 numba-vectorized model deviates from L1 reference",
         )
 
@@ -946,7 +839,6 @@ class TestVectorisedBatch(unittest.TestCase):
     def test_l3_not_slower_than_l1(self):
         """L3 (numpy-vectorized) must be no slower than 1.10× L1 (numpy)."""
         import time
-
         ref_times, l3_times = [], []
         for _ in range(self.TIMING_REPS):
             t0 = time.perf_counter()
@@ -958,10 +850,9 @@ class TestVectorisedBatch(unittest.TestCase):
             l3_times.append(time.perf_counter() - t0)
 
         med_ref = float(np.median(ref_times))
-        med_l3 = float(np.median(l3_times))
+        med_l3  = float(np.median(l3_times))
         self.assertLessEqual(
-            med_l3,
-            med_ref * 1.10,
+            med_l3, med_ref * 1.10,
             msg=(
                 f"L3 numpy-vectorized ({med_l3*1e3:.1f} ms) is >10% slower "
                 f"than L1 numpy ({med_ref*1e3:.1f} ms) — vectorisation overhead is too high"
@@ -975,7 +866,6 @@ class TestVectorisedBatch(unittest.TestCase):
         machines.  A healthy L4 is typically 1.5–3× faster for 6+ peaks.
         """
         import time
-
         ref_times, l4_times = [], []
         for _ in range(self.TIMING_REPS):
             t0 = time.perf_counter()
@@ -987,10 +877,9 @@ class TestVectorisedBatch(unittest.TestCase):
             l4_times.append(time.perf_counter() - t0)
 
         med_ref = float(np.median(ref_times))
-        med_l4 = float(np.median(l4_times))
+        med_l4  = float(np.median(l4_times))
         self.assertLessEqual(
-            med_l4,
-            med_ref * 1.20,
+            med_l4, med_ref * 1.20,
             msg=(
                 f"L4 numba-vectorized ({med_l4*1e3:.1f} ms) is >20% slower "
                 f"than L1 numpy ({med_ref*1e3:.1f} ms); "

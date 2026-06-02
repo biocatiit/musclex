@@ -25,7 +25,6 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-
 import sys
 import traceback
 import json
@@ -62,10 +61,15 @@ from .pyqt_utils import getAFile
 
 
 class ImageMaskDialog(QDialog):
-    def __init__(self, image_data, settings_dir_path, vmin, vmax):
+    def __init__(self,
+                image_data,
+                settings_dir_path,
+                vmin,
+                vmax
+        ):
         """
         Initialize Image Mask Dialog.
-
+        
         Args:
             image_data: numpy array of the image (not a file path!)
             settings_dir_path: directory where mask files will be saved
@@ -81,7 +85,7 @@ class ImageMaskDialog(QDialog):
 
         # Store image data directly (no file I/O needed)
         self.imageData = np.asarray(image_data).astype("float32")
-
+        
         # Mask files will be saved in settings directory
         self.drawn_mask_file_path = self.settings_dir_path / "drawn-mask.edf"
         self.mask_config_file_path = self.settings_dir_path / "mask_config.json"
@@ -103,16 +107,12 @@ class ImageMaskDialog(QDialog):
             mask_low_kernel_size = mask_config.get("mask_low_kernel_size")
             mask_high_thresh = mask_config.get("mask_high_thresh")
             mask_high_kernel_size = mask_config.get("mask_high_kernel_size")
-
+            
             # Save original config values before they get modified for widget defaults
             # These will be used to determine which checkboxes to auto-check
-            config_has_low_thresh = mask_low_thresh is not None and isinstance(
-                mask_low_thresh, (int, float)
-            )
+            config_has_low_thresh = mask_low_thresh is not None and isinstance(mask_low_thresh, (int, float))
             config_has_low_kernel = mask_low_kernel_size is not None
-            config_has_high_thresh = mask_high_thresh is not None and isinstance(
-                mask_high_thresh, (int, float)
-            )
+            config_has_high_thresh = mask_high_thresh is not None and isinstance(mask_high_thresh, (int, float))
             config_has_high_kernel = mask_high_kernel_size is not None
         else:
             mask_low_thresh = None
@@ -144,39 +144,33 @@ class ImageMaskDialog(QDialog):
         self.applyMaskGroup = QGroupBox("Mask Options")
         self.applyMaskGroup.setToolTip(
             "The selected mask options will be saved to a file and"
-            + " applied to the image when clicking the Save button."
-        )
+            + " applied to the image when clicking the Save button.")
 
         self.applyMaskLayout = QGridLayout(self.applyMaskGroup)
-
+        
+        
         # Drawn Mask section
         settingsRowIndex = 0
         self.applyDrawnMaskCheckBox = QCheckBox("Drawn Mask")
-        self.applyMaskLayout.addWidget(
-            self.applyDrawnMaskCheckBox, settingsRowIndex, 0, 1, 4
-        )
+        self.applyMaskLayout.addWidget(self.applyDrawnMaskCheckBox, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-
+        
         self.applyDrawnMaskText = QLabel()
-        self.applyMaskLayout.addWidget(
-            self.applyDrawnMaskText, settingsRowIndex, 0, 1, 4
-        )
+        self.applyMaskLayout.addWidget(self.applyDrawnMaskText, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-
+        
         self.drawMaskBtn = QPushButton("Draw Mask")
         self.applyMaskLayout.addWidget(self.drawMaskBtn, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-
+        
         # Add spacing
         self.applyMaskLayout.setRowMinimumHeight(settingsRowIndex, 15)
         settingsRowIndex += 1
-
+        
         # Low Mask Threshold section
         self.maskLowThreshChkbx = QCheckBox("Low Mask Threshold")
-        self.applyMaskLayout.addWidget(
-            self.maskLowThreshChkbx, settingsRowIndex, 0, 1, 2
-        )
-
+        self.applyMaskLayout.addWidget(self.maskLowThreshChkbx, settingsRowIndex, 0, 1, 2)
+        
         self.maskLowThresh = QDoubleSpinBox()
         self.maskLowThresh.setMinimum(-50)
         self.maskLowThresh.setMaximum(10000)
@@ -188,13 +182,11 @@ class ImageMaskDialog(QDialog):
         self.maskLowThresh.valueChanged.connect(self.maskLowThresholdChanged)
         self.applyMaskLayout.addWidget(self.maskLowThresh, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-
+        
         self.lowMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
         self.lowMaskDilationChkbx.setEnabled(False)
-        self.applyMaskLayout.addWidget(
-            self.lowMaskDilationChkbx, settingsRowIndex, 0, 1, 2
-        )
-
+        self.applyMaskLayout.addWidget(self.lowMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
+        
         self.lowDilComboBox = QComboBox()
         self.lowDilComboBox.addItem("3x3 Kernel")
         self.lowDilComboBox.addItem("5x5 Kernel")
@@ -212,20 +204,18 @@ class ImageMaskDialog(QDialog):
         self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
         self.applyMaskLayout.addWidget(self.lowDilComboBox, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-
+        
         # Add spacing
         self.applyMaskLayout.setRowMinimumHeight(settingsRowIndex, 15)
         settingsRowIndex += 1
-
+        
         # High Mask Threshold section
         self.maskHighThreshChkbx = QCheckBox("High Mask Threshold")
-        self.applyMaskLayout.addWidget(
-            self.maskHighThreshChkbx, settingsRowIndex, 0, 1, 2
-        )
-
+        self.applyMaskLayout.addWidget(self.maskHighThreshChkbx, settingsRowIndex, 0, 1, 2)
+        
         self.maskHighThresh = QDoubleSpinBox()
         self.maskHighThresh.setMinimum(0)
-        self.maskHighThresh.setMaximum(float("inf"))
+        self.maskHighThresh.setMaximum(float('inf'))
         if not isinstance(mask_high_thresh, float):
             mask_high_thresh = 64000.0
         self.maskHighThresh.setValue(mask_high_thresh)
@@ -234,14 +224,12 @@ class ImageMaskDialog(QDialog):
         self.maskHighThresh.valueChanged.connect(self.maskHighThresholdChanged)
         self.applyMaskLayout.addWidget(self.maskHighThresh, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-
+        
         # Enable or disable dilation for upper bound mask
         self.highMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
         self.highMaskDilationChkbx.setEnabled(False)
-        self.applyMaskLayout.addWidget(
-            self.highMaskDilationChkbx, settingsRowIndex, 0, 1, 2
-        )
-
+        self.applyMaskLayout.addWidget(self.highMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
+        
         # Choose the kernel size for dilation (upper bound threshold)
         self.highDilComboBox = QComboBox()
         self.highDilComboBox.addItem("3x3 Kernel")
@@ -260,7 +248,7 @@ class ImageMaskDialog(QDialog):
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
         self.applyMaskLayout.addWidget(self.highDilComboBox, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-
+        
         # Add spacing before color labels
         self.applyMaskLayout.setRowMinimumHeight(settingsRowIndex, 15)
         settingsRowIndex += 1
@@ -269,16 +257,16 @@ class ImageMaskDialog(QDialog):
         self.greenLabel = QLabel("Green: Low Mask Threshold")
         self.greenLabel.setStyleSheet("color: green")
         self.applyMaskLayout.addWidget(self.greenLabel, settingsRowIndex, 0, 1, 2)
-
+        
         self.blueLabel = QLabel("Blue: High Mask Threshold")
         self.blueLabel.setStyleSheet("color: blue")
         self.applyMaskLayout.addWidget(self.blueLabel, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-
+        
         self.redLabel = QLabel("Red: Drawn Mask")
         self.redLabel.setStyleSheet("color: red")
         self.applyMaskLayout.addWidget(self.redLabel, settingsRowIndex, 0, 1, 2)
-
+        
         self.purpleLabel = QLabel("Purple: Rmin / Rmax mask")
         self.purpleLabel.setStyleSheet("color: purple")
         self.applyMaskLayout.addWidget(self.purpleLabel, settingsRowIndex, 2, 1, 2)
@@ -290,9 +278,7 @@ class ImageMaskDialog(QDialog):
         self.negativeValuesLabel.setFont(font)
         self.negativeValuesLabel.setVisible(False)
 
-        self.dialogButtons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self
-        )
+        self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         okButton = self.dialogButtons.button(QDialogButtonBox.Ok)
         okButton.setText("Save")
 
@@ -320,46 +306,44 @@ class ImageMaskDialog(QDialog):
         self.mainLayout.addWidget(self.dialogButtons, alignment=Qt.AlignHCenter)
 
         if self.imageData is not None:
-            scaledPixmap = self.createDisplayImage(
-                self.imageData,
+            scaledPixmap = self.createDisplayImage(self.imageData,
                 self.vmin,
                 self.vmax,
                 self.imageLabel.width(),
-                self.imageLabel.height(),
-            )
+                self.imageLabel.height())
             self.imageLabel.setPixmap(scaledPixmap)
 
         self.updateDrawnMaskWidgets()
-
+        
         # Auto-check checkboxes based on loaded configuration
         # Note: Drawn Mask is auto-checked in updateDrawnMaskWidgets() if file exists
-
+        
         # Auto-check Low Mask if threshold was saved in config
         if config_has_low_thresh:
             self.maskLowThreshChkbx.setChecked(True)
             self.maskLowThresh.setEnabled(True)
             self.lowMaskDilationChkbx.setEnabled(True)
-
+            
             # Auto-check Low Mask Dilation if kernel size was saved
             if config_has_low_kernel:
                 self.lowMaskDilationChkbx.setChecked(True)
                 self.lowDilComboBox.setEnabled(True)
-
+        
         # Auto-check High Mask if threshold was saved in config
         if config_has_high_thresh:
             self.maskHighThreshChkbx.setChecked(True)
             self.maskHighThresh.setEnabled(True)
             self.highMaskDilationChkbx.setEnabled(True)
-
+            
             # Auto-check High Mask Dilation if kernel size was saved
             if config_has_high_kernel:
                 self.highMaskDilationChkbx.setChecked(True)
                 self.highDilComboBox.setEnabled(True)
-
+        
         self.refreshImage()
 
         self.setConnections()
-
+        
         # Automatically resize dialog to fit all widgets at their natural size
         self.adjustSize()
 
@@ -372,9 +356,7 @@ class ImageMaskDialog(QDialog):
 
         self.lowMaskDilationChkbx.checkStateChanged.connect(self.enableLowMaskDilation)
 
-        self.highMaskDilationChkbx.checkStateChanged.connect(
-            self.enableHighMaskDilation
-        )
+        self.highMaskDilationChkbx.checkStateChanged.connect(self.enableHighMaskDilation)
 
     def updateDrawnMaskWidgets(self):
         """
@@ -392,9 +374,7 @@ class ImageMaskDialog(QDialog):
             # File doesn't exist: disable and uncheck
             self.applyDrawnMaskCheckBox.setEnabled(False)
             self.applyDrawnMaskCheckBox.setChecked(False)
-            self.applyDrawnMaskText.setText(
-                "No drawn mask image found. Ignore this message if expected."
-            )
+            self.applyDrawnMaskText.setText("No drawn mask image found. Ignore this message if expected.")
             self.applyDrawnMaskText.setStyleSheet("color: red;")
 
     def applyDrawnMask(self, state):
@@ -465,19 +445,14 @@ class ImageMaskDialog(QDialog):
         self.accept()
 
     def saveMaskConfig(self):
-        isApplyDrawnMask = (
-            self.applyDrawnMaskCheckBox.isEnabled()
-            and self.applyDrawnMaskCheckBox.isChecked()
-        )
+        isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
+            and self.applyDrawnMaskCheckBox.isChecked())
 
-        isApplyLowMask = (
-            self.maskLowThreshChkbx.isEnabled() and self.maskLowThreshChkbx.isChecked()
-        )
+        isApplyLowMask = (self.maskLowThreshChkbx.isEnabled()
+            and self.maskLowThreshChkbx.isChecked())
 
-        isApplyHighMask = (
-            self.maskHighThreshChkbx.isEnabled()
-            and self.maskHighThreshChkbx.isChecked()
-        )
+        isApplyHighMask = (self.maskHighThreshChkbx.isEnabled()
+            and self.maskHighThreshChkbx.isChecked())
 
         isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
 
@@ -489,7 +464,7 @@ class ImageMaskDialog(QDialog):
             self.drawn_mask_file_path.unlink(missing_ok=True)
             print("🗑️  Removed mask configuration, mask.tif, and drawn mask file")
             return
-
+        
         # Handle drawn mask: delete file if user unchecked it
         if not isApplyDrawnMask and self.drawn_mask_file_path.exists():
             self.drawn_mask_file_path.unlink(missing_ok=True)
@@ -512,10 +487,8 @@ class ImageMaskDialog(QDialog):
             mask_low_thresh = self.maskLowThresh.value()
             mask_config["mask_low_thresh"] = mask_low_thresh
 
-            if (
-                self.lowMaskDilationChkbx.isEnabled()
-                and self.lowMaskDilationChkbx.isChecked()
-            ):
+            if (self.lowMaskDilationChkbx.isEnabled()
+                and self.lowMaskDilationChkbx.isChecked()):
                 mask_low_kernel_size = self.getKernelSizes(self.lowDilComboBox)
                 mask_config["mask_low_kernel_size"] = mask_low_kernel_size
 
@@ -523,10 +496,8 @@ class ImageMaskDialog(QDialog):
             mask_high_thresh = self.maskHighThresh.value()
             mask_config["mask_high_thresh"] = mask_high_thresh
 
-            if (
-                self.highMaskDilationChkbx.isEnabled()
-                and self.highMaskDilationChkbx.isChecked()
-            ):
+            if (self.highMaskDilationChkbx.isEnabled()
+                and self.highMaskDilationChkbx.isChecked()):
                 mask_high_kernel_size = self.getKernelSizes(self.highDilComboBox)
                 mask_config["mask_high_kernel_size"] = mask_high_kernel_size
 
@@ -534,11 +505,11 @@ class ImageMaskDialog(QDialog):
 
         with open(self.mask_config_file_path, "w") as file_stream:
             json.dump(mask_config, file_stream, indent=4)
-
+        
         # Generate and save the final combined mask.tif file
         imageData = self.imageData.copy()
         drawnMaskData, lowMask, highMask = self.getMasks(imageData)
-
+        
         masks = [m for m in [drawnMaskData, lowMask, highMask] if m is not None]
         if masks:
             # Ensure all masks are uint8 before combining
@@ -622,7 +593,6 @@ class ImageMaskDialog(QDialog):
         # also in the PyInstaller-frozen .deb where pyFAI-drawmask is neither
         # on PATH nor reachable via "python -m".
         from ..utils.drawmask_launcher import run_pyfai_drawmask
-
         ret_val = run_pyfai_drawmask(temp_input_path)
 
         # Move the generated mask to final location
@@ -634,9 +604,12 @@ class ImageMaskDialog(QDialog):
         # Clean up temporary input file
         temp_input_path.unlink(missing_ok=True)
 
-    def createDisplayImage(
-        self, imageArray, minInt, maxInt, displayImageWidth, displayImageHeight
-    ):
+    def createDisplayImage(self,
+        imageArray,
+        minInt,
+        maxInt,
+        displayImageWidth,
+        displayImageHeight):
         imageArray = imageArray.copy()
         # Flip the image vertically (up-down) so it matches the display
         # in the main window, where the y-axis is defined bottom-to-top
@@ -645,45 +618,26 @@ class ImageMaskDialog(QDialog):
 
         # Normalize the flipped image to the 0-255 range for display
         if np.max(flippedImageArray) == np.min(flippedImageArray):
-            normFlippedImageArray = np.full(
-                flippedImageArray.shape, 128, dtype=np.uint8
-            )
+            normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
         else:
             # If minInt == maxInt, just use the images min and max (perhaps need to change since we are performing operations)
             if minInt == maxInt:
-                normFlippedImageArray = (
-                    255
-                    * (flippedImageArray - np.min(flippedImageArray))
-                    / (np.max(flippedImageArray) - np.min(flippedImageArray))
-                )
+                normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
             else:
-                normFlippedImageArray = (
-                    255 * (np.array(flippedImageArray) - minInt) / (maxInt - minInt)
-                )
+                normFlippedImageArray = 255 * (np.array(flippedImageArray) - minInt) / (maxInt - minInt)
             # Clip values to [0, 255] range before converting to uint8 to avoid underflow/overflow
-            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(
-                np.uint8
-            )
+            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(np.uint8)
 
         # Create a QImage from the 8-bit array
-        qImg = QImage(
-            normFlippedImageArray.data,
-            normFlippedImageArray.shape[1],
-            normFlippedImageArray.shape[0],
-            normFlippedImageArray.strides[0],
-            QImage.Format_Grayscale8,
-        )
+        qImg = QImage(normFlippedImageArray.data, normFlippedImageArray.shape[1], normFlippedImageArray.shape[0], normFlippedImageArray.strides[0], QImage.Format_Grayscale8)
 
         # Convert QImage to QPixmap
         pixmap = QPixmap.fromImage(qImg)
 
         # Scale the pixmap to fit within the display area while maintaining the aspect ratio
         scaledPixmap = pixmap.scaled(
-            displayImageWidth,
-            displayImageHeight,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation,
-        )
+            displayImageWidth, displayImageHeight,
+            Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         return scaledPixmap
 
@@ -696,19 +650,14 @@ class ImageMaskDialog(QDialog):
 
     def refreshImage(self):
         # Image is always shown
-        isApplyDrawnMask = (
-            self.applyDrawnMaskCheckBox.isEnabled()
-            and self.applyDrawnMaskCheckBox.isChecked()
-        )
+        isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
+            and self.applyDrawnMaskCheckBox.isChecked())
 
-        isApplyLowMask = (
-            self.maskLowThreshChkbx.isEnabled() and self.maskLowThreshChkbx.isChecked()
-        )
+        isApplyLowMask = (self.maskLowThreshChkbx.isEnabled()
+            and self.maskLowThreshChkbx.isChecked())
 
-        isApplyHighMask = (
-            self.maskHighThreshChkbx.isEnabled()
-            and self.maskHighThreshChkbx.isChecked()
-        )
+        isApplyHighMask = (self.maskHighThreshChkbx.isEnabled()
+            and self.maskHighThreshChkbx.isChecked())
 
         isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
 
@@ -716,13 +665,11 @@ class ImageMaskDialog(QDialog):
 
         # Only show image (no mask overlay)
         if not isApplyMask:
-            scaledPixmap = self.createDisplayImage(
-                imageData,
+            scaledPixmap = self.createDisplayImage(imageData,
                 self.vmin,
                 self.vmax,
                 self.imageLabel.width(),
-                self.imageLabel.height(),
-            )
+                self.imageLabel.height())
             self.imageLabel.setPixmap(scaledPixmap)
             self.statusBar.setText(f"Current View: Original Image")
             return
@@ -738,8 +685,7 @@ class ImageMaskDialog(QDialog):
             highMask,
             drawnMaskData,
             self.imageLabel.width(),
-            self.imageLabel.height(),
-        )
+            self.imageLabel.height())
 
         self.imageLabel.setPixmap(scaledPixmap)
         self.statusBar.setText(f"Current View: Original Image + Mask Overlay")
@@ -747,35 +693,28 @@ class ImageMaskDialog(QDialog):
     def getMasks(self, imageData):
         drawnMaskData = None
 
-        if (
-            self.applyDrawnMaskCheckBox.isEnabled()
-            and self.applyDrawnMaskCheckBox.isChecked()
-        ):
+        if (self.applyDrawnMaskCheckBox.isEnabled()
+            and self.applyDrawnMaskCheckBox.isChecked()):
             drawnMaskData = self.drawnMaskData
 
         lowMask = None
 
-        if self.maskLowThreshChkbx.isEnabled() and self.maskLowThreshChkbx.isChecked():
+        if (self.maskLowThreshChkbx.isEnabled()
+            and self.maskLowThreshChkbx.isChecked()):
             lowMask = (imageData > self.maskLowThresh.value()).astype(np.uint8)
 
-            if (
-                self.lowMaskDilationChkbx.isEnabled()
-                and self.lowMaskDilationChkbx.isChecked()
-            ):
+            if (self.lowMaskDilationChkbx.isEnabled()
+                and self.lowMaskDilationChkbx.isChecked()):
                 mask_low_kernel_size = self.getKernelSizes(self.lowDilComboBox)
                 lowMask = self.dilateMask(lowMask, mask_low_kernel_size)
 
         highMask = None
-        if (
-            self.maskHighThreshChkbx.isEnabled()
-            and self.maskHighThreshChkbx.isChecked()
-        ):
+        if (self.maskHighThreshChkbx.isEnabled()
+            and self.maskHighThreshChkbx.isChecked()):
             highMask = (imageData < self.maskHighThresh.value()).astype(np.uint8)
 
-            if (
-                self.highMaskDilationChkbx.isEnabled()
-                and self.highMaskDilationChkbx.isChecked()
-            ):
+            if (self.highMaskDilationChkbx.isEnabled()
+                and self.highMaskDilationChkbx.isChecked()):
                 mask_high_kernel_size = self.getKernelSizes(self.highDilComboBox)
                 highMask = self.dilateMask(highMask, mask_high_kernel_size)
 
@@ -786,18 +725,10 @@ class ImageMaskDialog(QDialog):
         dilated_mask = cv2.erode(mask, kernel, iterations=1)
         return dilated_mask
 
-    def createDisplayImageWithMasks(
-        self,
-        imageArray,
-        minInt,
-        maxInt,
-        lowMask,
-        highMask,
-        drawnMask,
-        displayImageWidth,
-        displayImageHeight,
-        rMask=None,
-    ):
+    def createDisplayImageWithMasks(self, imageArray, minInt, maxInt,
+                              lowMask, highMask, drawnMask, displayImageWidth,
+                              displayImageHeight,
+                              rMask=None):
         """
         Displays 'imageArray' in grayscale and overlays:
           - lowMask (green)
@@ -819,33 +750,30 @@ class ImageMaskDialog(QDialog):
 
         # 2) Normalize to 0-255 for display
         if np.max(flippedImageArray) == np.min(flippedImageArray):
-            normFlippedImageArray = np.full(
-                flippedImageArray.shape, 128, dtype=np.uint8
-            )
+            normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
         else:
             if minInt == maxInt:
                 # Use the array min/max
-                normFlippedImageArray = (
-                    255
-                    * (flippedImageArray - np.min(flippedImageArray))
-                    / (np.max(flippedImageArray) - np.min(flippedImageArray))
-                )
+                normFlippedImageArray = 255 * (
+                    flippedImageArray - np.min(flippedImageArray)
+                ) / (np.max(flippedImageArray) - np.min(flippedImageArray))
             else:
-                normFlippedImageArray = (
-                    255 * (flippedImageArray - minInt) / (maxInt - minInt)
-                )
+                normFlippedImageArray = 255 * (
+                    flippedImageArray - minInt
+                ) / (maxInt - minInt)
 
             # Clip values to [0, 255] range before converting to uint8 to avoid underflow/overflow
-            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(
-                np.uint8
-            )
+            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(np.uint8)
 
         # 3) Convert grayscale to 3-channel RGB
         #    shape: (height, width) -> (height, width, 3)
         height, width = normFlippedImageArray.shape
-        colorImageArray = np.dstack(
-            [normFlippedImageArray, normFlippedImageArray, normFlippedImageArray]
-        )
+        colorImageArray = np.dstack([
+            normFlippedImageArray,
+            normFlippedImageArray,
+            normFlippedImageArray
+        ])
+
 
         # Red mask (drawnMask)
         if drawnMask is not None:
@@ -854,7 +782,7 @@ class ImageMaskDialog(QDialog):
         # Green mask (lowMask)
         if lowMask is not None:
             lowMask = np.flipud(np.asarray(lowMask))
-            colorImageArray[lowMask == 0] = [0, 255, 0]
+            colorImageArray[lowMask == 0]   = [0, 255, 0]
         # Blue mask (highMask)
         if highMask is not None:
             highMask = np.flipud(np.asarray(highMask))
@@ -866,24 +794,19 @@ class ImageMaskDialog(QDialog):
 
         # 5) Convert the color image (RGB) to QImage
         #    Format_RGB888 expects the data in 24-bit RGB
-        qImg = QImage(
-            colorImageArray.data,
-            width,
-            height,
-            colorImageArray.strides[0],
-            QImage.Format_RGB888,
-        )
+        qImg = QImage(colorImageArray.data,
+                      width,
+                      height,
+                      colorImageArray.strides[0],
+                      QImage.Format_RGB888)
 
         # 6) Convert QImage to QPixmap
         pixmap = QPixmap.fromImage(qImg)
 
         # 7) Scale the pixmap to fit within the display area while maintaining the aspect ratio
         scaledPixmap = pixmap.scaled(
-            displayImageWidth,
-            displayImageHeight,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation,
-        )
+            displayImageWidth, displayImageHeight,
+            Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         return scaledPixmap
 

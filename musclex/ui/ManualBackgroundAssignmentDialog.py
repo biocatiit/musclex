@@ -8,9 +8,7 @@ from .pyqt_utils import *
 class ManualBackgroundAssignmentDialog(QDialog):
     """Dialog for assigning saved background configurations to images."""
 
-    def __init__(
-        self, image_names, configuration_names, current_assignments=None, parent=None
-    ):
+    def __init__(self, image_names, configuration_names, current_assignments=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Manual Background Configuration Assignment")
         self.resize(780, 600)
@@ -54,9 +52,7 @@ class ManualBackgroundAssignmentDialog(QDialog):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeToContents
-        )
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         layout.addWidget(self.table)
 
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)

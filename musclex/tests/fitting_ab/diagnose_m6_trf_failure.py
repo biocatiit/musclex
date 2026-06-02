@@ -32,9 +32,7 @@ from musclex.modules.ProjectionProcessor import (
 from .adapters.base import FitCase, FitInputs, ParamSpec, load_case
 
 
-def _build_perturbed_params(
-    inputs: FitInputs, perturb: float, rng: np.random.Generator
-):
+def _build_perturbed_params(inputs: FitInputs, perturb: float, rng: np.random.Generator):
     params = Parameters()
     perturbed_log = []
     for name, spec in inputs.free_params.items():
@@ -91,9 +89,7 @@ def diagnose(case: FitCase, *, n_seeds: int = 30, perturb: float = 0.15):
         f"n_peaks={len(case.meta.peaks_seed)}, "
         f"model_kind={inputs.model_kind}, n_free={len(inputs.free_params)}"
     )
-    print(
-        f"y.shape={inputs.y.shape}, y range=[{inputs.y.min():.3g}, {inputs.y.max():.3g}]"
-    )
+    print(f"y.shape={inputs.y.shape}, y range=[{inputs.y.min():.3g}, {inputs.y.max():.3g}]")
     print(f"reference chi2={case.reference.chi2:.6g}, r2={case.reference.r2:.6f}")
     print()
 
@@ -130,13 +126,10 @@ def diagnose(case: FitCase, *, n_seeds: int = 30, perturb: float = 0.15):
                 f"seed={seed:3d}  HARD FAILURE elapsed={elapsed:.2f}s "
                 f"err={type(exc).__name__}: {exc}"
             )
-            failures.append(
-                {
-                    "seed": seed,
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "perturbed": plog,
-                }
-            )
+            failures.append({
+                "seed": seed, "error": f"{type(exc).__name__}: {exc}",
+                "perturbed": plog,
+            })
             continue
         elapsed = time.perf_counter() - t0
 
@@ -161,19 +154,14 @@ def diagnose(case: FitCase, *, n_seeds: int = 30, perturb: float = 0.15):
         )
 
         if flag in ("FAIL", "DEGENERATE"):
-            failures.append(
-                {
-                    "seed": seed,
-                    "elapsed": elapsed,
-                    "nfev": nfev,
-                    "chi2": chi2,
-                    "ratio": ratio,
-                    "message": msg,
-                    "perturbed": plog,
-                    "fitted_values": dict(result.values),
-                    "residual_summary": _residual_stats(inputs.y, predicted),
-                }
-            )
+            failures.append({
+                "seed": seed,
+                "elapsed": elapsed, "nfev": nfev, "chi2": chi2, "ratio": ratio,
+                "message": msg,
+                "perturbed": plog,
+                "fitted_values": dict(result.values),
+                "residual_summary": _residual_stats(inputs.y, predicted),
+            })
 
     print()
     print("=" * 80)
@@ -218,9 +206,7 @@ def main(argv=None):
         help="Path to the captured FitCase pickle",
     )
     parser.add_argument("--seeds", type=int, default=30, help="Number of seeds to test")
-    parser.add_argument(
-        "--perturb", type=float, default=0.15, help="Perturbation amplitude"
-    )
+    parser.add_argument("--perturb", type=float, default=0.15, help="Perturbation amplitude")
     args = parser.parse_args(argv)
 
     case = load_case(args.case)

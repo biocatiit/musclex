@@ -25,7 +25,6 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-
 import sys
 import traceback
 import json
@@ -61,10 +60,15 @@ from .widgets.image_viewer_widget import ImageViewerWidget
 
 
 class ImageBlankDialog(QDialog):
-    def __init__(self, image_data, settings_dir_path, vmin, vmax):
+    def __init__(self,
+                image_data,
+                settings_dir_path,
+                vmin,
+                vmax
+        ):
         """
         Initialize Empty Cell Subtraction Dialog.
-
+        
         Args:
             image_data: numpy array of the image (not a file path!)
             settings_dir_path: directory where blank config will be saved
@@ -80,18 +84,14 @@ class ImageBlankDialog(QDialog):
 
         # Store image data directly (no file I/O needed)
         self.imageData = np.asarray(image_data).astype("float32")
-
-        self.blank_config_file_path = (
-            self.settings_dir_path / "blank_image_settings.json"
-        )
+        
+        self.blank_config_file_path = self.settings_dir_path / "blank_image_settings.json"
 
         blank_image_info = self.read_blank_image_info(self.blank_config_file_path)
 
-        if (
-            (blank_image_info is not None)
+        if ((blank_image_info is not None)
             and (blank_image_info.get("blank_image") is not None)
-            and blank_image_info["blank_image"].shape == self.imageData.shape
-        ):
+            and blank_image_info["blank_image"].shape == self.imageData.shape):
             self.blank_image_info = blank_image_info
         else:
             self.blank_image_info = None
@@ -140,9 +140,7 @@ class ImageBlankDialog(QDialog):
         self.compareGroup = QGroupBox("Compare")
         self.displayButtonGroup = QButtonGroup()
 
-        self.differenceImageRadio = QRadioButton(
-            "Difference Image (Original - Empty Cell)"
-        )
+        self.differenceImageRadio = QRadioButton("Difference Image (Original - Empty Cell)")
         self.originalImageRadio = QRadioButton("Original Image")
         self.emptyCellImageRadio = QRadioButton("Empty Cell Image")
 
@@ -165,9 +163,7 @@ class ImageBlankDialog(QDialog):
 
         self.updateBlankWidgets()
 
-        self.dialogButtons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self
-        )
+        self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         okButton = self.dialogButtons.button(QDialogButtonBox.Ok)
         okButton.setText("Save")
 
@@ -243,11 +239,11 @@ class ImageBlankDialog(QDialog):
             self.blankWeightLabel.setEnabled(True)
             self.blankWeightText.setEnabled(True)
             self.blankWeightText.setValue(self.blank_image_info.get("weight", 1.0))
-
+            
             # Enable display options that require blank image
             self.differenceImageRadio.setEnabled(True)
             self.emptyCellImageRadio.setEnabled(True)
-
+            
             # Set default to difference image
             self.differenceImageRadio.setChecked(True)
         else:
@@ -255,11 +251,11 @@ class ImageBlankDialog(QDialog):
             self.blankStatusText.setStyleSheet("color: red;")
             self.blankWeightLabel.setEnabled(False)
             self.blankWeightText.setEnabled(False)
-
+            
             # Disable display options that require blank image
             self.differenceImageRadio.setEnabled(False)
             self.emptyCellImageRadio.setEnabled(False)
-
+            
             # Set default to original image
             self.originalImageRadio.setChecked(True)
 
@@ -276,10 +272,7 @@ class ImageBlankDialog(QDialog):
                 self.statusBar.setText("Current View: No blank image available")
                 return
             blank_image_weight = self.blank_image_info["weight"]
-            imageData = (
-                self.imageData
-                - self.blank_image_info["blank_image"] * blank_image_weight
-            )
+            imageData = self.imageData - self.blank_image_info["blank_image"] * blank_image_weight
             status = f"Current View: Difference Image (scale: {blank_image_weight:.2f})"
         elif self.originalImageRadio.isChecked():
             imageData = self.imageData
@@ -311,7 +304,7 @@ class ImageBlankDialog(QDialog):
         blank_image_info = {
             "file_path": str(blank_image_file_path),
             "blank_image": blank_image,
-            "weight": blank_image_weight,
+            "weight": blank_image_weight
         }
 
         self.blank_image_info = blank_image_info
@@ -353,7 +346,8 @@ class ImageBlankDialog(QDialog):
         blank_image_info = {
             "file_path": str(blank_image_file_path),
             "blank_image": blank_image,
-            "weight": blank_image_weight,
+            "weight": blank_image_weight
         }
 
         return blank_image_info
+

@@ -47,7 +47,6 @@ class DirectoryContext:
         output_dir: Where all generated artefacts go (``*_cache/``,
                     ``*_results/``, ``settings/``, ``log/``, etc.).
     """
-
     input_dir: str
     output_dir: str
 

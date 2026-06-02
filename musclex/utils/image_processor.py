@@ -39,7 +39,6 @@ from pyFAI import detector_factory, load
 from pyFAI.goniometer import SingleGeometry
 from pyFAI.calibrant import get_calibrant
 
-
 def distance(pt1, pt2):
     """
     Get distance between 2 points
@@ -47,8 +46,7 @@ def distance(pt1, pt2):
     :param pt2: second point (tuple or list of 2 values)
     :return: distance (float)
     """
-    return np.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
-
+    return np.sqrt((pt1[0]-pt2[0])**2+(pt1[1]-pt2[1])**2)
 
 def get16bitImage(img):
     """
@@ -59,11 +57,10 @@ def get16bitImage(img):
     max_val = img.max()
     min_val = img.min()
     if max_val == min_val:
-        return (img * 65535.0 / min_val).astype("uint16")
+        return (img * 65535. / min_val).astype('uint16')
     else:
         dev = max_val - min_val
-        return (np.round(img * 65535.0 / dev)).astype("uint16")
-
+        return (np.round(img*65535./dev)).astype('uint16')
 
 def get8bitImage(img, min=None, max=None):
     """
@@ -87,13 +84,12 @@ def get8bitImage(img, min=None, max=None):
     max = cimg.max()
 
     if max <= min:
-        img8bit = (cimg * 0.0).astype("uint8")
+        img8bit = (cimg * 0.).astype('uint8')
     else:
-        alpha = 255.0 / (max)
+        alpha = 255. / (max)
         img8bit = cv2.convertScaleAbs(cimg, alpha=alpha)
 
     return img8bit
-
 
 def inverte(imagem):
     """
@@ -101,9 +97,8 @@ def inverte(imagem):
     :param imagem: input image
     :return: inverted image
     """
-    imagem = 255 - imagem
+    imagem  =  (255-imagem)
     return imagem
-
 
 def getThreshold(img, percent):
     """
@@ -118,17 +113,16 @@ def getThreshold(img, percent):
 
     thrhold = 0
     dev = min(1000, img.max())
-    for t in np.arange(0, img.max() - 1, img.max() / dev):
-        valueHist = np.sum(hist[int(t) : int(img.max())])
-        if (valueHist / (1.0 * img.shape[0] * img.shape[1])) < percent:
+    for t in np.arange(0, img.max()-1, img.max()/dev):
+        valueHist = np.sum(hist[int(t):int(img.max())])
+        if (valueHist/(1.0*img.shape[0]*img.shape[1]))<percent:
             if valueHist < 100 and t > 1:
-                thrhold = t - 1
+                thrhold = t-1
             else:
                 thrhold = t
             # find number of pixel ---->  thrhold = t-1
             break
     return thrhold
-
 
 def thresholdImg(img, percent, convert_type=cv2.THRESH_BINARY_INV):
     """
@@ -138,10 +132,9 @@ def thresholdImg(img, percent, convert_type=cv2.THRESH_BINARY_INV):
     :param convert_type: convert type see http://docs.opencv.org/trunk/d7/d4d/tutorial_py_thresholding.html
     :return: threshold image
     """
-    th = max(0, getThreshold(img, percent=percent) - 1)
+    th = max(0, getThreshold(img, percent=percent)-1)
     _, thres = cv2.threshold(img, th, 255, convert_type, dst=img)
     return thres
-
 
 def bkImg(img, percent=0.01, morph=25):
     """
@@ -157,7 +150,6 @@ def bkImg(img, percent=0.01, morph=25):
     img = inverte(img)
     return img
 
-
 def getBGR(img):
     """
     Convert grayscale image to RGB image
@@ -167,7 +159,6 @@ def getBGR(img):
     copy_img = copy.copy(img)
     copy_img = cv2.resize(copy_img, (int(copy_img.shape[1]), int(copy_img.shape[0])))
     return cv2.cvtColor(copy_img, cv2.COLOR_GRAY2BGR)
-
 
 def getContours(img, n1=1, n2=2):
     """
@@ -181,7 +172,6 @@ def getContours(img, n1=1, n2=2):
     if len(ret) == 2:
         return ret[0]
     return None
-
 
 def getCenter(img):
     """
@@ -217,7 +207,7 @@ def getCenter(img):
                 center = ellipse[0]
                 axes = ellipse[1]
                 center = (center[0], center[1])
-                reflections.append((center, np.pi * axes[0] * axes[1]))
+                reflections.append((center, np.pi*axes[0]*axes[1]))
 
         inds = np.arange(0, len(reflections))
         if len(reflections) > 1:
@@ -226,18 +216,16 @@ def getCenter(img):
             min_diff = 99999
             for i in inds:
                 other_inds = np.delete(inds, i)
-                its_pair = min(
-                    other_inds, key=lambda k: abs(reflections[i][1] - reflections[k][1])
-                )
-                diff = abs(reflections[i][1] - reflections[its_pair][1])
+                its_pair = min(other_inds, key=lambda k:abs(reflections[i][1]-reflections[k][1]))
+                diff = abs(reflections[i][1]-reflections[its_pair][1])
                 if diff < min_diff:
                     r1 = i
                     r2 = its_pair
                     min_diff = diff
 
             if r1 is not None and r2 is not None:
-                x = (reflections[r1][0][0] + reflections[r1][0][0]) / 2.0
-                y = (reflections[r1][0][1] + reflections[r1][0][1]) / 2.0
+                x = ((reflections[r1][0][0]+reflections[r1][0][0]) / 2.)
+                y = ((reflections[r1][0][1] + reflections[r1][0][1]) / 2.)
                 if init_center is not None and distance(init_center, (x, y)) < 7:
                     # Return average center of reflections
                     return (x, y)
@@ -259,21 +247,19 @@ def getCenter(img):
     if nZero is not None:
         copy_img = bkImg(copy.copy(img), 0.015, 30)
         m = cv2.moments(copy_img)
-        if m["m00"] != 0:
+        if m['m00'] != 0:
             # initial center
-            return ((m["m10"] / m["m00"]), (m["m01"] / m["m00"]))
+            return ((m['m10'] / m['m00']), (m['m01'] / m['m00']))
 
     # Find Center by fitting circle in the image
     cimg = bkImg(copy.copy(img), 0.0015, 50)
-    circles = cv2.HoughCircles(
-        cimg, 3, 1, 100, param1=60, param2=20, minRadius=0, maxRadius=0
-    )  # 3 = cv2.HOUGH_GRADIENT
+    circles = cv2.HoughCircles(cimg, 3 , 1, 100,
+                               param1=60, param2=20, minRadius=0, maxRadius=0) # 3 = cv2.HOUGH_GRADIENT
     if circles is not None:
         return (circles[0][0][0], circles[0][0][1])
 
     # If there's no method working return center of the image
     return (img.shape[1] / 2, img.shape[0] / 2)
-
 
 def get_ring_model(hist, max_nfev=8000):
     """
@@ -283,7 +269,6 @@ def get_ring_model(hist, max_nfev=8000):
     """
     # Smooth histogram to find parameters easier
     from .histogram_processor import smooth
-
     hist[1] = smooth(hist[1], 20)
 
     index = np.argmax(hist[1])
@@ -299,64 +284,51 @@ def get_ring_model(hist, max_nfev=8000):
     # Call orientation_GMM3
     from lmfit.models import GaussianModel
     from lmfit import Model
-
     def orientation_GMM3(x, u, sigma, alpha, bg):
         mod = GaussianModel()
-        return (
-            mod.eval(x=x, amplitude=alpha, center=u, sigma=sigma)
-            + mod.eval(x=x, amplitude=alpha, center=u - np.pi, sigma=sigma)
-            + mod.eval(x=x, amplitude=alpha, center=u + np.pi, sigma=sigma)
-            + bg
-        )
-
-    model = Model(orientation_GMM3, independent_vars="x")
+        return mod.eval(x=x, amplitude=alpha, center=u, sigma=sigma) + \
+            mod.eval(x=x, amplitude=alpha, center=u-np.pi, sigma=sigma) + \
+            mod.eval(x=x, amplitude=alpha, center=u+np.pi, sigma=sigma) + bg
+    model = Model(orientation_GMM3, independent_vars='x')
     max_height = np.max(hist[1])
 
-    model.set_param_hint("u", value=u, min=np.pi / 2, max=3 * np.pi / 2)
-    model.set_param_hint("sigma", value=0.1, min=0, max=np.pi * 2)
-    model.set_param_hint("alpha", value=max_height * 0.1 / 0.3989423, min=0)
-    model.set_param_hint("bg", value=0, min=-1, max=max_height + 1)
+    model.set_param_hint('u', value=u, min=np.pi/2, max=3*np.pi/2)
+    model.set_param_hint('sigma', value=0.1, min=0, max=np.pi*2)
+    model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
+    model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
 
     result = model.fit(data=hist[1], x=x, params=model.make_params(), max_nfev=max_nfev)
     errs = abs(result.best_fit - result.data)
     weights = errs / errs.mean() + 1
-    weights[weights > 3.0] = 0
-    result = model.fit(
-        data=hist[1], x=x, params=result.params, weights=weights, max_nfev=max_nfev
-    )
+    weights[weights > 3.] = 0
+    result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, max_nfev=max_nfev)
 
     return result.values
 
-
-def HoF(hist, mode="f"):
+def HoF(hist, mode='f'):
     """
     Calculate Herman Orientation Factors
     """
     Ints = []
     n_pi = len(hist) // 2  # number of hist unit in pi range
-    n_hpi = n_pi // 2  # number of hist unit in half pi range
+    n_hpi = n_pi // 2      # number of hist unit in half pi range
     for i in range(n_pi):
-        I = hist[i : (i + n_pi)].copy()
+        I = hist[i:(i+n_pi)].copy()
         I[:i] += np.flipud(hist[:i])
-        I[i:] += np.flipud(hist[(i + n_pi) :])
+        I[i:] += np.flipud(hist[(i+n_pi):])
         Ints.append(I)
     rads = np.linspace(0, np.pi, n_pi + 1)[:-1]
     denom = np.sin(rads)
-    numer = (np.cos(rads) ** 2) * denom
+    numer = (np.cos(rads)**2) * denom
 
     HoFs = np.zeros(hist.shape)
     for i in range(len(hist)):
         I = Ints[i] if i < n_pi else np.flipud(Ints[i - n_pi])
-        if mode == "f":
-            HoFs[i] = (
-                ((I * numer).sum() / (I * denom).sum()) if i < n_pi else HoFs[i - n_pi]
-            )
+        if mode == 'f':
+            HoFs[i] = ((I * numer).sum() / (I * denom).sum()) if i < n_pi else HoFs[i - n_pi]
         else:
-            HoFs[i] = (I[:n_hpi] * numer[:n_hpi]).sum() / (
-                I[:n_hpi] * denom[:n_hpi]
-            ).sum()
+            HoFs[i] = (I[:n_hpi] * numer[:n_hpi]).sum() / (I[:n_hpi] * denom[:n_hpi]).sum()
     return (3 * HoFs - 1) / 2
-
 
 def getRadOfMaxHoF(HoFs, mode, ratio=0.05):
     """
@@ -366,8 +338,8 @@ def getRadOfMaxHoF(HoFs, mode, ratio=0.05):
     """
     nHoFs = len(HoFs)
     num = int(nHoFs * ratio)
-    if mode == "f":
-        HoFs = HoFs[: (nHoFs // 2)]
+    if mode == 'f':
+        HoFs = HoFs[:(nHoFs // 2)]
         num //= 2
     # get the indices of the top num largest HoFs
     idxs = sorted(np.arange(len(HoFs)), key=lambda i: HoFs[i])[-num:]
@@ -385,10 +357,9 @@ def getRadOfMaxHoF(HoFs, mode, ratio=0.05):
     # find the groups of max number of indices
     maxn = max(len(grp) for grp in grps)
     grps = [grp for grp in grps if len(grp) == maxn]
-    opt_grp = sorted(grps, key=lambda g: HoFs[g].sum())[-1]
+    opt_grp = sorted(grps, key=lambda g:HoFs[g].sum())[-1]
     opt_idx = np.mean(opt_grp) % len(HoFs)
     return 2 * np.pi * opt_idx / nHoFs
-
 
 def getRotationAngle(img, center, method=0, man_det=None):
     """
@@ -406,104 +377,62 @@ def getRotationAngle(img, center, method=0, man_det=None):
     cnt = max(contours, key=len)
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)
-        init_angle = (ellipse[2] + 90.0) % 180
-        init_angle = init_angle if init_angle <= 90.0 else 180.0 - init_angle
+        init_angle = (ellipse[2]+90.) % 180
+        init_angle = init_angle if init_angle <= 90. else 180. - init_angle
 
     # Find angle with maximum intensity from Azimuthal integration
     det = find_detector(img, man_det=man_det)
 
-    corners = [
-        (0, 0),
-        (0, img.shape[1]),
-        (img.shape[0], 0),
-        (img.shape[0], img.shape[1]),
-    ]
+    corners = [(0, 0), (0, img.shape[1]), (img.shape[0], 0), (img.shape[0], img.shape[1])]
     npt_rad = int(round(min([distance(center, c) for c in corners])))
     mask = np.zeros(img.shape)
-    mask[img < 0] = 1
+    mask[img<0] = 1
     ai = AzimuthalIntegrator(detector=det)
     ai.setFit2D(200, center[0], center[1])
-    integration_method = IntegrationMethod.select_one_available(
-        "csr", dim=2, default="csr", degradable=True
-    )
-    I2D, tth, _ = ai.integrate2d(
-        img, npt_rad, 360, unit="r_mm", method=integration_method, mask=mask
-    )
-    I2D = I2D[:, : int(len(tth) / 3.0)]
-    hist = np.sum(
-        I2D, axis=1
-    )  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
+    integration_method = IntegrationMethod.select_one_available("csr", dim=2, default="csr", degradable=True)
+    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method=integration_method, mask=mask)
+    I2D = I2D[:, :int(len(tth)/3.)]
+    hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0
 
     # Find degree which has maximum intensity
-    if method == 1:  # gmm
+    if method == 1: # gmm
         x = np.arange(0, 2 * np.pi, 2 * np.pi / 360)
         model_pars = get_ring_model([x, hist])
-        max_degree = int(model_pars["u"] / np.pi * 180) % 180
-    elif 2 <= method <= 3:  # 'hof_f' or 'hof_h'
-        HoFs = HoF(hist, "f" if method == 2 else "h")
-        max_degree = (
-            int(getRadOfMaxHoF(HoFs, "f" if method == 2 else "h") / np.pi * 180) % 180
-        )
+        max_degree = int(model_pars['u'] / np.pi * 180) % 180
+    elif 2 <= method <= 3: # 'hof_f' or 'hof_h'
+        HoFs = HoF(hist, 'f' if method == 2 else 'h')
+        max_degree = int(getRadOfMaxHoF(HoFs, 'f' if method == 2 else 'h') / np.pi * 180) % 180
     else:  # Find the best degree by its intensity
-        max_degree = max(
-            np.arange(180),
-            key=lambda d: np.sum(hist[d - sum_range : d + sum_range + 1])
-            + np.sum(hist[d + 180 - sum_range : d + 181 + sum_range]),
-        )
+        max_degree = max(np.arange(180), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]) + np.sum(
+            hist[d + 180 - sum_range:d + 181 + sum_range]))
         hist = 0
         if -175 <= max_degree < 175:
-            I2D, tth, _ = ai.integrate2d(
-                img,
-                npt_rad,
-                100,
-                azimuth_range=(max_degree - 5, max_degree + 5),
-                unit="r_mm",
-                method=integration_method,
-                mask=mask,
-            )
-            I2D = I2D[:, : int(len(tth) / 3.0)]
+            I2D, tth, _ = ai.integrate2d(img, npt_rad, 100, azimuth_range=(max_degree-5, max_degree+5), unit="r_mm", method=integration_method, mask=mask)
+            I2D = I2D[:, :int(len(tth)/3.)]
             hist += np.sum(I2D, axis=1)
-        op_max_degree = max_degree - 180 if max_degree > 0 else max_degree + 180
+        op_max_degree = max_degree-180 if max_degree > 0 else max_degree+180
         if -175 <= op_max_degree < 175:
-            I2D2, tth2, _ = ai.integrate2d(
-                img,
-                npt_rad,
-                100,
-                azimuth_range=(op_max_degree - 5, op_max_degree + 5),
-                unit="r_mm",
-                method=integration_method,
-                mask=mask,
-            )
-            I2D2 = I2D2[:, : int(len(tth2) / 3.0)]
-            hist += np.sum(
-                I2D2, axis=1
-            )  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
-        delta_degree = max(
-            np.arange(100),
-            key=lambda d: np.sum(hist[d - sum_range : d + sum_range + 1]),
-        )
+            I2D2, tth2, _ = ai.integrate2d(img, npt_rad, 100, azimuth_range=(op_max_degree-5, op_max_degree+5), unit="r_mm", method=integration_method, mask=mask)
+            I2D2 = I2D2[:, :int(len(tth2)/3.)]
+            hist += np.sum(I2D2, axis=1) # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
+        delta_degree = max(np.arange(100), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]))
         if delta_degree < 50:
-            max_degree -= (50 - delta_degree) / 10
+            max_degree -= (50-delta_degree)/10
         else:
-            max_degree += (delta_degree - 50) / 10
+            max_degree += (delta_degree-50)/10
     # # If the degree and initial angle from ellipse are different, return ellipse angle instead
-    if (
-        init_angle is not None
-        and abs(max_degree - init_angle) > 20.0
-        and abs(180 - max_degree - init_angle) > 20
-    ):
+    if init_angle is not None and abs(max_degree-init_angle) > 20. and abs(180 - max_degree - init_angle)>20:
         return int(round(init_angle))
 
-    # If max degree is obtuse return the acute angle equivalent of the same
+    #If max degree is obtuse return the acute angle equivalent of the same
     if max_degree > 90:
-        return -1 * (180 - max_degree)
+        return -1*(180-max_degree)
     if max_degree < -90:
         return 180 + max_degree
 
     # otherwise, return max degree
     return max_degree
-
 
 def getCenterRemovedImage(img, center, rmin):
     """
@@ -515,19 +444,11 @@ def getCenterRemovedImage(img, center, rmin):
     """
     center = (int(center[0]), int(center[1]))
     mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
-    cv2.ellipse(
-        mask,
-        tuple(center),
-        axes=(rmin, rmin),
-        angle=0,
-        startAngle=0,
-        endAngle=360,
-        color=255,
-        thickness=-1,
-    )  # Draw a circle in mask
+    cv2.ellipse(mask, tuple(center), axes=(rmin, rmin), angle=0, startAngle=0,
+                endAngle=360, color=255,
+                thickness=-1)  # Draw a circle in mask
     img[mask > 0] = 0  # replace circle with 0
     return img
-
 
 def getNewZoom(current, move, xmax, ymax, ymin=0):
     """
@@ -558,7 +479,6 @@ def getNewZoom(current, move, xmax, ymax, ymin=0):
         y1 = y2 - (current[1][1] - current[1][0])
 
     return [(x1, x2), (y1, y2)]
-
 
 def rotateImage(img, center, angle):
     """
@@ -605,7 +525,6 @@ def rotateImage(img, center, angle):
     # else:
     return rotateNonSquareImage(img, angle, center)
 
-
 def rotateImageAboutPoint(img, point, angle):
     """
     Get rotated image by angle about a given point.
@@ -618,7 +537,7 @@ def rotateImageAboutPoint(img, point, angle):
         return img
 
     M = cv2.getRotationMatrix2D(tuple(point), angle, 1)
-    img = img.astype("float32")
+    img = img.astype('float32')
     # if img_type == "PILATUS":
     #     if mask_thres == -999:
     #         mask_thres = getMaskThreshold(img, img_type)
@@ -629,9 +548,8 @@ def rotateImageAboutPoint(img, point, angle):
     #     rotated_mask[rotated_mask > 0.] = 255
     #     rotated_img[rotated_mask > 0] = mask_thres
     # else:
-    rotated_img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+    rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
     return rotated_img
-
 
 def rotatePoint(origin, point, angle):
     """
@@ -645,7 +563,6 @@ def rotatePoint(origin, point, angle):
     qy = oy + np.sin(angle) * (px - ox) + np.cos(angle) * (py - oy)
     return qx, qy
 
-
 def getMaskThreshold(img):
     """
     Compute the mask threshold for the image given
@@ -657,26 +574,24 @@ def getMaskThreshold(img):
         mask_thres = -0.01
     else:
         mask_thres = min_val
-    if img.shape == (1043, 981):  # if img_type == "PILATUS":
-        hist = np.histogram(img, 3, (min_val, min_val + 3))
+    if img.shape == (1043, 981): # if img_type == "PILATUS":
+        hist = np.histogram(img, 3, (min_val, min_val+3))
         max_ind = np.argmax(hist[0])
         mask_thres = hist[1][max_ind]
     return mask_thres
-
 
 ###### White top hat image for Scanning Diffraction #########
 def gaussian(x, a, mean, sigma):
     """
     Find mean square error
     """
-    return a * np.exp((-1.0 * (x - mean) ** 2) / (2 * (sigma**2)))
-
+    return a*np.exp((-1.*(x-mean)**2)/(2*(sigma**2)))
 
 def getImgAfterWhiteTopHat(img, sigma=5):
     """
     Give the image after apply white to hat to it
     """
-    tmpKernel = 1.0 / sigma**2 * np.ones((sigma, sigma))
+    tmpKernel = 1. / sigma ** 2 * np.ones((sigma, sigma))
     dst = copy.copy(img)
     dst = np.array(dst, np.float32)
     for _ in range(2):
@@ -689,20 +604,17 @@ def getImgAfterWhiteTopHat(img, sigma=5):
     tophat = white_tophat(dst, kernXY)
     return tophat
 
-
 def kernelXY(sigma=5):
     """
     Give the kernel for XY
     """
     a = sigma * 6
     x = np.array(range(-int(a + 1), int(a + 1) + 1, 1))
-    kernelX = (
-        1.0 / (np.sqrt(2.0 * np.pi) * a) * np.exp(-((x - 0) ** 2.0) / (2.0 * a**2))
-    )
+    kernelX = 1. / (np.sqrt(2. * np.pi) * a) * np.exp(-(x - 0) ** 2. / (2. * a ** 2))
     return np.outer(kernelX, np.transpose(kernelX))
 
 
-def display_test(img, name="test", max_int=100):
+def display_test(img, name = "test", max_int = 100):
     """
     Display input image to screen. Just for test
     :param img: input image
@@ -710,12 +622,11 @@ def display_test(img, name="test", max_int=100):
     :return: -
     """
     max_side = max(img.shape[:2])
-    ratio = 1.0 * 650 / max_side
-    size = (int(img.shape[1] * ratio), int(img.shape[0] * ratio))
+    ratio = 1.*650/max_side
+    size = (int(img.shape[1]*ratio),int(img.shape[0]*ratio))
     img = get8bitImage(img, min=0.0, max=max_int)
     img = cv2.resize(img, size)
     cv2.imshow(name, img)
-
 
 def averageImages(file_list, rotate=False, preprocessed=False, man_det=None):
     """
@@ -725,20 +636,16 @@ def averageImages(file_list, rotate=False, preprocessed=False, man_det=None):
     :return:
     """
     all_imgs = []
-    dims_match, max_dim, max_img_center = checkDimensionsMatch(
-        file_list, preprocessed=preprocessed
-    )
+    dims_match, max_dim, max_img_center = checkDimensionsMatch(file_list, preprocessed=preprocessed)
     if not dims_match:
-        return expandAndAverageImages(
-            file_list, max_dim, max_img_center, rotate, preprocessed=preprocessed
-        )
+        return expandAndAverageImages(file_list, max_dim, max_img_center, rotate, preprocessed=preprocessed)
     for f in file_list:
         if preprocessed:
             img = f
         else:
             img = fabio.open(f).data
         if rotate:
-            print(f"Rotating and centering {f}")
+            print(f'Rotating and centering {f}')
             center = getCenter(img)
             angle = getRotationAngle(img, center, method=0, man_det=man_det)
             img, center, _ = rotateImage(img, center, angle)
@@ -746,10 +653,7 @@ def averageImages(file_list, rotate=False, preprocessed=False, man_det=None):
 
     return np.mean(all_imgs, axis=0)
 
-
-def expandAndAverageImages(
-    file_list, max_dim, max_img_center, rotate, preprocessed=False
-):
+def expandAndAverageImages(file_list, max_dim, max_img_center, rotate, preprocessed=False):
     """
     open images, expand to largest size and average them all
     :param file_list: list of image path (str)
@@ -757,7 +661,7 @@ def expandAndAverageImages(
     :param max_img_center: center of largest image
     :return:
     """
-    all_imgs = []
+    all_imgs=[]
     for f in file_list:
         if preprocessed:
             img = f
@@ -775,13 +679,12 @@ def expandAndAverageImages(
         img = cv2.warpAffine(expanded_img, M, max_dim)
 
         if rotate:
-            print(f"Rotating and centering {f}")
+            print(f'Rotating and centering {f}')
             angle = getRotationAngle(img, max_img_center, method=0)
             img, center, _ = rotateImage(img, max_img_center, angle)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
-
 
 def checkDimensionsMatch(file_list, preprocessed=False):
     """
@@ -806,25 +709,19 @@ def checkDimensionsMatch(file_list, preprocessed=False):
 
     return dims.count(dims[0]) == len(dims), max_dim, center
 
-
 def processImageForIntCenter(img, center):
     """
     Translate image such that the new center is an integer
     :param file_list: original image and its center with decimals
     :return: translated image and nearest integer center
     """
-    img = img.astype("float32")
+    img=img.astype('float32')
     int_Center = (round(center[0]), round(center[1]))
     tx = int_Center[0] - center[0]
     ty = int_Center[1] - center[1]
-    M = np.float32([[1, 0, tx], [0, 1, ty]])
-    print(
-        "In process Image int center, translating original image by tx = "
-        + str(tx)
-        + " and ty = "
-        + str(ty)
-    )
-    rows, cols = img.shape
+    M = np.float32([[1,0,tx],[0,1,ty]])
+    print("In process Image int center, translating original image by tx = " + str(tx) + " and ty = " + str(ty))
+    rows,cols = img.shape
 
     # if img_type == "PILATUS":
     #     if mask_thres == -999:
@@ -836,10 +733,9 @@ def processImageForIntCenter(img, center):
     #     translated_mask[translated_mask > 0.] = 255
     #     translated_Img[translated_mask > 0] = mask_thres
     # else:
-    translated_Img = cv2.warpAffine(img, M, (cols, rows))
+    translated_Img = cv2.warpAffine(img,M,(cols,rows))
 
     return (translated_Img, int_Center)
-
 
 def rotateNonSquareImage(img, angle, center1):
     """
@@ -847,23 +743,23 @@ def rotateNonSquareImage(img, angle, center1):
     :param file_list: original non square image, angle of rotation and center
     :return: rotated image and center with respect to new coordinate system
     """
-    img = img.astype("float32")
+    img = img.astype('float32')
     height, width = img.shape
-    center = (width / 2, height / 2)
+    center = (width/2, height/2)
 
-    rotation_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotation_mat = cv2.getRotationMatrix2D(center, angle, 1.)
 
     # rotation calculates the cos and sin, taking absolutes of those.
-    abs_cos = abs(rotation_mat[0, 0])
-    abs_sin = abs(rotation_mat[0, 1])
+    abs_cos = abs(rotation_mat[0,0])
+    abs_sin = abs(rotation_mat[0,1])
 
     # find the new width and height bounds
     bound_w = int(height * abs_sin + width * abs_cos)
     bound_h = int(height * abs_cos + width * abs_sin)
 
     # subtract old image center (bringing image back to origo) and adding the new image center coordinates
-    rotation_mat[0, 2] += bound_w / 2 - center[0]
-    rotation_mat[1, 2] += bound_h / 2 - center[1]
+    rotation_mat[0, 2] += bound_w/2 - center[0]
+    rotation_mat[1, 2] += bound_h/2 - center[1]
 
     maxB = max(bound_h, bound_w)
 
@@ -875,20 +771,18 @@ def rotateNonSquareImage(img, angle, center1):
     rotated_img = cv2.warpAffine(img, rotation_mat, (maxB, maxB))
     return rotated_img, center2, rotation_mat
 
-
 def mean_square_error(y_predict, y):
     """
     Find mean square error
     """
-    loss = y_predict - y
+    loss = (y_predict - y)
     mse = np.dot(loss.transpose(), loss) / y.shape[0]
     rmse = np.sqrt(mse)
-    return rmse / (max(y) - min(y))
-
+    return rmse/(max(y)-min(y))
 
 def inpaint_img(img, center=None, mask=None):
     """
-    Function to inpaint an image
+    Function to inpaint an image 
     Warning: This function should not be used for any data processing or results,
     it is only for visualization and faster processing purpose.
     Warning 2: the pyFAI inpainting function is NOT a machine learning method,
@@ -897,34 +791,19 @@ def inpaint_img(img, center=None, mask=None):
     print("Inpainting...")
     detector = find_detector(img)
     if center is not None:
-        corners = [
-            (0, 0),
-            (img.shape[1], 0),
-            (0, img.shape[0]),
-            (img.shape[1], img.shape[0]),
-        ]
+        corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
         npt_rad = int(round(max([distance(center, c) for c in corners])))
     else:
-        npt_rad = 1024
-        npt_azim = 1024
+        npt_rad=1024
+        npt_azim=1024
     if mask is None:
         # mask = detector.mask
         mask = np.zeros_like(img)
         mask[img < 0] = 1
     ai = AzimuthalIntegrator(detector=detector)
-    integration_method = IntegrationMethod.select_one_available(
-        "csr", dim=1, default="csr", degradable=True
-    )
-    image = ai.inpainting(
-        img,
-        mask=mask,
-        poissonian=True,
-        method=integration_method,
-        npt_rad=npt_rad,
-        npt_azim=npt_azim,
-        grow_mask=1,
-    )
-
+    integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+    image = ai.inpainting(img, mask=mask, poissonian=True, method=integration_method, npt_rad=npt_rad, npt_azim=npt_azim, grow_mask=1)
+    
     """
     import pyFAI
     import matplotlib.pyplot as plt
@@ -942,10 +821,9 @@ def inpaint_img(img, center=None, mask=None):
     print("Done.")
     return image
 
-
 def find_detector(img, man_det=None):
     """
-    Finds the detector used based on the size on the image used.
+    Finds the detector used based on the size on the image used. 
     If not found, use the default agilent_titan
     """
     # if img.shape == (1043, 981):
@@ -956,29 +834,19 @@ def find_detector(img, man_det=None):
     detector = None
     if man_det is None:
         for detect in Detector.registry:
-            if (
-                hasattr(Detector.registry[detect], "MAX_SHAPE")
-                and Detector.registry[detect].MAX_SHAPE == img.shape
-            ):
+            if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
                 detector = detector_factory(detect)
                 print(detector.get_name())
                 break
     else:
-        if (
-            man_det in Detector.registry
-            and hasattr(Detector.registry[man_det], "MAX_SHAPE")
-            and Detector.registry[man_det].MAX_SHAPE == img.shape
-        ):
+        if man_det in Detector.registry and hasattr(Detector.registry[man_det], 'MAX_SHAPE') and Detector.registry[man_det].MAX_SHAPE == img.shape:
             detector = detector_factory(man_det)
         else:
-            print(
-                "The detector specified does not correspond to the image being processed"
-            )
+            print('The detector specified does not correspond to the image being processed')
     if detector is None:
         print("No corresponding detector found, using agilent_titan by default...")
-        detector = detector_factory("agilent_titan")
+        detector = detector_factory('agilent_titan')
     return detector
-
 
 def getMisSettingAngles(img, detector, center, wavelength=1e-10, calibrant="AgBh"):
     """
@@ -995,22 +863,15 @@ def getMisSettingAngles(img, detector, center, wavelength=1e-10, calibrant="AgBh
     # Initialize SingleGeometry:
     calib = get_calibrant(calibrant)
     calib.set_wavelength(wavelength)
-    sg = SingleGeometry(
-        label="test", image=img, calibrant=calib, detector=detector, geometry=geo
-    )
-
+    sg = SingleGeometry(label='test', image=img, calibrant=calib, detector=detector, geometry=geo)
+    
     # Extract control points: Usually one wants GUI here !
     sg.extract_cp(max_rings=4)
 
     # Perform the calibration
     sg.geometry_refinement.refine3(fix=["wavelength"])
 
-    return (
-        sg.geometry_refinement.rot1,
-        sg.geometry_refinement.rot2,
-        sg.geometry_refinement.rot3,
-    )
-
+    return sg.geometry_refinement.rot1, sg.geometry_refinement.rot2, sg.geometry_refinement.rot3
 
 def calcSlope(pt1, pt2):
     """
@@ -1019,9 +880,8 @@ def calcSlope(pt1, pt2):
     :return: slope
     """
     if pt1[0] == pt2[0]:
-        return float("inf")
+        return float('inf')
     return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
-
 
 def getIntersectionOfTwoLines(line1, line2):
     """
@@ -1030,13 +890,13 @@ def getIntersectionOfTwoLines(line1, line2):
     :param line2:
     :return:
     """
-    p1, p2 = line1
-    p3, p4 = line2
+    p1,p2 = line1
+    p3,p4 = line2
     slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
     if p4[0] != p3[0]:
         slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
-        x = (p3[1] - p1[1] + slope1 * p1[0] - slope2 * p3[0]) / (slope1 - slope2)
-        y = slope1 * (x - p1[0]) + p1[1]
+        x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
+        y = slope1*(x - p1[0]) + p1[1]
     else:
         # Slope2 is inf
         x = p4[0]
@@ -1044,17 +904,16 @@ def getIntersectionOfTwoLines(line1, line2):
 
     return (int(x), int(y))
 
-
 def getPerpendicularLineHomogenous(p1, p2):
     """
     Give the perpendicular line homogeneous
     """
-    b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float("inf")
+    b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
     chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
     print("Chord_cent1 ", chord_cent)
     if b1 == 0:
-        return float("inf"), chord_cent
-    if b1 == float("inf"):
+        return float('inf'), chord_cent
+    if b1 == float('inf'):
         return 0, chord_cent
     return -1 / b1, chord_cent
 
@@ -1067,10 +926,7 @@ def downsample(img, scale=4):
     new_h = (h // scale) * scale
     new_w = (w // scale) * scale
     trimmed_arr = img[:new_h, :new_w]
-    return trimmed_arr.reshape(new_h // scale, scale, new_w // scale, scale).mean(
-        axis=(1, 3)
-    )
-
+    return trimmed_arr.reshape(new_h//scale, scale, new_w//scale, scale).mean(axis=(1, 3))
 
 def upsample(img, scale=4):
     """
@@ -1078,38 +934,38 @@ def upsample(img, scale=4):
     """
     return rescale(img, scale, order=1)
 
-
 def pad_to_shape(img, out_shape):
     """
     Pad an array to a specified output shape by replicating edge pixels.
     """
     img_shape = img.shape
-
+    
     pad_height = out_shape[0] - img_shape[0]
     pad_width = out_shape[1] - img_shape[1]
-
+    
     pad_top = pad_height // 2
     pad_bottom = pad_height - pad_top
     pad_left = pad_width // 2
     pad_right = pad_width - pad_left
-
+    
     out_img = np.pad(
-        img, pad_width=((pad_top, pad_bottom), (pad_left, pad_right)), mode="edge"
+        img, 
+        pad_width=((pad_top, pad_bottom), (pad_left, pad_right)), 
+        mode='edge'
     )
     return out_img
 
-
-def weighted_neighborhood_average(arr, weights=[0.25, 0.5, 0.25]):
+def weighted_neighborhood_average(arr, weights = [0.25, 0.5, 0.25]):
     """
     Calculate weighted average for each vector with its 2 neighboring vectors.
     """
     result = np.zeros_like(arr)
-
+    
     result[0] = arr[0] * 0.75 + arr[1] * 0.25
     result[-1] = arr[-2] * 0.25 + arr[-1] * 0.75
-
+    
     for i in range(1, arr.shape[0] - 1):
-        result[i] = (
-            arr[i - 1] * weights[0] + arr[i] * weights[1] + arr[i + 1] * weights[2]
-        )
+        result[i] = (arr[i-1] * weights[0] + 
+                    arr[i] * weights[1] + 
+                    arr[i+1] * weights[2])
     return result

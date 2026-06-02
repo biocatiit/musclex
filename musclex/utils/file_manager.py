@@ -32,8 +32,7 @@ from datetime import datetime
 from os.path import split, exists, join
 import numpy as np
 import fabio
-
-# from ..ui.pyqt_utils import *
+#from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
 from PySide6.QtWidgets import QMessageBox
 from concurrent.futures import ProcessPoolExecutor
@@ -41,21 +40,7 @@ import hashlib
 import time
 import pickle
 
-input_types = [
-    "adsc",
-    "cbf",
-    "edf",
-    "fit2d",
-    "mar345",
-    "marccd",
-    "hdf5",
-    "h5",
-    "pilatus",
-    "tif",
-    "tiff",
-    "smv",
-]
-
+input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 
 def getFilesAndHdf(dir_path):
     """
@@ -72,12 +57,11 @@ def getFilesAndHdf(dir_path):
         if isImg(full_file_name):
             imgList.append(f)
         else:
-            toks = f.split(".")
-            if toks[-1] == "hdf":
+            toks = f.split('.')
+            if toks[-1] == 'hdf':
                 hdfList.append(f)
 
     return imgList, hdfList
-
 
 def getImgFiles(fullname, headless=False):
     """
@@ -85,9 +69,7 @@ def getImgFiles(fullname, headless=False):
     :param fullname: full name of the file including directory i.e. /aaa/bbb/ccc/ddd.tif (str)
     :return: directory (str), list of image file names, and current index i.e /aaa/bbb/ccc, ["ddd.tif","eee.tif"], 0
     """
-    dir_path, filename = split(
-        str(fullname)
-    )  # split directory and file name from full file name
+    dir_path, filename = split(str(fullname)) # split directory and file name from full file name
     dir_path = str(dir_path)
     filename = str(filename)
     _, ext = os.path.splitext(str(filename))
@@ -97,16 +79,16 @@ def getImgFiles(fullname, headless=False):
 
     if ext == ".txt":
         for line in open(fullname, "r"):
-            failedcases.append(line.rstrip("\n"))
+            failedcases.append(line.rstrip('\n'))
     else:
         failedcases = None
 
-    if ext in (".hdf5", ".h5"):
+    if ext in ('.hdf5', '.h5'):
         fileList = loadFile(fullname)
         imgList = []
         if fileList is None or not fileList or None in fileList:
             infMsg = QMessageBox()
-            infMsg.setText("Error opening file: " + fullname)
+            infMsg.setText('Error opening file: ' + fullname)
             infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
@@ -119,36 +101,29 @@ def getImgFiles(fullname, headless=False):
         if len(imgList) == 1 and not headless:
             # if only one image in the h5 file, take all the single h5 images in the folder
             infMsg = QMessageBox()
-            infMsg.setText("Single Image H5 File")
-            infMsg.setInformativeText(
-                "The H5 file selected contains only one image. All the H5 files in the current folder containing only one image will be regrouped the same way as a folder containing TIF files.\n"
-            )
+            infMsg.setText('Single Image H5 File')
+            infMsg.setInformativeText("The H5 file selected contains only one image. All the H5 files in the current folder containing only one image will be regrouped the same way as a folder containing TIF files.\n")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
             list_h5_files = os.listdir(dir_path)
             imgList = []
-            fileList = [[], []]
+            fileList = [[],[]]
             for f in list_h5_files:
                 _, ext2 = os.path.splitext(str(f))
                 full_file_name = fullPath(dir_path, f)
-                if ext2 in (".hdf5", ".h5"):
+                if ext2 in ('.hdf5', '.h5'):
                     file_loader = loadFile(full_file_name)
                     if file_loader[0] is None:
                         infMsg = QMessageBox()
-                        infMsg.setText("Error opening file: " + f)
-                        infMsg.setInformativeText(
-                            "File is not a valid HDF5 file, is corrupted, or is an empty HDF5 Master file.  Skipping."
-                        )
+                        infMsg.setText('Error opening file: ' + f)
+                        infMsg.setInformativeText("File is not a valid HDF5 file, is corrupted, or is an empty HDF5 Master file.  Skipping.")
                         infMsg.setStandardButtons(QMessageBox.Ok)
                         infMsg.setIcon(QMessageBox.Information)
                         infMsg.exec_()
                         continue
                     if len(file_loader[0]) == 1:
-                        if (
-                            failedcases is not None
-                            and file_loader[0][0] not in failedcases
-                        ):
+                        if failedcases is not None and file_loader[0][0] not in failedcases:
                             continue
                         imgList.append(file_loader[0][0])
                         fileList[0].append(file_loader[0][0])
@@ -164,25 +139,20 @@ def getImgFiles(fullname, headless=False):
                 continue
             full_file_name = fullPath(dir_path, f)
             _, ext2 = os.path.splitext(str(f))
-            if (
-                isImg(full_file_name)
-                and f != "calibration.tif"
-                and ext2 not in (".hdf5", ".h5")
-            ):  # and validateImage(full_file_name):
+            if isImg(full_file_name) and f != "calibration.tif" and ext2 not in ('.hdf5', '.h5'):  #and validateImage(full_file_name):
                 imgList.append(f)
         imgList.sort()
 
     if failedcases is None and imgList:
-        if ext in (".hdf5", ".h5"):
+        if ext in ('.hdf5', '.h5'):
             if filename_index is None:
                 current = 0
             else:
                 current = imgList.index(filename_index)
         else:
             current = imgList.index(filename)
-
+    
     return dir_path, imgList, current, fileList, ext
-
 
 def fullPath(filePath, fileName):
     """
@@ -197,16 +167,14 @@ def fullPath(filePath, fileName):
     #     return filePath+"/"+fileName
     return os.path.join(filePath, fileName)
 
-
 def isImg(fileName):
     """
     Check if a file name is an image file
     :param fileName: (str)
     :return: True or False
     """
-    nameList = fileName.split(".")
+    nameList = fileName.split('.')
     return nameList[-1] in input_types
-
 
 def validateImage(fileName, showDialog=True):
     try:
@@ -215,15 +183,12 @@ def validateImage(fileName, showDialog=True):
     except Exception:
         if showDialog:
             infMsg = QMessageBox()
-            infMsg.setText("Error opening file: " + fileName)
-            infMsg.setInformativeText(
-                "Fabio could not open .TIFF File. File is either corrupt or invalid."
-            )
+            infMsg.setText('Error opening file: ' + fileName)
+            infMsg.setInformativeText("Fabio could not open .TIFF File. File is either corrupt or invalid.")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
         return False
-
 
 def isHdf5(fileName):
     """
@@ -231,9 +196,8 @@ def isHdf5(fileName):
     :param fileName: (str)
     :return: True or False
     """
-    nameList = fileName.split(".")
-    return nameList[-1] in ("hdf5", "h5")
-
+    nameList = fileName.split('.')
+    return nameList[-1] in ('hdf5', 'h5')
 
 def ifHdfReadConvertless(fileName, img):
     """
@@ -244,9 +208,8 @@ def ifHdfReadConvertless(fileName, img):
     """
     if isHdf5(fileName):
         img = img.astype(np.int32)
-        img[img == 4294967295] = -1
+        img[img==4294967295] = -1
     return img
-
 
 def createFolder(path):
     """
@@ -257,17 +220,14 @@ def createFolder(path):
     if not exists(path):
         os.makedirs(path)
 
-
 # --------------------- Fast, cached, multiprocessing directory scan ---------------------
 _SCAN_CACHE = {}
-
 
 def _disk_cache_dir(dir_path):
     try:
         return join(dir_path, ".musclex_cache")
     except Exception:
         return None
-
 
 def _disk_cache_file(dir_path):
     try:
@@ -315,31 +275,20 @@ def _load_scan_cache_from_disk(dir_path, sig, fallback_dir=None):
             if cfile and exists(cfile):
                 with open(cfile, "rb") as f:
                     data = pickle.load(f)
-                if (
-                    isinstance(data, dict)
-                    and data.get("sig") == sig
-                    and isinstance(data.get("payload"), tuple)
-                ):
+                if isinstance(data, dict) and data.get("sig") == sig and isinstance(data.get("payload"), tuple):
                     payload = data.get("payload")
                     if payload and len(payload) >= 2:
-                        payload = (
-                            payload[0],
-                            _specs_to_absolute(dir_path, payload[1]),
-                        ) + payload[2:]
+                        payload = (payload[0], _specs_to_absolute(dir_path, payload[1])) + payload[2:]
                     return payload
         except Exception:
             pass
     return None
 
-
 def _save_scan_cache_to_disk(dir_path, sig, payload, fallback_dir=None):
     """Try saving scan cache to *dir_path*; fall back to *fallback_dir*."""
     rel_payload = payload
     if rel_payload and len(rel_payload) >= 2:
-        rel_payload = (
-            rel_payload[0],
-            _specs_to_relative(rel_payload[1]),
-        ) + rel_payload[2:]
+        rel_payload = (rel_payload[0], _specs_to_relative(rel_payload[1])) + rel_payload[2:]
     for d in (dir_path, fallback_dir):
         if d is None:
             continue
@@ -354,7 +303,6 @@ def _save_scan_cache_to_disk(dir_path, sig, payload, fallback_dir=None):
                 return  # written successfully
         except Exception:
             continue  # try fallback
-
 
 def _dir_signature(dir_path):
     try:
@@ -371,13 +319,12 @@ def _dir_signature(dir_path):
         entries.sort()
         h = hashlib.sha256()
         for name, sz, mt in entries:
-            h.update(name.encode("utf-8", errors="ignore"))
+            h.update(name.encode('utf-8', errors='ignore'))
             h.update(str(sz).encode())
             h.update(str(mt).encode())
         return h.hexdigest()
     except Exception:
         return None
-
 
 def _write_error_log(dir_path, error_msg, exception=None, fallback_dir=None):
     """Write a timestamped error entry to musclex_error.log. Safe to call from any thread or subprocess.
@@ -394,23 +341,18 @@ def _write_error_log(dir_path, error_msg, exception=None, fallback_dir=None):
             with open(log_path, "a", encoding="utf-8") as lf:
                 lf.write(f"[{ts}] {error_msg}\n")
                 if exception is not None:
-                    tb = "".join(
-                        traceback.format_exception(
-                            type(exception), exception, exception.__traceback__
-                        )
-                    )
+                    tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
                     lf.write(tb)
                 lf.write("\n")
             return
         except Exception:
             continue
 
-
 def _h5_nframes(path):
     """Return (nframes, (height, width)) for an HDF5 file, or (0, None) on error."""
     try:
         f = fabio.open(path)
-        n = getattr(f, "nframes", 1)
+        n = getattr(f, 'nframes', 1)
         shape = None
         try:
             data = f.data
@@ -427,16 +369,14 @@ def _h5_nframes(path):
         _write_error_log(
             os.path.dirname(path),
             f"Could not open HDF5 file (skipped during scan): {path}",
-            e,
+            e
         )
         return 0, None
-
 
 def _tiff_size(path):
     """Return (height, width) for a TIFF/image file by reading only the header. Returns None on error."""
     try:
         from PIL import Image as _PILImage
-
         with _PILImage.open(path) as im:
             w, h = im.size  # PIL lazy-loads: only header is read
             return (h, w)
@@ -445,7 +385,7 @@ def _tiff_size(path):
     try:
         # Fallback: fabio header only (some formats expose shape without .data)
         f = fabio.open(path)
-        if hasattr(f, "shape") and f.shape:
+        if hasattr(f, 'shape') and f.shape:
             return f.shape[:2]
         try:
             f.close()
@@ -456,9 +396,7 @@ def _tiff_size(path):
     return None
 
 
-def scan_directory_images_cached(
-    dir_path, max_workers=None, progress_dict=None, fallback_cache_dir=None
-):
+def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None, fallback_cache_dir=None):
     """
     Scan a directory for TIFF and HDF5 images and return unified
     (imgList, loader_specs, source_index_map, size_map).
@@ -489,9 +427,7 @@ def scan_directory_images_cached(
                 return cached + ({},)
             return cached
         # try disk cache
-        disk_payload = _load_scan_cache_from_disk(
-            dir_path, sig, fallback_dir=fallback_cache_dir
-        )
+        disk_payload = _load_scan_cache_from_disk(dir_path, sig, fallback_dir=fallback_cache_dir)
         if disk_payload is not None:
             _SCAN_CACHE[dir_path] = (sig, disk_payload)
             if len(disk_payload) == 3:
@@ -513,9 +449,9 @@ def scan_directory_images_cached(
         base, ext = os.path.splitext(f)
         if f == "calibration.tif":
             continue
-        if ext.lower() in (".hdf5", ".h5"):
+        if ext.lower() in ('.hdf5', '.h5'):
             h5_files.append((base, ext, full_file_name))
-        elif isImg(full_file_name) and ext.lower() not in (".hdf5", ".h5"):
+        elif isImg(full_file_name) and ext.lower() not in ('.hdf5', '.h5'):
             # Add all TIFF files (no filtering here)
             entries.append((f, ("tiff", full_file_name)))
             # Read header-only size (very cheap, no pixel data decoded)
@@ -527,14 +463,14 @@ def scan_directory_images_cached(
     if h5_files:
         master_prefix_to_record = {}
         for base, ext, path in h5_files:
-            if base.endswith("_master"):
+            if base.endswith('_master'):
                 prefix = base[:-7]
                 master_prefix_to_record[prefix] = (base, ext, path)
 
         filtered_h5 = []
         for base, ext, path in h5_files:
-            if "_data_" in base:
-                prefix = base.split("_data_")[0]
+            if '_data_' in base:
+                prefix = base.split('_data_')[0]
                 if prefix in master_prefix_to_record:
                     # Skip data file because master exists
                     continue
@@ -554,8 +490,8 @@ def scan_directory_images_cached(
 
         # Track progress if progress_dict provided
         if progress_dict is not None:
-            progress_dict["h5_total"] = len(h5_files)
-            progress_dict["h5_done"] = 0
+            progress_dict['h5_total'] = len(h5_files)
+            progress_dict['h5_done'] = 0
 
         with ProcessPoolExecutor(max_workers=max_workers) as pool:
             paths = [p for _, _, p in h5_files]
@@ -564,12 +500,12 @@ def scan_directory_images_cached(
             for i, future in enumerate(futures):
                 nframes_shape_list.append(future.result())
                 if progress_dict is not None:
-                    progress_dict["h5_done"] = i + 1
+                    progress_dict['h5_done'] = i + 1
 
         for (base, ext, path), (nframes, shape) in zip(h5_files, nframes_shape_list):
             if nframes <= 0:
                 if progress_dict is not None:
-                    progress_dict.setdefault("skipped_files", []).append(path)
+                    progress_dict.setdefault('skipped_files', []).append(path)
                 continue
             if shape is not None:
                 h5_shapes[path] = shape
@@ -595,24 +531,17 @@ def scan_directory_images_cached(
     # Build final source_index_map after sorting
     source_index_map = {}
     for path in h5_positions.keys():
-        indices = [
-            i
-            for i, spec in enumerate(specs)
-            if isinstance(spec, tuple) and len(spec) >= 2 and spec[1] == path
-        ]
+        indices = [i for i, spec in enumerate(specs)
+                   if isinstance(spec, tuple) and len(spec) >= 2 and spec[1] == path]
         if indices:
             source_index_map[path] = (min(indices), max(indices))
 
     if sig is not None:
         payload = (imgList, specs, source_index_map, size_map)
         _SCAN_CACHE[dir_path] = (sig, payload)
-        _save_scan_cache_to_disk(
-            dir_path, sig, payload, fallback_dir=fallback_cache_dir
-        )
+        _save_scan_cache_to_disk(dir_path, sig, payload, fallback_dir=fallback_cache_dir)
 
     return imgList, specs, source_index_map, size_map
-
-
 # --------------------- Unified image loader for GUI specs ---------------------
 def load_image_via_spec(file_path, display_name, source):
     """
@@ -630,7 +559,7 @@ def load_image_via_spec(file_path, display_name, source):
             abs_path, frame_idx = source[1], int(source[2])
             f = fabio.open(abs_path)
             try:
-                if getattr(f, "nframes", 1) == 1 or frame_idx == 0:
+                if getattr(f, 'nframes', 1) == 1 or frame_idx == 0:
                     img = f.data if frame_idx == 0 else f.get_frame(frame_idx).data
                 else:
                     img = f.get_frame(frame_idx).data
@@ -647,18 +576,15 @@ def load_image_via_spec(file_path, display_name, source):
     img = ifHdfReadConvertless(display_name, img)
     return img
 
-
 def get_loader_source(fileList, idx):
     try:
         return fileList[1][idx]
     except Exception:
         return None
 
-
 def load_image_by_index(file_path, fileList, idx, display_name):
     source = get_loader_source(fileList, idx)
     return load_image_via_spec(file_path, display_name, source)
-
 
 # --------------------- Reusable helpers for GUI provisional selection ---------------------
 def build_provisional_selection(fullname):
@@ -675,7 +601,7 @@ def build_provisional_selection(fullname):
     sel_name = str(sel_name)
     base, ext = os.path.splitext(sel_name)
 
-    if ext.lower() in (".h5", ".hdf5"):
+    if ext.lower() in ('.h5', '.hdf5'):
         # If selected a data file and a matching master exists, pivot to master
         if "_data_" in base:
             prefix = base.split("_data_")[0]
@@ -694,17 +620,15 @@ def build_provisional_selection(fullname):
     current = 0
     return dir_path, imgList, current, loader_specs
 
-
 class FileManager:
     """
     Two-layer navigation manager:
     1. File layer: for fast navigation and loading
     2. Image layer: for displaying total count and position (filled asynchronously in background)
     """
-
     def __init__(self):
-        self.dir_path = ""
-        self.output_dir = ""  # writable directory for scan cache fallback
+        self.dir_path = ''
+        self.output_dir = ''  # writable directory for scan cache fallback
         self.failedcases = None  # List of filenames to filter (from failedcases.txt)
         # File layer (fast, for navigation)
         self.file_list = []  # [(filename, type, full_path), ...]
@@ -720,23 +644,17 @@ class FileManager:
         self.current_h5_nframes = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
-        self.source_index_map = (
-            {}
-        )  # {h5_path_or_dir_path: (start_idx, end_idx)} in names/specs
+        self.source_index_map = {}  # {h5_path_or_dir_path: (start_idx, end_idx)} in names/specs
         self._path_to_file_idx = {}  # {full_path: file_idx} for fast reverse lookup
         # Per-image experiment label, parallel to names/specs
-        self.source_labels: list = (
-            []
-        )  # source_labels[i] = experiment label for names[i]
+        self.source_labels: list = []  # source_labels[i] = experiment label for names[i]
         # Image sizes captured during scan: display_name -> "WxH"
         self.image_sizes: dict = {}
         # Async scan state
         self._scan_thread = None
         self._scan_done = False
-        self._h5_progress = {"h5_total": 0, "h5_done": 0}  # Track H5 processing
-        self._scan_errors = (
-            []
-        )  # HDF5 files skipped due to load errors during background scan
+        self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Track H5 processing
+        self._scan_errors = []  # HDF5 files skipped due to load errors during background scan
 
     def set_from_file(self, selected_file):
         """
@@ -747,53 +665,51 @@ class FileManager:
         # Extract directory path
         dir_path = os.path.dirname(str(selected_file))
         self.dir_path = dir_path
-
+        
         # Check if selected file is failedcases.txt (must match exact name)
         selected_name = os.path.basename(str(selected_file))
         base, ext = os.path.splitext(selected_name)
-
-        if ext.lower() == ".txt" and selected_name.lower() == "failedcases.txt":
+        
+        if ext.lower() == '.txt' and selected_name.lower() == 'failedcases.txt':
             # Read failedcases.txt
             self.failedcases = []
             try:
-                with open(selected_file, "r") as f:
+                with open(selected_file, 'r') as f:
                     for line in f:
                         filename = line.strip()
                         if filename:  # Ignore empty lines
                             self.failedcases.append(filename)
-                print(
-                    f"Loaded {len(self.failedcases)} failed cases from {selected_name}"
-                )
+                print(f"Loaded {len(self.failedcases)} failed cases from {selected_name}")
             except Exception as e:
                 print(f"Warning: Failed to read {selected_file}: {e}")
                 self.failedcases = None
         else:
             self.failedcases = None
-
+        
         # Scan directory for file list (fast, no HDF5 opening)
         # Note: failedcases filtering happens at image/frame level, not file level
         file_list = scan_directory_files_sync(dir_path)
         if not file_list:
             # Fallback to single file if scan fails (but not for .txt files)
-            if ext.lower() != ".txt":
+            if ext.lower() != '.txt':
                 fname = os.path.basename(str(selected_file))
-                ftype = "h5" if ext.lower() in (".h5", ".hdf5") else "tiff"
+                ftype = "h5" if ext.lower() in ('.h5', '.hdf5') else "tiff"
                 file_list = [(fname, ftype, str(selected_file))]
-
+        
         self.file_list = file_list
         self._rebuild_path_to_file_idx()
-
+        
         # Locate selected file in the list
         self.current_file_idx = 0
         self.current_frame_idx = 0
         found = False
-
+        
         # If .txt file was selected, use the first file in the filtered list
-        if ext.lower() == ".txt":
+        if ext.lower() == '.txt':
             # No need to search, just use first file
             found = True if file_list else False
         # If selected a data file, try to find corresponding master first
-        elif ext.lower() in (".h5", ".hdf5") and "_data_" in base:
+        elif ext.lower() in ('.h5', '.hdf5') and "_data_" in base:
             prefix = base.split("_data_")[0]
             master_name = f"{prefix}_master{ext}"
             for i, (fname, ftype, fpath) in enumerate(file_list):
@@ -801,7 +717,7 @@ class FileManager:
                     self.current_file_idx = i
                     found = True
                     break
-
+        
         # If master not found or not a data file, find exact match
         if not found:
             for i, (fname, ftype, fpath) in enumerate(file_list):
@@ -809,7 +725,7 @@ class FileManager:
                     self.current_file_idx = i
                     found = True
                     break
-
+        
         # Build simple image layer (temporary, each HDF5 shown as single frame)
         self._rebuild_simple_image_list()
         # Ensure current image is loaded for the selected file
@@ -817,10 +733,8 @@ class FileManager:
 
     def _rebuild_path_to_file_idx(self):
         """Rebuild path-to-file-index mapping for fast lookups"""
-        self._path_to_file_idx = {
-            fpath: i for i, (_, _, fpath) in enumerate(self.file_list)
-        }
-
+        self._path_to_file_idx = {fpath: i for i, (_, _, fpath) in enumerate(self.file_list)}
+    
     def _rebuild_simple_image_list(self):
         """
         Rebuild simple image list (HDF5 shown as single frame).
@@ -829,7 +743,7 @@ class FileManager:
         """
         names = []
         specs = []
-
+        
         for fname, ftype, fpath in self.file_list:
             if ftype == "h5":
                 # HDF5: show first frame as preview (filtering happens in full scan)
@@ -844,24 +758,13 @@ class FileManager:
                 if self.failedcases is None or fname in self.failedcases:
                     names.append(fname)
                     specs.append(("tiff", fpath))
-
+        
         # Maintain current position
         self.names = names
         self.specs = specs
-        self.current = (
-            self.current_file_idx if self.current_file_idx < len(names) else 0
-        )
+        self.current = self.current_file_idx if self.current_file_idx < len(names) else 0
 
-    def set_directory_listing(
-        self,
-        dir_path,
-        names,
-        specs,
-        source_index_map=None,
-        preserve_current_name=True,
-        size_map=None,
-        h5_index_map=None,
-    ):
+    def set_directory_listing(self, dir_path, names, specs, source_index_map=None, preserve_current_name=True, size_map=None, h5_index_map=None):
         """
         Set complete image list (from async scan, HDF5 expanded).
         Preserves currently selected file and frame.
@@ -876,20 +779,20 @@ class FileManager:
         # backward-compat: honour old keyword if new one not supplied
         if source_index_map is None and h5_index_map is not None:
             source_index_map = h5_index_map
-
+        
         # Remember current file and frame
         prev_file_path = None
         prev_frame = self.current_frame_idx
         if self.file_list and self.current_file_idx < len(self.file_list):
             prev_file_path = self.file_list[self.current_file_idx][2]
-
+        
         self.dir_path = dir_path
         self.names = names
         self.specs = specs
         self.source_index_map = source_index_map if source_index_map is not None else {}
         if size_map:
             self.image_sizes.update(size_map)
-
+        
         # Locate current image
         if prev_file_path:
             for i, spec in enumerate(specs):
@@ -899,9 +802,7 @@ class FileManager:
                         if len(spec) >= 3 and spec[2] == prev_frame:
                             self.current = i
                             break
-                        elif i == len(specs) - 1 or (
-                            i + 1 < len(specs) and specs[i + 1][1] != prev_file_path
-                        ):
+                        elif i == len(specs) - 1 or (i + 1 < len(specs) and specs[i + 1][1] != prev_file_path):
                             # Found last or only frame of this file
                             self.current = i
                             break
@@ -918,22 +819,18 @@ class FileManager:
             self.dir_path = dir_path
 
         self._scan_done = False
-        self._h5_progress = {"h5_total": 0, "h5_done": 0}  # Reset progress
+        self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Reset progress
         self._scan_errors = []  # Reset skipped-file list
 
         def _worker():
-            fallback = (
-                self.output_dir
-                if self.output_dir and self.output_dir != self.dir_path
-                else None
-            )
+            fallback = self.output_dir if self.output_dir and self.output_dir != self.dir_path else None
             imgList, specs, source_index_map, size_map = scan_directory_images_cached(
                 self.dir_path,
                 progress_dict=self._h5_progress,
                 fallback_cache_dir=fallback,
             )
-            self._scan_errors = self._h5_progress.get("skipped_files", [])
-
+            self._scan_errors = self._h5_progress.get('skipped_files', [])
+            
             # Apply failedcases filtering if needed
             if self.failedcases is not None:
                 filtered_names = []
@@ -945,17 +842,12 @@ class FileManager:
                 imgList = filtered_names
                 specs = filtered_specs
                 # Note: source_index_map stays unchanged (refers to original complete list)
-
+            
             try:
                 # Update internal listing preserving current selection when possible
-                self.set_directory_listing(
-                    self.dir_path,
-                    imgList,
-                    specs,
-                    source_index_map=source_index_map,
-                    preserve_current_name=True,
-                    size_map=size_map,
-                )
+                self.set_directory_listing(self.dir_path, imgList, specs,
+                                           source_index_map=source_index_map,
+                                           preserve_current_name=True, size_map=size_map)
             finally:
                 # Signal completion regardless of success
                 self._scan_done = True
@@ -969,16 +861,17 @@ class FileManager:
             return bool(self._scan_done)
         except Exception:
             return False
-
+    
     def get_h5_progress(self):
         """Get HDF5 processing progress (done, total)"""
-        return self._h5_progress.get("h5_done", 0), self._h5_progress.get("h5_total", 0)
+        return self._h5_progress.get('h5_done', 0), self._h5_progress.get('h5_total', 0)
+        
 
     def _get_current_file_info(self):
         """Get current file information"""
         if not self.file_list or self.current_file_idx >= len(self.file_list):
             return None, None, None
-
+        
         fname, ftype, fpath = self.file_list[self.current_file_idx]
         return fname, ftype, fpath
 
@@ -988,7 +881,7 @@ class FileManager:
             nframes, _shape = _h5_nframes(path)
             self._h5_frames[path] = nframes
         return self._h5_frames[path]
-
+    
     def get_current_h5_range(self):
         """Get current HDF5 file range"""
         fname, ftype, fpath = self._get_current_file_info()
@@ -1007,7 +900,7 @@ class FileManager:
             self.current_image_name = ""
             self.current_h5_nframes = None
             return None
-
+        
         if ftype == "h5":
             source = ("h5", fpath, self.current_frame_idx)
             self.current_h5_nframes = self._get_h5_nframes(fpath)
@@ -1031,7 +924,7 @@ class FileManager:
         self.current_image = img
         self.current_file_type = ftype
         return img
-
+    
     def get_image_by_index(self, index):
         """Return image array at the given image-layer index without changing selection.
         Returns None if index is out of range or loading fails.
@@ -1048,7 +941,7 @@ class FileManager:
             return load_image_by_index(self.dir_path, fileList, idx, display_name)
         except Exception:
             return None
-
+            
     def next_frame(self):
         """
         Next frame:
@@ -1057,9 +950,9 @@ class FileManager:
         """
         if not self.file_list:
             return
-
+        
         fname, ftype, fpath = self._get_current_file_info()
-
+        
         if ftype == "h5":
             nframes = self._get_h5_nframes(fpath)
             if self.current_frame_idx + 1 < nframes:
@@ -1068,7 +961,7 @@ class FileManager:
                 self._update_current_position()
                 self.load_current()
                 return
-
+        
         # Move to first frame of next file
         self.current_file_idx = (self.current_file_idx + 1) % len(self.file_list)
         self.current_frame_idx = 0
@@ -1083,17 +976,17 @@ class FileManager:
         """
         if not self.file_list:
             return
-
+        
         if self.current_frame_idx > 0:
             # Move to previous frame in same file
             self.current_frame_idx -= 1
             self._update_current_position()
             self.load_current()
             return
-
+        
         # Move to previous file
         self.current_file_idx = (self.current_file_idx - 1) % len(self.file_list)
-
+        
         # Position to last frame of that file
         fname, ftype, fpath = self._get_current_file_info()
         if ftype == "h5":
@@ -1101,7 +994,7 @@ class FileManager:
             self.current_frame_idx = max(0, nframes - 1)
         else:
             self.current_frame_idx = 0
-
+        
         self._update_current_position()
         self.load_current()
 
@@ -1110,7 +1003,7 @@ class FileManager:
         fname, ftype, fpath = self._get_current_file_info()
         if fname is None:
             return
-
+        
         # Find corresponding position in names/specs
         for i, spec in enumerate(self.specs):
             if isinstance(spec, tuple) and len(spec) >= 2:
@@ -1122,7 +1015,7 @@ class FileManager:
                     else:
                         self.current = i
                         return
-
+        
         # If not found (image layer not fully loaded yet), estimate position
         self.current = self.current_file_idx
 
@@ -1131,7 +1024,7 @@ class FileManager:
         fname, ftype, fpath = self._get_current_file_info()
         if fname is None:
             return ""
-
+        
         if ftype == "h5":
             base, ext = os.path.splitext(fname)
             return f"{base}_{self.current_frame_idx+1:05d}{ext}"
@@ -1155,7 +1048,7 @@ class FileManager:
         self.current_frame_idx = 0
         self._update_current_position()
         self.load_current()
-
+    
     def convert_frame_idx_to_image_idx(self, frame_idx):
         """
         Convert a frame index in the current HDF5 file to an image-layer index.
@@ -1181,19 +1074,17 @@ class FileManager:
                 target_idx = start_idx + frame_idx
                 if start_idx <= target_idx <= end_idx:
                     # Verify it's the correct frame
-                    if (
-                        target_idx < len(self.specs)
-                        and isinstance(self.specs[target_idx], tuple)
-                        and len(self.specs[target_idx]) >= 3
-                        and self.specs[target_idx][1] == fpath
-                        and self.specs[target_idx][2] == frame_idx
-                    ):
+                    if (target_idx < len(self.specs) and 
+                        isinstance(self.specs[target_idx], tuple) and 
+                        len(self.specs[target_idx]) >= 3 and
+                        self.specs[target_idx][1] == fpath and
+                        self.specs[target_idx][2] == frame_idx):
                         return target_idx
 
             return None
         except Exception:
             return None
-
+    
     def switch_image_by_index(self, index):
         """Switch to an image by its index"""
         if not self.names or index < 0 or index >= len(self.names):
@@ -1203,14 +1094,14 @@ class FileManager:
             spec = self.specs[index]
             if isinstance(spec, tuple) and len(spec) >= 2:
                 target_path = spec[1]
-
+                
                 # Fast lookup of file index using cache
                 file_idx = self._path_to_file_idx.get(target_path)
                 if file_idx is None:
                     # Cache miss - rebuild cache and retry
                     self._rebuild_path_to_file_idx()
                     file_idx = self._path_to_file_idx.get(target_path)
-
+                
                 if file_idx is not None:
                     self.current_file_idx = file_idx
                     # Frame index is already in spec[2] for H5, or 0 for TIFF
@@ -1224,7 +1115,7 @@ class FileManager:
         """
         if not self.names:
             return False
-
+        
         try:
             # Find the index of the image with the given name
             index = self.names.index(name)
@@ -1270,7 +1161,7 @@ class FileManager:
             base_ext = os.path.splitext(os.path.basename(source))
             base, ext = base_ext
 
-            if os.path.isfile(source) and ext.lower() in (".h5", ".hdf5"):
+            if os.path.isfile(source) and ext.lower() in ('.h5', '.hdf5'):
                 # --- H5 file as experiment (no prefix) ---
                 label = base  # e.g. "exp1_master" without extension
                 nframes, shape = _h5_nframes(source)
@@ -1291,7 +1182,7 @@ class FileManager:
 
             elif os.path.isdir(source):
                 # --- Directory as experiment (prefixed names) ---
-                prefix = os.path.basename(source.rstrip("/\\")) or source
+                prefix = os.path.basename(source.rstrip('/\\')) or source
                 label = prefix
 
                 # File layer (fast, no HDF5 opening)
@@ -1323,13 +1214,9 @@ class FileManager:
         # Sources may come from different parent folders, so we use os.path.commonpath
         # rather than assuming a single shared parent.
         if sources:
-            parent_dirs = list({os.path.dirname(str(s).rstrip("/\\")) for s in sources})
+            parent_dirs = list({os.path.dirname(str(s).rstrip('/\\')) for s in sources})
             try:
-                self.dir_path = (
-                    os.path.commonpath(parent_dirs)
-                    if len(parent_dirs) > 1
-                    else parent_dirs[0]
-                )
+                self.dir_path = os.path.commonpath(parent_dirs) if len(parent_dirs) > 1 else parent_dirs[0]
             except ValueError:
                 # commonpath raises ValueError for mixed drive paths (Windows)
                 self.dir_path = parent_dirs[0]
@@ -1350,13 +1237,13 @@ class FileManager:
 def scan_directory_files_sync(dir_path):
     """
     Synchronously scan directory for files without opening HDF5 to count frames.
-
+    
     Args:
         dir_path: Directory path to scan
-
-    Returns:
+    
+    Returns: 
         file_list [(filename, type, full_path), ...]
-
+    
     This is a fast scan that only lists files, does not open any HDF5 files.
     Note: Does not apply failedcases filtering - that happens at the image/frame level.
     """
@@ -1369,14 +1256,14 @@ def scan_directory_files_sync(dir_path):
     for f in file_names:
         full_path = fullPath(dir_path, f)
         base, ext = os.path.splitext(f)
-
+        
         if f == "calibration.tif":
             continue
-
-        if ext.lower() in (".h5", ".hdf5"):
+            
+        if ext.lower() in ('.h5', '.hdf5'):
             # Check if this is a data file, skip if corresponding master exists
-            if "_data_" in base:
-                prefix = base.split("_data_")[0]
+            if '_data_' in base:
+                prefix = base.split('_data_')[0]
                 master_name = f"{prefix}_master{ext}"
                 master_path = os.path.join(dir_path, master_name)
                 if os.path.exists(master_path):
@@ -1384,6 +1271,6 @@ def scan_directory_files_sync(dir_path):
             files.append((f, "h5", full_path))
         elif isImg(full_path):
             files.append((f, "tiff", full_path))
-
+    
     files.sort(key=lambda x: x[0])
     return files

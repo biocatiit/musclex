@@ -30,13 +30,13 @@ Why "collect everything":
 
 from PyInstaller.utils.hooks import collect_all
 
-datas, binaries, hiddenimports = collect_all("pyFAI")
+datas, binaries, hiddenimports = collect_all('pyFAI')
 
 # pyFAI.ext.splitBBox_common / splitpixel_common are compiled extensions
 # that some pyFAI versions load lazily via getattr/importlib. They are
 # usually picked up by collect_all, but keep them explicit so a future
 # version that hides them behind even more indirection still loads.
 hiddenimports += [
-    "pyFAI.ext.splitBBox_common",
-    "pyFAI.ext.splitpixel_common",
+    'pyFAI.ext.splitBBox_common',
+    'pyFAI.ext.splitpixel_common',
 ]
