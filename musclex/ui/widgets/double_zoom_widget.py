@@ -31,48 +31,45 @@ import cv2
 import numpy as np
 from matplotlib.colors import Normalize
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QApplication,
-                               QWidget,
-                               QCheckBox,
-                               QMessageBox,
-                               QVBoxLayout)
+from PySide6.QtWidgets import QApplication, QWidget, QCheckBox, QMessageBox, QVBoxLayout
 
 
 class DoubleZoomWidget(QWidget):
     """
     Widget that provides a zoomed-in view for precise coordinate selection.
-    
+
     This widget is designed to be decoupled from the parent's data structure.
     It receives image data through a callback function rather than directly
     accessing parent attributes.
-    
+
     Args:
         imageAxes: matplotlib axes object for the main image
         parent: parent widget (for Qt widget hierarchy, not data access)
         get_image_func: callable that returns current image (numpy array) or None
         dontShowMessage: whether to suppress the popup message
-    
+
     Signals:
         precise_coords_ready: emitted with (x, y) when precise coordinates are selected
     """
+
     # Signal emitted when precise coordinates are available from zoom window click
     # Args: (x, y) precise coordinates in image space
     precise_coords_ready = Signal(float, float)
-    
-    def __init__(self,
-        imageAxes=None,
-        parent=None,
-        get_image_func=None,
-        dontShowMessage=False):
+
+    def __init__(
+        self, imageAxes=None, parent=None, get_image_func=None, dontShowMessage=False
+    ):
         super().__init__()
 
         self._running = False
         self.imageAxes = imageAxes
         self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
-        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
+        self.imageCanvas = (
+            self.imageFigure.canvas if self.imageFigure is not None else None
+        )
 
         self.parent = parent
-        
+
         # Callback function to get current image data (decoupled from parent structure)
         self.get_image_func = get_image_func
 
@@ -85,11 +82,14 @@ class DoubleZoomWidget(QWidget):
         self.doubleZoomCheckbox.setToolTip(
             "Enable the double-zoom window (top-right inset).\n"
             "Click the main image to freeze the zoom window, then click inside it for sub-pixel precision.\n"
-            "Scroll inside the zoom window to change the magnification level.")
+            "Scroll inside the zoom window to change the magnification level."
+        )
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.doubleZoomCheckbox)
 
-        self.doubleZoomCheckbox.checkStateChanged.connect(self.handleDoubleZoomCheckedEvent)
+        self.doubleZoomCheckbox.checkStateChanged.connect(
+            self.handleDoubleZoomCheckedEvent
+        )
 
         # Mouse click point in main image
         self.mainImagePoint = (0, 0)
@@ -108,19 +108,19 @@ class DoubleZoomWidget(QWidget):
     def _get_current_image(self):
         """
         Get the current image using the callback function.
-        
+
         Returns:
             numpy.ndarray or None: Current image data
         """
         if self.get_image_func is None:
             return None
-        
+
         try:
             return self.get_image_func()
         except Exception as e:
             print(f"[DoubleZoom] Error getting image: {e}")
             return None
-    
+
     def is_running(self):
         """Check if the widget is currently active."""
         return self._running
@@ -129,7 +129,7 @@ class DoubleZoomWidget(QWidget):
         """
         Check if DoubleZoom is currently enabled (running).
         This is an alias for is_running() for backward compatibility.
-        
+
         Returns:
             bool: True if DoubleZoom is enabled
         """
@@ -138,24 +138,24 @@ class DoubleZoomWidget(QWidget):
     def set_running(self):
         """
         Enable DoubleZoom - create zoom window, content updates dynamically on mouse move.
-        
+
         Does not depend on center, avoiding crashes due to missing data.
         Zoom window content is automatically displayed when mouse moves over image.
         """
         self.doubleZoomCheckbox.setChecked(True)
-        
+
         # Create zoom window subplot
         if self.doubleZoomAxes is None:
             self.doubleZoomAxes = self.imageFigure.add_subplot(333)
-            self.doubleZoomAxes.set_aspect('equal', adjustable="box")
+            self.doubleZoomAxes.set_aspect("equal", adjustable="box")
             self.doubleZoomAxes.axes.xaxis.set_visible(False)
             self.doubleZoomAxes.axes.yaxis.set_visible(False)
             # Invert Y-axis once when creating axes (not when creating image)
             self.doubleZoomAxes.invert_yaxis()
-        
+
         # Reset image object for new session
         self.doubleZoomImage = None
-        
+
         self.imageCanvas.draw_idle()
         self._running = True
 
@@ -167,13 +167,13 @@ class DoubleZoomWidget(QWidget):
         if self.doubleZoomAxes is not None:
             self.imageFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomAxes = None
-        
+
         # Reset image object reference
         self.doubleZoomImage = None
-        
+
         # Reset crop radius to default
         self.crop_radius = 10
-        
+
         self.imageCanvas.draw_idle()
 
         self._running = False
@@ -184,7 +184,7 @@ class DoubleZoomWidget(QWidget):
             ax = self.imageAxes
 
         if labels:
-            for i in range(len(ax.lines)-1, -1, -1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 if ax.lines[i].get_label() in labels:
                     ax.lines[i].remove()
 
@@ -192,7 +192,7 @@ class DoubleZoomWidget(QWidget):
                 if p.get_label() in labels:
                     p.remove()
         else:
-            for i in range(len(ax.lines)-1, -1, -1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 ax.lines[i].remove()
 
             for p in ax.patches:
@@ -216,22 +216,22 @@ class DoubleZoomWidget(QWidget):
     def handle_mouse_button_press_event(self, mouse_event):
         """Legacy method - kept for compatibility"""
         pass
-    
+
     def handle_click(self, mouse_event) -> bool:
         """
         Handle click event. Returns True if event was consumed and should block other handlers.
-        
+
         Workflow:
         1. Click main image -> shows/freezes zoom window, returns True (blocks other handlers)
         2. Click zoom window -> emits precise_coords_ready signal, returns False (allows processing)
-        
+
         Args:
             mouse_event: The matplotlib mouse event
-        
+
         Returns:
             bool: True if event should block other handlers (waiting for zoom click)
                   False if event can propagate (idle or coordinates ready)
-        
+
         Usage in event pipeline:
             if self.doubleZoom.is_enabled():
                 if self.doubleZoom.handle_click(event):
@@ -240,10 +240,10 @@ class DoubleZoomWidget(QWidget):
         """
         if not self.is_enabled():
             return False
-        
+
         # Process the click
         self.handle_mouse_button_release_event(mouse_event)
-        
+
         # Return True to block if we're waiting for zoom window click
         return self.waiting_for_zoom_click
 
@@ -298,25 +298,25 @@ class DoubleZoomWidget(QWidget):
                 self.showPopup()
 
             self.mainImagePoint = (x, y)
-            
+
             # Display zoom window at clicked position and freeze it
             img = self._get_current_image()
             if img is not None:
                 self.drawDoubleZoomImage(x, y, img)
-            
+
             # Set waiting flag - zoom window is now frozen
             self.waiting_for_zoom_click = True
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
             # User clicked zoom window - calculate and emit precise coordinates
             self.doubleZoomPoint = (x, y)
-            
+
             # Calculate precise coordinates
             precise_x, precise_y = self._calculate_precise_coords()
-            
+
             # Reset waiting flag BEFORE emitting signal
             self.waiting_for_zoom_click = False
-            
+
             # Emit signal with precise coordinates
             self.precise_coords_ready.emit(precise_x, precise_y)
 
@@ -328,29 +328,33 @@ class DoubleZoomWidget(QWidget):
         """
         if not self.is_running():
             return
-        
+
         # Only handle scroll when mouse is over the zoom window
         if mouse_event.inaxes != self.doubleZoomAxes:
             return
-        
+
         # Get current image
         img = self._get_current_image()
         if img is None:
             return
-        
+
         # Adjust crop radius based on scroll direction
-        if mouse_event.button == 'up':
+        if mouse_event.button == "up":
             # Scroll up: zoom in (smaller crop area)
-            self.crop_radius = max(self.min_crop_radius, self.crop_radius - self.crop_radius_step)
-        elif mouse_event.button == 'down':
+            self.crop_radius = max(
+                self.min_crop_radius, self.crop_radius - self.crop_radius_step
+            )
+        elif mouse_event.button == "down":
             # Scroll down: zoom out (larger crop area)
-            self.crop_radius = min(self.max_crop_radius, self.crop_radius + self.crop_radius_step)
+            self.crop_radius = min(
+                self.max_crop_radius, self.crop_radius + self.crop_radius_step
+            )
         else:
             return
-        
+
         # Update the zoom window with new crop radius
         # Use the last main image point or current mouse position
-        if hasattr(self, 'last_zoom_position'):
+        if hasattr(self, "last_zoom_position"):
             x, y = self.last_zoom_position
             self.drawDoubleZoomImage(x, y, img)
             self.imageCanvas.draw_idle()
@@ -358,22 +362,22 @@ class DoubleZoomWidget(QWidget):
     def is_no_action_state(self, mouse_event):
         """
         Check if other operations should be blocked.
-        
+
         When DoubleZoom is waiting for user to click zoom window, block other operations.
         This method is kept for backward compatibility.
-        
+
         Args:
             mouse_event: matplotlib mouse event (unused, kept for compatibility)
-        
+
         Returns:
             bool: True if other operations should be blocked
         """
         return self.waiting_for_zoom_click
-    
+
     def is_blocking_other_actions(self) -> bool:
         """
         Check if other operations should be blocked.
-        
+
         Returns:
             bool: True if DoubleZoom is waiting for user action and should block other handlers
         """
@@ -381,16 +385,19 @@ class DoubleZoomWidget(QWidget):
 
     def showPopup(self):
         msg = QMessageBox()
-        msg.setInformativeText(
-            "Please click on zoomed window on the top right")
+        msg.setInformativeText("Please click on zoomed window on the top right")
         dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-        dontShowAgainDoubleZoomMessage.setToolTip("Suppress this guide popup in future double-zoom sessions")
+        dontShowAgainDoubleZoomMessage.setToolTip(
+            "Suppress this guide popup in future double-zoom sessions"
+        )
         msg.setStandardButtons(QMessageBox.Ok)
         msg.setWindowTitle("Double Zoom Guide")
         msg.setStyleSheet("QLabel{min-width: 500px;}")
         msg.setCheckBox(dontShowAgainDoubleZoomMessage)
         msg.exec()
-        self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
+        self.dontShowAgainDoubleZoomMessageResult = (
+            dontShowAgainDoubleZoomMessage.isChecked()
+        )
 
     def _calculate_precise_coords(self):
         """
@@ -400,28 +407,28 @@ class DoubleZoomWidget(QWidget):
         """
         dzx, dzy = self.mainImagePoint
         x, y = self.doubleZoomPoint
-        
+
         # Calculate scale factor: zoom window shows (radius*2) pixels in range [0, radius*2]
         # Original formula assumed radius=10, now we use actual crop_radius
         scale_factor = (self.crop_radius * 2) / 200  # 200 is the fixed display size
-        
+
         newX = dzx - self.crop_radius + x * scale_factor
         newY = dzy - self.crop_radius + y * scale_factor
-        
+
         return (newX, newY)
-    
+
     # Deprecated methods - kept for backward compatibility
     def doubleZoomToOrigCoord(self):
         """Deprecated: Use _calculate_precise_coords() or connect to precise_coords_ready signal"""
         return self._calculate_precise_coords()
-    
+
     def get_precise_coords(self) -> tuple:
         """
         Deprecated: Coordinates are now automatically emitted via precise_coords_ready signal.
         This method is kept for backward compatibility only.
         """
         return self._calculate_precise_coords()
-    
+
     def reset_for_next_click(self):
         """
         Deprecated: State is now automatically reset after emitting precise_coords_ready signal.
@@ -433,28 +440,28 @@ class DoubleZoomWidget(QWidget):
         self.remove_image_lines(ax=ax, labels=["DoubleZoom Blue Dot"])
 
         # Plot a blue dot at the given coordinates
-        ax.plot(x, y, 'bo', markersize=2, label="DoubleZoom Blue Dot")
+        ax.plot(x, y, "bo", markersize=2, label="DoubleZoom Blue Dot")
 
     def drawRedDot(self, x, y, ax):
-            axis_size = 1
+        axis_size = 1
 
-            x_lim = ax.get_xlim()
-            y_lim = ax.get_ylim()
-            
-            # Handle both normal and inverted axes by using actual min/max
-            x_lower, x_upper = min(x_lim), max(x_lim)
-            y_lower, y_upper = min(y_lim), max(y_lim)
+        x_lim = ax.get_xlim()
+        y_lim = ax.get_ylim()
 
-            # Clamp values so they stay inside axis bounds
-            x1 = max(x_lower, min(x - axis_size, x_upper))
-            x2 = max(x_lower, min(x + axis_size, x_upper))
-            y1 = max(y_lower, min(y - axis_size, y_upper))
-            y2 = max(y_lower, min(y + axis_size, y_upper))
+        # Handle both normal and inverted axes by using actual min/max
+        x_lower, x_upper = min(x_lim), max(x_lim)
+        y_lower, y_upper = min(y_lim), max(y_lim)
 
-            self.remove_image_lines(ax=ax, labels=["DoubleZoom Red Dot"])
+        # Clamp values so they stay inside axis bounds
+        x1 = max(x_lower, min(x - axis_size, x_upper))
+        x2 = max(x_lower, min(x + axis_size, x_upper))
+        y1 = max(y_lower, min(y - axis_size, y_upper))
+        y2 = max(y_lower, min(y + axis_size, y_upper))
 
-            ax.plot((x1, x2), (y1, y2), color='r', label="DoubleZoom Red Dot")
-            ax.plot((x1, x2), (y2, y1), color='r', label="DoubleZoom Red Dot")
+        self.remove_image_lines(ax=ax, labels=["DoubleZoom Red Dot"])
+
+        ax.plot((x1, x2), (y1, y2), color="r", label="DoubleZoom Red Dot")
+        ax.plot((x1, x2), (y2, y1), color="r", label="DoubleZoom Red Dot")
 
     def drawDoubleZoomImage(self, x, y, img):
         """
@@ -465,37 +472,46 @@ class DoubleZoomWidget(QWidget):
         """
         # Store last position for scroll zoom
         self.last_zoom_position = (x, y)
-        
+
         # Use dynamic crop_radius instead of hardcoded 10
         radius = self.crop_radius
-        
-        if x > radius and x < img.shape[1] - radius and y > radius and y < img.shape[0] - radius:
+
+        if (
+            x > radius
+            and x < img.shape[1] - radius
+            and y > radius
+            and y < img.shape[0] - radius
+        ):
             ax = self.doubleZoomAxes
             cx = round(x)
             cy = round(y)
-            
+
             # Crop using dynamic radius
-            imgCropped = img[cy - radius:cy + radius, cx - radius:cx + radius]
-            
-            if len(imgCropped) != 0 and imgCropped.shape[0] != 0 and imgCropped.shape[1] != 0:
+            imgCropped = img[cy - radius : cy + radius, cx - radius : cx + radius]
+
+            if (
+                len(imgCropped) != 0
+                and imgCropped.shape[0] != 0
+                and imgCropped.shape[1] != 0
+            ):
                 # Always scale to 200x200 for consistent zoom window size
                 target_size = 200
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (target_size, target_size))
-                
+                imgScaled = cv2.resize(
+                    imgCropped.astype("float32"), (target_size, target_size)
+                )
+
                 # Use local min/max from cropped region for intensity normalization
                 vmin = np.min(imgScaled)
                 vmax = np.max(imgScaled)
-                
+
                 # Create normalization based on local intensity range
                 norm = Normalize(vmin=vmin, vmax=vmax)
-                
+
                 # If image object doesn't exist, create it; otherwise update it
                 if self.doubleZoomImage is None:
                     # Use viridis colormap with local norm
                     self.doubleZoomImage = self.doubleZoomAxes.imshow(
-                        imgScaled, 
-                        cmap='viridis',
-                        norm=norm
+                        imgScaled, cmap="viridis", norm=norm
                     )
                     # Don't invert Y-axis here - already inverted when axes was created
                 else:
@@ -505,9 +521,10 @@ class DoubleZoomWidget(QWidget):
 
                 # Clean up red dot markers
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
+                    for i in range(len(ax.lines) - 1, -1, -1):
                         if ax.lines[i].get_label() == "Red Dot":
                             ax.lines[i].remove()
+
 
 def main():
     app = QApplication(sys.argv)
@@ -516,5 +533,5 @@ def main():
     app.exec()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

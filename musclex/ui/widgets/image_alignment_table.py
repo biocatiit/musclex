@@ -4,9 +4,13 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHeaderView, QSizePolicy,
-    QStyledItemDelegate, QStyleOptionViewItem,
-    QTableWidget, QTableWidgetItem,
+    QAbstractItemView,
+    QHeaderView,
+    QSizePolicy,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QTableWidget,
+    QTableWidgetItem,
 )
 
 
@@ -21,7 +25,8 @@ class _ElideMiddleDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         text = index.data(Qt.DisplayRole) or ""
         elided = option.fontMetrics.elidedText(
-            text, Qt.ElideMiddle, option.rect.width() - 6)
+            text, Qt.ElideMiddle, option.rect.width() - 6
+        )
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
         opt.text = elided
@@ -29,26 +34,26 @@ class _ElideMiddleDelegate(QStyledItemDelegate):
 
 
 class ColKey:
-    FRAME = 'FRAME'
-    CENTER = 'CENTER'
-    CENTER_MODE = 'CENTER_MODE'
-    CENTER_DIST = 'CENTER_DIST'
-    AUTO_CENTER = 'AUTO_CENTER'
-    AUTO_MANUAL_DIST = 'AUTO_MANUAL_DIST'
-    ROTATION = 'ROTATION'
-    ROTATION_MODE = 'ROTATION_MODE'
-    ROTATION_DIFF = 'ROTATION_DIFF'
-    AUTO_ROTATION = 'AUTO_ROTATION'
-    AUTO_ROT_DIFF = 'AUTO_ROT_DIFF'
-    SIZE = 'SIZE'
-    IMAGE_DIFF = 'IMAGE_DIFF'
+    FRAME = "FRAME"
+    CENTER = "CENTER"
+    CENTER_MODE = "CENTER_MODE"
+    CENTER_DIST = "CENTER_DIST"
+    AUTO_CENTER = "AUTO_CENTER"
+    AUTO_MANUAL_DIST = "AUTO_MANUAL_DIST"
+    ROTATION = "ROTATION"
+    ROTATION_MODE = "ROTATION_MODE"
+    ROTATION_DIFF = "ROTATION_DIFF"
+    AUTO_ROTATION = "AUTO_ROTATION"
+    AUTO_ROT_DIFF = "AUTO_ROT_DIFF"
+    SIZE = "SIZE"
+    IMAGE_DIFF = "IMAGE_DIFF"
     # Sum of per-pixel std-deviation across the 4 quadrants computed before
     # actual folding. Lower is better (perfectly symmetric image -> 0).
-    FOLD_STD = 'FOLD_STD'
+    FOLD_STD = "FOLD_STD"
     # Normalised version: fold_std_sum / (N_fg × μ_fg), where the foreground
     # mask is derived from Otsu thresholding on the average-quadrant image.
     # Dimensionless — comparable across different exposures and image sizes.
-    FOLD_STD_NORM = 'FOLD_STD_NORM'
+    FOLD_STD_NORM = "FOLD_STD_NORM"
 
 
 class ImageAlignmentTable(QTableWidget):
@@ -106,8 +111,9 @@ class ImageAlignmentTable(QTableWidget):
         else:
             self.setItem(row, c, QTableWidgetItem(""))
 
-    def fill_auto_manual_dist(self, row, auto_center, effective_center,
-                              dist_thresh_enabled, dist_thresh):
+    def fill_auto_manual_dist(
+        self, row, auto_center, effective_center, dist_thresh_enabled, dist_thresh
+    ):
         """Fill auto-vs-effective center distance; highlight if over threshold."""
         c = self._col[ColKey.AUTO_MANUAL_DIST]
         if auto_center is not None and effective_center is not None:
@@ -141,8 +147,9 @@ class ImageAlignmentTable(QTableWidget):
         else:
             self.setItem(row, c, QTableWidgetItem(""))
 
-    def fill_auto_rot_diff(self, row, auto_rotation, effective_rotation,
-                           rot_thresh_enabled, rot_thresh):
+    def fill_auto_rot_diff(
+        self, row, auto_rotation, effective_rotation, rot_thresh_enabled, rot_thresh
+    ):
         """Fill auto-vs-effective rotation difference; highlight if over threshold."""
         c = self._col[ColKey.AUTO_ROT_DIFF]
         if auto_rotation is not None and effective_rotation is not None:
@@ -155,8 +162,9 @@ class ImageAlignmentTable(QTableWidget):
         else:
             self.setItem(row, c, QTableWidgetItem(""))
 
-    def fill_distance_deviation(self, row, effective_center, effective_rotation,
-                                base_center, base_rotation):
+    def fill_distance_deviation(
+        self, row, effective_center, effective_rotation, base_center, base_rotation
+    ):
         """Fill center-distance and rotation-diff relative to the global base."""
         c_dist = self._col[ColKey.CENTER_DIST]
         c_rot_diff = self._col[ColKey.ROTATION_DIFF]
@@ -175,8 +183,7 @@ class ImageAlignmentTable(QTableWidget):
         if base_rotation is not None:
             if effective_rotation is not None:
                 deviation = effective_rotation - base_rotation
-                self.setItem(row, c_rot_diff,
-                             QTableWidgetItem(f"{deviation:.2f}°"))
+                self.setItem(row, c_rot_diff, QTableWidgetItem(f"{deviation:.2f}°"))
             else:
                 self.setItem(row, c_rot_diff, QTableWidgetItem(""))
         else:
@@ -196,16 +203,17 @@ class ImageAlignmentTable(QTableWidget):
         c = self._col[ColKey.IMAGE_DIFF]
         text = f"{diff_val:.4f}" if diff_val is not None else ""
         item = QTableWidgetItem(text)
-        if (diff_val is not None
-                and diff_thresh_enabled
-                and diff_thresh_value > 0
-                and diff_val > diff_thresh_value):
+        if (
+            diff_val is not None
+            and diff_thresh_enabled
+            and diff_thresh_value > 0
+            and diff_val > diff_thresh_value
+        ):
             item.setBackground(QBrush(QColor(255, 100, 100)))
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.setItem(row, c, item)
 
-    def fill_fold_std_norm(self, row, norm_val,
-                           thresh_enabled=False, thresh_value=0.0):
+    def fill_fold_std_norm(self, row, norm_val, thresh_enabled=False, thresh_value=0.0):
         """Fill the FOLD_STD_NORM column; optionally highlight if above threshold.
 
         Displays the normalised symmetry score fold_std_sum / (N_fg × μ_fg).
@@ -225,10 +233,12 @@ class ImageAlignmentTable(QTableWidget):
         else:
             text = f"{norm_val:.4g}"
         item = QTableWidgetItem(text)
-        if (norm_val is not None
-                and thresh_enabled
-                and thresh_value > 0
-                and norm_val > thresh_value):
+        if (
+            norm_val is not None
+            and thresh_enabled
+            and thresh_value > 0
+            and norm_val > thresh_value
+        ):
             item.setBackground(QBrush(QColor(255, 100, 100)))
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.setItem(row, c, item)
@@ -250,10 +260,12 @@ class ImageAlignmentTable(QTableWidget):
         else:
             text = f"{std_val:.4g}"
         item = QTableWidgetItem(text)
-        if (std_val is not None
-                and thresh_enabled
-                and thresh_value > 0
-                and std_val > thresh_value):
+        if (
+            std_val is not None
+            and thresh_enabled
+            and thresh_value > 0
+            and std_val > thresh_value
+        ):
             item.setBackground(QBrush(QColor(255, 100, 100)))
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.setItem(row, c, item)
@@ -272,11 +284,19 @@ class ImageAlignmentTable(QTableWidget):
                 self.setItem(row, c, item)
             item.setForeground(dim)
 
-    def apply_threshold_highlighting(self, dist_enabled, dist_thresh,
-                                     rot_enabled, rot_thresh,
-                                     diff_enabled, diff_thresh,
-                                     symmetry_enabled=False, symmetry_thresh=0.0,
-                                     norm_enabled=False, norm_thresh=0.0):
+    def apply_threshold_highlighting(
+        self,
+        dist_enabled,
+        dist_thresh,
+        rot_enabled,
+        rot_thresh,
+        diff_enabled,
+        diff_thresh,
+        symmetry_enabled=False,
+        symmetry_thresh=0.0,
+        norm_enabled=False,
+        norm_thresh=0.0,
+    ):
         """Re-apply (or clear) red highlighting based on threshold values.
 
         @param symmetry_enabled: when True the FOLD_STD column is highlighted
@@ -338,8 +358,11 @@ class ImageAlignmentTable(QTableWidget):
                 if sym_item and sym_item.text():
                     try:
                         val = float(sym_item.text())
-                        if (symmetry_enabled and symmetry_thresh > 0
-                                and val > symmetry_thresh):
+                        if (
+                            symmetry_enabled
+                            and symmetry_thresh > 0
+                            and val > symmetry_thresh
+                        ):
                             sym_item.setBackground(_red_bg)
                             sym_item.setForeground(_red_fg)
                         else:
@@ -353,8 +376,7 @@ class ImageAlignmentTable(QTableWidget):
                 if norm_item and norm_item.text():
                     try:
                         val = float(norm_item.text())
-                        if (norm_enabled and norm_thresh > 0
-                                and val > norm_thresh):
+                        if norm_enabled and norm_thresh > 0 and val > norm_thresh:
                             norm_item.setBackground(_red_bg)
                             norm_item.setForeground(_red_fg)
                         else:
@@ -363,8 +385,7 @@ class ImageAlignmentTable(QTableWidget):
                     except ValueError:
                         pass
 
-    def apply_misaligned_highlight(self, row, name, misaligned_names,
-                                   skip_col=0):
+    def apply_misaligned_highlight(self, row, name, misaligned_names, skip_col=0):
         """Colour data columns red if the image is in *misaligned_names*."""
         if not misaligned_names:
             return
@@ -385,7 +406,7 @@ class ImageAlignmentTable(QTableWidget):
         if item is None:
             return
         base = os.path.basename(name)
-        base_name = base_image_filename or ''
+        base_name = base_image_filename or ""
         is_base = (base == os.path.basename(base_name)) if base_name else False
         display = os.path.basename(name)
         if is_base:

@@ -29,15 +29,18 @@ authorization from Illinois Institute of Technology.
 from os.path import exists
 import pandas as pd
 import numpy as np
+
 try:
     from ..utils.file_manager import fullPath, createFolder
-except: # for coverage
+except:  # for coverage
     from utils.file_manager import fullPath, createFolder
+
 
 class PT_CSVManager:
     """
     A class taking care of writing results including csv file of Projection Traces
     """
+
     def __init__(self, dir_path, boxes):
         """
         init with directory path
@@ -47,8 +50,8 @@ class PT_CSVManager:
         self.dataframe = None
         result_path = fullPath(dir_path, "pt_results")
         createFolder(result_path)
-        self.filename = fullPath(result_path, 'summary.csv')
-        self.center_filename = fullPath(result_path, 'center_log.csv')
+        self.filename = fullPath(result_path, "summary.csv")
+        self.center_filename = fullPath(result_path, "center_log.csv")
         self.center_dataframe = None
         self.setColumnNames(boxes=boxes)
         self.loadSummary()
@@ -67,30 +70,92 @@ class PT_CSVManager:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
                 for i in range(len(box.peaks)):
-                    side = " right" if i%2 == 0 else " left"
-                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (nm)")
-                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i//2) + side + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i//2) + side + " (nm)")
-                    self.colnames.append("Box " + str(box_name) + " Centroid Area " + str(i//2) + side)
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i//2) + side + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i//2) + side + " (nm)")
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Sigma " + str(i//2) + side)
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Area " + str(i//2) + side)
-                    if i%2 == 1:
-                        self.colnames.append("Box " + str(box_name) + " Average Centroid Area " + str(i//2))
-                        self.colnames.append("Box " + str(box_name) + " Average Gaussian Area " + str(i//2))
-                self.colnames.append ("Box " + str(box_name) + " Background Sigma")
-                self.colnames.append ("Box " + str(box_name) + " Background Amplitude")
-                self.colnames.append ("Box " + str(box_name) + " Meridian Background Sigma")
-                self.colnames.append ("Box " + str(box_name) + " Meridian Background Amplitude")
-                self.colnames.append ("Box " + str(box_name) + " Meridian Amplitude")
+                    side = " right" if i % 2 == 0 else " left"
+                    self.colnames.append(
+                        "Box "
+                        + str(box_name)
+                        + " Maximum Point "
+                        + str(i // 2)
+                        + side
+                        + " (Pixel)"
+                    )
+                    self.colnames.append(
+                        "Box "
+                        + str(box_name)
+                        + " Maximum Point "
+                        + str(i // 2)
+                        + side
+                        + " (nm)"
+                    )
+                    self.colnames.append(
+                        "Box "
+                        + str(box_name)
+                        + " Centroid "
+                        + str(i // 2)
+                        + side
+                        + " (Pixel)"
+                    )
+                    self.colnames.append(
+                        "Box "
+                        + str(box_name)
+                        + " Centroid "
+                        + str(i // 2)
+                        + side
+                        + " (nm)"
+                    )
+                    self.colnames.append(
+                        "Box " + str(box_name) + " Centroid Area " + str(i // 2) + side
+                    )
+                    self.colnames.append(
+                        "Box "
+                        + str(box_name)
+                        + " Gaussian Peak "
+                        + str(i // 2)
+                        + side
+                        + " (Pixel)"
+                    )
+                    self.colnames.append(
+                        "Box "
+                        + str(box_name)
+                        + " Gaussian Peak "
+                        + str(i // 2)
+                        + side
+                        + " (nm)"
+                    )
+                    self.colnames.append(
+                        "Box " + str(box_name) + " Gaussian Sigma " + str(i // 2) + side
+                    )
+                    self.colnames.append(
+                        "Box " + str(box_name) + " Gaussian Area " + str(i // 2) + side
+                    )
+                    if i % 2 == 1:
+                        self.colnames.append(
+                            "Box "
+                            + str(box_name)
+                            + " Average Centroid Area "
+                            + str(i // 2)
+                        )
+                        self.colnames.append(
+                            "Box "
+                            + str(box_name)
+                            + " Average Gaussian Area "
+                            + str(i // 2)
+                        )
+                self.colnames.append("Box " + str(box_name) + " Background Sigma")
+                self.colnames.append("Box " + str(box_name) + " Background Amplitude")
+                self.colnames.append(
+                    "Box " + str(box_name) + " Meridian Background Sigma"
+                )
+                self.colnames.append(
+                    "Box " + str(box_name) + " Meridian Background Amplitude"
+                )
+                self.colnames.append("Box " + str(box_name) + " Meridian Amplitude")
                 self.colnames.append("Box " + str(box_name) + " error")
                 self.colnames.append("Box " + str(box_name) + " comments")
-        
+
         # Global reject column (used for image-level reject status)
         self.colnames.append("reject")
-        
+
         # Global comments column (after reject, last column)
         self.colnames.append("comments")
 
@@ -100,7 +165,7 @@ class PT_CSVManager:
         :return:
         """
         if not exists(self.filename):
-            self.dataframe = pd.DataFrame(columns = self.colnames)
+            self.dataframe = pd.DataFrame(columns=self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
 
@@ -121,48 +186,119 @@ class PT_CSVManager:
         """
         file_name = projProc.filename
         self.removeData(file_name)
-        new_data = {
-            'Filename' : file_name
-        }
+        new_data = {"Filename": file_name}
 
         for bn, box in projProc.boxes.items():
             if box.fit_results is not None:
                 model = box.fit_results
-                new_data['Box ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
-                new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
+                new_data["Box " + str(bn) + " Meridian Sigma"] = model["center_sigma2"]
+                new_data["Box " + str(bn) + " Meridian Area"] = model[
+                    "center_amplitude2"
+                ]
                 if box.centroids is not None:
                     centroids = box.centroids
-                    moved_peaks = np.array(box.moved_peaks) - model['centerX']
+                    moved_peaks = np.array(box.moved_peaks) - model["centerX"]
                     n_peaks = len(centroids)
-                    n_per_side = n_peaks // 2  # First half = right, second half = left (from _expand_peaks_mirrored)
+                    n_per_side = (
+                        n_peaks // 2
+                    )  # First half = right, second half = left (from _expand_peaks_mirrored)
                     for i, c in enumerate(centroids):
                         is_right = i < n_per_side
                         side = " right" if is_right else " left"
                         peak_num = i if is_right else (i - n_per_side)
-                        new_data["Box " + str(bn) + " Maximum Point " + str(peak_num) + side + " (Pixel)"] = moved_peaks[i]
-                        new_data["Box " + str(bn) + " Centroid " + str(peak_num) + side + " (Pixel)"] = c
-                        new_data["Box " + str(bn) + " Centroid Area " + str(peak_num) + side] = box.areas[i]
-                        new_data["Box " + str(bn) + " Gaussian Peak " + str(peak_num) + side + " (Pixel)"] = model['p_'+str(i)]
-                        new_data["Box " + str(bn) + " Gaussian Sigma " + str(peak_num) + side] = model['sigma'+str(i)]
-                        new_data["Box " + str(bn) + " Gaussian Area " + str(peak_num) + side] = model['amplitude'+str(i)]
+                        new_data[
+                            "Box "
+                            + str(bn)
+                            + " Maximum Point "
+                            + str(peak_num)
+                            + side
+                            + " (Pixel)"
+                        ] = moved_peaks[i]
+                        new_data[
+                            "Box "
+                            + str(bn)
+                            + " Centroid "
+                            + str(peak_num)
+                            + side
+                            + " (Pixel)"
+                        ] = c
+                        new_data[
+                            "Box " + str(bn) + " Centroid Area " + str(peak_num) + side
+                        ] = box.areas[i]
+                        new_data[
+                            "Box "
+                            + str(bn)
+                            + " Gaussian Peak "
+                            + str(peak_num)
+                            + side
+                            + " (Pixel)"
+                        ] = model["p_" + str(i)]
+                        new_data[
+                            "Box " + str(bn) + " Gaussian Sigma " + str(peak_num) + side
+                        ] = model["sigma" + str(i)]
+                        new_data[
+                            "Box " + str(bn) + " Gaussian Area " + str(peak_num) + side
+                        ] = model["amplitude" + str(i)]
                         if projProc.state.lambda_sdd is not None:
-                            new_data["Box " + str(bn) + " Maximum Point " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd/moved_peaks[i]
-                            new_data["Box " + str(bn) + " Centroid " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd/c
-                            new_data["Box " + str(bn) + " Gaussian Peak " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd / model['p_' + str(i)]
+                            new_data[
+                                "Box "
+                                + str(bn)
+                                + " Maximum Point "
+                                + str(peak_num)
+                                + side
+                                + " (nm)"
+                            ] = (projProc.state.lambda_sdd / moved_peaks[i])
+                            new_data[
+                                "Box "
+                                + str(bn)
+                                + " Centroid "
+                                + str(peak_num)
+                                + side
+                                + " (nm)"
+                            ] = (projProc.state.lambda_sdd / c)
+                            new_data[
+                                "Box "
+                                + str(bn)
+                                + " Gaussian Peak "
+                                + str(peak_num)
+                                + side
+                                + " (nm)"
+                            ] = (projProc.state.lambda_sdd / model["p_" + str(i)])
                         if not is_right:
                             mirror_idx = peak_num  # Right peak at same peak_num
-                            new_data["Box " + str(bn) + " Average Centroid Area " + str(peak_num)] = (box.areas[i] + box.areas[mirror_idx])/2
-                            new_data["Box " + str(bn) + " Average Gaussian Area " + str(peak_num)] = (model['amplitude'+str(i)] + model['amplitude'+str(mirror_idx)])/2
-                new_data["Box " + str(bn) + " error"] = model['error']
-                if model['error'] > 0.15:
+                            new_data[
+                                "Box "
+                                + str(bn)
+                                + " Average Centroid Area "
+                                + str(peak_num)
+                            ] = (box.areas[i] + box.areas[mirror_idx]) / 2
+                            new_data[
+                                "Box "
+                                + str(bn)
+                                + " Average Gaussian Area "
+                                + str(peak_num)
+                            ] = (
+                                model["amplitude" + str(i)]
+                                + model["amplitude" + str(mirror_idx)]
+                            ) / 2
+                new_data["Box " + str(bn) + " error"] = model["error"]
+                if model["error"] > 0.15:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
 
-                new_data["Box " + str(bn) + " Background Sigma"] = model['bg_sigma']
-                new_data["Box " + str(bn) + " Background Amplitude"] = model['bg_amplitude']
-                new_data["Box " + str(bn) + " Meridian Background Sigma"] = model['center_sigma1']
-                new_data["Box " + str(bn) + " Meridian Background Amplitude"] = model['center_amplitude1']
-                new_data["Box " + str(bn) + " Meridian Sigma"] = model['center_sigma2']
-                new_data["Box " + str(bn) + " Meridian Amplitude"] = model['center_amplitude2']
+                new_data["Box " + str(bn) + " Background Sigma"] = model["bg_sigma"]
+                new_data["Box " + str(bn) + " Background Amplitude"] = model[
+                    "bg_amplitude"
+                ]
+                new_data["Box " + str(bn) + " Meridian Background Sigma"] = model[
+                    "center_sigma1"
+                ]
+                new_data["Box " + str(bn) + " Meridian Background Amplitude"] = model[
+                    "center_amplitude1"
+                ]
+                new_data["Box " + str(bn) + " Meridian Sigma"] = model["center_sigma2"]
+                new_data["Box " + str(bn) + " Meridian Amplitude"] = model[
+                    "center_amplitude2"
+                ]
 
         # Global reject: write reject status from ProcessingState
         if projProc.state.rejected:
@@ -175,12 +311,16 @@ class PT_CSVManager:
 
         for col in self.colnames:
             if col not in new_data:
-                new_data[col] = '-'
+                new_data[col] = "-"
 
-        self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([pd.Series(new_data)])])
+        self.dataframe = pd.concat(
+            [self.dataframe, pd.DataFrame.from_records([pd.Series(new_data)])]
+        )
         # self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
-        self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
+        self.dataframe.to_csv(
+            self.filename, index=False, columns=self.colnames
+        )  # Write to csv file
 
         self.writeCenterData(projProc)
 
@@ -201,14 +341,14 @@ class PT_CSVManager:
 
         for bn, box in projProc.boxes.items():
             coords = box.coordinates
-            if box.type == 'h':
+            if box.type == "h":
                 start_x = coords[0][0]
                 box_centerX = cx - start_x
-            elif box.type == 'oriented':
+            elif box.type == "oriented":
                 start_x = coords[0][0]
                 box_centerX = coords[6][0] - start_x
             else:
-                if box.type == 'v':
+                if box.type == "v":
                     start_y = coords[1][0]
                 else:
                     start_y = coords[0][1]
@@ -221,8 +361,7 @@ class PT_CSVManager:
             ]
 
         self.center_dataframe = pd.concat(
-            [self.center_dataframe, pd.DataFrame([row])],
-            ignore_index=True
+            [self.center_dataframe, pd.DataFrame([row])], ignore_index=True
         )
         self.center_dataframe.to_csv(self.center_filename, index=False)
 
@@ -233,13 +372,13 @@ class PT_CSVManager:
         :return:
         """
         self.dataframe = self.dataframe[self.dataframe["Filename"] != file_name]
-        
+
     def sortCSV(self):
         if exists(self.filename):
             df = pd.read_csv(self.filename)
-            df.sort_values(by='Filename', inplace=True)
+            df.sort_values(by="Filename", inplace=True)
             df.to_csv(self.filename, index=False)
         if exists(self.center_filename):
             df = pd.read_csv(self.center_filename)
-            df.sort_values(by='Filename', inplace=True)
+            df.sort_values(by="Filename", inplace=True)
             df.to_csv(self.center_filename, index=False)

@@ -17,44 +17,44 @@ Schema invariant enforced by tests:
 
 # (json_key, widget_attr) -- widget value goes through .value()/.setValue()
 QF_SPINBOX_BINDINGS = (
-    ('cirmin',                    'minPixRange'),
-    ('cirmax',                    'maxPixRange'),
-    ('win_size_x',                'winSizeX'),
-    ('win_size_y',                'winSizeY'),
-    ('win_sep_x',                 'winSepX'),
-    ('win_sep_y',                 'winSepY'),
-    ('radial_bin',                'radialBinSpnBx'),
-    ('smooth',                    'smoothSpnBx'),
-    ('tension',                   'tensionSpnBx'),
-    ('tophat',                    'tophatSpnBx'),
-    ('fwhm',                      'gaussFWHM'),
-    ('boxcar_x',                  'boxcarX'),
-    ('boxcar_y',                  'boxcarY'),
-    ('cycles',                    'cycle'),
-    ('cirmin_out',                'minPixRangeOut'),
-    ('cirmax_out',                'maxPixRangeOut'),
-    ('win_size_x_out',            'winSizeOutX'),
-    ('win_size_y_out',            'winSizeOutY'),
-    ('win_sep_x_out',             'winSepOutX'),
-    ('win_sep_y_out',             'winSepOutY'),
-    ('radial_bin_out',            'radialBinOutSpnBx'),
-    ('smooth_out',                'smoothOutSpnBx'),
-    ('tension_out',               'tensionOutSpnBx'),
-    ('tophat_out',                'tophatOutSpnBx'),
-    ('fwhm_out',                  'gaussFWHMOut'),
-    ('boxcar_x_out',              'boxcarOutX'),
-    ('boxcar_y_out',              'boxcarOutY'),
-    ('cycles_out',                'cycleOut'),
-    ('transition_radius',         'tranRSpnBx'),
-    ('transition_delta',          'tranDeltaSpnBx'),
-    ('max_iterations',            'maxIterationsSpnBx'),
-    ('early_stop',                'earlyStopSpnBx'),
-    ('equator_mask_height',       'equatorMaskHeightSpnBx'),
-    ('equator_center_beam_width', 'equatorCenterBeamSpnBx'),
-    ('m1',                        'm1SpnBx'),
-    ('layer_line_width',          'layerLineWidthSpnBx'),
-    ('fixed_rmin',                'rminSpnBx'),
-    ('fixed_rmax',                'rmaxSpnBx'),
+    ("cirmin", "minPixRange"),
+    ("cirmax", "maxPixRange"),
+    ("win_size_x", "winSizeX"),
+    ("win_size_y", "winSizeY"),
+    ("win_sep_x", "winSepX"),
+    ("win_sep_y", "winSepY"),
+    ("radial_bin", "radialBinSpnBx"),
+    ("smooth", "smoothSpnBx"),
+    ("tension", "tensionSpnBx"),
+    ("tophat", "tophatSpnBx"),
+    ("fwhm", "gaussFWHM"),
+    ("boxcar_x", "boxcarX"),
+    ("boxcar_y", "boxcarY"),
+    ("cycles", "cycle"),
+    ("cirmin_out", "minPixRangeOut"),
+    ("cirmax_out", "maxPixRangeOut"),
+    ("win_size_x_out", "winSizeOutX"),
+    ("win_size_y_out", "winSizeOutY"),
+    ("win_sep_x_out", "winSepOutX"),
+    ("win_sep_y_out", "winSepOutY"),
+    ("radial_bin_out", "radialBinOutSpnBx"),
+    ("smooth_out", "smoothOutSpnBx"),
+    ("tension_out", "tensionOutSpnBx"),
+    ("tophat_out", "tophatOutSpnBx"),
+    ("fwhm_out", "gaussFWHMOut"),
+    ("boxcar_x_out", "boxcarOutX"),
+    ("boxcar_y_out", "boxcarOutY"),
+    ("cycles_out", "cycleOut"),
+    ("transition_radius", "tranRSpnBx"),
+    ("transition_delta", "tranDeltaSpnBx"),
+    ("max_iterations", "maxIterationsSpnBx"),
+    ("early_stop", "earlyStopSpnBx"),
+    ("equator_mask_height", "equatorMaskHeightSpnBx"),
+    ("equator_center_beam_width", "equatorCenterBeamSpnBx"),
+    ("m1", "m1SpnBx"),
+    ("layer_line_width", "layerLineWidthSpnBx"),
+    ("fixed_rmin", "rminSpnBx"),
+    ("fixed_rmax", "rmaxSpnBx"),
 )
 
 
@@ -73,43 +73,45 @@ def _degree_to_combo(value):
 
 # (json_key, widget_attr, to_combo_text)
 QF_COMBO_TEXT_BINDINGS = (
-    ('bgsub',      'bgChoiceIn',   str),
-    ('bgsub_out',  'bgChoiceOut',  str),
-    ('degree',     'degreeCB',     _degree_to_combo),
-    ('downsample', 'downsampleCB', lambda v: str(int(v))),
-    ('freq',       'freqCB',       str),
+    ("bgsub", "bgChoiceIn", str),
+    ("bgsub_out", "bgChoiceOut", str),
+    ("degree", "degreeCB", _degree_to_combo),
+    ("downsample", "downsampleCB", lambda v: str(int(v))),
+    ("freq", "freqCB", str),
 )
 
 
 # (json_key, widget_attr) -- via .isChecked()/.setChecked()
 QF_CHECKBOX_BINDINGS = (
-    ('smooth_image',               'smoothImageChkbx'),
-    ('optimize_each_image',        'optimizeEachImageChkBx'),
-    ('choose_configurations_auto', 'chooseConfigurationsAutoChkBx'),
-    ('persist_evaluation_baseline','persistEvaluationBaselineChkBx'),
-    ('persist_synthetic_data',     'persistSyntheticDataChkBx'),
-    ('save_metrics_to_csv',        'saveMetricsToCsvChkBx'),
-    ('compressed',                 'compressFoldedImageChkBx'),
+    ("smooth_image", "smoothImageChkbx"),
+    ("optimize_each_image", "optimizeEachImageChkBx"),
+    ("choose_configurations_auto", "chooseConfigurationsAutoChkBx"),
+    ("persist_evaluation_baseline", "persistEvaluationBaselineChkBx"),
+    ("persist_synthetic_data", "persistSyntheticDataChkBx"),
+    ("save_metrics_to_csv", "saveMetricsToCsvChkBx"),
+    ("compressed", "compressFoldedImageChkBx"),
 )
 
 
 # Keys handled by custom logic in loadSettings() (not in the simple
 # binding tables): nested dicts, lists, mode switches, paired widgets.
-QF_SPECIAL_KEYS = frozenset({
-    'mean_metric_values',         # nested dict, see _sync_metric_and_synthetic_widgets_from_info
-    'metric_weights',             # nested dict, ditto
-    'methods',                    # list -> _set_selected_optimization_methods
-    'steps',                      # list -> stepsLineEdit.setText
-    'bg_options',                 # combo .setCurrentIndex; triggers _on_bg_options_changed
-    'optimize',                   # not a widget: self.optimizeFlag
-    'background_configurations',  # nested list of configs -> bgSubDialog
-    'fixed_roi_w',                # paired with fixedRoiChkBx + fixedRoiW spinbox
-    'fixed_roi_h',
-    'synthetic_amplitude',        # see _sync_metric_and_synthetic_widgets_from_info
-    'synthetic_sigma_x',
-    'synthetic_sigma_y',
-    'evaluation_baseline',
-})
+QF_SPECIAL_KEYS = frozenset(
+    {
+        "mean_metric_values",  # nested dict, see _sync_metric_and_synthetic_widgets_from_info
+        "metric_weights",  # nested dict, ditto
+        "methods",  # list -> _set_selected_optimization_methods
+        "steps",  # list -> stepsLineEdit.setText
+        "bg_options",  # combo .setCurrentIndex; triggers _on_bg_options_changed
+        "optimize",  # not a widget: self.optimizeFlag
+        "background_configurations",  # nested list of configs -> bgSubDialog
+        "fixed_roi_w",  # paired with fixedRoiChkBx + fixedRoiW spinbox
+        "fixed_roi_h",
+        "synthetic_amplitude",  # see _sync_metric_and_synthetic_widgets_from_info
+        "synthetic_sigma_x",
+        "synthetic_sigma_y",
+        "evaluation_baseline",
+    }
+)
 
 
 # Per-image / runtime state that may appear in older or hand-edited
@@ -127,13 +129,27 @@ QF_SPECIAL_KEYS = frozenset({
 # without complaining, while calibration consumers (Calibration
 # Settings dialog, EquatorWindow, etc.) still find them via their
 # own code paths.
-QF_SKIP_KEYS = frozenset({
-    'orientation_model', 'ignore_folds', 'blank_mask', 'apply_mask',
-    'mode_angle', 'roi_w', 'roi_h', 'detector', 'center',
-    'fold_image', 'rotate',
-    'batch_processing', 'force_recalc_bg', 'manual_background_assignments',
-    'silverB', 'radius', 'type',
-})
+QF_SKIP_KEYS = frozenset(
+    {
+        "orientation_model",
+        "ignore_folds",
+        "blank_mask",
+        "apply_mask",
+        "mode_angle",
+        "roi_w",
+        "roi_h",
+        "detector",
+        "center",
+        "fold_image",
+        "rotate",
+        "batch_processing",
+        "force_recalc_bg",
+        "manual_background_assignments",
+        "silverB",
+        "radius",
+        "type",
+    }
+)
 
 
 def qf_setting_keys():
@@ -170,15 +186,15 @@ def classify_qf_setting_key(key):
     """
     for k, _ in QF_SPINBOX_BINDINGS:
         if k == key:
-            return 'spinbox'
+            return "spinbox"
     for k, *_ in QF_COMBO_TEXT_BINDINGS:
         if k == key:
-            return 'combo'
+            return "combo"
     for k, _ in QF_CHECKBOX_BINDINGS:
         if k == key:
-            return 'checkbox'
+            return "checkbox"
     if key in QF_SPECIAL_KEYS:
-        return 'special'
+        return "special"
     if key in QF_SKIP_KEYS:
-        return 'skip'
-    return 'unknown'
+        return "skip"
+    return "unknown"

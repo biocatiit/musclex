@@ -67,7 +67,7 @@ def _print_eq_headless_help():
     # Resolve the effective worker limit using the same logic as
     # EQStartWindowh._resolve_worker_limit, so the printed value
     # matches what a real run would actually use.
-    env_val = os.environ.get('MUSCLEX_WORKERS')
+    env_val = os.environ.get("MUSCLEX_WORKERS")
     try:
         cpu_n = multiprocessing.cpu_count() or 2
     except NotImplementedError:
@@ -82,7 +82,9 @@ def _print_eq_headless_help():
             worker_source = f"MUSCLEX_WORKERS={env_val!r} is invalid, using default"
     else:
         resolved = max(1, cpu_n - 2)
-        worker_source = f"default (cpu_count {cpu_n} - 2; set MUSCLEX_WORKERS to override)"
+        worker_source = (
+            f"default (cpu_count {cpu_n} - 2; set MUSCLEX_WORKERS to override)"
+        )
 
     lines = [
         "",
@@ -124,8 +126,19 @@ def _print_eq_headless_help():
 
 
 def main(arguments=None):
-    in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
-    h5_types = ['.h5', '.hdf5']
+    in_types = [
+        ".adsc",
+        ".cbf",
+        ".edf",
+        ".fit2d",
+        ".mar345",
+        ".marccd",
+        ".pilatus",
+        ".tif",
+        ".tiff",
+        ".smv",
+    ]
+    h5_types = [".h5", ".hdf5"]
     if arguments is None:
         arguments = sys.argv
     run = True
@@ -140,101 +153,114 @@ def main(arguments=None):
             myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
             sys.exit(app.exec_())
         """
-        if prog == 'eq':
+        if prog == "eq":
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.EQStartWindow import EQStartWindow
-            myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
+
+            myapp = (
+                EQStartWindow()
+            )  # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
             sys.exit(app.exec_())
-        elif prog == 'qf':
+        elif prog == "qf":
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
+
             myapp = QuadrantFoldingGUI()
             sys.exit(app.exec())
-        elif prog == 'di':
+        elif prog == "di":
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
-            from musclex.ui.ScanningDiffractionGUI import \
-                ScanningDiffractionGUI
+            from musclex.ui.ScanningDiffractionGUI import ScanningDiffractionGUI
+
             myapp = ScanningDiffractionGUI()
             sys.exit(app.exec_())
-        elif prog == 'dc':
-            from musclex.ui.diffraction_centroids import \
-                DiffractionCentroidStartWindow
+        elif prog == "dc":
+            from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
-        elif prog == 'ddf':
+        elif prog == "ddf":
             from musclex.ui.ddf_processor import DDFWindow
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = DDFWindow()
             sys.exit(app.exec_())
-        elif prog == 'pt':
+        elif prog == "pt":
             from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
-        elif prog == 'aise':
+        elif prog == "aise":
             from musclex.ui.AddIntensitiesSingleExp import AddIntensitiesSingleExp
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = AddIntensitiesSingleExp()
             sys.exit(app.exec_())
-        elif prog == 'aime':
+        elif prog == "aime":
             from musclex.ui.AddIntensitiesMultipleExp import AddIntensitiesMultipleExp
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = AddIntensitiesMultipleExp()
             sys.exit(app.exec_())
-        elif prog == 'aisme':
+        elif prog == "aisme":
             from musclex.ui.AddIntensitiesExp import AIStartWindow
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = AIStartWindow()
             sys.exit(app.exec_())
-        elif prog== 'tdi':
+        elif prog == "tdi":
             from musclex.ui.TotalDiffractionIntensity import TotalDiffractionIntensity
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = TotalDiffractionIntensity()
             sys.exit(app.exec_())
-        elif prog== 'qfce':
+        elif prog == "qfce":
             print("Checkpoint 1")
             from musclex.ui.QFCenterExamine import QFCenterExamine
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = QFCenterExamine()
             sys.exit(app.exec_())
-        elif prog == 'xv':
+        elif prog == "xv":
             from musclex.ui.XRayViewerGUI import XRayViewerGUI
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = XRayViewerGUI()
             sys.exit(app.exec_())
-        elif prog == 'gui':
+        elif prog == "gui":
             from musclex.launcher import LauncherForm
+
             app = QApplication(sys.argv)
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = LauncherForm.main()
             sys.exit(app.exec_())
-        elif prog == 'test_global':
+        elif prog == "test_global":
             suite = unittest.TestSuite()
             suite.addTest(MuscleXGlobalTester("testHeadlessMarEquator"))
             suite.addTest(MuscleXGlobalTester("testHeadlessEigerEquator"))
@@ -251,8 +277,9 @@ def main(arguments=None):
             runner = unittest.TextTestRunner()
             runner.run(suite)
             sys.exit()
-        elif prog == 'test_impl':
+        elif prog == "test_impl":
             from musclex.utils.zip_download import download_zip_pickles
+
             download_zip_pickles(os.path.dirname(__file__))
             suite = unittest.TestSuite()
             suite.addTest(MuscleXTest("testEquatorImage"))
@@ -266,13 +293,13 @@ def main(arguments=None):
             runner = unittest.TextTestRunner()
             runner.run(suite)
             sys.exit()
-        elif prog == 'test_env':
+        elif prog == "test_env":
             suite = unittest.TestSuite()
             suite.addTest(EnvironmentTester("testEnvironment"))
             runner = unittest.TextTestRunner()
             runner.run(suite)
             sys.exit()
-        elif prog == 'test_gpu':
+        elif prog == "test_gpu":
             suite = unittest.TestSuite()
             suite.addTest(MuscleXTest("testOpenCLDevice"))
             suite.addTest(MuscleXTest("testGPUIntegratePyFAI"))
@@ -282,43 +309,43 @@ def main(arguments=None):
         else:
             run = False
 
-    elif len(arguments) >= 3 and arguments[1]=='eq' and arguments[2]=='-h':
+    elif len(arguments) >= 3 and arguments[1] == "eq" and arguments[2] == "-h":
         # Lowered the length threshold from 5 to 3 so that bare
         # ``musclex eq -h`` (no -i/-f) reaches this branch and gets a
         # focused help message via `_print_eq_headless_help` instead of
         # falling through to the generic top-level usage block.
-        inputsetting=False
-        delcache=False
-        run=True
-        i=3
-        settingspath="empty"
-        output_dir=None
+        inputsetting = False
+        delcache = False
+        run = True
+        i = 3
+        settingspath = "empty"
+        output_dir = None
         # Initialize filename so we can distinguish "no input given" from
         # "input given but other args malformed".
-        filename=None
+        filename = None
         while i < len(arguments):
-            if arguments[i]=='-s':
-                inputsetting=True
-                if i+1<len(arguments) and len(arguments[i+1])>5:
-                    _, ext = os.path.splitext(str(arguments[i+1]))
-                    if ext==".json" and os.path.isfile(arguments[i+1]):
-                        i=i+1
-                        settingspath=arguments[i]
+            if arguments[i] == "-s":
+                inputsetting = True
+                if i + 1 < len(arguments) and len(arguments[i + 1]) > 5:
+                    _, ext = os.path.splitext(str(arguments[i + 1]))
+                    if ext == ".json" and os.path.isfile(arguments[i + 1]):
+                        i = i + 1
+                        settingspath = arguments[i]
                     else:
                         print("Please provide the right settings file")
-                        run=False
-            elif arguments[i]=='-d':
-                delcache=True
-            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
-                i=i+1
-                output_dir=arguments[i]
-            elif arguments[i]=='-i' or arguments[i]=='-f':
-                i=i+1
-                filename=arguments[i]
+                        run = False
+            elif arguments[i] == "-d":
+                delcache = True
+            elif arguments[i] == "-o" or arguments[i] == "--output-dir":
+                i = i + 1
+                output_dir = arguments[i]
+            elif arguments[i] == "-i" or arguments[i] == "-f":
+                i = i + 1
+                filename = arguments[i]
             else:
-                run=False
+                run = False
                 break
-            i=i+1
+            i = i + 1
         # No input file/folder was supplied (e.g. plain ``musclex eq -h``
         # or ``musclex eq -h -s config.json``). Show the dedicated
         # headless help instead of crashing on ``filename=None``.
@@ -327,113 +354,168 @@ def main(arguments=None):
             sys.exit(0)
         if run:
             from musclex.headless.EQStartWindowh import EQStartWindowh
-            EQStartWindowh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
+
+            EQStartWindowh(
+                filename, inputsetting, delcache, settingspath, output_dir=output_dir
+            )
             sys.exit()
 
-    elif len(arguments)>=5 and arguments[1]=='di' and arguments[2]=='-h':
-        inputsetting=False
-        delcache=False
-        run=True
-        i=3
-        settingspath='empty'
-        processFolder=False
-        output_dir=None
+    elif len(arguments) >= 5 and arguments[1] == "di" and arguments[2] == "-h":
+        inputsetting = False
+        delcache = False
+        run = True
+        i = 3
+        settingspath = "empty"
+        processFolder = False
+        output_dir = None
         while i < len(arguments):
-            if arguments[i]=='-s':
-                inputsetting=True
-                if i+1<len(arguments) and len(arguments[i+1])>5:
-                    _, ext = os.path.splitext(str(arguments[i+1]))
-                    if ext==".json" and os.path.isfile(arguments[i+1]):
-                        i=i+1
-                        settingspath=arguments[i]
+            if arguments[i] == "-s":
+                inputsetting = True
+                if i + 1 < len(arguments) and len(arguments[i + 1]) > 5:
+                    _, ext = os.path.splitext(str(arguments[i + 1]))
+                    if ext == ".json" and os.path.isfile(arguments[i + 1]):
+                        i = i + 1
+                        settingspath = arguments[i]
                     else:
                         print("Please provide the right settings file")
-                        run=False
-            elif arguments[i]=='-d':
-                delcache=True
-            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
-                i=i+1
-                output_dir=arguments[i]
-            elif arguments[i]=='-i' or arguments[i]=='-f':
-                if arguments[i]=='-f':
-                    processFolder=True
-                i=i+1
-                fullfilename=arguments[i]
+                        run = False
+            elif arguments[i] == "-d":
+                delcache = True
+            elif arguments[i] == "-o" or arguments[i] == "--output-dir":
+                i = i + 1
+                output_dir = arguments[i]
+            elif arguments[i] == "-i" or arguments[i] == "-f":
+                if arguments[i] == "-f":
+                    processFolder = True
+                i = i + 1
+                fullfilename = arguments[i]
                 is_hdf5 = os.path.splitext(fullfilename)[1] in h5_types
                 if not processFolder and not is_hdf5:
                     filePath, fileName = os.path.split(fullfilename)
                 else:
-                    filePath=fullfilename
+                    filePath = fullfilename
             else:
-                run=False
+                run = False
                 break
-            i=i+1
+            i = i + 1
         if run:
             if not processFolder and not is_hdf5:
                 from musclex.headless.DIImageWindowh import DIImageWindowh
-                DIImageWindowh(str(fileName), str(filePath), inputsetting, delcache, settingspath, output_dir=output_dir)
+
+                DIImageWindowh(
+                    str(fileName),
+                    str(filePath),
+                    inputsetting,
+                    delcache,
+                    settingspath,
+                    output_dir=output_dir,
+                )
                 sys.exit()
             else:
                 from musclex.headless.DIBatchWindowh import DIBatchWindowh
-                DIBatchWindowh(str(filePath), inputsetting, delcache, settingspath, output_dir=output_dir)
+
+                DIBatchWindowh(
+                    str(filePath),
+                    inputsetting,
+                    delcache,
+                    settingspath,
+                    output_dir=output_dir,
+                )
                 sys.exit()
 
-    elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':
-        inputsetting=False
-        delcache=False
-        run=True
-        i=3
-        settingspath="empty"
-        output_dir=None
+    elif len(arguments) >= 5 and arguments[1] == "qf" and arguments[2] == "-h":
+        inputsetting = False
+        delcache = False
+        run = True
+        i = 3
+        settingspath = "empty"
+        output_dir = None
         while i < len(arguments):
-            if arguments[i]=='-s':
-                inputsetting=True
-                if i+1<len(arguments) and len(arguments[i+1])>5:
-                    _, ext = os.path.splitext(str(arguments[i+1]))
-                    if ext==".json" and os.path.isfile(arguments[i+1]):
-                        i=i+1
-                        settingspath=arguments[i]
+            if arguments[i] == "-s":
+                inputsetting = True
+                if i + 1 < len(arguments) and len(arguments[i + 1]) > 5:
+                    _, ext = os.path.splitext(str(arguments[i + 1]))
+                    if ext == ".json" and os.path.isfile(arguments[i + 1]):
+                        i = i + 1
+                        settingspath = arguments[i]
                     else:
                         print("Please provide the right settings file")
-                        run=False
-            elif arguments[i]=='-d':
-                delcache=True
-            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
-                i=i+1
-                output_dir=arguments[i]
-            elif arguments[i]=='-i' or arguments[i]=='-f':
-                is_file = arguments[i]=='-i'
-                i=i+1
-                filename=arguments[i]
+                        run = False
+            elif arguments[i] == "-d":
+                delcache = True
+            elif arguments[i] == "-o" or arguments[i] == "--output-dir":
+                i = i + 1
+                output_dir = arguments[i]
+            elif arguments[i] == "-i" or arguments[i] == "-f":
+                is_file = arguments[i] == "-i"
+                i = i + 1
+                filename = arguments[i]
             else:
-                run=False
+                run = False
                 break
-            i=i+1
+            i = i + 1
         if run:
             from musclex.headless.QuadrantFoldingh import QuadrantFoldingh
+
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
-                QuadrantFoldingh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
+                QuadrantFoldingh(
+                    filename,
+                    inputsetting,
+                    delcache,
+                    settingspath,
+                    output_dir=output_dir,
+                )
             else:
                 from multiprocessing import Lock, Process, cpu_count
+
                 lock = Lock()
                 procs = []
-                max_procs = min(8, (cpu_count()-2)//3)
+                max_procs = min(8, (cpu_count() - 2) // 3)
                 imgList = os.listdir(filename) if not is_file else [filename]
                 imgList.sort()
                 for image in imgList:
-                    file_name=os.path.join(filename,image) if not is_file else filename
+                    file_name = (
+                        os.path.join(filename, image) if not is_file else filename
+                    )
                     if os.path.isfile(file_name):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
                             print("filename is", file_name)
-                            proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock), kwargs={'output_dir': output_dir})
+                            proc = Process(
+                                target=QuadrantFoldingh,
+                                args=(
+                                    file_name,
+                                    inputsetting,
+                                    delcache,
+                                    settingspath,
+                                    lock,
+                                ),
+                                kwargs={"output_dir": output_dir},
+                            )
                             procs.append(proc)
                             proc.start()
                         elif ext in h5_types:
-                            hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                            hdir_path, himgList, _, hfileList, _ = getImgFiles(
+                                str(file_name), headless=True
+                            )
                             for ind in range(len(himgList)):
                                 print("filename is", himgList[ind])
-                                proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext), kwargs={'output_dir': output_dir})
+                                proc = Process(
+                                    target=QuadrantFoldingh,
+                                    args=(
+                                        file_name,
+                                        inputsetting,
+                                        delcache,
+                                        settingspath,
+                                        lock,
+                                        hdir_path,
+                                        himgList,
+                                        ind,
+                                        hfileList,
+                                        ext,
+                                    ),
+                                    kwargs={"output_dir": output_dir},
+                                )
                                 procs.append(proc)
                                 proc.start()
                                 if len(procs) >= max_procs:
@@ -447,61 +529,98 @@ def main(arguments=None):
                 for proc in procs:
                     proc.join()
                 sys.exit()
-    elif len(arguments) >= 5 and arguments[1]=='pt' and arguments[2]=='-h':
-        inputsetting=False
-        delcache=False
-        run=True
-        i=3
-        settingspath="empty"
-        output_dir=None
+    elif len(arguments) >= 5 and arguments[1] == "pt" and arguments[2] == "-h":
+        inputsetting = False
+        delcache = False
+        run = True
+        i = 3
+        settingspath = "empty"
+        output_dir = None
         while i < len(arguments):
-            if arguments[i]=='-s':
-                inputsetting=True
-                if i+1<len(arguments) and len(arguments[i+1])>5:
-                    _, ext = os.path.splitext(str(arguments[i+1]))
-                    if ext==".json" and os.path.isfile(arguments[i+1]):
-                        i=i+1
-                        settingspath=arguments[i]
+            if arguments[i] == "-s":
+                inputsetting = True
+                if i + 1 < len(arguments) and len(arguments[i + 1]) > 5:
+                    _, ext = os.path.splitext(str(arguments[i + 1]))
+                    if ext == ".json" and os.path.isfile(arguments[i + 1]):
+                        i = i + 1
+                        settingspath = arguments[i]
                     else:
                         print("Please provide the right settings file")
-                        run=False
-            elif arguments[i]=='-d':
-                delcache=True
-            elif arguments[i]=='-o' or arguments[i]=='--output-dir':
-                i=i+1
-                output_dir=arguments[i]
-            elif arguments[i]=='-i' or arguments[i]=='-f':
-                is_file = arguments[i]=='-i'
-                i=i+1
-                filename=arguments[i]
+                        run = False
+            elif arguments[i] == "-d":
+                delcache = True
+            elif arguments[i] == "-o" or arguments[i] == "--output-dir":
+                i = i + 1
+                output_dir = arguments[i]
+            elif arguments[i] == "-i" or arguments[i] == "-f":
+                is_file = arguments[i] == "-i"
+                i = i + 1
+                filename = arguments[i]
             else:
-                run=False
+                run = False
                 break
-            i=i+1
+            i = i + 1
         if run:
             from musclex.headless.ProjectionTracesh import ProjectionTracesh
+
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
-                ProjectionTracesh(filename, inputsetting, delcache, settingspath, output_dir=output_dir)
+                ProjectionTracesh(
+                    filename,
+                    inputsetting,
+                    delcache,
+                    settingspath,
+                    output_dir=output_dir,
+                )
             else:
                 from multiprocessing import Lock, Process, cpu_count
+
                 lock = Lock()
                 procs = []
                 imgList = os.listdir(filename) if not is_file else [filename]
                 imgList.sort()
                 for image in imgList:
-                    file_name=os.path.join(filename,image) if not is_file else filename
+                    file_name = (
+                        os.path.join(filename, image) if not is_file else filename
+                    )
                     if os.path.isfile(file_name):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
                             print("filename is", file_name)
-                            proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock), kwargs={'output_dir': output_dir})
+                            proc = Process(
+                                target=ProjectionTracesh,
+                                args=(
+                                    file_name,
+                                    inputsetting,
+                                    delcache,
+                                    settingspath,
+                                    lock,
+                                ),
+                                kwargs={"output_dir": output_dir},
+                            )
                             procs.append(proc)
                             proc.start()
                         elif ext in h5_types:
-                            hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                            hdir_path, himgList, _, hfileList, _ = getImgFiles(
+                                str(file_name), headless=True
+                            )
                             for ind in range(len(himgList)):
                                 print("filename is", himgList[ind])
-                                proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext), kwargs={'output_dir': output_dir})
+                                proc = Process(
+                                    target=ProjectionTracesh,
+                                    args=(
+                                        file_name,
+                                        inputsetting,
+                                        delcache,
+                                        settingspath,
+                                        lock,
+                                        hdir_path,
+                                        himgList,
+                                        ind,
+                                        hfileList,
+                                        ext,
+                                    ),
+                                    kwargs={"output_dir": output_dir},
+                                )
                                 procs.append(proc)
                                 proc.start()
                                 if len(procs) % cpu_count() == 0:
@@ -516,33 +635,38 @@ def main(arguments=None):
                     proc.join()
                     sys.exit()
 
-    elif len(arguments) >= 5 and (arguments[1] == 'aise' or arguments[1] == 'aisme') and arguments[2]=='-h':
+    elif (
+        len(arguments) >= 5
+        and (arguments[1] == "aise" or arguments[1] == "aisme")
+        and arguments[2] == "-h"
+    ):
         i = 3
         run = True
-        type = ''
-        mode = ''
+        type = ""
+        mode = ""
         settings_file = None
         while i < len(arguments):
-            if arguments[i] == '-s':
-                i=i+1
+            if arguments[i] == "-s":
+                i = i + 1
                 settings_file = arguments[i]
-            elif arguments[i] == '-f':
-                i=i+1
+            elif arguments[i] == "-f":
+                i = i + 1
                 paths = arguments[i]
-                type = 'folder'
-            elif arguments[i] == '-i':
-                i=i+1
+                type = "folder"
+            elif arguments[i] == "-i":
+                i = i + 1
                 paths = arguments[i]
-                type = 'file'
-            elif arguments[i] == '-m':
-                i=i+1
+                type = "file"
+            elif arguments[i] == "-m":
+                i = i + 1
                 mode = arguments[i]
-            i=i+1
+            i = i + 1
 
         if settings_file is None:
-            settings_file = 'default'
+            settings_file = "default"
 
         from musclex.headless.AddIntensitiesExph import AddIntensitiesExph
+
         if run:
             AddIntensitiesExph(paths, settings_file, type, mode)
 
@@ -550,7 +674,7 @@ def main(arguments=None):
         run = False
 
     if not run:
-        print("\nYou're using Muscle X version "+str(__version__))
+        print("\nYou're using Muscle X version " + str(__version__))
         print("\nPlease specify the program shortcut that you want to run")
         print("")
         print("  $ musclex [program]")
@@ -576,20 +700,32 @@ def main(arguments=None):
         print("\t$ musclex eq -h -i test.tif -s config.json")
         print("")
         print("** Musclex headless arguments (works for eq, di, qf and pt):")
-        print("    $ musclex eq|di|qf|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d] [-o output_dir]")
+        print(
+            "    $ musclex eq|di|qf|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d] [-o output_dir]"
+        )
         print("arguments:")
         print("-f <foldername> or -i <filename>")
         print("-d (optional) delete existing cache")
         print("-s (optional) <input setting file>")
-        print("-o / --output-dir (optional) <output directory for results, cache, and settings>")
+        print(
+            "-o / --output-dir (optional) <output directory for results, cache, and settings>"
+        )
         print("")
-        print("Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. \nThis will create the necessary setting file. If a setting file is not provided, default settings will be used")
-        print("Note: If a hdf file does not exist, the program will use the default file. You can generate a hdf step size file using the interactive version (set step size, click ok, the file will be automaticly saved)")
+        print(
+            "Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. \nThis will create the necessary setting file. If a setting file is not provided, default settings will be used"
+        )
+        print(
+            "Note: If a hdf file does not exist, the program will use the default file. You can generate a hdf step size file using the interactive version (set step size, click ok, the file will be automaticly saved)"
+        )
         print("")
         print("More details : https://musclex.readthedocs.io")
-        print("Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n")
+        print(
+            "Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n"
+        )
+
 
 if __name__ == "__main__":
     import multiprocessing
+
     multiprocessing.freeze_support()
     main(sys.argv)

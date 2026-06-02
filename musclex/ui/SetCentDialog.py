@@ -57,6 +57,7 @@ from PySide6.QtCore import Qt
 
 from .widgets.image_viewer_widget import ImageViewerWidget
 
+
 def print_log(log_str):
     now = datetime.now()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -64,15 +65,9 @@ def print_log(log_str):
 
 
 class SetCentDialog(QDialog):
-    def __init__(self,
-                parent,
-                img,
-                center,
-                inv_transform=None,
-                isLogScale=False,
-                vmin=0,
-                vmax=1
-        ):
+    def __init__(
+        self, parent, img, center, inv_transform=None, isLogScale=False, vmin=0, vmax=1
+    ):
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Set Center")
@@ -88,24 +83,22 @@ class SetCentDialog(QDialog):
         # Create ImageViewerWidget with integrated display panel
         # (tool_manager is created internally, includes zoom_rectangle tool by default)
         self.imageViewer = ImageViewerWidget(parent=self, show_display_panel=True)
-        
 
-        
         # Quick access to axes and canvas for drawing center lines
         self.imageAxes = self.imageViewer.axes
         self.imageCanvas = self.imageViewer.canvas
         self.imageFigure = self.imageViewer.figure
-        
+
         # Display the image
         self.imageViewer.display_image(self.img)
-        
+
         # Set initial display settings via display_panel
         self.imageViewer.display_panel.set_intensity_values(vmin, vmax)
         self.imageViewer.display_panel.set_log_scale(isLogScale)
-        
+
         # Draw center crosshair
-        self.imageAxes.axvline(x, color='y', label="Cross Center Yellow")
-        self.imageAxes.axhline(y, color='y', label="Cross Center Yellow")
+        self.imageAxes.axvline(x, color="y", label="Cross Center Yellow")
+        self.imageAxes.axhline(y, color="y", label="Cross Center Yellow")
         self.imageCanvas.draw()
 
         self.xInput = QLineEdit(f"{x:.2f}")
@@ -123,11 +116,15 @@ class SetCentDialog(QDialog):
         # self.yInputLayout.addWidget(self.yInput)
 
         centerLayoutRowIndex = 0
-        self.setCenterLayout.addWidget(QLabel("X (Original coords): "), centerLayoutRowIndex, 0, 1, 2)
+        self.setCenterLayout.addWidget(
+            QLabel("X (Original coords): "), centerLayoutRowIndex, 0, 1, 2
+        )
         self.setCenterLayout.addWidget(self.xInput, centerLayoutRowIndex, 2, 1, 2)
         self.setCenterLayout.addWidget(QLabel("px"), centerLayoutRowIndex, 4, 1, 1)
         centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(QLabel("Y (Original coords): "), centerLayoutRowIndex, 0, 1, 2)
+        self.setCenterLayout.addWidget(
+            QLabel("Y (Original coords): "), centerLayoutRowIndex, 0, 1, 2
+        )
         self.setCenterLayout.addWidget(self.yInput, centerLayoutRowIndex, 2, 1, 2)
         self.setCenterLayout.addWidget(QLabel("px"), centerLayoutRowIndex, 4, 1, 1)
 
@@ -145,7 +142,7 @@ class SetCentDialog(QDialog):
         self.mainLayout.addLayout(self.imageLayout)
 
         self.optionsLayout = QVBoxLayout()
-        
+
         # Add integrated display panel from ImageViewerWidget
         self.optionsLayout.addWidget(self.imageViewer.display_panel)
         self.optionsLayout.addSpacing(10)
@@ -179,12 +176,16 @@ class SetCentDialog(QDialog):
         self.imageViewer.canvasClicked.connect(self.handle_canvas_click)
 
         # Connect display panel signals to update internal state
-        self.imageViewer.display_panel.intensityChanged.connect(self._on_intensity_changed)
-        self.imageViewer.display_panel.logScaleChanged.connect(self._on_log_scale_changed)
-        
+        self.imageViewer.display_panel.intensityChanged.connect(
+            self._on_intensity_changed
+        )
+        self.imageViewer.display_panel.logScaleChanged.connect(
+            self._on_log_scale_changed
+        )
+
         # Connect zoom in button from display panel
         self.imageViewer.display_panel.zoomInRequested.connect(self.imageZoomInToggle)
-        
+
         # Update center immediately when losing focus or pressing enter, without closing dialog
         self.xInput.returnPressed.connect(self.updateCenterFromInput)
         self.yInput.returnPressed.connect(self.updateCenterFromInput)
@@ -199,8 +200,8 @@ class SetCentDialog(QDialog):
 
         if key == Qt.Key_Escape:
             # Check if zoom tool is active and deactivate it
-            if self.imageViewer.tool_manager.is_tool_active('zoom_rectangle'):
-                self.imageViewer.tool_manager.deactivate_tool('zoom_rectangle')
+            if self.imageViewer.tool_manager.is_tool_active("zoom_rectangle"):
+                self.imageViewer.tool_manager.deactivate_tool("zoom_rectangle")
                 # Uncheck button via display_panel API
                 self.imageViewer.display_panel.set_zoom_in_checked(False)
             # Prevent closing dialog with keyboard.
@@ -223,6 +224,7 @@ class SetCentDialog(QDialog):
             # Convert to original coordinates if transformation exists
             if self.inv_transform is not None:
                 import numpy as np
+
                 point = np.array([x, y, 1])
                 orig_point = self.inv_transform @ point
                 self.center = (orig_point[0], orig_point[1])
@@ -236,13 +238,12 @@ class SetCentDialog(QDialog):
         self.vmax = vmax
         # ImageViewerWidget will automatically update via update_display_settings()
         # which preserves zoom and overlays (like center crosshair)
-    
+
     def _on_log_scale_changed(self, log_scale):
         """Handle log scale changes from display panel"""
         self.isLogScale = log_scale
         # ImageViewerWidget will automatically update via update_display_settings()
         # which preserves zoom and overlays (like center crosshair)
-
 
     def resizeImage(self, img_zoom):
         if img_zoom and len(img_zoom) == 2:
@@ -262,8 +263,8 @@ class SetCentDialog(QDialog):
         self.remove_image_lines(labels=["Cross Center Yellow"])
 
         # Draw new lines
-        self.imageAxes.axvline(x, color='y', label="Cross Center Yellow")
-        self.imageAxes.axhline(y, color='y', label="Cross Center Yellow")
+        self.imageAxes.axvline(x, color="y", label="Cross Center Yellow")
+        self.imageAxes.axhline(y, color="y", label="Cross Center Yellow")
 
         if updateText:
             # Update input output
@@ -285,7 +286,7 @@ class SetCentDialog(QDialog):
         ax = self.imageAxes
 
         if labels:
-            for i in range(len(ax.lines)-1, -1, -1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 if ax.lines[i].get_label() in labels:
                     ax.lines[i].remove()
 
@@ -293,7 +294,7 @@ class SetCentDialog(QDialog):
                 if p.get_label() in labels:
                     p.remove()
         else:
-            for i in range(len(ax.lines)-1, -1, -1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 ax.lines[i].remove()
 
             for p in ax.patches:
@@ -304,7 +305,7 @@ class SetCentDialog(QDialog):
         zoom_btn = self.imageViewer.display_panel.zoomInBtn
         if zoom_btn.isChecked():
             # Button is checked - activate the zoom tool
-            self.imageViewer.tool_manager.activate_tool('zoom_rectangle')
+            self.imageViewer.tool_manager.activate_tool("zoom_rectangle")
         else:
             # Button is unchecked - deactivate the zoom tool
             self.imageViewer.tool_manager.deactivate_current_tool()

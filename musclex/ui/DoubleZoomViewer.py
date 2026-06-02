@@ -32,6 +32,7 @@ import cv2
 from matplotlib.colors import LogNorm, Normalize, ListedColormap
 from musclex import __version__
 
+
 class DoubleZoom:
 
     def __init__(self, img_fig, dontShowMessage=False):
@@ -50,15 +51,16 @@ class DoubleZoom:
 
     def showPopup(self):
         msg = QMessageBox()
-        msg.setInformativeText(
-            "Please click on zoomed window on the top right")
+        msg.setInformativeText("Please click on zoomed window on the top right")
         dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
         msg.setStandardButtons(QMessageBox.Ok)
         msg.setWindowTitle("Double Zoom Guide")
         msg.setStyleSheet("QLabel{min-width: 500px;}")
         msg.setCheckBox(dontShowAgainDoubleZoomMessage)
         msg.exec_()
-        self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
+        self.dontShowAgainDoubleZoomMessageResult = (
+            dontShowAgainDoubleZoomMessage.isChecked()
+        )
 
     def showPopupConditional(self):
         if not self.dontShowAgainDoubleZoomMessageResult:
@@ -69,7 +71,7 @@ class DoubleZoom:
         Compute the new x and y for double zoom to orig coord
         """
         dzx, dzy = self.doubleZoomPoint
-        newX = dzx -10 + x / 10
+        newX = dzx - 10 + x / 10
         newY = dzy - 10 + y / 10
 
         print("=" * 40)
@@ -78,15 +80,15 @@ class DoubleZoom:
         return (newX, newY)
 
     def doubleZoomChecked(
-            self,
-            img,
-            canv,
-            center = (0, 0),
-            is_checked=False,
-            isLogScale=False,
-            vmin=0,
-            vmax=0
-        ):
+        self,
+        img,
+        canv,
+        center=(0, 0),
+        is_checked=False,
+        isLogScale=False,
+        vmin=0,
+        vmax=0,
+    ):
         """
         Triggered when double zoom is checked
         """
@@ -98,27 +100,35 @@ class DoubleZoom:
 
                 print("Double zoom checked")
                 self.axes = self.image_figure.add_subplot(333)
-                self.axes.set_aspect('equal', adjustable="box")
+                self.axes.set_aspect("equal", adjustable="box")
                 self.axes.axes.xaxis.set_visible(False)
                 self.axes.axes.yaxis.set_visible(False)
                 self.doubleZoomMode = True
 
                 ax1 = self.axes
-                x,y = center
+                x, y = center
                 x, y = int(x), int(y)
-                imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-                if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                    imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+                imgCropped = img[y - 10 : y + 10, x - 10 : x + 10]
+                if (
+                    len(imgCropped) != 0
+                    or imgCropped.shape[0] != 0
+                    or imgCropped.shape[1] != 0
+                ):
+                    imgScaled = cv2.resize(
+                        imgCropped.astype("float32"), (0, 0), fx=10, fy=10
+                    )
                     self.doubleZoomPoint = (x, y)
                     # ax1.imshow(imgScaled)
 
                     if isLogScale:
-                        ax1.imshow(imgScaled,
+                        ax1.imshow(
+                            imgScaled,
                             # cmap='gray',
                             # norm=LogNorm(vmin=max(1, vmin), vmax=vmax)
                         )
                     else:
-                        ax1.imshow(imgScaled,
+                        ax1.imshow(
+                            imgScaled,
                             # cmap='gray',
                             # norm=Normalize(vmin=vmin, vmax=vmax)
                         )
@@ -127,9 +137,9 @@ class DoubleZoom:
                     y, x = imgScaled.shape
                     # cy, cx = y // 2, x // 2
                     if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
+                        for i in range(len(ax1.lines) - 1, -1, -1):
                             ax1.lines[i].remove()
-                    for i in range(len(ax1.patches)-1,-1,-1):
+                    for i in range(len(ax1.patches) - 1, -1, -1):
                         ax1.patches[i].remove()
             else:
 
@@ -139,7 +149,7 @@ class DoubleZoom:
 
     def setAxes(self, imageFigure):
         self.axes = imageFigure.add_subplot(333)
-        self.axes.set_aspect('equal', adjustable="box")
+        self.axes.set_aspect("equal", adjustable="box")
 
     def showAxes(self):
         pass
@@ -157,15 +167,15 @@ class DoubleZoom:
     def drawBlueDot(self, x, y, ax):
         # Remove any existing lines or patches so they don't stack
         if len(ax.lines) > 0:
-            for i in range(len(ax.lines)-1, -1, -1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 if ax.lines[i].get_label() == "Blue Dot":
                     ax.lines[i].remove()
         if len(ax.patches) > 0:
-            for i in range(len(ax.patches)-1, -1, -1):
+            for i in range(len(ax.patches) - 1, -1, -1):
                 ax.patches[i].remove()
 
         # Plot a blue dot at the given coordinates
-        ax.plot(x, y, 'bo', markersize=2, label="Blue Dot")
+        ax.plot(x, y, "bo", markersize=2, label="Blue Dot")
 
     def adjustXY(self, x, y):
         # Calculate deltas with sensitivity
@@ -195,7 +205,9 @@ class DoubleZoom:
         diffs = len(self.mousePosHist) - 1
         total = 0
         for i in range(diffs):
-            total += np.sqrt(((mph[i][0] - mph[i+1][0]) ** 2) + ((mph[i][1] - mph[i+1][1]) ** 2))
+            total += np.sqrt(
+                ((mph[i][0] - mph[i + 1][0]) ** 2) + ((mph[i][1] - mph[i + 1][1]) ** 2)
+            )
 
         return total / diffs
 
@@ -223,53 +235,70 @@ class DoubleZoom:
         self.showPopupConditional()
         self.doubleZoomMode = False
 
-    def mouseHoverBehavior(self,
-            x,
-            y,
-            img,
-            canv,
-            is_checked,
-            isLogScale=False,
-            vmin=0,
-            vmax=0):
-        if is_checked and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
+    def mouseHoverBehavior(
+        self, x, y, img, canv, is_checked, isLogScale=False, vmin=0, vmax=0
+    ):
+        if (
+            is_checked
+            and self.doubleZoomMode
+            and x > 10
+            and x < img.shape[1] - 10
+            and y > 10
+            and y < img.shape[0] - 10
+        ):
             ax1 = self.axes
-            imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomPoint = (x,y)
+            imgCropped = img[int(y - 10) : int(y + 10), int(x - 10) : int(x + 10)]
+            if (
+                len(imgCropped) != 0
+                or imgCropped.shape[0] != 0
+                or imgCropped.shape[1] != 0
+            ):
+                imgScaled = cv2.resize(
+                    imgCropped.astype("float32"), (0, 0), fx=10, fy=10
+                )
+                self.doubleZoomPoint = (x, y)
                 # ax1.imshow(imgScaled)
 
                 if isLogScale:
-                    ax1.imshow(imgScaled,
+                    ax1.imshow(
+                        imgScaled,
                         # cmap='gray',
                         # norm=LogNorm(vmin=max(1, vmin), vmax=vmax)
                     )
                 else:
-                    ax1.imshow(imgScaled,
+                    ax1.imshow(
+                        imgScaled,
                         # cmap='gray',
                         # norm=Normalize(vmin=vmin, vmax=vmax)
                     )
 
                 ax1.invert_yaxis()
                 if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
+                    for i in range(len(ax1.lines) - 1, -1, -1):
                         ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
+                for i in range(len(ax1.patches) - 1, -1, -1):
                     ax1.patches[i].remove()
                 canv.draw_idle()
 
     def updateAxesInner(self, x, y):
-            axis_size = 1
-            ax1 = self.axes
-            if len(ax1.lines) > 0:
-                for i in range(len(ax1.lines)-1,-1,-1):
-                    ax1.lines[i].remove()
-            ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        axis_size = 1
+        ax1 = self.axes
+        if len(ax1.lines) > 0:
+            for i in range(len(ax1.lines) - 1, -1, -1):
+                ax1.lines[i].remove()
+        ax1.plot(
+            (x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color="r"
+        )
+        ax1.plot(
+            (x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color="r"
+        )
 
     def updateAxes(self, x, y, checkZoomMode=True):
-        if (not (checkZoomMode and self.doubleZoomMode)) and 1 < x < 200 and 1 < y < 200:
+        if (
+            (not (checkZoomMode and self.doubleZoomMode))
+            and 1 < x < 200
+            and 1 < y < 200
+        ):
             self.updateAxesInner(x, y)
 
     def beginImgMotion(self, x, y, img_width, img_height, extent, img_axes):
@@ -279,13 +308,13 @@ class DoubleZoom:
 
         # x, y = self.adjustXY(x, y)
 
-        #Upper bound on x and y vals to avoid errors
+        # Upper bound on x and y vals to avoid errors
         # if x + extent[0] > img_width:
         #     x = img_width - extent[0] - 1
         # if y + extent[1] > img_height:
         #     y = img_height - extent[1] - 1
 
-        #Lower bound on x and y to avoid errors
+        # Lower bound on x and y to avoid errors
         """
         if x < 0:
             x = 0

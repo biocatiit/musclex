@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-
 SCHEMA_VERSION = 1
 
 
@@ -76,7 +75,7 @@ class FitInputs:
 
     free_params: Dict[str, ParamSpec]
     independent_vars: Dict[str, Any]  # kwargs passed straight to model func
-    fixed_params: Dict[str, float]    # vary=False Parameters in lmfit
+    fixed_params: Dict[str, float]  # vary=False Parameters in lmfit
 
 
 # --------------------------------------------------------------------------- #
@@ -90,8 +89,8 @@ class ReferenceResult:
 
     adapter: str
     success: bool
-    values: Dict[str, float]                    # full result.values
-    stderr: Dict[str, Optional[float]]          # per-free-param stderr (may be None)
+    values: Dict[str, float]  # full result.values
+    stderr: Dict[str, Optional[float]]  # per-free-param stderr (may be None)
     chi2: Optional[float]
     redchi: Optional[float]
     r2: Optional[float]
@@ -109,8 +108,8 @@ class ReferenceResult:
 class CaseMeta:
     case_id: str
     box_name: str
-    box_type: str            # 'h' | 'v' | 'oriented'
-    bgsub: int               # 0 | 1 | 2
+    box_type: str  # 'h' | 'v' | 'oriented'
+    bgsub: int  # 0 | 1 | 2
     use_common_sigma: bool
     merid_bg: bool
     peaks_seed: List[float]
@@ -173,7 +172,7 @@ class FitResult:
     """
 
     success: bool
-    values: Dict[str, float]            # all known params (free + fixed)
+    values: Dict[str, float]  # all known params (free + fixed)
     stderr: Dict[str, Optional[float]]  # may be empty if backend doesn't provide
     n_eval: Optional[int]
     n_iter: Optional[int]

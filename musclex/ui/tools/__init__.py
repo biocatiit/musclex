@@ -16,14 +16,13 @@ from .placeholder_tool import PlaceholderTool
 from .box_stats_tool import BoxStatsTool
 
 __all__ = [
-    'InteractionTool',
-    'ToolManager',
-    'ChordsCenterTool',
-    'PerpendicularsCenterTool',
-    'RotationTool',
-    'CenterRotateTool',
-    'ZoomRectangleTool',
-    'PlaceholderTool',
-    'BoxStatsTool',
+    "InteractionTool",
+    "ToolManager",
+    "ChordsCenterTool",
+    "PerpendicularsCenterTool",
+    "RotationTool",
+    "CenterRotateTool",
+    "ZoomRectangleTool",
+    "PlaceholderTool",
+    "BoxStatsTool",
 ]
-

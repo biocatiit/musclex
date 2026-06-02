@@ -21,16 +21,18 @@ Voigt peaks fall back to a loop because broadcasting the complex Faddeeva
 function across a (K, N) grid is memory-intensive and rarely faster than
 iterating, given how few Voigt peaks appear in practice.
 """
+
 from __future__ import annotations
 
 import numpy as np
 from scipy.special import wofz
 
 _SQRT_2PI = np.sqrt(2.0 * np.pi)
-_SQRT2    = np.sqrt(2.0)
+_SQRT2 = np.sqrt(2.0)
 
 
 # ── background helpers (unchanged — single-peak, rarely called) ─────────────
+
 
 def _gaussian_eval(x, amplitude, center, sigma):
     z = (x - center) / sigma
@@ -43,6 +45,7 @@ def _voigt_eval(x, amplitude, center, sigma, gamma):
 
 
 # ── vectorised Gaussian batch ────────────────────────────────────────────────
+
 
 def _gaussian_batch(x, centers, amps, sigmas):
     """Evaluate the sum of K Gaussians over N points in one exp() call.
@@ -67,16 +70,25 @@ def _gaussian_batch(x, centers, amps, sigmas):
 
 # ── model functions ──────────────────────────────────────────────────────────
 
+
 def layerlineModelGMM(
-    x, centerX, bg_line, bg_sigma, bg_amplitude,
-    center_sigma1, center_amplitude1,
-    center_sigma2, center_amplitude2,
-    common_sigma, **kwargs,
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    common_sigma,
+    **kwargs,
 ):
     """GMM model (shared sigma) with vectorised peak accumulation."""
     # Background + meridian (3 single Gaussians, cheap)
     result = (
-        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma) + bg_line
+        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma)
+        + bg_line
         + _gaussian_eval(x, center_amplitude1, centerX, center_sigma1)
         + _gaussian_eval(x, center_amplitude2, centerX, center_sigma2)
     )
@@ -86,7 +98,7 @@ def layerlineModelGMM(
     voigt_peaks = []
     i = 0
     while f"p_{i}" in kwargs:
-        p   = kwargs[f"p_{i}"]
+        p = kwargs[f"p_{i}"]
         amp = kwargs[f"amplitude{i}"]
         if f"gamma{i}" in kwargs:
             voigt_peaks.append((centerX + p, amp, kwargs[f"gamma{i}"]))
@@ -101,7 +113,7 @@ def layerlineModelGMM(
         result += _gaussian_batch(
             x,
             np.asarray(g_centers, dtype=np.float64),
-            np.asarray(g_amps,    dtype=np.float64),
+            np.asarray(g_amps, dtype=np.float64),
             np.full(n_g, common_sigma, dtype=np.float64),
         )
 
@@ -113,13 +125,21 @@ def layerlineModelGMM(
 
 
 def layerlineModel(
-    x, centerX, bg_line, bg_sigma, bg_amplitude,
-    center_sigma1, center_amplitude1,
-    center_sigma2, center_amplitude2, **kwargs,
+    x,
+    centerX,
+    bg_line,
+    bg_sigma,
+    bg_amplitude,
+    center_sigma1,
+    center_amplitude1,
+    center_sigma2,
+    center_amplitude2,
+    **kwargs,
 ):
     """Standard model (independent sigma per peak) with vectorised accumulation."""
     result = (
-        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma) + bg_line
+        _gaussian_eval(x, bg_amplitude, centerX, bg_sigma)
+        + bg_line
         + _gaussian_eval(x, center_amplitude1, centerX, center_sigma1)
         + _gaussian_eval(x, center_amplitude2, centerX, center_sigma2)
     )
@@ -128,8 +148,8 @@ def layerlineModel(
     voigt_peaks = []
     i = 0
     while f"p_{i}" in kwargs:
-        p     = kwargs[f"p_{i}"]
-        amp   = kwargs[f"amplitude{i}"]
+        p = kwargs[f"p_{i}"]
+        amp = kwargs[f"amplitude{i}"]
         sigma = kwargs[f"sigma{i}"]
         if f"gamma{i}" in kwargs:
             voigt_peaks.append((centerX + p, amp, sigma, kwargs[f"gamma{i}"]))
@@ -143,8 +163,8 @@ def layerlineModel(
         result += _gaussian_batch(
             x,
             np.asarray(g_centers, dtype=np.float64),
-            np.asarray(g_amps,    dtype=np.float64),
-            np.asarray(g_sigmas,  dtype=np.float64),
+            np.asarray(g_amps, dtype=np.float64),
+            np.asarray(g_sigmas, dtype=np.float64),
         )
 
     for c, a, s, g in voigt_peaks:

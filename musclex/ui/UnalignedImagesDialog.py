@@ -6,7 +6,8 @@ class UnalignedImagesDialog(QDialog):
         super().__init__()
         self.setWindowTitle("Detection Settings")
         self.initUI()
-        #self.setConnections()
+        # self.setConnections()
+
     def initUI(self):
         self.mainLayout = QVBoxLayout()
         self.setLayout(self.mainLayout)
@@ -15,7 +16,15 @@ class UnalignedImagesDialog(QDialog):
         self.distanceModeLayout = QHBoxLayout()
         self.distanceModeGrp.setLayout(self.distanceModeLayout)
         self.distanceMode = QComboBox()
-        self.distanceMode.addItems(['Image', 'Center', 'Center + Angle', 'Center + Image', 'Center + Angle + Image'])
+        self.distanceMode.addItems(
+            [
+                "Image",
+                "Center",
+                "Center + Angle",
+                "Center + Image",
+                "Center + Angle + Image",
+            ]
+        )
         self.distanceLayoutLabel = QLabel("Distance Mode")
 
         self.distanceModeLayout.addWidget(self.distanceLayoutLabel)
@@ -30,7 +39,6 @@ class UnalignedImagesDialog(QDialog):
         self.imageCoeffcientLabel = QLabel("Image Coefficient")
         self.centerCoefficientLabel = QLabel("Center Coefficient")
         self.angleCoefficientLabel = QLabel("Angle Coefficient")
-
 
         self.imageCoefficient = QDoubleSpinBox()
         self.centerCoefficient = QDoubleSpinBox()
@@ -53,9 +61,11 @@ class UnalignedImagesDialog(QDialog):
 
         self.coefficientGroupBoxLayout.addWidget(self.imageCoeffcientLabel, 0, 0, 1, 2)
         self.coefficientGroupBoxLayout.addWidget(self.imageCoefficient, 0, 2, 1, 2)
-        self.coefficientGroupBoxLayout.addWidget(self.centerCoefficientLabel, 1, 0, 1, 2)
+        self.coefficientGroupBoxLayout.addWidget(
+            self.centerCoefficientLabel, 1, 0, 1, 2
+        )
         self.coefficientGroupBoxLayout.addWidget(self.centerCoefficient, 1, 2, 1, 2)
-        self.coefficientGroupBoxLayout.addWidget(self.angleCoefficientLabel, 2, 0, 1, 2)    
+        self.coefficientGroupBoxLayout.addWidget(self.angleCoefficientLabel, 2, 0, 1, 2)
         self.coefficientGroupBoxLayout.addWidget(self.angleCoefficient, 2, 2, 1, 2)
 
         self.mainLayout.addWidget(self.coefficientGroupBox)
