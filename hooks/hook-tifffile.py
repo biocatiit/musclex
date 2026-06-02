@@ -1,1 +1,1 @@
-hiddenimports = ['tifffile._tifffile']
+hiddenimports = ["tifffile._tifffile"]

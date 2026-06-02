@@ -10,7 +10,12 @@ import traceback
 
 from PySide6.QtCore import Signal, QRunnable, QObject, QSettings
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QTextBrowser,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QCheckBox,
+    QPushButton,
+    QTextBrowser,
 )
 
 
@@ -75,11 +80,22 @@ class WorkflowGuideDialog(QDialog):
 
 def _sum_group_worker(args):
     """Top-level function for subprocess: load, sum/average images in one group, save to disk."""
-    (group_num, dir_path, img_names, specs,
-     per_img_transforms, base_center, base_rotation,
-     blank_img, blank_weight, apply_blank,
-     do_average, output_path, compress,
-     rotation_mode) = args
+    (
+        group_num,
+        dir_path,
+        img_names,
+        specs,
+        per_img_transforms,
+        base_center,
+        base_rotation,
+        blank_img,
+        blank_weight,
+        apply_blank,
+        do_average,
+        output_path,
+        compress,
+        rotation_mode,
+    ) = args
     try:
         from musclex.utils.file_manager import load_image_via_spec
         import cv2 as _cv2
@@ -94,7 +110,7 @@ def _sum_group_worker(args):
                 if tx != 0 or ty != 0:
                     M = _np.float32([[1, 0, tx], [0, 1, ty]])
                     img = _cv2.warpAffine(img, M, (w, h))
-            if rotation_mode == 'absolute':
+            if rotation_mode == "absolute":
                 angle = rotation or 0
             else:
                 angle = (rotation or 0) - (b_rotation or 0)
@@ -124,8 +140,12 @@ def _sum_group_worker(args):
             images.append(img)
 
         if not images:
-            return {'group_num': group_num, 'output_path': None,
-                    'n_images': 0, 'error': 'No images loaded'}
+            return {
+                "group_num": group_num,
+                "output_path": None,
+                "n_images": 0,
+                "error": "No images loaded",
+            }
 
         result = images[0].copy()
         for img in images[1:]:
@@ -133,10 +153,10 @@ def _sum_group_worker(args):
                 max_h = max(img.shape[0], result.shape[0])
                 max_w = max(img.shape[1], result.shape[1])
                 p = _np.zeros((max_h, max_w), dtype=result.dtype)
-                p[:result.shape[0], :result.shape[1]] = result
+                p[: result.shape[0], : result.shape[1]] = result
                 result = p
                 q = _np.zeros((max_h, max_w), dtype=img.dtype)
-                q[:img.shape[0], :img.shape[1]] = img
+                q[: img.shape[0], : img.shape[1]] = img
                 img = q
             result += img
 
@@ -145,17 +165,26 @@ def _sum_group_worker(args):
 
         if compress:
             from PIL import Image as _Image
-            _Image.fromarray(result).save(output_path, compression='tiff_lzw')
+
+            _Image.fromarray(result).save(output_path, compression="tiff_lzw")
         else:
             _fabio.tifimage.tifimage(data=result).write(output_path)
 
-        return {'group_num': group_num, 'output_path': output_path,
-                'n_images': len(images), 'total_intensity': float(_np.sum(result)),
-                'error': None}
+        return {
+            "group_num": group_num,
+            "output_path": output_path,
+            "n_images": len(images),
+            "total_intensity": float(_np.sum(result)),
+            "error": None,
+        }
     except Exception as e:
         traceback.print_exc()
-        return {'group_num': group_num, 'output_path': None,
-                'n_images': 0, 'error': str(e)}
+        return {
+            "group_num": group_num,
+            "output_path": None,
+            "n_images": 0,
+            "error": str(e),
+        }
 
 
 class _GeometryWorkerSignals(QObject):

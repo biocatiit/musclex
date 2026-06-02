@@ -28,7 +28,8 @@ authorization from Illinois Institute of Technology.
 
 import numpy as np
 
-def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
+
+def convexHull(hist, start_p=0, end_p=99999999, ignore=None):
     """
     Apply 1D Convex hull to a histogram from left to right
     :param hist: input histogram (list or numpy array)
@@ -40,12 +41,12 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     start_p = int(round(start_p))
     end_p = int(round(end_p))
 
-    if end_p - start_p < 5 and (start_p !=0 or end_p != 99999999):
+    if end_p - start_p < 5 and (start_p != 0 or end_p != 99999999):
         return np.array(hist)
 
     hist = np.array(hist)
 
-    if end_p > len(hist) :
+    if end_p > len(hist):
         end_p = len(hist)
 
     hist_x = list(range(start_p, end_p))
@@ -57,20 +58,20 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     hist_y2 = hist_y.copy()
     if ignore is not None:
         ignore2 = ignore[hist_x]
-        hist_y2[ignore2] = int(max(hist_y2)*1.5)
+        hist_y2[ignore2] = int(max(hist_y2) * 1.5)
 
     # hull_x, hull_y = getHull(hist_x, hist_y2)
     # hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
 
     if ignore is not None:
-        hull_x, hull_y = getHull(hist_x, hist_y2, ignored = ignore2)
+        hull_x, hull_y = getHull(hist_x, hist_y2, ignored=ignore2)
     else:
         hull_x, hull_y = getHull(hist_x, hist_y2)
     hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
 
     ret = list(np.zeros(start_p))
     ret.extend(hull)
-    ret.extend(np.zeros(len(hist)-end_p))
+    ret.extend(np.zeros(len(hist) - end_p))
 
     if ignore is not None:
         sub = np.array(ret)
@@ -79,7 +80,8 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
 
     return ret
 
-def getHull(x_data, y_data, ignored = None):
+
+def getHull(x_data, y_data, ignored=None):
     """
     Get Hull from histogram
     :param x_data: x values of the histogram (list)
@@ -88,7 +90,7 @@ def getHull(x_data, y_data, ignored = None):
     """
     xhull = []
     yhull = []
-    
+
     if len(x_data) == 0 or len(y_data) == 0:
         return xhull, yhull
     xhull.append(x_data[0])
@@ -99,14 +101,17 @@ def getHull(x_data, y_data, ignored = None):
     points = len(y_data)
     while lasthullindex < points - 1:
         slope = (y_data[lasthullindex + 1] - y_data[lasthullindex]) / (
-            x_data[lasthullindex + 1] - x_data[lasthullindex])
+            x_data[lasthullindex + 1] - x_data[lasthullindex]
+        )
         currenthullindex = lasthullindex + 1
         currenthully = y_data[lasthullindex]
 
         for i in range(currenthullindex + 1, points):
             extrapolation = currenthully + slope * (x_data[i] - x_data[lasthullindex])
             if y_data[i] < extrapolation:
-                slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
+                slope = (y_data[i] - y_data[lasthullindex]) / (
+                    x_data[i] - x_data[lasthullindex]
+                )
                 currenthullindex = i
 
         # Store the hull points to be used for a spline fit
@@ -120,7 +125,7 @@ def getHull(x_data, y_data, ignored = None):
     #     return xhull, yhull
     # xhull.append(x_data[0])
     # yhull.append(y_data[0])
-    
+
     # lasthullindex = 0
 
     # points = len(y_data)
@@ -137,11 +142,11 @@ def getHull(x_data, y_data, ignored = None):
     #                 slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
     #                 currenthullindex = i
 
-    #             elif y_data[i] >= extrapolation: 
+    #             elif y_data[i] >= extrapolation:
     #                 if ignored[i] == True:
     #                     currenthullindex = i
-                    
-    #         else : 
+
+    #         else :
     #             if y_data[i] < extrapolation:
     #                 slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
     #                 currenthullindex = i
@@ -152,15 +157,16 @@ def getHull(x_data, y_data, ignored = None):
     #         if ignored[currenthullindex] == True:
     #             yhull.append(0)
     #         else:
-    #             yhull.append(y_data[currenthullindex]) 
+    #             yhull.append(y_data[currenthullindex])
     #     else:
     #         yhull.append(y_data[currenthullindex])
 
     #     lasthullindex = currenthullindex
-    
+
     # print("done with hull")
-    
+
     return xhull, yhull
+
 
 def getSubtractedHist(xdata, ydata, xhull, yhull):
     """
@@ -181,13 +187,15 @@ def getSubtractedHist(xdata, ydata, xhull, yhull):
         rightindex = xdata.index(segmentrx)
         segmently = ydata[leftindex]
         segmentry = ydata[rightindex]
-        slope = (float(segmently) - float(segmentry)) / (float(leftindex) - float(rightindex))
+        slope = (float(segmently) - float(segmentry)) / (
+            float(leftindex) - float(rightindex)
+        )
         y_pchip = [segmently]
         for i in range(1, len(xdata)):
             val = segmently + slope * (i - leftindex)
             y_pchip.append(val)
     else:
-        y_pchip = pchip(xhull, yhull, xdata) # Create a pchip line (curve) from hull
+        y_pchip = pchip(xhull, yhull, xdata)  # Create a pchip line (curve) from hull
 
     suby = []
     for i in range(len(xdata)):
@@ -197,6 +205,7 @@ def getSubtractedHist(xdata, ydata, xhull, yhull):
         else:
             suby.append(0)
     return suby
+
 
 def pchip(x, y, u):
     """
@@ -210,7 +219,7 @@ def pchip(x, y, u):
         h0 = h1
 
     delta = []
-    for (j, f) in enumerate(h):
+    for j, f in enumerate(h):
         delta.append((y[j + 1] - y[j]) / f)
 
     d = []
@@ -224,7 +233,7 @@ def pchip(x, y, u):
     pchipy = []
     segmentlx = x[0]
     segmently = y[0]
-    for (i, e) in enumerate(delta):
+    for i, e in enumerate(delta):
         segmentrx = x[i + 1]
         segmentry = y[i + 1]
         leftindex = u.index(segmentlx)
@@ -242,6 +251,7 @@ def pchip(x, y, u):
     pchipy.append(y[-1])
     return pchipy
 
+
 def pchipslopes(hm, h, deltam, delta):
     """
     PCHIPSLOPES  Slopes for shape-preserving Hermite cubic
@@ -250,9 +260,9 @@ def pchipslopes(hm, h, deltam, delta):
     # Slopes at interior points
     # delta = diff(y)./diff(x).
     # d(k) = 0 if delta(k-1) and delta(k) have opposites
-    #			signs or either is zero.
+    # 			signs or either is zero.
     # d(k) = weighted harmonic mean of delta(k-1) and
-    #			delta(k) if they have the same sign.
+    # 			delta(k) if they have the same sign.
 
     if sign(deltam) * sign(delta) > 0:
         w1 = 2 * h + hm
@@ -260,6 +270,7 @@ def pchipslopes(hm, h, deltam, delta):
         return (w1 + w2) / (w1 / deltam + w2 / delta)
     else:
         return 0.0
+
 
 def pchipend(h1, h2, del1, del2):
     """
@@ -271,6 +282,7 @@ def pchipend(h1, h2, del1, del2):
     elif (sign(del1) != sign(del2)) and (abs(d) > abs(3 * del1)):
         d = 3 * del1
     return d
+
 
 def sign(d):
     """
@@ -284,7 +296,9 @@ def sign(d):
         return -1
     return None
 
+
 #########################################################
+
 
 def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
     """
@@ -312,8 +326,9 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
 
     for i in range(width_thres, len(peak_hist1) - width_thres):
 
-
-        if all(peak_hist1[i - width_thres:i] > 0) and all(peak_hist1[i + 1:i + width_thres] < 0):
+        if all(peak_hist1[i - width_thres : i] > 0) and all(
+            peak_hist1[i + 1 : i + width_thres] < 0
+        ):
             peak_list.append(i)
 
     if len(peak_list) != 0:
@@ -333,7 +348,7 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
                         c += 1
                         j += 1
                     else:
-                        s /= (c + 1)
+                        s /= c + 1
                         i = j
                         break
             else:
@@ -345,6 +360,7 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
 
     peak_list.sort()
     return peak_list
+
 
 def movePeaks(hist, peaks, dist=20):
     """
@@ -364,21 +380,22 @@ def movePeaks(hist, peaks, dist=20):
             if end < start:
                 new_peak = p
                 break
-            new_peak = start + np.argmax(hist[int(start):int(end)])
+            new_peak = start + np.argmax(hist[int(start) : int(end)])
 
             # if the local maximum is not far from initital peak, break
-            if abs(p - new_peak) <= 5: #
+            if abs(p - new_peak) <= 5:  #
                 break
             else:
                 left = min(p, new_peak)
                 right = max(p, new_peak)
 
                 # Check if between initial peak and local maximum has valley
-                if all(smooth_hist[left + 1:right] > smooth_hist[p]):
+                if all(smooth_hist[left + 1 : right] > smooth_hist[p]):
                     break
             dist = dist / 2
         peakList.append(new_peak)
     return list(peakList)
+
 
 def getFirstVallay(hist):
     """
@@ -387,18 +404,23 @@ def getFirstVallay(hist):
     :return: firstvalley
     """
     hist = smooth(hist)
-    safe_range = (len(hist)//100, len(hist)//4)
-    start = max(int(round(np.argmax(hist[:int(len(hist)/4)]))), 10) # Start searching from maximum peak
-    start = min(start, safe_range[1]) # start point should be smaller than 50 pixel
-    start = max(safe_range[0], start) # start point should be bigger than 20
-    limit = min(int(start * 1.5), 100) # Set limit of the first valley as 150% of maximum peak location
+    safe_range = (len(hist) // 100, len(hist) // 4)
+    start = max(
+        int(round(np.argmax(hist[: int(len(hist) / 4)]))), 10
+    )  # Start searching from maximum peak
+    start = min(start, safe_range[1])  # start point should be smaller than 50 pixel
+    start = max(safe_range[0], start)  # start point should be bigger than 20
+    limit = min(
+        int(start * 1.5), 100
+    )  # Set limit of the first valley as 150% of maximum peak location
     max_val = 0
     for i in range(start, limit):
         if hist[i] > max_val:
             max_val = hist[i]
-        if hist[i] <= max_val*0.5:
+        if hist[i] <= max_val * 0.5:
             return i
     return limit
+
 
 def getFirstPeak(hist):
     """
@@ -406,11 +428,12 @@ def getFirstPeak(hist):
     :param hist: input histogram
     :return: firstpeak
     """
-    start = max(int(round(np.argmax(hist[:int(len(hist)/4)]))), 5)
-    for i in range(start, int(len(hist)//4)):
-        if hist[i] - hist[i-1] < -10:
+    start = max(int(round(np.argmax(hist[: int(len(hist) / 4)]))), 5)
+    for i in range(start, int(len(hist) // 4)):
+        if hist[i] - hist[i - 1] < -10:
             return i
     return 20
+
 
 def getDetectorEdge(hist, end=None):
     """
@@ -418,11 +441,12 @@ def getDetectorEdge(hist, end=None):
     :param hist: input histogram
     :return: detector edge value
     """
-    end = end if end is not None else len(hist)-1
-    for i in range(end, int(end*0.3), -1):
-        if abs(hist[i] - hist[i-1]) > 2:
+    end = end if end is not None else len(hist) - 1
+    for i in range(end, int(end * 0.3), -1):
+        if abs(hist[i] - hist[i - 1]) > 2:
             return i
     return end
+
 
 def getCentroid(hist, p, intersections):
     """
@@ -442,6 +466,7 @@ def getCentroid(hist, p, intersections):
         cent = p
     return cent
 
+
 def getWidth(hist, max_loc, baseline):
     """
     Get peak width
@@ -454,26 +479,29 @@ def getWidth(hist, max_loc, baseline):
     r = 1
     while max_loc - l > 0 and hist[max_loc - l] > baseline:
         l += 1
-    while  max_loc + r < len(hist)-1 and hist[max_loc + r] > baseline:
+    while max_loc + r < len(hist) - 1 and hist[max_loc + r] > baseline:
         r += 1
-    
+
     # Intersection of baseline and hist (considered a line between 2 points)
     # Left side
-    left_slope = hist[max_loc - (l-1)] - hist[max_loc - l]
+    left_slope = hist[max_loc - (l - 1)] - hist[max_loc - l]
     left_b = hist[max_loc - l] - left_slope * (max_loc - l)
     left_x = (baseline - left_b) / left_slope if left_slope != 0 else baseline - left_b
 
     # Right side
-    right_slope = hist[max_loc + r] - hist[max_loc + (r-1)]
+    right_slope = hist[max_loc + r] - hist[max_loc + (r - 1)]
     right_b = hist[max_loc + r] - right_slope * (max_loc + r)
-    right_x = (baseline - right_b) / right_slope if right_slope != 0 else right_b - baseline
+    right_x = (
+        (baseline - right_b) / right_slope if right_slope != 0 else right_b - baseline
+    )
     width = right_x - left_x
 
     # In the case the slope method fails, we use the int value
-    if width < 0 or abs(width - (l+r)) > 2:
-        width = l+r
+    if width < 0 or abs(width - (l + r)) > 2:
+        width = l + r
 
     return width, (max_loc - l, max_loc + r)
+
 
 def getPeakInformations(hist, peaks, baselines):
     """
@@ -488,7 +516,7 @@ def getPeakInformations(hist, peaks, baselines):
     intersectionsList = []
     areas = []
 
-    for (i, p) in enumerate(peaks):
+    for i, p in enumerate(peaks):
         baseline = baselines[i]
         width, intersections = getWidth(hist, p, baseline)
         cent = getCentroid(hist, p, intersections)
@@ -503,7 +531,10 @@ def getPeakInformations(hist, peaks, baselines):
     results["areas"] = areas
     return results
 
-def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
+
+def smooth(
+    x, window_len=10, window="hanning"
+):  # From http://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
     """
     Smooth the data using a window with requested size.
 
@@ -540,20 +571,22 @@ def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.rea
         raise ValueError("smooth only accepts 1 dimension arrays.")
 
     if x.size < window_len:
-        window_len = int(x.size/3)
+        window_len = int(x.size / 3)
         # raise ValueError, "Input vector needs to be bigger than window size."
 
     if window_len < 3:
         return x
 
-    if window not in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError("Window is one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+    if window not in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+        raise ValueError(
+            "Window is one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        )
 
-    s=np.r_[2*x[0]-x[window_len:1:-1], x, 2*x[-1]-x[-1:-window_len:-1]]
+    s = np.r_[2 * x[0] - x[window_len:1:-1], x, 2 * x[-1] - x[-1:-window_len:-1]]
 
-    if window == 'flat': #moving average
-        w = np.ones(window_len,'d')
+    if window == "flat":  # moving average
+        w = np.ones(window_len, "d")
     else:
         w = getattr(np, window)(window_len)
-    y = np.convolve(w/w.sum(), s, mode='same')
-    return y[window_len-1:-window_len+1]
+    y = np.convolve(w / w.sum(), s, mode="same")
+    return y[window_len - 1 : -window_len + 1]

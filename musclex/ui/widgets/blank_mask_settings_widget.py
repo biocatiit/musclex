@@ -14,43 +14,49 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
     """
     Widget for empty cell image and mask settings.
     Self-contained: can check settings directory and update its own state.
-    
+
     Provides controls for:
     - Setting empty cell image (blank image)
     - Setting mask
     - Enabling/disabling empty cell image application
     - Enabling/disabling mask application
-    
+
     All UI components (buttons and checkboxes) are public and can be connected
     directly in the parent GUI.
     """
-    
+
     def __init__(self, parent=None):
-        super().__init__("Apply Empty Cell Image and Mask", start_expanded=True, parent=parent)
-        
+        super().__init__(
+            "Apply Empty Cell Image and Mask", start_expanded=True, parent=parent
+        )
+
         # Create UI components (all public for direct access)
         self.blankSettingButton = QPushButton("Set Empty Cell Image")
         self.blankSettingButton.setToolTip(
-            "Open a dialog to select one or more empty-cell (blank) images that will be subtracted from the data")
+            "Open a dialog to select one or more empty-cell (blank) images that will be subtracted from the data"
+        )
         self.maskSettingButton = QPushButton("Set Mask")
         self.maskSettingButton.setToolTip(
-            "Open a dialog to draw or load a pixel mask that will be applied before processing")
+            "Open a dialog to draw or load a pixel mask that will be applied before processing"
+        )
 
         self.applyBlankImageChkBx = QCheckBox("Apply Empty Cell Image")
         self.applyBlankImageChkBx.setEnabled(False)  # Disabled until settings exist
         self.applyBlankImageChkBx.setToolTip(
             "Subtract the configured empty-cell image from the data image before processing.\n"
-            "Enabled only when an empty-cell image has been set.")
+            "Enabled only when an empty-cell image has been set."
+        )
 
         self.applyMaskChkBx = QCheckBox("Apply Mask")
         self.applyMaskChkBx.setEnabled(False)  # Disabled until settings exist
         self.applyMaskChkBx.setToolTip(
             "Zero out masked pixels before processing.\n"
-            "Enabled only when a mask has been set.")
-        
+            "Enabled only when a mask has been set."
+        )
+
         # Setup layout
         self._setup_layout()
-    
+
     def _setup_layout(self):
         """Setup the layout for all components"""
         layout = QGridLayout()
@@ -59,21 +65,22 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
         layout.addWidget(self.applyBlankImageChkBx, 1, 0, 1, 2)
         layout.addWidget(self.applyMaskChkBx, 1, 2, 1, 2)
         self.setLayout(layout)
-    
+
     # ===== Public API: For external use =====
-    
+
     def update_from_directory(self, settings_dir_path):
         """
         Check settings directory and update checkbox states automatically.
-        
+
         Args:
             settings_dir_path: Path to the settings directory (Path or str).
                                May also be a SettingsManager instance.
         """
         if not settings_dir_path:
             return
-        
+
         from ...utils.settings_manager import SettingsManager
+
         if isinstance(settings_dir_path, SettingsManager):
             sm = settings_dir_path
             self.update_checkbox_states(
@@ -83,26 +90,26 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
                 mask_enabled=sm.mask_enabled,
             )
             return
-        
+
         status = self.check_settings_status(settings_dir_path)
         self.update_checkbox_states(
-            blank_exists=status['blank_exists'],
-            blank_enabled=status['blank_enabled'],
-            mask_exists=status['mask_exists'],
-            mask_enabled=status['mask_enabled'],
+            blank_exists=status["blank_exists"],
+            blank_enabled=status["blank_enabled"],
+            mask_exists=status["mask_exists"],
+            mask_enabled=status["mask_enabled"],
         )
-    
+
     @staticmethod
     def check_settings_status(settings_dir):
         """
         Check the status of empty cell image and mask settings.
-        
+
         Prefer ``update_from_directory(settings_manager)`` when a
         :class:`SettingsManager` is available.
-        
+
         Args:
             settings_dir: Path to the settings directory (Path or str)
-            
+
         Returns:
             dict with keys:
                 - blank_exists: bool
@@ -111,29 +118,31 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
                 - mask_enabled: bool
         """
         settings_dir = Path(settings_dir)
-        
+
         blank_config_path = settings_dir / "blank_image_settings.json"
         blank_exists = blank_config_path.exists()
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
         blank_enabled = not blank_disabled_flag.exists()
-        
+
         mask_file_path = settings_dir / "mask.tif"
         mask_exists = mask_file_path.exists()
         mask_disabled_flag = settings_dir / ".mask_disabled"
         mask_enabled = not mask_disabled_flag.exists()
-        
+
         return {
-            'blank_exists': blank_exists,
-            'blank_enabled': blank_enabled,
-            'mask_exists': mask_exists,
-            'mask_enabled': mask_enabled,
+            "blank_exists": blank_exists,
+            "blank_enabled": blank_enabled,
+            "mask_exists": mask_exists,
+            "mask_enabled": mask_enabled,
         }
-    
-    def update_checkbox_states(self, blank_exists, blank_enabled, mask_exists, mask_enabled):
+
+    def update_checkbox_states(
+        self, blank_exists, blank_enabled, mask_exists, mask_enabled
+    ):
         """
         Update checkbox states (UI only).
         Usually called internally by update_from_directory().
-        
+
         Args:
             blank_exists: Whether empty cell image settings exist
             blank_enabled: Whether empty cell image is enabled
@@ -143,7 +152,7 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
         # Block signals to avoid triggering handlers during programmatic update
         self.applyBlankImageChkBx.blockSignals(True)
         self.applyMaskChkBx.blockSignals(True)
-        
+
         # Update empty cell image checkbox
         if blank_exists:
             self.applyBlankImageChkBx.setEnabled(True)
@@ -151,7 +160,7 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
         else:
             self.applyBlankImageChkBx.setEnabled(False)
             self.applyBlankImageChkBx.setChecked(False)
-        
+
         # Update mask checkbox
         if mask_exists:
             self.applyMaskChkBx.setEnabled(True)
@@ -159,8 +168,7 @@ class BlankMaskSettingsWidget(CollapsibleGroupBox):
         else:
             self.applyMaskChkBx.setEnabled(False)
             self.applyMaskChkBx.setChecked(False)
-        
+
         # Re-enable signals
         self.applyBlankImageChkBx.blockSignals(False)
         self.applyMaskChkBx.blockSignals(False)
-

@@ -32,6 +32,7 @@ import fabio
 import numpy as np
 from skimage.feature import peak_local_max
 
+
 def isDir(pathname):
     """
     Return a boolean depending on if the path is a directory or not
@@ -41,16 +42,18 @@ def isDir(pathname):
     else:
         return False
 
+
 def detectCenter(image):
     """
     Detect the center and return it if it exists
     """
-    coordinates = peak_local_max(image, min_distance=20,threshold_rel=0.7)
+    coordinates = peak_local_max(image, min_distance=20, threshold_rel=0.7)
     if len(coordinates) > 0:
         center = coordinates[0]
         return center
     else:
         return None
+
 
 def isImg(fileName):
     """
@@ -58,9 +61,10 @@ def isImg(fileName):
     :param fileName: (str)
     :return: True or False
     """
-    input_types = ['bmp','jpg','tif','tiff','png','jpeg']
-    nameList = fileName.split('.')
+    input_types = ["bmp", "jpg", "tif", "tiff", "png", "jpeg"]
+    nameList = fileName.split(".")
     return nameList[-1] in input_types
+
 
 def fullPath(filePath, fileName):
     """
@@ -74,13 +78,14 @@ def fullPath(filePath, fileName):
     #     return filePath+"/"+fileName
     return os.path.join(filePath, fileName)
 
+
 def getImgFiles(input):
     """
     Give the list of images in a folder
     :param input:
     :return: image list
     """
-    dir_path=str(input)
+    dir_path = str(input)
     dir_path = str(dir_path)
     fileList = os.listdir(dir_path)
     imgList = []
@@ -92,75 +97,84 @@ def getImgFiles(input):
     imgList.sort()
     return imgList
 
-def combine_image(image,direction):
+
+def combine_image(image, direction):
     """
     Combine image
     """
-    size=max(image.shape[0],image.shape[1])
-    newimage=np.zeros((size,size))
+    size = max(image.shape[0], image.shape[1])
+    newimage = np.zeros((size, size))
     if direction == 1:
-        newimage[:image.shape[0],:]=image
-    elif direction==2:
-        newimage[size-image.shape[0]:,:]=image
-    elif direction==3:
-        newimage[:,:image.shape[1]]=image
-    elif direction==4:
-        newimage[:,size-image.shape[1]:]=image
+        newimage[: image.shape[0], :] = image
+    elif direction == 2:
+        newimage[size - image.shape[0] :, :] = image
+    elif direction == 3:
+        newimage[:, : image.shape[1]] = image
+    elif direction == 4:
+        newimage[:, size - image.shape[1] :] = image
     return newimage
+
 
 def main(args):
     """
     Main function
     """
-    input=args.input
-    output=args.output
+    input = args.input
+    output = args.output
     if not isDir(input):
         print("input folder is invalid")
         return
     try:
-        os.makedirs(output, exist_ok = True)
+        os.makedirs(output, exist_ok=True)
         print(f"Directory '{output}' created successfully")
     except OSError:
         print("Directory '%s' can not be created")
-    imgList=getImgFiles(input)
-    if len(imgList)==0:
+    imgList = getImgFiles(input)
+    if len(imgList) == 0:
         print("Input folder doesn't have image files")
         return
-    f=os.path.join(input,imgList[0])
+    f = os.path.join(input, imgList[0])
 
-    image=fabio.open(f).data
+    image = fabio.open(f).data
 
-    row=image.shape[0]
-    col=image.shape[1]
-    center=detectCenter(image)
+    row = image.shape[0]
+    col = image.shape[1]
+    center = detectCenter(image)
 
     if center is None:
-        direction=1
+        direction = 1
     else:
 
-        if row>col:
-            if center[1]>col/2:
-                direction=3
+        if row > col:
+            if center[1] > col / 2:
+                direction = 3
             else:
-                direction=4
+                direction = 4
         else:
-            if center[0]>row/2:
-                direction=1
+            if center[0] > row / 2:
+                direction = 1
             else:
-                direction=2
+                direction = 2
     for f in imgList:
-        filepath=os.path.join(input,f)
-        image=fabio.open(filepath).data
+        filepath = os.path.join(input, f)
+        image = fabio.open(filepath).data
         if not np.any(image):
             pass
         else:
-            newimage=combine_image(image,direction)
-            outputfile=os.path.join(output,"squared_"+f)
+            newimage = combine_image(image, direction)
+            outputfile = os.path.join(output, "squared_" + f)
             fabio.tifimage.tifimage(data=newimage).write(outputfile)
 
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description='convert a rectangle image to square image')
-    parser.add_argument('--input',help="Please type in input folder path",required=True)
-    parser.add_argument('--output',help="Please type in output folder path",required=True)
-    args=parser.parse_args()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="convert a rectangle image to square image"
+    )
+    parser.add_argument(
+        "--input", help="Please type in input folder path", required=True
+    )
+    parser.add_argument(
+        "--output", help="Please type in output folder path", required=True
+    )
+    args = parser.parse_args()
     main(args)

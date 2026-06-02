@@ -43,12 +43,14 @@ from ..modules.ScanningDiffraction import *
 from ..csv_manager import DI_CSVManager
 from .DIImageWindow import DIImageWindow
 
-matplotlib.rcParams.update({'font.size': 5})
+matplotlib.rcParams.update({"font.size": 5})
+
 
 class HDFBrowser(QDialog):
     """
     Provide options for HDF Browser - select or create one
     """
+
     def __init__(self, msg, setting_path):
         """
         initial dialog
@@ -117,7 +119,9 @@ class HDFBrowser(QDialog):
         self.createLayout.addWidget(self.y_end, 2, 2, 1, 1)
         self.createLayout.addWidget(self.y_step, 2, 3, 1, 1)
 
-        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
+        self.bottons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self
+        )
 
         self.mainLayout.addWidget(self.label, 0, 0, 1, 2)
         self.mainLayout.addWidget(self.browseButton, 1, 0, 1, 1)
@@ -125,7 +129,7 @@ class HDFBrowser(QDialog):
         self.mainLayout.addWidget(self.createButton, 1, 2, 1, 1)
         self.mainLayout.addWidget(self.browseGrp, 2, 0, 1, 2)
         self.mainLayout.addWidget(self.createGroup, 3, 0, 1, 2)
-        self.mainLayout.addWidget(self.bottons,4, 0, 1, 2)
+        self.mainLayout.addWidget(self.bottons, 4, 0, 1, 2)
 
         self.setMinimumWidth(1400)
 
@@ -143,7 +147,7 @@ class HDFBrowser(QDialog):
         """
         Handle when Browse is clicked
         """
-        self.hdf_file = getAFile('HDF (*.hdf) ;; LOG (*.log)')
+        self.hdf_file = getAFile("HDF (*.hdf) ;; LOG (*.log)")
         if len(self.hdf_file) > 0:
             self.status = 1
             self.browsedFile.setText(self.hdf_file)
@@ -175,8 +179,10 @@ class HDFBrowser(QDialog):
         """
         if self.status == 0:
             errMsg = QMessageBox()
-            errMsg.setText('HDF File is not set')
-            errMsg.setInformativeText('Please select a HDF or Log file or create a new one')
+            errMsg.setText("HDF File is not set")
+            errMsg.setInformativeText(
+                "Please select a HDF or Log file or create a new one"
+            )
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
@@ -184,17 +190,24 @@ class HDFBrowser(QDialog):
             self.accept()
         elif self.status == 2:
             # Generate HDF file
-            self.hdf_file = join(self.path, 'file.hdf')
+            self.hdf_file = join(self.path, "file.hdf")
             x_start = self.x_start.value()
             y_start = self.y_start.value()
             x_end = self.x_end.value()
             y_end = self.y_end.value()
             x_step = self.x_step.value()
             y_step = self.y_step.value()
-            dihdf={'x_start':x_start,'y_start':y_start, 'x_end':x_end, 'y_end':y_end, 'x_step':x_step,'y_step':y_step}
-            filename=fullPath(self.path,'dihdf.json')
-            with open(filename,'w') as f:
-                json.dump(dihdf,f)
+            dihdf = {
+                "x_start": x_start,
+                "y_start": y_start,
+                "x_end": x_end,
+                "y_end": y_end,
+                "x_step": x_step,
+                "y_step": y_step,
+            }
+            filename = fullPath(self.path, "dihdf.json")
+            with open(filename, "w") as f:
+                json.dump(dihdf, f)
 
             # The total size divided by the step size is the number of steps in
             # both directions
@@ -212,29 +225,31 @@ class HDFBrowser(QDialog):
 
             data = []
             for j in range(0, y_nStep):
-                y = y_start + j*y_step
+                y = y_start + j * y_step
                 for i in range(0, x_nStep):
-                    x = x_start + i*x_step
+                    x = x_start + i * x_step
                     data.append((x, y))
 
-            hf = h5py.File(self.hdf_file, 'w')
+            hf = h5py.File(self.hdf_file, "w")
             data_grp = hf.create_group("data")
             data_grp.create_dataset("BL", data=data)
 
             hf.close()
             self.accept()
 
+
 class DIBatchWindow(QMainWindow):
     """
     A class to process Scanning diffraction on folders
     """
+
     def __init__(self, mainWin=None, dir_path=""):
         super().__init__()
         self.filePath = dir_path
         self.widgetList = []
         self.intesityRange = [0, 1, 1, 2]
         self.mainWin = mainWin
-        self.colormap = 'jet'
+        self.colormap = "jet"
         self.mapColorbar = None
         self.isFlipX = False
         self.isFlipY = False
@@ -271,6 +286,7 @@ class DIBatchWindow(QMainWindow):
 
         from .widgets.output_dir_dialog import resolve_output_directory
         from ..utils.directory_context import DirectoryContext
+
         ctx = resolve_output_directory(self.filePath, parent=self)
         self.dir_context = ctx if ctx else DirectoryContext.colocated(self.filePath)
         self.csvManager = DI_CSVManager(self.dir_context.output_dir)
@@ -278,14 +294,15 @@ class DIBatchWindow(QMainWindow):
         self._create_menu_bar()
         self.setConnections()
         self.processFolder(self.filePath)
-        self.angle_sigma=1
+        self.angle_sigma = 1
 
     def _create_menu_bar(self):
         from PySide6.QtGui import QAction
-        changeOutputDirAction = QAction('Change Output Directory...', self)
+
+        changeOutputDirAction = QAction("Change Output Directory...", self)
         changeOutputDirAction.triggered.connect(self._change_output_directory)
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
+        fileMenu = menubar.addMenu("&File")
         fileMenu.addAction(changeOutputDirAction)
 
     def _change_output_directory(self):
@@ -387,9 +404,28 @@ class DIBatchWindow(QMainWindow):
         self.repChoice.addItem("Elliptical Map")
 
         self.colorChoice = QComboBox()
-        colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
-                     'rainbow', 'seismic', 'summer', 'spring', 'terrain', 'winter', 'autumn',
-                     'Blues', 'Greens', 'Oranges', 'Reds', 'pink']
+        colormaps = [
+            "jet",
+            "inferno",
+            "gray",
+            "gnuplot",
+            "gnuplot2",
+            "hsv",
+            "magma",
+            "ocean",
+            "rainbow",
+            "seismic",
+            "summer",
+            "spring",
+            "terrain",
+            "winter",
+            "autumn",
+            "Blues",
+            "Greens",
+            "Oranges",
+            "Reds",
+            "pink",
+        ]
         for c in colormaps:
             self.colorChoice.addItem(c)
 
@@ -398,30 +434,34 @@ class DIBatchWindow(QMainWindow):
         self.BSDChoice.addItem("RBF Interpolation")
         self.BSDChoice.addItem("Alpha Blending")
 
-        self.logScale = QCheckBox('Logarithmic Scale')
-        self.rotRAngle = QCheckBox('Rotate 90 degrees')
-        self.orientationChkBx = QCheckBox('Orientation Arrow Display')
-        self.orientationTypeChkBx = QCheckBox('Arrow Orientation?')
+        self.logScale = QCheckBox("Logarithmic Scale")
+        self.rotRAngle = QCheckBox("Rotate 90 degrees")
+        self.orientationChkBx = QCheckBox("Orientation Arrow Display")
+        self.orientationTypeChkBx = QCheckBox("Arrow Orientation?")
 
         self.beamXSpinBox = QDoubleSpinBox()
         self.beamYSpinBox = QDoubleSpinBox()
         self.spacingFrame = QFrame()
         self.spacingLayout = QGridLayout(self.spacingFrame)
-        self.spacingLayout.addWidget(QLabel("Beam size X : "), 0, 0, 1, 1, Qt.AlignCenter)
+        self.spacingLayout.addWidget(
+            QLabel("Beam size X : "), 0, 0, 1, 1, Qt.AlignCenter
+        )
         self.spacingLayout.addWidget(self.beamXSpinBox, 0, 1, 1, 1)
-        self.spacingLayout.addWidget(QLabel("Beam size Y : "), 0, 2, 1, 1, Qt.AlignCenter)
+        self.spacingLayout.addWidget(
+            QLabel("Beam size Y : "), 0, 2, 1, 1, Qt.AlignCenter
+        )
         self.spacingLayout.addWidget(self.beamYSpinBox, 0, 3, 1, 1)
 
         self.minMap = QDoubleSpinBox()
         self.minMap.setRange(0, 100)
         self.minMap.setKeyboardTracking(False)
-        self.minMap.setSuffix('%')
+        self.minMap.setSuffix("%")
         self.minMap.setValue(0)
         self.maxMap = QDoubleSpinBox()
         self.maxMap.setRange(0, 100)
         self.maxMap.setKeyboardTracking(False)
         self.maxMap.setValue(100)
-        self.maxMap.setSuffix('%')
+        self.maxMap.setSuffix("%")
         self.minMapVal = QDoubleSpinBox()
         self.minMapVal.setValue(0)
         self.maxMapVal = QDoubleSpinBox()
@@ -434,15 +474,23 @@ class DIBatchWindow(QMainWindow):
         self.scaleY.setKeyboardTracking(False)
         self.scaleY.setValue(2)
         self.intensityLayout = QGridLayout()
-        self.intensityLayout.addWidget(QLabel("Min Intensity: "), 0, 0, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(
+            QLabel("Min Intensity: "), 0, 0, 1, 1, Qt.AlignCenter
+        )
         self.intensityLayout.addWidget(self.minMap, 0, 1, 1, 1)
         self.intensityLayout.addWidget(self.minMapVal, 0, 2, 1, 1)
-        self.intensityLayout.addWidget(QLabel("Max Intensity: "), 0, 3, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(
+            QLabel("Max Intensity: "), 0, 3, 1, 1, Qt.AlignCenter
+        )
         self.intensityLayout.addWidget(self.maxMap, 0, 4, 1, 1)
         self.intensityLayout.addWidget(self.maxMapVal, 0, 5, 1, 1)
-        self.intensityLayout.addWidget(QLabel("Orientation Scale X: "), 0,6, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(
+            QLabel("Orientation Scale X: "), 0, 6, 1, 1, Qt.AlignCenter
+        )
         self.intensityLayout.addWidget(self.scaleX, 0, 7, 1, 1)
-        self.intensityLayout.addWidget(QLabel("Orientation Scale Y: "), 1,6, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(
+            QLabel("Orientation Scale Y: "), 1, 6, 1, 1, Qt.AlignCenter
+        )
         self.intensityLayout.addWidget(self.scaleY, 1, 7, 1, 1)
 
         self.mapFigure = plt.figure()
@@ -451,7 +499,7 @@ class DIBatchWindow(QMainWindow):
         self.mapCanvas = FigureCanvas(self.mapFigure)
 
         self.saveButton = QPushButton("Save")
-        self.savecsvButton=QPushButton("Save CSV (distance +/- bandwidth)")
+        self.savecsvButton = QPushButton("Save CSV (distance +/- bandwidth)")
 
         self.mapFrame = QFrame()
         self.mapLayout = QGridLayout(self.mapFrame)
@@ -484,11 +532,11 @@ class DIBatchWindow(QMainWindow):
 
         # status bar
         self.statusBar = QStatusBar()
-        self.imagePathLabel = QLabel('')
-        self.statusLabel = QLabel('')
-        self.statusBar.addWidget(QLabel('   '))
+        self.imagePathLabel = QLabel("")
+        self.statusLabel = QLabel("")
+        self.statusBar.addWidget(QLabel("   "))
         self.statusBar.addWidget(self.imagePathLabel)
-        self.moreDetailsButton = QPushButton('More Details')
+        self.moreDetailsButton = QPushButton("More Details")
         self.moreDetailsButton.setHidden(True)
         self.rightBarLayout = QVBoxLayout()
         self.rightBarLayout.addWidget(self.statusLabel)
@@ -537,7 +585,7 @@ class DIBatchWindow(QMainWindow):
         self.colorChoice.currentIndexChanged.connect(self.updateUI)
         self.repChoice.currentIndexChanged.connect(self.updateUI)
         self.BSDChoice.currentIndexChanged.connect(self.updateUI)
-        self.mapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
+        self.mapFigure.canvas.mpl_connect("button_press_event", self.plotClicked)
         self.saveButton.clicked.connect(self.saveClicked)
         self.savecsvButton.clicked.connect(self.savecsvClicked)
         self.moreDetailsButton.clicked.connect(self.popupImageDetails)
@@ -583,14 +631,16 @@ class DIBatchWindow(QMainWindow):
             idx = self.widgetList.index(win)
             del self.widgetList[idx]
 
-
     def flipMapX(self):
         """
         Flip map in X direction
         :return:
         """
         self.isFlipX = not self.isFlipX
-        if self.repChoice.currentText() == "Elliptical Map" or self.repChoice.currentText() == "Intensity and Rotation Map":
+        if (
+            self.repChoice.currentText() == "Elliptical Map"
+            or self.repChoice.currentText() == "Intensity and Rotation Map"
+        ):
             self.updateUI()
         else:
             self.mapAxes.invert_xaxis()
@@ -602,7 +652,10 @@ class DIBatchWindow(QMainWindow):
         :return:
         """
         self.isFlipY = not self.isFlipY
-        if self.repChoice.currentText() == "Elliptical Map" or self.repChoice.currentText() == "Intensity and Rotation Map":
+        if (
+            self.repChoice.currentText() == "Elliptical Map"
+            or self.repChoice.currentText() == "Intensity and Rotation Map"
+        ):
             self.updateUI()
         else:
             self.mapAxes.invert_yaxis()
@@ -612,16 +665,20 @@ class DIBatchWindow(QMainWindow):
         """
         Triggered when the save button is clicked
         """
-        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
-        filename = getSaveFile(join(out, 'di_results'))
+        out = (
+            self.dir_context.output_dir
+            if hasattr(self, "dir_context")
+            else self.filePath
+        )
+        filename = getSaveFile(join(out, "di_results"))
         _, extension = os.path.splitext(filename)
-        if extension == 'svg':
-            self.mapFigure.savefig(filename, format='svg')
-        elif extension == 'png':
-            self.mapFigure.savefig(filename, format='png')
+        if extension == "svg":
+            self.mapFigure.savefig(filename, format="svg")
+        elif extension == "png":
+            self.mapFigure.savefig(filename, format="png")
         else:
             self.mapFigure.savefig(filename)
-        print(str(filename)+" has been saved.")
+        print(str(filename) + " has been saved.")
 
     def plotClicked(self, event):
         """
@@ -639,12 +696,15 @@ class DIBatchWindow(QMainWindow):
         # if a 1D scan then scale according to varying axis
         if len(x) == 1:
             if x[0] == 0:
-                stepx = stepy/2
+                stepx = stepy / 2
         if len(y) == 1:
             if y[0] == 0:
-                stepy = stepx/2
+                stepy = stepx / 2
 
-        if x.min()-stepx/2 <= event.xdata <= x.max()+stepx/2 and y.min()-stepy/2 <= event.ydata <= y.max()+stepy/2:
+        if (
+            x.min() - stepx / 2 <= event.xdata <= x.max() + stepx / 2
+            and y.min() - stepy / 2 <= event.ydata <= y.max() + stepy / 2
+        ):
             col = min(np.arange(len(x)), key=lambda i: abs(x[i] - event.xdata))
             row = min(np.arange(len(y)), key=lambda i: abs(y[i] - event.ydata))
             ind = row * x_max + col + self.init_number
@@ -664,8 +724,13 @@ class DIBatchWindow(QMainWindow):
                     img = fabio.open(full_filename).data
                     if img is not None:
                         self.batchmodeImg = img
-                        self.setMinMaxIntensity(img, self.img_minInt, self.img_maxInt, self.img_minIntLabel,
-                                                self.img_maxIntLabel)
+                        self.setMinMaxIntensity(
+                            img,
+                            self.img_minInt,
+                            self.img_maxInt,
+                            self.img_minIntLabel,
+                            self.img_maxIntLabel,
+                        )
                         QApplication.processEvents()
                 else:
                     self.batchmodeImg = None
@@ -681,20 +746,25 @@ class DIBatchWindow(QMainWindow):
         Pop up the image details
         """
         if self.batchmodeImg is not None:
-            new_image_window = DIImageWindow(self, str(self.batchmodeImgFilename), str(self.filePath))
+            new_image_window = DIImageWindow(
+                self, str(self.batchmodeImgFilename), str(self.filePath)
+            )
             self.widgetList.append(new_image_window)
         else:
             if self.batchmodeImgFilename is None:
                 errMsg = QMessageBox()
-                errMsg.setText('Image has not been selected')
-                errMsg.setInformativeText('Please select an image from maps')
+                errMsg.setText("Image has not been selected")
+                errMsg.setInformativeText("Please select an image from maps")
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
             else:
                 errMsg = QMessageBox()
-                errMsg.setText('Image not found')
-                errMsg.setInformativeText(str(self.batchmodeImgFilename) + ' not found.\nPlease select another image')
+                errMsg.setText("Image not found")
+                errMsg.setInformativeText(
+                    str(self.batchmodeImgFilename)
+                    + " not found.\nPlease select another image"
+                )
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
@@ -733,22 +803,37 @@ class DIBatchWindow(QMainWindow):
             ax.set_xlabel(self.batchmodeImgDetails)
 
             if self.batchmodeImg is not None:
-                img = getBGR(get8bitImage(self.batchmodeImg, min=self.img_minInt.value(), max=self.img_maxInt.value()))
+                img = getBGR(
+                    get8bitImage(
+                        self.batchmodeImg,
+                        min=self.img_minInt.value(),
+                        max=self.img_maxInt.value(),
+                    )
+                )
                 ax.imshow(img)
             else:
                 xlim = ax.get_xlim()
                 ylim = ax.get_ylim()
-                cx = (xlim[0] + xlim[1]) / 2.
-                cy = (ylim[0] + ylim[1]) / 2.
-                ax.text(cx, cy, "IMAGE NOT FOUND", fontsize=15, horizontalalignment='center')
+                cx = (xlim[0] + xlim[1]) / 2.0
+                cy = (ylim[0] + ylim[1]) / 2.0
+                ax.text(
+                    cx, cy, "IMAGE NOT FOUND", fontsize=15, horizontalalignment="center"
+                )
         else:
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
-            cx = (xlim[0] + xlim[1]) / 2.
-            cy = (ylim[0] + ylim[1]) / 2.
-            ax.text(cx, cy, "Please click on map\nto see the image\n and details", horizontalalignment='center')
+            cx = (xlim[0] + xlim[1]) / 2.0
+            cy = (ylim[0] + ylim[1]) / 2.0
+            ax.text(
+                cx,
+                cy,
+                "Please click on map\nto see the image\n and details",
+                horizontalalignment="center",
+            )
 
-        self.imgFigure.subplots_adjust(left=0.15, bottom=0.25, right=0.85, top=0.90, wspace=0, hspace=0)
+        self.imgFigure.subplots_adjust(
+            left=0.15, bottom=0.25, right=0.85, top=0.90, wspace=0, hspace=0
+        )
         self.imgCanvas.draw()
 
     def mousePressEvent(self, event):
@@ -769,18 +854,18 @@ class DIBatchWindow(QMainWindow):
         self.rotating90 = self.rotRAngle.isChecked()
         self.spacingFrame.setVisible(self.BSDChoice.currentIndex() == 2)
         representation = self.repChoice.currentText()
-        if representation == 'Total Intensity (Convex Hull) Map':
-            self.updateIntensityMap(typ='hull')
-        if representation == 'Total Intensity Map':
-            self.updateIntensityMap(typ='simple')
-        elif representation == 'Ring Intensity Map':
-            self.updateIntensityMap(typ='ring')
-        elif representation == 'Vector Field':
+        if representation == "Total Intensity (Convex Hull) Map":
+            self.updateIntensityMap(typ="hull")
+        if representation == "Total Intensity Map":
+            self.updateIntensityMap(typ="simple")
+        elif representation == "Ring Intensity Map":
+            self.updateIntensityMap(typ="ring")
+        elif representation == "Vector Field":
             self.updateVectorFieldMap()
-        elif representation == 'Elliptical Map':
+        elif representation == "Elliptical Map":
             self.updateEllipticalMap()
-        elif representation == 'D-Space Map':
-            self.updateIntensityMap(typ='dspace')
+        elif representation == "D-Space Map":
+            self.updateIntensityMap(typ="dspace")
 
         if self.max_int is not None:
             self.minMapVal.setMaximum(self.max_int)
@@ -793,7 +878,7 @@ class DIBatchWindow(QMainWindow):
         QApplication.processEvents()
         QApplication.restoreOverrideCursor()
 
-    def updateIntensityMap(self, typ='simple'):
+    def updateIntensityMap(self, typ="simple"):
         """
         Update the intensity map
         """
@@ -815,24 +900,26 @@ class DIBatchWindow(QMainWindow):
         y = copy.copy(self.xyIntensity[1])
         x2 = np.append(x, max(x) + stepx) - stepx / 2
         y2 = np.append(y, max(y) + stepy) - stepy / 2
-        if typ == 'hull':
+        if typ == "hull":
             intensity = copy.copy(self.xyIntensity[2])
-        elif typ == 'ring':
+        elif typ == "ring":
             intensity = copy.copy(self.xyIntensity[3])
-        elif typ == 'simple':
+        elif typ == "simple":
             intensity = copy.copy(self.xyIntensity[4])
-        elif typ == 'dspace':
+        elif typ == "dspace":
             intensity = copy.copy(self.xyIntensity[5])
 
         x_coor, y_coor = np.meshgrid(x2, y2)
         max_val = intensity.max()
         self.max_int = max_val
         if self.maxMap.value() < 100:
-            intensity[
-                intensity > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+            intensity[intensity > self.maxMap.value() * max_val / 100.0] = (
+                self.maxMap.value() * max_val / 100.0
+            )
         if self.minMap.value() > 0:
-            intensity[
-                intensity < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
+            intensity[intensity < self.minMap.value() * max_val / 100.0] = (
+                self.minMap.value() * max_val / 100.0
+            )
         max_val = intensity.max()
         min_val = intensity[intensity > 0].min()
 
@@ -842,57 +929,95 @@ class DIBatchWindow(QMainWindow):
         ax = self.mapAxes
         ax.cla()
 
-        if self.minMapVal.value() == 0 and self.maxMapVal.value() == 0: # on initialization
-            norm = LogNorm(vmin=min_val+1e-6, vmax=max_val) if self.usingLogScale else \
-                   Normalize(vmin=0, vmax=max_val)
+        if (
+            self.minMapVal.value() == 0 and self.maxMapVal.value() == 0
+        ):  # on initialization
+            norm = (
+                LogNorm(vmin=min_val + 1e-6, vmax=max_val)
+                if self.usingLogScale
+                else Normalize(vmin=0, vmax=max_val)
+            )
         else:
-            norm = LogNorm(vmin=self.minMapVal.value()+1e-6, vmax=self.maxMapVal.value()) if self.usingLogScale else \
-                   Normalize(vmin=self.minMapVal.value(), vmax=self.maxMapVal.value())
+            norm = (
+                LogNorm(vmin=self.minMapVal.value() + 1e-6, vmax=self.maxMapVal.value())
+                if self.usingLogScale
+                else Normalize(vmin=self.minMapVal.value(), vmax=self.maxMapVal.value())
+            )
 
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
 
-        if rendering_mode == 1: # RBF Interpolation
+        if rendering_mode == 1:  # RBF Interpolation
             ax.cla()
-            colorm = matplotlib.cm.ScalarMappable(cmap=self.colormap, norm=norm).to_rgba(intensity)
+            colorm = matplotlib.cm.ScalarMappable(
+                cmap=self.colormap, norm=norm
+            ).to_rgba(intensity)
             xi, yi = np.meshgrid(x, y)
-            rbf_r = Rbf(xi, yi, colorm[:,:,0], epsilon=(beamx+beamy)/4)
-            rbf_g = Rbf(xi, yi, colorm[:,:,1], epsilon=(beamx+beamy)/4)
-            rbf_b = Rbf(xi, yi, colorm[:,:,2], epsilon=(beamx+beamy)/4)
-            XI, YI = np.meshgrid(np.linspace(xlim[0], xlim[1], len(x)*5), np.linspace(ylim[0], ylim[1], len(y)*5))
+            rbf_r = Rbf(xi, yi, colorm[:, :, 0], epsilon=(beamx + beamy) / 4)
+            rbf_g = Rbf(xi, yi, colorm[:, :, 1], epsilon=(beamx + beamy) / 4)
+            rbf_b = Rbf(xi, yi, colorm[:, :, 2], epsilon=(beamx + beamy) / 4)
+            XI, YI = np.meshgrid(
+                np.linspace(xlim[0], xlim[1], len(x) * 5),
+                np.linspace(ylim[0], ylim[1], len(y) * 5),
+            )
             ZI = np.zeros((XI.shape[0], XI.shape[1], 3))
-            ZI[:,:,0] = rbf_r(XI, YI)
-            ZI[:,:,1] = rbf_g(XI, YI)
-            ZI[:,:,2] = rbf_b(XI, YI)
-            ax.imshow(ZI, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect=4)
+            ZI[:, :, 0] = rbf_r(XI, YI)
+            ZI[:, :, 1] = rbf_g(XI, YI)
+            ZI[:, :, 2] = rbf_b(XI, YI)
+            ax.imshow(
+                ZI,
+                origin="lower",
+                extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
+                aspect=4,
+            )
 
-        elif rendering_mode == 2: # Alpha blending
+        elif rendering_mode == 2:  # Alpha blending
             ax.cla()
             if stepx >= beamx and stepy >= beamy:
                 patches, colors = [], []
-                for (j, xj) in enumerate(x):
-                    for (i, yi) in enumerate(y):
-                        rect = Rectangle(xy=(xj-beamx/2, yi-beamy/2), width=beamx, height=beamy)
+                for j, xj in enumerate(x):
+                    for i, yi in enumerate(y):
+                        rect = Rectangle(
+                            xy=(xj - beamx / 2, yi - beamy / 2),
+                            width=beamx,
+                            height=beamy,
+                        )
                         patches.append(rect)
                         colors.append(-1 if intensity.mask[i, j] else intensity[i, j])
-                pc = PatchCollection(patches, cmap=self.colormap, norm=norm, antialiaseds=False)
+                pc = PatchCollection(
+                    patches, cmap=self.colormap, norm=norm, antialiaseds=False
+                )
                 pc.set_array(np.ma.array(colors, mask=np.array(colors) < 0))
                 ax.add_collection(pc)
             else:
                 patchesl = [[], [], [], []]
                 intensityl = [[], [], [], []]
-                for (j, xj) in enumerate(x):
-                    for (i, yi) in enumerate(y):
-                        rect = Rectangle(xy=(xj-beamx/2, yi-beamy/2), width=beamx, height=beamy)
+                for j, xj in enumerate(x):
+                    for i, yi in enumerate(y):
+                        rect = Rectangle(
+                            xy=(xj - beamx / 2, yi - beamy / 2),
+                            width=beamx,
+                            height=beamy,
+                        )
                         grp = 2 * (i % 2) + (j % 2)
                         patchesl[grp].append(rect)
-                        intensityl[grp].append(-1 if intensity.mask[i, j] else intensity[i, j])
-                tmpfig, tmpax = plt.subplots(figsize=(12.0, 12.0 / (len(x) + 1) * (len(y) + 1)))
-                tmpfig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+                        intensityl[grp].append(
+                            -1 if intensity.mask[i, j] else intensity[i, j]
+                        )
+                tmpfig, tmpax = plt.subplots(
+                    figsize=(12.0, 12.0 / (len(x) + 1) * (len(y) + 1))
+                )
+                tmpfig.subplots_adjust(
+                    left=0, bottom=0, right=1, top=1, wspace=0, hspace=0
+                )
                 imgs = []
                 h, w = None, None
-                for (i, patchl) in enumerate(patchesl):
-                    p = PatchCollection(patchl, cmap=self.colormap, norm=norm, antialiaseds=False)
-                    p.set_array(np.ma.array(intensityl[i], mask=np.array(intensityl[i]) < 0))
+                for i, patchl in enumerate(patchesl):
+                    p = PatchCollection(
+                        patchl, cmap=self.colormap, norm=norm, antialiaseds=False
+                    )
+                    p.set_array(
+                        np.ma.array(intensityl[i], mask=np.array(intensityl[i]) < 0)
+                    )
                     tmpax.cla()
                     tmpax.add_collection(p)
                     tmpax.set_xlim(*xlim)
@@ -900,37 +1025,56 @@ class DIBatchWindow(QMainWindow):
                     tmpax.set_axis_off()
                     tmpfig.canvas.draw()
                     if h is None or w is None:
-                        w, h = tmpfig.canvas.get_width_height() # width and height
-                    imgs.append(np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1))
+                        w, h = tmpfig.canvas.get_width_height()  # width and height
+                    imgs.append(
+                        np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(
+                            h, w, -1
+                        )
+                    )
 
-                sx, sy = w / (len(x) + 1), h / (len(y) + 1) # step size in pixel
-                bx, by = sx * beamx / stepx, sy * beamy / stepy # beam size in pixel
-                def blend(imga, imgb, ori='h'):
+                sx, sy = w / (len(x) + 1), h / (len(y) + 1)  # step size in pixel
+                bx, by = sx * beamx / stepx, sy * beamy / stepy  # beam size in pixel
+
+                def blend(imga, imgb, ori="h"):
                     img = imga.copy()
                     for idx in np.ndindex(h, w):
                         if imga[idx].sum() >= 765:
                             img[idx] = imgb[idx]
                         elif imgb[idx].sum() < 765:
-                            if ori != 'v':
+                            if ori != "v":
                                 rx = idx[1] % sx
                                 d0, d1 = rx - (sx - bx / 2), bx / 2 - rx
-                                w1, w2 = (d0, d1) if (idx[1] // sx) % 2 == 0 else (d1, d0)
+                                w1, w2 = (
+                                    (d0, d1) if (idx[1] // sx) % 2 == 0 else (d1, d0)
+                                )
                             else:
                                 ry = idx[0] % sy
                                 d0, d1 = ry - (sy - by / 2), by / 2 - ry
-                                w1, w2 = (d1, d0) if (idx[0] // sy) % 2 == 0 else (d0, d1)
+                                w1, w2 = (
+                                    (d1, d0) if (idx[0] // sy) % 2 == 0 else (d0, d1)
+                                )
                             w1 = w1 if w1 > 0 else 0
                             w2 = w2 if w2 > 0 else 0
                             w1, w2 = w1 / (w1 + w2), w2 / (w1 + w2)
-                            img[idx] = np.array(imga[idx] * w1 + imgb[idx] * w2, np.uint8)
+                            img[idx] = np.array(
+                                imga[idx] * w1 + imgb[idx] * w2, np.uint8
+                            )
                     return img
-                img = blend(blend(imgs[0], imgs[1]), blend(imgs[2], imgs[3]), ori='v')
-                ax.imshow(img, origin='upper', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect=4)
 
-        if angle: # orientation display for drawing ellipses
+                img = blend(blend(imgs[0], imgs[1]), blend(imgs[2], imgs[3]), ori="v")
+                ax.imshow(
+                    img,
+                    origin="upper",
+                    extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
+                    aspect=4,
+                )
+
+        if angle:  # orientation display for drawing ellipses
             centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0. for i in
-                      range(self.init_number, len(self.hdf_data) + self.init_number)]
+            ranges = [
+                toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0.0
+                for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+            ]
             patches = []
             colors = []
 
@@ -946,24 +1090,53 @@ class DIBatchWindow(QMainWindow):
                     if self.orientationTypeChkBx.isChecked():
                         e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=0, dy=0)
                     else:
-                        e = Ellipse(xy=centers[i], width=(stepx + stepy)/2./self.scaleX.value(), height=(stepx + stepy)/2./self.scaleY.value())
+                        e = Ellipse(
+                            xy=centers[i],
+                            width=(stepx + stepy) / 2.0 / self.scaleX.value(),
+                            height=(stepx + stepy) / 2.0 / self.scaleY.value(),
+                        )
                 else:
                     if self.orientationTypeChkBx.isChecked():
-                        dx = min(stepx,stepy)/self.scaleY.value() * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
-                        dy = min(stepx,stepy)/self.scaleY.value() * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
+                        dx = (
+                            min(stepx, stepy)
+                            / self.scaleY.value()
+                            * np.cos(
+                                angle_factor
+                                * self.orientation_dict[i + self.init_number]
+                            )
+                        )
+                        dy = (
+                            min(stepx, stepy)
+                            / self.scaleY.value()
+                            * np.sin(
+                                angle_factor
+                                * self.orientation_dict[i + self.init_number]
+                            )
+                        )
                         if self.rotating90:
-                            tempx=dx
-                            tempy=dy
-                            dx=tempy
-                            dy=-tempx
+                            tempx = dx
+                            tempy = dy
+                            dx = tempy
+                            dy = -tempx
                         e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
                     else:
-                        e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
-                            angle_factor * self.orientation_dict[i + self.init_number])
-                        e = Ellipse(xy=centers[i], width=(stepx + stepy)/2./self.scaleX.value(), height=(stepx + stepy)/2./self.scaleY.value(), angle=e_angle)
+                        e_angle = convertRadtoDegreesEllipse(
+                            (0 if self.rotating90 else np.pi / 2.0)
+                            + angle_factor * self.orientation_dict[i + self.init_number]
+                        )
+                        e = Ellipse(
+                            xy=centers[i],
+                            width=(stepx + stepy) / 2.0 / self.scaleX.value(),
+                            height=(stepx + stepy) / 2.0 / self.scaleY.value(),
+                            angle=e_angle,
+                        )
 
                 patches.append(e)
-                c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
+                c = (
+                    max_val - self.intensity_dict[i + self.init_number]
+                    if i + self.init_number in self.intensity_dict
+                    else -1
+                )
                 colors.append(c)
 
             colors = np.ma.array(colors, mask=np.array(colors) < 0)
@@ -973,15 +1146,15 @@ class DIBatchWindow(QMainWindow):
                 min_val = -1
             norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
             for patch in patches:
-                patch.set_color('black')
+                patch.set_color("black")
                 ax.add_patch(patch)
 
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
         # ax.set_aspect('auto') # will alter the aspect ratio with window resizing
-        ax.set_aspect('equal') # makes plot aspect ratio static
-        ax.set_adjustable('datalim', share=True)
-        ax.set_facecolor('white')
+        ax.set_aspect("equal")  # makes plot aspect ratio static
+        ax.set_adjustable("datalim", share=True)
+        ax.set_facecolor("white")
 
         if self.isFlipX:
             ax.invert_xaxis()
@@ -989,12 +1162,16 @@ class DIBatchWindow(QMainWindow):
             ax.invert_yaxis()
 
         if self.mapColorbar is None:
-            self.mapColorbar = self.mapFigure.colorbar(im, ax=ax, fraction=0.08, pad=0.01)
+            self.mapColorbar = self.mapFigure.colorbar(
+                im, ax=ax, fraction=0.08, pad=0.01
+            )
         else:
             self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(im, cax=self.mapColorbar.ax)
 
-        self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9,wspace=0, hspace=0)
+        self.mapFigure.subplots_adjust(
+            left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0
+        )
         self.mapCanvas.draw()
 
     def updateVectorFieldMap(self, fixedsz=False):
@@ -1014,13 +1191,21 @@ class DIBatchWindow(QMainWindow):
         intensity = self.xyIntensity[2]
 
         orientation = np.array(
-            [float(self.orientation_dict[i]) if i in self.orientation_dict and self.orientation_dict[i] != '' else 0
-             for i in
-             range(self.init_number, len(self.hdf_data) + self.init_number)])
+            [
+                (
+                    float(self.orientation_dict[i])
+                    if i in self.orientation_dict and self.orientation_dict[i] != ""
+                    else 0
+                )
+                for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+            ]
+        )
         orientation = [np.pi - ang for ang in orientation]
-        orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
+        orientation = np.array(
+            [orientation[i : i + x_max] for i in range(0, len(self.hdf_data), x_max)]
+        )
         if self.rotating90:
-            orientation -= np.pi/2
+            orientation -= np.pi / 2
 
         U = np.cos(orientation)
         V = np.sin(orientation)
@@ -1031,11 +1216,13 @@ class DIBatchWindow(QMainWindow):
         min_val = int_display[int_display > 0].min()
 
         if self.maxMap.value() < 100:
-            int_display[
-                int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+            int_display[int_display > self.maxMap.value() * max_val / 100.0] = (
+                self.maxMap.value() * max_val / 100.0
+            )
         if self.minMap.value() > 0:
-            int_display[
-                int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
+            int_display[int_display < self.minMap.value() * max_val / 100.0] = (
+                self.minMap.value() * max_val / 100.0
+            )
 
         speed = 1 if fixedsz else (int_display / int_display.max())
         UN = U * speed
@@ -1049,26 +1236,35 @@ class DIBatchWindow(QMainWindow):
         # scale units determine the length of the vector arrows
         # for 1d scans, it should scale in the variable direction only
         if len(x) == 1:
-            scale_units = 'y'
+            scale_units = "y"
         elif len(y) == 1:
-            scale_units = 'x'
+            scale_units = "x"
         else:
-            scale_units = 'xy'
+            scale_units = "xy"
 
-        self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
-                                    int_display,  # colour the arrows based on this array
-                                    cmap=self.colormap, norm=norm, # colour map
-                                    headlength=7, headwidth=4, scale_units=scale_units, pivot='middle')
+        self.vec_quiver = ax.quiver(
+            x,
+            y,
+            UN,
+            VN,  # data
+            int_display,  # colour the arrows based on this array
+            cmap=self.colormap,
+            norm=norm,  # colour map
+            headlength=7,
+            headwidth=4,
+            scale_units=scale_units,
+            pivot="middle",
+        )
         # if one of these is 0, it's a 1D scan. set limits on the scale of the non-zero step size
-        if self.xylim[0]/2 > 0:
+        if self.xylim[0] / 2 > 0:
             ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
         else:
             ax.set_xlim(x.min() - self.xylim[1], x.max() + self.xylim[1])
-        if self.xylim[1]/2 > 0:
+        if self.xylim[1] / 2 > 0:
             ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
         else:
             ax.set_ylim(y.min() - self.xylim[0], y.max() + self.xylim[0])
-        ax.set_facecolor('black')
+        ax.set_facecolor("black")
 
         if self.isFlipX:
             ax.invert_xaxis()
@@ -1076,11 +1272,15 @@ class DIBatchWindow(QMainWindow):
             ax.invert_yaxis()
 
         if self.mapColorbar is None:
-            self.mapColorbar = self.mapFigure.colorbar(self.vec_quiver, ax=ax, fraction=0.08, pad=0.01)
+            self.mapColorbar = self.mapFigure.colorbar(
+                self.vec_quiver, ax=ax, fraction=0.08, pad=0.01
+            )
         else:
             self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(self.vec_quiver, cax=self.mapColorbar.ax)
-        self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
+        self.mapFigure.subplots_adjust(
+            left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0
+        )
         self.mapCanvas.draw()
 
     def updateVectorFieldArrow(self):
@@ -1102,19 +1302,27 @@ class DIBatchWindow(QMainWindow):
         max_val = int_display.max()
         self.max_int = max_val
         if self.maxMap.value() < 100:
-            int_display[
-                int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+            int_display[int_display > self.maxMap.value() * max_val / 100.0] = (
+                self.maxMap.value() * max_val / 100.0
+            )
         if self.minMap.value() > 0:
-            int_display[
-                int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
+            int_display[int_display < self.minMap.value() * max_val / 100.0] = (
+                self.minMap.value() * max_val / 100.0
+            )
 
-        speed = int_display / intensity.max() * (self.arrowLengthSlider.value() / 5.)
+        speed = int_display / intensity.max() * (self.arrowLengthSlider.value() / 5.0)
         UN = U * speed
         VN = V * speed
         self.vec_quiver.set_UVC(UN, VN)
         self.vectorFieldMapCanvas.draw_idle()
-        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
-        self.vectorFieldMapFigure.savefig(fullPath(out, os.path.join('di_results', 'vector_field.png')))
+        out = (
+            self.dir_context.output_dir
+            if hasattr(self, "dir_context")
+            else self.filePath
+        )
+        self.vectorFieldMapFigure.savefig(
+            fullPath(out, os.path.join("di_results", "vector_field.png"))
+        )
 
     def updateEllipticalMap(self):
         """
@@ -1131,22 +1339,32 @@ class DIBatchWindow(QMainWindow):
         x = self.xyIntensity[0]
         y = self.xyIntensity[1]
         centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-        ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0. for i in
-                  range(self.init_number, len(self.hdf_data) + self.init_number)]
-        max_width = max(ranges) * 5.
-        widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict and 0 < toFloat(
-            self.angrange_dict[i]) / max_width else max_width / 2. for i in
-                  range(self.init_number, len(self.hdf_data) + self.init_number)]
+        ranges = [
+            toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0.0
+            for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+        ]
+        max_width = max(ranges) * 5.0
+        widths = [
+            (
+                toFloat(self.angrange_dict[i]) / max_width
+                if i in self.angrange_dict
+                and 0 < toFloat(self.angrange_dict[i]) / max_width
+                else max_width / 2.0
+            )
+            for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+        ]
 
         int_display = np.array(list(self.intensity_dict.values()))
         max_val = int_display.max()
         self.max_int = max_val
         if self.maxMap.value() < 100:
-            int_display[
-                int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+            int_display[int_display > self.maxMap.value() * max_val / 100.0] = (
+                self.maxMap.value() * max_val / 100.0
+            )
         if self.minMap.value() > 0:
-            int_display[
-                int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
+            int_display[int_display < self.minMap.value() * max_val / 100.0] = (
+                self.minMap.value() * max_val / 100.0
+            )
 
         # angle factor is taking care of flipping map (keep angle stay the same)
         angle_factor = -1
@@ -1161,12 +1379,20 @@ class DIBatchWindow(QMainWindow):
         colors = []
         for i in range(len(self.hdf_data)):
             if ranges[i] == 0:
-                e = Ellipse(xy=centers[i], width=self.xylim[0]/5., height=self.xylim[0]/5.)
+                e = Ellipse(
+                    xy=centers[i], width=self.xylim[0] / 5.0, height=self.xylim[0] / 5.0
+                )
             else:
-                angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
-                    angle_factor * self.orientation_dict[i + self.init_number])
-                e = Ellipse(xy=centers[i], width= self.xylim[0] * widths[i], height=self.xylim[0],
-                            angle=angle)
+                angle = convertRadtoDegreesEllipse(
+                    (0 if self.rotating90 else np.pi / 2.0)
+                    + angle_factor * self.orientation_dict[i + self.init_number]
+                )
+                e = Ellipse(
+                    xy=centers[i],
+                    width=self.xylim[0] * widths[i],
+                    height=self.xylim[0],
+                    angle=angle,
+                )
             patches.append(e)
 
             if i < len(int_display):
@@ -1180,16 +1406,16 @@ class DIBatchWindow(QMainWindow):
         p = PatchCollection(patches, cmap=self.colormap, norm=norm)
         p.set_array(colors)
         ax.add_collection(p)
-        ax.set_facecolor('black')
-        if self.xylim[0]/2 > 0:
-            ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
+        ax.set_facecolor("black")
+        if self.xylim[0] / 2 > 0:
+            ax.set_xlim(x.min() - self.xylim[0] / 2, x.max() + self.xylim[0] / 2)
         else:
-            ax.set_xlim(x.min() - self.xylim[1]/2, x.max() + self.xylim[1]/2)
-        if self.xylim[1]/2 > 0:
-            ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
+            ax.set_xlim(x.min() - self.xylim[1] / 2, x.max() + self.xylim[1] / 2)
+        if self.xylim[1] / 2 > 0:
+            ax.set_ylim(y.min() - self.xylim[1] / 2, y.max() + self.xylim[1] / 2)
         else:
-            ax.set_ylim(y.min() - self.xylim[0]/2, y.max() + self.xylim[0]/2)
-        ax.set_aspect('auto')
+            ax.set_ylim(y.min() - self.xylim[0] / 2, y.max() + self.xylim[0] / 2)
+        ax.set_aspect("auto")
 
         if self.isFlipX:
             ax.invert_xaxis()
@@ -1197,11 +1423,15 @@ class DIBatchWindow(QMainWindow):
             ax.invert_yaxis()
 
         if self.mapColorbar is None:
-            self.mapColorbar = self.mapFigure.colorbar(p, ax=ax, fraction=0.08, pad=0.01)
+            self.mapColorbar = self.mapFigure.colorbar(
+                p, ax=ax, fraction=0.08, pad=0.01
+            )
         else:
             self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(p, cax=self.mapColorbar.ax)
-        self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
+        self.mapFigure.subplots_adjust(
+            left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0
+        )
         # self.mapFigure.savefig(fullPath(self.filePath, 'di_results/vector_field.png'))
         self.mapCanvas.draw()
 
@@ -1210,9 +1440,9 @@ class DIBatchWindow(QMainWindow):
         Browse HDF files
         """
         hdf_filename = ""
-        path = join(dir_path, 'settings')
+        path = join(dir_path, "settings")
         createFolder(path)
-        hdf_cache = join(path, 'hdf.info')
+        hdf_cache = join(path, "hdf.info")
 
         if exists(hdf_cache):
             hdf_filename = pickle.load(open(hdf_cache, "rb"))
@@ -1223,9 +1453,15 @@ class DIBatchWindow(QMainWindow):
                 hdf_filename = join(dir_path, hdfList[0])
             else:
                 if len(hdfList) == 0:
-                    dlg = HDFBrowser('No HDF file detected.\nPlease select an HDF file to process or create a new one.', path)
+                    dlg = HDFBrowser(
+                        "No HDF file detected.\nPlease select an HDF file to process or create a new one.",
+                        path,
+                    )
                 else:
-                    dlg = HDFBrowser('There are more than one HDF file detected. \nPlease select an HDF file to process or create a new one.', path)
+                    dlg = HDFBrowser(
+                        "There are more than one HDF file detected. \nPlease select an HDF file to process or create a new one.",
+                        path,
+                    )
 
                 ret = dlg.exec_()
                 if ret == 0:
@@ -1245,21 +1481,25 @@ class DIBatchWindow(QMainWindow):
         Triggered when Save csv is clicked
         """
         df_rings = self.csvManager.df_rings
-        dist=self.distanceSpnBx.value()
-        max_diff=self.bandwidthSpnBx.value()
-        minv=dist-max_diff
-        maxv=dist+max_diff
-        df_rings=df_rings.loc[(df_rings['d']>=minv) &(df_rings['d']<=maxv)]
-        self.angle_sigma=self.aSigmaSpnBx.value()
-        df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
-        out_path = self.dir_context.output_dir if hasattr(self, 'dir_context') else self.filePath
+        dist = self.distanceSpnBx.value()
+        max_diff = self.bandwidthSpnBx.value()
+        minv = dist - max_diff
+        maxv = dist + max_diff
+        df_rings = df_rings.loc[(df_rings["d"] >= minv) & (df_rings["d"] <= maxv)]
+        self.angle_sigma = self.aSigmaSpnBx.value()
+        df_rings = df_rings[df_rings["angle sigma"] < self.angle_sigma]
+        out_path = (
+            self.dir_context.output_dir
+            if hasattr(self, "dir_context")
+            else self.filePath
+        )
         unit = str(self.unitChoice.currentText())
-        csvname=f'rings_({minv}-{maxv}){unit}_anglesigma{self.angle_sigma}.csv'
-        csvfilepath=os.path.join(out_path,'di_results',csvname)
+        csvname = f"rings_({minv}-{maxv}){unit}_anglesigma{self.angle_sigma}.csv"
+        csvfilepath = os.path.join(out_path, "di_results", csvname)
         print(df_rings.shape)
-        filename=getSaveFile(csvfilepath,None)
-        if filename!="":
-            df_rings.to_csv(filename,index=False)
+        filename = getSaveFile(csvfilepath, None)
+        if filename != "":
+            df_rings.to_csv(filename, index=False)
 
     def processBatchmodeResults(self):
         """
@@ -1270,13 +1510,20 @@ class DIBatchWindow(QMainWindow):
         self.csvManager.load_all()
         hdf_filename = self.hdf_filename
         csv_filename = self.csvManager.sum_file
-        self.updateStatusBar(text='Dir : ' + dir_path + '\nHDF : ' + hdf_filename + '\nCSV : ' + csv_filename)
+        self.updateStatusBar(
+            text="Dir : "
+            + dir_path
+            + "\nHDF : "
+            + hdf_filename
+            + "\nCSV : "
+            + csv_filename
+        )
         df_sum = self.csvManager.df_sum.copy()
-        df_sum = df_sum.sort_values(['filename'], ascending=True)
+        df_sum = df_sum.sort_values(["filename"], ascending=True)
         df_rings = self.csvManager.df_rings
-        self.angle_sigma=1
+        self.angle_sigma = 1
 
-        self.angle_sigma=self.aSigmaSpnBx.value()
+        self.angle_sigma = self.aSigmaSpnBx.value()
 
         # Read intensity from csv to organize the info given
         self.name_dict = {}
@@ -1290,56 +1537,78 @@ class DIBatchWindow(QMainWindow):
         self.fitcd_dict = {}
 
         for i, row in df_sum.iterrows():
-            filename = str(row['filename'])
-            start_ind = filename.rfind('_')
-            end_ind = filename.rfind('.')
-            index = int(row['filename'][start_ind + 1:end_ind])
-            self.name_dict[index] = row['filename']
-            self.intensity_dict[index] = row['total intensity (hull)'] \
-                    if 'total intensity (hull)' in row and not np.isnan(row['total intensity (hull)']) else \
-                    row['total intensity']
-            self.sim_inten_dict[index] = row['total intensity']
+            filename = str(row["filename"])
+            start_ind = filename.rfind("_")
+            end_ind = filename.rfind(".")
+            index = int(row["filename"][start_ind + 1 : end_ind])
+            self.name_dict[index] = row["filename"]
+            self.intensity_dict[index] = (
+                row["total intensity (hull)"]
+                if "total intensity (hull)" in row
+                and not np.isnan(row["total intensity (hull)"])
+                else row["total intensity"]
+            )
+            self.sim_inten_dict[index] = row["total intensity"]
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
-            all_rings = df_rings[(df_rings['filename'] == filename) ]
+            all_rings = df_rings[(df_rings["filename"] == filename)]
 
             if len(all_rings) > 0:
                 distance_ok = True
                 if self.bestRadio.isChecked():
-                    all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
+                    all_rings = all_rings.sort_values(
+                        ["angle fitting error"], ascending=True
+                    )
                     best_ring = all_rings.iloc[0]
                 else:
                     dist = self.distanceSpnBx.value()
                     unit = str(self.unitChoice.currentText())
-                    if unit == 'pixel':
-                        col = 'S'
+                    if unit == "pixel":
+                        col = "S"
                     else:
-                        col = 'd'
+                        col = "d"
                     try:
-                        min_ind = min(np.arange(len(all_rings)), key=lambda ind: abs(float(all_rings.iloc[ind][col])-dist)) # Find closest ring to distance
+                        min_ind = min(
+                            np.arange(len(all_rings)),
+                            key=lambda ind: abs(float(all_rings.iloc[ind][col]) - dist),
+                        )  # Find closest ring to distance
                         max_dif = self.bandwidthSpnBx.value()
-                        if abs(float(all_rings.iloc[min_ind][col])-dist) > max_dif:
+                        if abs(float(all_rings.iloc[min_ind][col]) - dist) > max_dif:
                             distance_ok = False
                     except Exception:
-                        print(f"WARNING : Unable to find the closest ring to the specified d-spacing for image {row['filename']}")
+                        print(
+                            f"WARNING : Unable to find the closest ring to the specified d-spacing for image {row['filename']}"
+                        )
                         min_ind = 0
                         distance_ok = False
                     best_ring = all_rings.iloc[min_ind]
 
-                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] <self.angle_sigma and distance_ok
+                good_model = (
+                    float(best_ring["angle fitting error"]) < 1.0
+                    and best_ring["angle sigma"] < self.angle_sigma
+                    and distance_ok
+                )
                 peak_inten = -1
                 d_spacing = 0
                 angle = 0
                 angle_sigma = 0
 
                 if good_model:
-                    peak_inten = float(best_ring['peak intensity']) if pd.notnull(best_ring['peak intensity']) else 0
-                    angle = best_ring['angle'] if pd.notnull(best_ring['angle']) else 0
-                    angle_sigma = float(best_ring['angle sigma']) if pd.notnull(best_ring['angle sigma']) else 0
-                    if pd.notnull(best_ring['d']) and best_ring['d'] != '-':
-                        d_spacing = float(best_ring['d'])
-                    elif pd.notnull(best_ring['S']):
-                        d_spacing = float(best_ring['S'])
+                    peak_inten = (
+                        float(best_ring["peak intensity"])
+                        if pd.notnull(best_ring["peak intensity"])
+                        else 0
+                    )
+                    angle = best_ring["angle"] if pd.notnull(best_ring["angle"]) else 0
+                    angle_sigma = (
+                        float(best_ring["angle sigma"])
+                        if pd.notnull(best_ring["angle sigma"])
+                        else 0
+                    )
+                    if pd.notnull(best_ring["d"]) and best_ring["d"] != "-":
+                        d_spacing = float(best_ring["d"])
+                    elif pd.notnull(best_ring["S"]):
+                        d_spacing = float(best_ring["S"])
 
                 self.peak_intensity_dict[index] = peak_inten
                 self.orientation_dict[index] = angle
@@ -1358,18 +1627,25 @@ class DIBatchWindow(QMainWindow):
         self.coord_dict = {}
 
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
-            self.coord_dict[i] = (self.hdf_data[i - self.init_number][0], self.hdf_data[i - self.init_number][1])
-        nCols = len(self.hdf_data) # 1D Scan
+            self.coord_dict[i] = (
+                self.hdf_data[i - self.init_number][0],
+                self.hdf_data[i - self.init_number][1],
+            )
+        nCols = len(self.hdf_data)  # 1D Scan
         for i in range(self.init_number + 1, len(self.hdf_data) + self.init_number):
             if abs(self.coord_dict[i][1] - self.coord_dict[i - 1][1]) != 0:
                 nCols = i - self.init_number
                 break
         if nCols != 0:
             nRows = int(len(self.hdf_data) / nCols)
-        else :
+        else:
             nRows = 0
-        all_xs = np.reshape(np.array([v[0] for k, v in self.coord_dict.items()]), (nRows, nCols))
-        all_ys = np.reshape(np.array([v[1] for k, v in self.coord_dict.items()]), (nRows, nCols))
+        all_xs = np.reshape(
+            np.array([v[0] for k, v in self.coord_dict.items()]), (nRows, nCols)
+        )
+        all_ys = np.reshape(
+            np.array([v[1] for k, v in self.coord_dict.items()]), (nRows, nCols)
+        )
         x = np.mean(all_xs, axis=0)
         y = np.mean(all_ys, axis=1)
 
@@ -1383,17 +1659,25 @@ class DIBatchWindow(QMainWindow):
             y_grad = 0
 
         # Plot heatmap for intensity
-        z = [float(self.intensity_dict[i]) if i in self.intensity_dict else -1 for i in
-             range(self.init_number, len(self.hdf_data) + self.init_number)]
-        simp_z = [float(self.sim_inten_dict[i]) if i in self.sim_inten_dict else -1 for i in
-             range(self.init_number, len(self.hdf_data) + self.init_number)]
-        dist_z = [float(self.distance_dict[i]) if i in self.distance_dict else -1 for i in
-             range(self.init_number, len(self.hdf_data) + self.init_number)]
+        z = [
+            float(self.intensity_dict[i]) if i in self.intensity_dict else -1
+            for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+        ]
+        simp_z = [
+            float(self.sim_inten_dict[i]) if i in self.sim_inten_dict else -1
+            for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+        ]
+        dist_z = [
+            float(self.distance_dict[i]) if i in self.distance_dict else -1
+            for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+        ]
         # z = np.array([z[i:i + x_max] for i in range(0, , x_max)])
         # z = cv2.blur(z, (4,4))
         # intensity = np.array(z)
-        ring_z = [float(self.peak_intensity_dict[i]) if i in self.peak_intensity_dict else -1 for i in
-             range(self.init_number, len(self.hdf_data) + self.init_number)]
+        ring_z = [
+            float(self.peak_intensity_dict[i]) if i in self.peak_intensity_dict else -1
+            for i in range(self.init_number, len(self.hdf_data) + self.init_number)
+        ]
         intensity = np.reshape(z, (len(y), len(x)))
         simp_intensity = np.reshape(simp_z, (len(y), len(x)))
         ring_intensity = np.reshape(ring_z, (len(y), len(x)))
@@ -1402,7 +1686,14 @@ class DIBatchWindow(QMainWindow):
         ring_intensity = np.ma.array(ring_intensity, mask=ring_intensity < 0)
         dspace_intensity = np.reshape(dist_z, (len(y), len(x)))
 
-        self.xyIntensity = [x, y, intensity, ring_intensity, simp_intensity, dspace_intensity]
+        self.xyIntensity = [
+            x,
+            y,
+            intensity,
+            ring_intensity,
+            simp_intensity,
+            dspace_intensity,
+        ]
         self.beamXSpinBox.setValue(x_grad)
         self.beamXSpinBox.setMaximum(x_grad * 2)
         self.beamYSpinBox.setValue(y_grad)
@@ -1417,41 +1708,41 @@ class DIBatchWindow(QMainWindow):
         """
         Convert i to float
         """
-        return float(i) if i.replace('.', '', 1).replace('-', '').isdigit() else i
+        return float(i) if i.replace(".", "", 1).replace("-", "").isdigit() else i
 
     def get_scan_data(self, filename):
         """
         Give the scanned data
         """
         if h5py.is_hdf5(filename):
-            hf = h5py.File(filename, 'r')
-            coordinates=np.array(hf.get('data').get('BL'))
-            if 'header' in hf.keys():
-                x_initial=hf.get('header').get('Xinitial')[0]
-                y_initial=hf.get('header').get('Yinitial')[0]
-                x_final=hf.get('header').get('Xfinal')[0]
-                y_final=hf.get('header').get('Yfinal')[0]
-                if x_initial>x_final:
-                    xs=-1
+            hf = h5py.File(filename, "r")
+            coordinates = np.array(hf.get("data").get("BL"))
+            if "header" in hf.keys():
+                x_initial = hf.get("header").get("Xinitial")[0]
+                y_initial = hf.get("header").get("Yinitial")[0]
+                x_final = hf.get("header").get("Xfinal")[0]
+                y_final = hf.get("header").get("Yfinal")[0]
+                if x_initial > x_final:
+                    xs = -1
                 else:
-                    xs=1
-                if y_initial>y_final:
-                    ys=-1
+                    xs = 1
+                if y_initial > y_final:
+                    ys = -1
                 else:
-                    ys=1
-                coordinates=np.array(hf.get('data').get('BL'))
+                    ys = 1
+                coordinates = np.array(hf.get("data").get("BL"))
 
-                l=len(coordinates)
-                coor=[]
+                l = len(coordinates)
+                coor = []
 
-                for i in range(0,l):
-                    coor.append((xs*coordinates[i][0],ys*coordinates[i][1]))
-                coordinates=np.array(coor)
+                for i in range(0, l):
+                    coor.append((xs * coordinates[i][0], ys * coordinates[i][1]))
+                coordinates = np.array(coor)
 
             return coordinates
         elif os.path.isdir(filename):
             return sorted(self.parse_logfiles_dir(filename), key=lambda x: (x[1], x[0]))
-        elif filename.endswith('.log'):
+        elif filename.endswith(".log"):
             return self.parse_logfile(filename)
         return None
 
@@ -1462,24 +1753,26 @@ class DIBatchWindow(QMainWindow):
         data_dir, fname = os.path.split(filename)
         count_filename = os.path.join(data_dir, fname)
 
-        with open(count_filename, 'r') as f:
+        with open(count_filename, "r") as f:
             all_lines = f.readlines()
 
         line_num = 0
         for i, line in enumerate(all_lines):
-            if not line.startswith('#'):
+            if not line.startswith("#"):
                 line_num = i
                 break
 
-        headers = all_lines[line_num - 1].replace('\n', '').split('\t')
-        x_index = headers.index('x')
-        y_index = headers.index('y')
+        headers = all_lines[line_num - 1].replace("\n", "").split("\t")
+        x_index = headers.index("x")
+        y_index = headers.index("y")
 
-        print(f'Log Headers: {headers},\n x index: {x_index},\n y index: {y_index}')
+        print(f"Log Headers: {headers},\n x index: {x_index},\n y index: {y_index}")
         scans = []
         for i in range(line_num, len(all_lines)):
-            data = all_lines[i].replace('\n', '').split('\t')
-            scans.append(list(map(self.convert_to_float, [data[x_index], data[y_index]])))
+            data = all_lines[i].replace("\n", "").split("\t")
+            scans.append(
+                list(map(self.convert_to_float, [data[x_index], data[y_index]]))
+            )
         return scans
 
     def parse_logfiles_dir(self, dir_name):
@@ -1489,7 +1782,7 @@ class DIBatchWindow(QMainWindow):
         files = os.listdir(dir_name)
         data = []
         for f in files:
-            if f.endswith('.log'):
+            if f.endswith(".log"):
                 scans = self.parse_logfile(os.path.join(dir_name, f))
                 data.extend(scans)
         return data
@@ -1498,35 +1791,38 @@ class DIBatchWindow(QMainWindow):
         """
         Set all update flags to True
         """
-        self.update_plot = {'intensity_maps': True,
-                            'ds_maps': True,
-                            'arange_maps': True,
-                            'vector_maps': True,
-                            'ellipse_maps': True
-                            }
+        self.update_plot = {
+            "intensity_maps": True,
+            "ds_maps": True,
+            "arange_maps": True,
+            "vector_maps": True,
+            "ellipse_maps": True,
+        }
 
     def processFolder(self, dir_path):
         """
         Process the folder selected
         """
         imgList, hdfList = getFilesAndHdf(dir_path)
-        out = self.dir_context.output_dir if hasattr(self, 'dir_context') else dir_path
-        createFolder(fullPath(out, 'di_results'))
+        out = self.dir_context.output_dir if hasattr(self, "dir_context") else dir_path
+        createFolder(fullPath(out, "di_results"))
 
         if len(imgList) == 0:
-            if exists(fullPath(out, os.path.join('di_results', 'summary.csv'))):
+            if exists(fullPath(out, os.path.join("di_results", "summary.csv"))):
                 self.browseHDF(dir_path, hdfList)
             else:
                 errMsg = QMessageBox()
-                errMsg.setText('No image and summary.csv detected')
-                errMsg.setInformativeText('Please select an image or another folder to process.')
+                errMsg.setText("No image and summary.csv detected")
+                errMsg.setInformativeText(
+                    "Please select an image or another folder to process."
+                )
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
         else:
             df_sum = self.csvManager.df_sum
             # df_rings = self.csvManager.df_rings
-            imgs1 = set(df_sum['filename'])
+            imgs1 = set(df_sum["filename"])
             # imgs2 = set(df_rings['filename'])
             # all_imgs = imgs1 & imgs2
             all_imgs = imgs1
@@ -1548,13 +1844,13 @@ class DIBatchWindow(QMainWindow):
         minInt.setMaximum(self.intensityRange[1])
         maxInt.setMinimum(self.intensityRange[2])
         maxInt.setMaximum(self.intensityRange[3])
-        step = max(1., (max_val - min_val) / 100)
+        step = max(1.0, (max_val - min_val) / 100)
         minInt.setSingleStep(step)
         maxInt.setSingleStep(step)
         minIntLabel.setText("Min intensity (" + str(min_val) + ")")
         maxIntLabel.setText("Max intensity (" + str(max_val) + ")")
 
-        if img.dtype == 'float32':
+        if img.dtype == "float32":
             decimal = 2
         else:
             decimal = 0
@@ -1562,7 +1858,7 @@ class DIBatchWindow(QMainWindow):
         maxInt.setDecimals(decimal)
         minInt.setDecimals(decimal)
 
-        if maxInt.value() == 1. and minInt.value() == 0.:
+        if maxInt.value() == 1.0 and minInt.value() == 0.0:
             self.updatingUI = True
             minInt.setValue(min_val)
             maxInt.setValue(max_val * 0.6)
@@ -1587,8 +1883,9 @@ class DIBatchWindow(QMainWindow):
             self.progressBar.setValue(sbar)
         QApplication.processEvents()
 
+
 def convertRadtoDegreesEllipse(rad):
     """
     Convert radian to degrees
     """
-    return rad * 180. / np.pi
+    return rad * 180.0 / np.pi

@@ -52,13 +52,14 @@ from .adapters import (
 from .adapters.base import FitCase
 from .metrics import per_param_rows, summarize
 
-
 # --------------------------------------------------------------------------- #
 # Loading
 # --------------------------------------------------------------------------- #
 
 
-def load_cases_from_dir(path: Union[str, Path], *, pattern: str = "*.pkl") -> List[FitCase]:
+def load_cases_from_dir(
+    path: Union[str, Path], *, pattern: str = "*.pkl"
+) -> List[FitCase]:
     """Load every ``*.pkl`` file from ``path`` (sorted by name)."""
     p = Path(path).expanduser().resolve()
     if not p.is_dir():
@@ -129,22 +130,30 @@ def run_ab(
                 try:
                     fit_result = adapter.fit(case, perturb_init=perturb_init)
                 except Exception as exc:  # noqa: BLE001
-                    row.update({
-                        "success": False,
-                        "converged": False,
-                        "aborted": False,
-                        "elapsed_s": float("nan"),
-                        "n_eval": None,
-                        "chi2": None, "redchi": None, "r2": None,
-                        "ref_chi2": (case.reference.chi2 if case.reference else None),
-                        "ref_r2": (case.reference.r2 if case.reference else None),
-                        "ref_elapsed_s": (
-                            case.reference.elapsed_s if case.reference else None
-                        ),
-                        "chi2_ratio": None, "speed_ratio": None,
-                        "p_max_abs_diff": None, "amp_max_rel_diff": None,
-                        "error": f"{type(exc).__name__}: {exc}",
-                    })
+                    row.update(
+                        {
+                            "success": False,
+                            "converged": False,
+                            "aborted": False,
+                            "elapsed_s": float("nan"),
+                            "n_eval": None,
+                            "chi2": None,
+                            "redchi": None,
+                            "r2": None,
+                            "ref_chi2": (
+                                case.reference.chi2 if case.reference else None
+                            ),
+                            "ref_r2": (case.reference.r2 if case.reference else None),
+                            "ref_elapsed_s": (
+                                case.reference.elapsed_s if case.reference else None
+                            ),
+                            "chi2_ratio": None,
+                            "speed_ratio": None,
+                            "p_max_abs_diff": None,
+                            "amp_max_rel_diff": None,
+                            "error": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
                 else:
                     row.update(summarize(fit_result, case))
                     row["error"] = ""
@@ -226,23 +235,20 @@ def summarize_dataframe(df) -> "pd.DataFrame":  # type: ignore[name-defined]
     summary = grouped.agg(
         n_fits=("case_id", "count"),
         success_rate=("success", "mean"),
-        aborted_rate=("aborted", "mean") if "aborted" in df.columns else ("success", "mean"),
-
+        aborted_rate=(
+            ("aborted", "mean") if "aborted" in df.columns else ("success", "mean")
+        ),
         elapsed_median=("elapsed_s", "median"),
         elapsed_mean=("elapsed_s", "mean"),
         elapsed_std=("elapsed_s", "std"),
         elapsed_iqr=("elapsed_s", _iqr),
-
         speed_ratio_median=("speed_ratio", "median"),
-
         chi2_ratio_median=("chi2_ratio", "median"),
         chi2_ratio_mean=("chi2_ratio", "mean"),
         chi2_ratio_std=("chi2_ratio", "std"),
-
         r2_median=("r2", "median"),
         r2_mean=("r2", "mean"),
         r2_std=("r2", "std"),
-
         p_max_diff_median=("p_max_abs_diff", "median"),
         p_max_diff_p95=("p_max_abs_diff", _p95),
         amp_diff_median=("amp_max_rel_diff", "median"),
@@ -345,39 +351,49 @@ def _resolve_out(path: Optional[str], out_dir: Path) -> Optional[Path]:
 
 
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument(
-        "--cases", required=True,
+        "--cases",
+        required=True,
         help="Directory containing FitCase pickle files (*.pkl).",
     )
     p.add_argument(
-        "--adapters", nargs="+", default=list(ADAPTER_REGISTRY),
+        "--adapters",
+        nargs="+",
+        default=list(ADAPTER_REGISTRY),
         help=f"Adapter names to compare. Available: {sorted(ADAPTER_REGISTRY)}",
     )
     p.add_argument(
-        "--out-dir", default=str(_FITTING_AB_DIR),
+        "--out-dir",
+        default=str(_FITTING_AB_DIR),
         help=(
             "Base directory for output CSVs when relative paths are given. "
             f"Default: {_FITTING_AB_DIR}"
         ),
     )
     p.add_argument(
-        "--report", default=None,
+        "--report",
+        default=None,
         help="Where to write the long-format CSV. Default: stdout.",
     )
     p.add_argument(
-        "--summary", default=None,
+        "--summary",
+        default=None,
         help="Optional: write the per-adapter summary CSV to this path.",
     )
     p.add_argument(
-        "--per-case", default=None,
+        "--per-case",
+        default=None,
         help=(
             "Optional: write per-(adapter, case) mean/std CSV to this path. "
             "Useful when error / time vary case-by-case."
         ),
     )
     p.add_argument(
-        "--consistency", default=None,
+        "--consistency",
+        default=None,
         help=(
             "Optional: write per-(adapter, case, param) consistency CSV "
             "(mean / std of each fitted parameter across trials). Only "
@@ -385,11 +401,15 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         ),
     )
     p.add_argument(
-        "--n-repeats", type=int, default=1,
+        "--n-repeats",
+        type=int,
+        default=1,
         help="Number of trials per (adapter, case). Default: 1.",
     )
     p.add_argument(
-        "--perturb-init", type=float, default=None,
+        "--perturb-init",
+        type=float,
+        default=None,
         help=(
             "If set, multiply each free init by a random factor in "
             "[1-perturb, 1+perturb] (clamped to bounds). Use for "
@@ -397,7 +417,9 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         ),
     )
     p.add_argument(
-        "--limit", type=int, default=None,
+        "--limit",
+        type=int,
+        default=None,
         help="Optional: cap the number of cases (for quick smoke runs).",
     )
     return p.parse_args(argv)

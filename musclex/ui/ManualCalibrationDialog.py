@@ -61,11 +61,11 @@ def print_log(log_str):
 class ManualCalibrationDialog(QDialog):
     """
     Dialog for manual calibration point selection.
-    
+
     Users can click on the calibration ring to select points,
     which are then used to fit a circle and refine the calibration.
     """
-    
+
     def __init__(
         self,
         parent,
@@ -80,7 +80,7 @@ class ManualCalibrationDialog(QDialog):
     ):
         """
         Initialize the manual calibration dialog.
-        
+
         Args:
             parent: Parent widget
             img: Calibration image (numpy array)
@@ -91,7 +91,7 @@ class ManualCalibrationDialog(QDialog):
         super().__init__(parent)
         self.setModal(True)
         self.setWindowTitle("Manual Calibration - Select Points on Ring")
-        
+
         self.img = img
         self.selected_points = []  # List of (x, y) tuples
         self.point_artists = []  # List of matplotlib artists for point markers
@@ -101,7 +101,7 @@ class ManualCalibrationDialog(QDialog):
         self.calibration_center_artist = None  # Center point marker
         self.radial_lines = []  # List of radial line artists
         self.applied = False  # Flag to track if Apply has been clicked
-        
+
         # Calibration results
         self.center = None
         self.radius = None
@@ -112,52 +112,56 @@ class ManualCalibrationDialog(QDialog):
         self.objective_Q = float(objective_Q)  # band half-width (pixels)
         self.objective_nphi = int(objective_nphi)  # angular samples
         self.objective_alpha = float(objective_alpha)  # background penalty weight
-        self.objective_bg_k = float(objective_bg_k)  # background offsets multiplier (k*Q)
+        self.objective_bg_k = float(
+            objective_bg_k
+        )  # background offsets multiplier (k*Q)
         self.optimization_history = []  # record objective process (list of dicts)
-        
+
         # Auto-calculate vmin/vmax if not provided
         if vmin is None:
             vmin = float(np.min(img))
         if vmax is None:
             vmax = float(np.max(img) * 0.2)
-        
+
         self.vmin = vmin
         self.vmax = vmax
-        
+
         # Create main layout
         self.mainLayout = QVBoxLayout(self)
-        
+
         # Create horizontal layout for image and options
         self.contentLayout = QHBoxLayout()
-        
+
         # Create ImageViewerWidget with integrated display panel and double zoom
-        self.imageViewer = ImageViewerWidget(parent=self, show_display_panel=True, show_double_zoom=True)
-        
+        self.imageViewer = ImageViewerWidget(
+            parent=self, show_display_panel=True, show_double_zoom=True
+        )
+
         # Quick access to components
         self.imageAxes = self.imageViewer.axes
         self.imageCanvas = self.imageViewer.canvas
         self.imageFigure = self.imageViewer.figure
-        
+
         # Set display options before displaying so display_image uses them
         self.imageViewer.set_display_options(vmin=vmin, vmax=vmax)
-        
+
         # Display the image (will use pre-set vmin/vmax)
         self.imageViewer.display_image(self.img)
-        
+
         # Add image to scroll area
         self.scrollAreaImg = QScrollArea()
         self.scrollAreaImg.setWidgetResizable(True)
         self.scrollAreaImg.setWidget(self.imageViewer.canvas)
         self.scrollAreaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scrollAreaImg.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        
+
         # Create options panel on the right
         self.optionsLayout = QVBoxLayout()
-        
+
         # Add integrated display panel
         self.optionsLayout.addWidget(self.imageViewer.display_panel)
         self.optionsLayout.addSpacing(10)
-        
+
         # Instructions group
         self.instructionsGroup = QGroupBox("Instructions")
         instructionsLayout = QVBoxLayout(self.instructionsGroup)
@@ -171,11 +175,11 @@ class ManualCalibrationDialog(QDialog):
         instructionsText.setWordWrap(True)
         instructionsLayout.addWidget(instructionsText)
         self.optionsLayout.addWidget(self.instructionsGroup)
-        
+
         # Calibration parameters group
         self.calibrationGroup = QGroupBox("Calibration Parameters")
         calibrationLayout = QGridLayout(self.calibrationGroup)
-        
+
         calibrationLayout.addWidget(QLabel("Silver Behenate d-spacing:"), 0, 0)
         self.silverBehenateSpinBox = QDoubleSpinBox()
         self.silverBehenateSpinBox.setDecimals(5)
@@ -183,103 +187,105 @@ class ManualCalibrationDialog(QDialog):
         self.silverBehenateSpinBox.setValue(self.silver_behenate)
         self.silverBehenateSpinBox.setSingleStep(0.1)
         calibrationLayout.addWidget(self.silverBehenateSpinBox, 0, 1)
-        
+
         # self.optionsLayout.addWidget(self.calibrationGroup)
-        
+
         # Points list group
         self.pointsGroup = QGroupBox("Selected Points")
         pointsLayout = QVBoxLayout(self.pointsGroup)
-        
+
         self.pointsCountLabel = QLabel("Points selected: 0")
         pointsLayout.addWidget(self.pointsCountLabel)
-        
+
         self.pointsList = QListWidget()
         self.pointsList.setMaximumHeight(150)
         pointsLayout.addWidget(self.pointsList)
-        
+
         buttonsLayout = QHBoxLayout()
         self.clearPointsBtn = QPushButton("Clear All Points")
         self.clearPointsBtn.clicked.connect(self.clearAllPoints)
         buttonsLayout.addWidget(self.clearPointsBtn)
-        
+
         pointsLayout.addLayout(buttonsLayout)
-        
+
         self.optionsLayout.addWidget(self.pointsGroup)
-        
+
         # Calibration results group
         self.resultsGroup = QGroupBox("Calibration Results")
         resultsLayout = QVBoxLayout(self.resultsGroup)
-        
+
         self.centerLabel = QLabel("Center: Not calculated")
         self.radiusLabel = QLabel("Radius: Not calculated")
         self.scaleLabel = QLabel("Scale: Not calculated")
-        
+
         resultsLayout.addWidget(self.centerLabel)
         resultsLayout.addWidget(self.radiusLabel)
         resultsLayout.addWidget(self.scaleLabel)
-        
+
         self.optionsLayout.addWidget(self.resultsGroup)
         self.optionsLayout.addStretch()
-        
+
         # Add to content layout
         self.contentLayout.addWidget(self.scrollAreaImg, stretch=3)
         self.contentLayout.addLayout(self.optionsLayout, stretch=1)
-        
+
         self.mainLayout.addLayout(self.contentLayout)
-        
+
         # Button layout (Cancel - Apply - Done)
         buttonLayout = QHBoxLayout()
         buttonLayout.addStretch()
-        
+
         # Set consistent height for all buttons
         btn_height = 28
-        
+
         self.cancelBtn = QPushButton("Cancel")
         self.cancelBtn.setFixedHeight(btn_height)
         self.cancelBtn.clicked.connect(self.reject)
         buttonLayout.addWidget(self.cancelBtn)
-        
+
         self.applyBtn = QPushButton("Apply (Preview)")
         self.applyBtn.setFixedHeight(btn_height)
         self.applyBtn.clicked.connect(self.applyCalibration)
         self.applyBtn.setEnabled(False)
         buttonLayout.addWidget(self.applyBtn)
-        
+
         self.doneBtn = QPushButton("Done")
         self.doneBtn.setFixedHeight(btn_height)
         self.doneBtn.clicked.connect(self.onAccept)
         self.doneBtn.setEnabled(False)  # Disabled until Apply is clicked
         buttonLayout.addWidget(self.doneBtn)
-        
+
         buttonLayout.addStretch()
         self.mainLayout.addLayout(buttonLayout)
-        
+
         # Set minimum size
         self.imageViewer.canvas.setMinimumSize(800, 600)
         self.setMinimumSize(1000, 700)
         self.resize(1400, 900)
-        
+
         self.imageFigure.tight_layout()
         self.imageCanvas.draw()
-        
+
         # Create connections
         self.createConnections()
-    
+
     def createConnections(self):
         """Set up signal connections"""
         # Connect to canvas click signal
         self.imageViewer.canvasClicked.connect(self.handleCanvasClick)
-        
+
         # Connect display panel signals
-        self.imageViewer.display_panel.intensityChanged.connect(self._onIntensityChanged)
+        self.imageViewer.display_panel.intensityChanged.connect(
+            self._onIntensityChanged
+        )
         self.imageViewer.display_panel.logScaleChanged.connect(self._onLogScaleChanged)
-        
+
         # Connect zoom button
         self.imageViewer.display_panel.zoomInRequested.connect(self.imageZoomInToggle)
-        
+
         # Connect point list selection for deletion
         self.pointsList.itemDoubleClicked.connect(self.removeSelectedPoint)
-    
+
     def handleCanvasClick(self, event):
         """
         Handle canvas click for point selection.
@@ -287,89 +293,93 @@ class ManualCalibrationDialog(QDialog):
         """
         if event.button != MouseButton.LEFT:
             return
-        
+
         x = event.xdata
         y = event.ydata
-        
+
         if event.inaxes == self.imageAxes and x is not None and y is not None:
             # Add point to list
             self.addPoint(x, y)
-    
+
     def addPoint(self, x, y):
         """Add a point to the selection"""
         point = (x, y)
         self.selected_points.append(point)
-        
+
         # Draw point on image (red X marker)
-        artist = self.imageAxes.plot(x, y, 'rx', markersize=10, markeredgewidth=2)[0]
+        artist = self.imageAxes.plot(x, y, "rx", markersize=10, markeredgewidth=2)[0]
         self.point_artists.append(artist)
-        
+
         # Add to list widget
-        self.pointsList.addItem(f"Point {len(self.selected_points)}: ({x:.2f}, {y:.2f})")
-        
+        self.pointsList.addItem(
+            f"Point {len(self.selected_points)}: ({x:.2f}, {y:.2f})"
+        )
+
         # Update count
         self.updatePointsCount()
-        
+
         # Redraw canvas
         self.imageCanvas.draw_idle()
-        
+
         print_log(f"Added point {len(self.selected_points)}: ({x:.2f}, {y:.2f})")
-    
+
     def removeSelectedPoint(self, item):
         """Remove a selected point (double-click on list item)"""
         index = self.pointsList.row(item)
-        
+
         if 0 <= index < len(self.selected_points):
             # Remove from data
             self.selected_points.pop(index)
-            
+
             # Remove artist
             if index < len(self.point_artists):
                 self.point_artists[index].remove()
                 self.point_artists.pop(index)
-            
+
             # Remove from list widget
             self.pointsList.takeItem(index)
-            
+
             # Update remaining items
             for i in range(index, self.pointsList.count()):
                 pt = self.selected_points[i]
-                self.pointsList.item(i).setText(f"Point {i+1}: ({pt[0]:.2f}, {pt[1]:.2f})")
-            
+                self.pointsList.item(i).setText(
+                    f"Point {i+1}: ({pt[0]:.2f}, {pt[1]:.2f})"
+                )
+
             # Update count
             self.updatePointsCount()
-            
+
             # Redraw
             self.imageCanvas.draw_idle()
-            
+
             print_log(f"Removed point at index {index}")
-    
+
     def clearAllPoints(self):
         """Clear all selected points"""
         # Remove all artists
         for artist in self.point_artists:
             artist.remove()
-        
+
         # Clear data
         self.selected_points.clear()
         self.point_artists.clear()
-        
+
         # Clear list widget
         self.pointsList.clear()
-        
+
         # Update count
         self.updatePointsCount()
-        
+
         # Redraw
         self.imageCanvas.draw_idle()
-        
+
         print_log("Cleared all points")
-    
+
     def updatePointsCount(self):
         """Update the points count label"""
         count = len(self.selected_points)
         self.pointsCountLabel.setText(f"Points selected: {count}")
-        
+
         # Enable/disable buttons based on point count
         if count < 5:
             self.applyBtn.setEnabled(False)
@@ -377,58 +387,58 @@ class ManualCalibrationDialog(QDialog):
         else:
             self.applyBtn.setEnabled(True)
             self.pointsCountLabel.setStyleSheet("QLabel { color: green; }")
-        
+
         # Done button is only enabled after Apply is clicked
         self.doneBtn.setEnabled(self.applied)
-    
+
     def onAccept(self):
         """Handle OK/Done button click"""
         if len(self.selected_points) < 5:
             QMessageBox.warning(
                 self,
                 "Insufficient Points",
-                "Please select at least 5 points on the calibration ring."
+                "Please select at least 5 points on the calibration ring.",
             )
             return
-        
+
         self.accept()
-    
+
     def getSelectedPoints(self):
         """Return the list of selected points"""
         return self.selected_points
-    
+
     def _onIntensityChanged(self, vmin, vmax):
         """Handle intensity changes from display panel"""
         self.vmin = vmin
         self.vmax = vmax
-    
+
     def _onLogScaleChanged(self, log_scale):
         """Handle log scale changes from display panel"""
         pass  # ImageViewerWidget handles this automatically
-    
+
     def imageZoomInToggle(self):
         """Toggle zoom tool on/off"""
         zoom_btn = self.imageViewer.display_panel.zoomInBtn
         if zoom_btn.isChecked():
-            self.imageViewer.tool_manager.activate_tool('zoom_rectangle')
+            self.imageViewer.tool_manager.activate_tool("zoom_rectangle")
         else:
             self.imageViewer.tool_manager.deactivate_current_tool()
-    
+
     def keyPressEvent(self, event):
         """Handle key press events"""
         key = event.key()
-        
+
         # Prevent Enter/Return from closing dialog
         if key in [Qt.Key_Return, Qt.Key_Enter]:
             return
-        
+
         # Handle Escape to deactivate zoom tool
         if key == Qt.Key_Escape:
-            if self.imageViewer.tool_manager.is_tool_active('zoom_rectangle'):
-                self.imageViewer.tool_manager.deactivate_tool('zoom_rectangle')
+            if self.imageViewer.tool_manager.is_tool_active("zoom_rectangle"):
+                self.imageViewer.tool_manager.deactivate_tool("zoom_rectangle")
                 self.imageViewer.display_panel.set_zoom_in_checked(False)
             return
-        
+
         # Handle Delete/Backspace to remove last point
         if key in [Qt.Key_Delete, Qt.Key_Backspace]:
             if len(self.selected_points) > 0:
@@ -443,18 +453,18 @@ class ManualCalibrationDialog(QDialog):
                 self.imageCanvas.draw_idle()
                 print_log("Removed last point")
             return
-        
+
         super().keyPressEvent(event)
-    
+
     def refine_point_on_ring(self, center, user_point, search_radius=30):
         """
         Refine a user-clicked point by finding the local intensity maximum along the radial direction.
-        
+
         Args:
             center: fitted center coordinates [x, y]
             user_point: user-clicked point [x, y]
             search_radius: search range around the user point (pixels)
-        
+
         Returns:
             refined_point: [x, y] coordinates of the intensity maximum
         """
@@ -462,47 +472,51 @@ class ManualCalibrationDialog(QDialog):
         dx = user_point[0] - center[0]
         dy = user_point[1] - center[1]
         distance = np.sqrt(dx**2 + dy**2)
-        
+
         if distance == 0:
             return user_point
-        
+
         # Normalize direction vector
         dir_x = dx / distance
         dir_y = dy / distance
-        
+
         # Sample along the radial direction
         start_dist = distance - search_radius
         end_dist = distance + search_radius
         num_samples = 2 * search_radius + 1
-        
+
         radial_distances = np.linspace(start_dist, end_dist, num_samples)
         intensities = []
         sample_points = []
-        
+
         for dist in radial_distances:
             # Calculate point coordinates along the radial direction
             x = center[0] + dir_x * dist
             y = center[1] + dir_y * dist
-            
+
             # Check bounds
             if 0 <= x < self.img.shape[1] and 0 <= y < self.img.shape[0]:
                 # Bilinear interpolation for sub-pixel accuracy
                 x0, y0 = int(np.floor(x)), int(np.floor(y))
-                x1, y1 = min(x0 + 1, self.img.shape[1] - 1), min(y0 + 1, self.img.shape[0] - 1)
-                
+                x1, y1 = min(x0 + 1, self.img.shape[1] - 1), min(
+                    y0 + 1, self.img.shape[0] - 1
+                )
+
                 fx, fy = x - x0, y - y0
-                
-                intensity = (self.img[y0, x0] * (1 - fx) * (1 - fy) +
-                            self.img[y0, x1] * fx * (1 - fy) +
-                            self.img[y1, x0] * (1 - fx) * fy +
-                            self.img[y1, x1] * fx * fy)
-                
+
+                intensity = (
+                    self.img[y0, x0] * (1 - fx) * (1 - fy)
+                    + self.img[y0, x1] * fx * (1 - fy)
+                    + self.img[y1, x0] * (1 - fx) * fy
+                    + self.img[y1, x1] * fx * fy
+                )
+
                 intensities.append(intensity)
                 sample_points.append([x, y])
             else:
                 intensities.append(0)
                 sample_points.append([x, y])
-        
+
         # Find the maximum intensity point
         if len(intensities) > 0:
             max_idx = np.argmax(intensities)
@@ -513,7 +527,9 @@ class ManualCalibrationDialog(QDialog):
 
     # ===================== Objective-based refinement (NEW) =====================
 
-    def _bilinear_sample(self, img: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _bilinear_sample(
+        self, img: np.ndarray, x: np.ndarray, y: np.ndarray
+    ) -> np.ndarray:
         """
         Vectorized bilinear sampling.
         x, y: float arrays in image coordinates (x=col, y=row).
@@ -580,10 +596,12 @@ class ManualCalibrationDialog(QDialog):
         c = np.cos(phi)
         s = np.sin(phi)
 
-        offsets_signal = np.array([-1.0, -0.5, 0.0, 0.5, 1.0], dtype=np.float64) * float(Q)
-        offsets_bg = (
-            np.array([-float(self.objective_bg_k), +float(self.objective_bg_k)], dtype=np.float64) * float(Q)
-        )
+        offsets_signal = np.array(
+            [-1.0, -0.5, 0.0, 0.5, 1.0], dtype=np.float64
+        ) * float(Q)
+        offsets_bg = np.array(
+            [-float(self.objective_bg_k), +float(self.objective_bg_k)], dtype=np.float64
+        ) * float(Q)
 
         def sample_offsets_2d(offsets: np.ndarray) -> np.ndarray:
             """Returns array of shape (n_offsets, nphi)"""
@@ -594,14 +612,14 @@ class ManualCalibrationDialog(QDialog):
             return samples.reshape(len(offsets), nphi)
 
         sig_2d = sample_offsets_2d(offsets_signal)  # (5, nphi)
-        bg_2d = sample_offsets_2d(offsets_bg)       # (2, nphi)
+        bg_2d = sample_offsets_2d(offsets_bg)  # (2, nphi)
 
         if sig_2d.size == 0 or bg_2d.size == 0:
             return -np.inf
 
         # Compute per-angle (phi) mean across radial offsets
         sig_per_phi = np.mean(sig_2d, axis=0)  # (nphi,)
-        bg_per_phi = np.mean(bg_2d, axis=0)    # (nphi,)
+        bg_per_phi = np.mean(bg_2d, axis=0)  # (nphi,)
 
         # MAD-based outlier rejection: identify "good" phi angles using signal intensity
         median_sig = np.median(sig_per_phi)
@@ -625,7 +643,16 @@ class ManualCalibrationDialog(QDialog):
         bg_mean = float(np.mean(bg_filtered))
         return sig_mean - float(self.objective_alpha) * bg_mean
 
-    def _record_eval(self, phase: str, center, radius, delta: float, obj: float, accepted: bool, best_obj: float):
+    def _record_eval(
+        self,
+        phase: str,
+        center,
+        radius,
+        delta: float,
+        obj: float,
+        accepted: bool,
+        best_obj: float,
+    ):
         self.optimization_history.append(
             {
                 "phase": phase,  # "center" or "radius"
@@ -638,7 +665,9 @@ class ManualCalibrationDialog(QDialog):
             }
         )
 
-    def _refine_center(self, center, radius, Q: float, delta0=0.1, shrink=2.0, delta_min=1e-3):
+    def _refine_center(
+        self, center, radius, Q: float, delta0=0.1, shrink=2.0, delta_min=1e-3
+    ):
         """
         Center refinement:
         - Search 8 neighbors of +/- delta (delta starts at delta0).
@@ -673,13 +702,18 @@ class ManualCalibrationDialog(QDialog):
             cand_best_obj = best_obj
 
             for dxy in dirs:
-                cand_center = [best_center[0] + float(dxy[0]) * delta, best_center[1] + float(dxy[1]) * delta]
+                cand_center = [
+                    best_center[0] + float(dxy[0]) * delta,
+                    best_center[1] + float(dxy[1]) * delta,
+                ]
                 obj = self._circle_band_objective(cand_center, r, Q)
                 accepted = obj > cand_best_obj
                 if accepted:
                     cand_best_obj = obj
                     cand_best_center = cand_center
-                self._record_eval("center", cand_center, r, delta, obj, accepted, cand_best_obj)
+                self._record_eval(
+                    "center", cand_center, r, delta, obj, accepted, cand_best_obj
+                )
 
             if cand_best_center is not None:
                 best_center = cand_best_center
@@ -697,7 +731,9 @@ class ManualCalibrationDialog(QDialog):
 
         return best_center, best_obj, improved_any
 
-    def _refine_radius(self, center, radius, Q: float, delta0=0.01, shrink=2.0, delta_min=1e-4):
+    def _refine_radius(
+        self, center, radius, Q: float, delta0=0.01, shrink=2.0, delta_min=1e-4
+    ):
         """
         Radius refinement:
         - Search 2 neighbors (+/- delta).
@@ -723,7 +759,9 @@ class ManualCalibrationDialog(QDialog):
                 if accepted:
                     cand_best_obj = obj
                     cand_best_r = cand_r
-                self._record_eval("radius", c, cand_r, delta, obj, accepted, cand_best_obj)
+                self._record_eval(
+                    "radius", c, cand_r, delta, obj, accepted, cand_best_obj
+                )
 
             if cand_best_r is not None:
                 best_r = cand_best_r
@@ -772,7 +810,9 @@ class ManualCalibrationDialog(QDialog):
         self._record_eval("init", list(center), radius, 0.0, init_obj, True, init_obj)
 
         # Define search bounds around initial estimate
-        center_range = 100.0  # pixels: search +/- center_range pixels from initial center
+        center_range = (
+            100.0  # pixels: search +/- center_range pixels from initial center
+        )
         radius_range = 0.10  # fraction: search +/- 10% of initial radius
 
         bounds = [
@@ -809,7 +849,7 @@ class ManualCalibrationDialog(QDialog):
             tol=1e-4,
             seed=42,  # Reproducibility
             polish=True,  # Local refinement at end (uses L-BFGS-B)
-            updating='deferred',  # Better for non-noisy objectives
+            updating="deferred",  # Better for non-noisy objectives
             workers=1,  # Single-threaded (GUI compatibility)
             disp=False,
         )
@@ -884,38 +924,38 @@ class ManualCalibrationDialog(QDialog):
         return out_path
 
     # ===================== end objective-based refinement =====================
-    
+
     def applyCalibration(self):
         """Apply calibration and show preview"""
         if len(self.selected_points) < 5:
             QMessageBox.warning(
                 self,
                 "Insufficient Points",
-                "Please select at least 5 points on the calibration ring."
+                "Please select at least 5 points on the calibration ring.",
             )
             return
-        
+
         print_log(f"Applying calibration with {len(self.selected_points)} points")
-        
+
         # Step 1: Initial fit using user-clicked points
         user_points_array = np.array(self.selected_points, dtype=np.float32)
         initial_center, initial_radius, _ = cv2.fitEllipse(user_points_array)
         initial_center = [initial_center[0], initial_center[1]]
-        
+
         print_log(f"Initial fit - Center: {initial_center}, Radius: {initial_radius}")
-        
+
         # Step 2: Refine each point by finding intensity maximum along radial direction
         self.refined_points = []
         for pt in self.selected_points:
             refined_pt = self.refine_point_on_ring(initial_center, pt, search_radius=30)
             self.refined_points.append(refined_pt)
-        
+
         print_log(f"Refined {len(self.refined_points)} points")
-        
+
         # Step 3: Refit circle using refined points
         refined_points_array = np.array(self.refined_points, dtype=np.float32)
         final_center, final_radius, _ = cv2.fitEllipse(refined_points_array)
-        
+
         self.center = [final_center[0], final_center[1]]
         self.radius = (final_radius[0] + final_radius[1]) / 4.0
 
@@ -929,21 +969,21 @@ class ManualCalibrationDialog(QDialog):
         self.scale = self.radius * self.silverBehenateSpinBox.value()
 
         history_path = self._export_history_csv()
-        
+
         print_log(
             f"Final fit (after objective opt) - Center: {self.center}, Radius: {self.radius}, "
             f"Scale: {self.scale}, Obj: {opt_obj:.6g}, Evals: {len(self.optimization_history)}"
         )
         if history_path:
             print_log(f"Optimization history exported: {history_path}")
-        
+
         # Update display
         self.displayCalibrationResults()
-        
+
         # Enable Done button after Apply is clicked
         self.applied = True
         self.doneBtn.setEnabled(True)
-        
+
         QMessageBox.information(
             self,
             "Calibration Applied",
@@ -951,95 +991,103 @@ class ManualCalibrationDialog(QDialog):
             f"Center: ({self.center[0]:.2f}, {self.center[1]:.2f})\n"
             f"Radius: {self.radius:.2f} px\n"
             f"Scale: {self.scale:.2f}\n\n"
-            f"Click 'Done' to accept these results."
+            f"Click 'Done' to accept these results.",
         )
-    
+
     def displayCalibrationResults(self):
         """Display calibration results on the image"""
         # Clear previous calibration overlays
         self.clearCalibrationOverlays()
-        
+
         if self.center is None or self.radius is None:
             return
-        
+
         # Draw refined points (blue circles)
         for pt in self.refined_points:
-            artist = self.imageAxes.plot(pt[0], pt[1], 'bo', markersize=8, markeredgewidth=2)[0]
+            artist = self.imageAxes.plot(
+                pt[0], pt[1], "bo", markersize=8, markeredgewidth=2
+            )[0]
             self.refined_artists.append(artist)
-        
+
         # Draw radial lines from center to refined points (green dashed)
         for pt in self.refined_points:
-            line = self.imageAxes.plot([self.center[0], pt[0]], [self.center[1], pt[1]], 
-                                       'g--', linewidth=0.5, alpha=0.5)[0]
+            line = self.imageAxes.plot(
+                [self.center[0], pt[0]],
+                [self.center[1], pt[1]],
+                "g--",
+                linewidth=0.5,
+                alpha=0.5,
+            )[0]
             self.radial_lines.append(line)
-        
+
         # Draw calibration circle (red dashed)
         self.calibration_circle = patches.Circle(
-            self.center, 
-            self.radius, 
-            linewidth=2, 
-            edgecolor='r', 
-            facecolor='none', 
-            linestyle='dotted',
-            label='Fitted Circle'
+            self.center,
+            self.radius,
+            linewidth=2,
+            edgecolor="r",
+            facecolor="none",
+            linestyle="dotted",
+            label="Fitted Circle",
         )
         self.imageAxes.add_patch(self.calibration_circle)
-        
+
         # Draw center point (red circle)
         self.calibration_center_artist = self.imageAxes.plot(
-            self.center[0], self.center[1], 'ro', markersize=6
+            self.center[0], self.center[1], "ro", markersize=6
         )[0]
-        
+
         # Update results labels
-        self.centerLabel.setText(f"Center: ({self.center[0]:.2f}, {self.center[1]:.2f})")
+        self.centerLabel.setText(
+            f"Center: ({self.center[0]:.2f}, {self.center[1]:.2f})"
+        )
         self.radiusLabel.setText(f"Radius: {self.radius:.2f} px")
         self.scaleLabel.setText(f"Scale: {self.scale:.2f}")
-        
+
         # Redraw canvas
         self.imageCanvas.draw_idle()
-        
+
         print_log("Calibration results displayed")
-    
+
     def clearCalibrationOverlays(self):
         """Clear all calibration overlay elements from the image"""
         # Remove refined point artists
         for artist in self.refined_artists:
             artist.remove()
         self.refined_artists.clear()
-        
+
         # Remove radial lines
         for line in self.radial_lines:
             line.remove()
         self.radial_lines.clear()
-        
+
         # Remove calibration circle
         if self.calibration_circle is not None:
             self.calibration_circle.remove()
             self.calibration_circle = None
-        
+
         # Remove center artist
         if self.calibration_center_artist is not None:
             self.calibration_center_artist.remove()
             self.calibration_center_artist = None
-    
+
     def getCalibrationResults(self):
         """
         Get calibration results.
-        
+
         Returns:
             dict with keys: 'selected_points', 'refined_points', 'center', 'radius', 'scale'
         """
         return {
-            'selected_points': self.selected_points,
-            'refined_points': self.refined_points,
-            'center': self.center,
-            'radius': self.radius,
-            'scale': self.scale,
-            'silver_behenate': self.silverBehenateSpinBox.value(),
-            'optimization_history': self.optimization_history,
-            'objective_Q': self.objective_Q,
-            'objective_nphi': self.objective_nphi,
-            'objective_alpha': self.objective_alpha,
-            'objective_bg_k': self.objective_bg_k,
+            "selected_points": self.selected_points,
+            "refined_points": self.refined_points,
+            "center": self.center,
+            "radius": self.radius,
+            "scale": self.scale,
+            "silver_behenate": self.silverBehenateSpinBox.value(),
+            "optimization_history": self.optimization_history,
+            "objective_Q": self.objective_Q,
+            "objective_nphi": self.objective_nphi,
+            "objective_alpha": self.objective_alpha,
+            "objective_bg_k": self.objective_bg_k,
         }
-

@@ -30,19 +30,20 @@ from numba import jit, cuda
 from math import exp, sqrt, floor, ceil, atan
 import numpy as np
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshold):
     """
     Calculate average fold from multiple quadrants with gap edge detection.
-    
+
     Parameters:
     - quadrants: array of quadrant images
     - nQuadrant: number of quadrants to average
     - fold_height, fold_width: dimensions of each quadrant
     - threshold: invalid pixel threshold (typically INVALID_PIXEL_THRESHOLD = -1)
                  Pixels with value <= threshold are excluded from averaging
-    
+
     Returns:
     - result: averaged fold image with gap edge artifacts removed
     """
@@ -54,35 +55,36 @@ def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshol
                 n_fold = 0
                 for i in range(nQuadrant):
                     fold = quadrants[i]
-                    if fold[y,x] > threshold:
+                    if fold[y, x] > threshold:
                         # Case where there is an edge effect near gaps creating thin lines on the image
                         # Neighbor pixels considered as part of the gap: 2
-                        if 2 < y < fold_height-2 and 2 < x < fold_width-2:
+                        if 2 < y < fold_height - 2 and 2 < x < fold_width - 2:
                             not_gap_edge = True
-                            for k in range(y-2, y+3):
-                                for l in range(x-2, x+3):
+                            for k in range(y - 2, y + 3):
+                                for l in range(x - 2, x + 3):
                                     # Check for invalid pixels (<= threshold, i.e., <= -1)
-                                    if fold[k,l] <= threshold:
+                                    if fold[k, l] <= threshold:
                                         not_gap_edge = False
                             if not_gap_edge:
-                                sum_val += fold[y,x]
+                                sum_val += fold[y, x]
                                 n_fold += 1
                         else:
-                            sum_val += fold[y,x]
+                            sum_val += fold[y, x]
                             n_fold += 1
-                if n_fold == 0 :
-                    result[y,x] = 0
+                if n_fold == 0:
+                    result[y, x] = 0
                 else:
-                    result[y,x] = sum_val/n_fold
+                    result[y, x] = sum_val / n_fold
     return result
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def createAngularBG(width, height, subtr, nBins):
-    backgound = np.zeros((height, width), dtype = np.float32)
+    backgound = np.zeros((height, width), dtype=np.float32)
     centerX = width - 1
     centerY = height - 1
-    theta_size = 90./nBins
+    theta_size = 90.0 / nBins
 
     for x in range(0, width):
         for y in range(0, height):
@@ -96,8 +98,8 @@ def createAngularBG(width, height, subtr, nBins):
                 beta_rad = 0.5
                 alpha_rad = 0.5
             else:
-                alpha_rad = 1. - (rad - floor_rad)
-                beta_rad = 1. - (ceil_rad - rad)
+                alpha_rad = 1.0 - (rad - floor_rad)
+                beta_rad = 1.0 - (ceil_rad - rad)
 
             deltax = float(abs(x - centerX))
             if deltax == 0.0:
@@ -105,49 +107,62 @@ def createAngularBG(width, height, subtr, nBins):
             else:
                 deltay = float(abs(y - centerY))
                 slope = deltay / deltax
-                deg = atan(slope)*180.0/np.pi
+                deg = atan(slope) * 180.0 / np.pi
 
-            fbin = 1.*deg/theta_size
+            fbin = 1.0 * deg / theta_size
             ibin = int(round(fbin))
 
             if ibin == 0:
-                backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
+                backgound[y, x] = (
+                    alpha_rad * subtr[ibin, ifloor_rad]
+                    + beta_rad * subtr[ibin, iceil_rad]
+                )
             elif ibin == nBins:
-                backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]
+                backgound[y, x] = (
+                    alpha_rad * subtr[ibin - 1, ifloor_rad]
+                    + beta_rad * subtr[ibin - 1, iceil_rad]
+                )
             else:
                 floor_bin = floor(fbin)
                 ceil_bin = ceil(fbin)
-                alpha = 1. - (fbin - floor_bin)
-                beta = 1. - (ceil_bin - fbin)
+                alpha = 1.0 - (fbin - floor_bin)
+                beta = 1.0 - (ceil_bin - fbin)
 
                 if alpha == 1.0 and beta == 1.0:
                     alpha = 0.5
                     beta = 0.5
                     ifloor = int(floor_bin - 1.0)
                     iceil = int(ceil_bin)
-                elif alpha > beta :
+                elif alpha > beta:
                     floor_bin = floor_bin - 0.5
                     ceil_bin = ceil_bin - 0.5
-                    alpha = 1. - (fbin - floor_bin)
-                    beta = 1. - (ceil_bin - fbin)
+                    alpha = 1.0 - (fbin - floor_bin)
+                    beta = 1.0 - (ceil_bin - fbin)
                     ifloor = int(floor(floor_bin))
                     iceil = int(floor(ceil_bin))
                 else:
                     floor_bin = floor_bin + 0.5
                     ceil_bin = ceil_bin + 0.5
-                    alpha = 1. - (fbin - floor_bin)
-                    beta = 1. - (ceil_bin - fbin)
+                    alpha = 1.0 - (fbin - floor_bin)
+                    beta = 1.0 - (ceil_bin - fbin)
                     ifloor = int(floor(floor_bin))
                     iceil = int(floor(ceil_bin))
 
-                backgound[y, x] = alpha * (alpha_rad * subtr[ifloor, ifloor_rad] + beta_rad * subtr[ifloor, iceil_rad])+ beta * (alpha_rad * subtr[iceil, ifloor_rad] + beta_rad * subtr[iceil, iceil_rad])
+                backgound[y, x] = alpha * (
+                    alpha_rad * subtr[ifloor, ifloor_rad]
+                    + beta_rad * subtr[ifloor, iceil_rad]
+                ) + beta * (
+                    alpha_rad * subtr[iceil, ifloor_rad]
+                    + beta_rad * subtr[iceil, iceil_rad]
+                )
 
     return backgound
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def createCircularlySymBG(width, height, spline):
-    backgound = np.zeros((height, width), dtype = np.float32)
+    backgound = np.zeros((height, width), dtype=np.float32)
     centerX = width - 0.5
     centerY = height - 0.5
 
@@ -155,11 +170,11 @@ def createCircularlySymBG(width, height, spline):
         for y in range(height):
             fx = float(x)
             fy = float(y)
-            rad = sqrt((fx-centerX)**2+(fy-centerY)**2)
+            rad = sqrt((fx - centerX) ** 2 + (fy - centerY) ** 2)
             ffloor = floor(rad)
             fceil = ceil(rad)
-            alpha = 1.-(rad-ffloor)
-            beta = 1.-(fceil-rad)
+            alpha = 1.0 - (rad - ffloor)
+            beta = 1.0 - (fceil - rad)
             ifloor = int(ffloor)
             iceil = int(fceil)
 
@@ -167,10 +182,11 @@ def createCircularlySymBG(width, height, spline):
                 alpha = 0.5
                 beta = 0.5
 
-            backgound[y, x] = alpha*spline[ifloor] + beta*spline[iceil]
+            backgound[y, x] = alpha * spline[ifloor] + beta * spline[iceil]
     return backgound
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def replaceRmin(img, rmin, val):
     height = img.shape[0]
@@ -180,30 +196,31 @@ def replaceRmin(img, rmin, val):
     frmin = float(rmin)
     replace_val = float(val)
 
-    for x in range(width-rmin-1, width):
+    for x in range(width - rmin - 1, width):
         float_x = float(x)
-        for y in range(height-rmin-1, height):
+        for y in range(height - rmin - 1, height):
             float_y = float(y)
-            distance = sqrt((float_x-centerX)**2+(float_y-centerY)**2)
+            distance = sqrt((float_x - centerX) ** 2 + (float_y - centerY) ** 2)
             if distance <= frmin:
                 img[y, x] = replace_val
     return img
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def getCircularDiscreteBackground(img, rmin, start_p, end_p, radial_bin, nBin, max_pts):
     height = img.shape[0]
     width = img.shape[1]
-    xs = np.zeros(nBin, dtype = np.float32)
-    ys = np.zeros(nBin, dtype = np.float32)
-    all_pts = np.zeros(max_pts, dtype = np.float32)
+    xs = np.zeros(nBin, dtype=np.float32)
+    ys = np.zeros(nBin, dtype=np.float32)
+    all_pts = np.zeros(max_pts, dtype=np.float32)
     centerX = width - 0.5
     centerY = height - 0.5
     nPoints = 0
 
     for bin in range(0, nBin):
         nPoints = 0
-        d1 = float(rmin + bin*radial_bin)
+        d1 = float(rmin + bin * radial_bin)
         d2 = d1 + float(radial_bin)
 
         # Get all points in a bin
@@ -211,34 +228,35 @@ def getCircularDiscreteBackground(img, rmin, start_p, end_p, radial_bin, nBin, m
             float_x = float(x)
             for y in range(height):
                 float_y = float(y)
-                distance = sqrt((float_x-centerX)**2+(float_y-centerY)**2)
+                distance = sqrt((float_x - centerX) ** 2 + (float_y - centerY) ** 2)
                 if d1 <= distance and distance < d2 and nPoints < max_pts:
                     all_pts[nPoints] = img[y, x]
-                    nPoints = nPoints+1
+                    nPoints = nPoints + 1
 
         # Sort all pixels
         sorted_pts = all_pts[:nPoints]
         sorted_pts.sort()
 
         # Get background value from all points (between percentage of start_p and end_p)
-        start_ind = int(round(float(nPoints)*start_p/100))
-        end_ind = int(round(float(nPoints)*end_p/100.))
+        start_ind = int(round(float(nPoints) * start_p / 100))
+        end_ind = int(round(float(nPoints) * end_p / 100.0))
 
         if start_ind < end_ind:
             sumVal = 0.0
             for i in range(start_ind, end_ind):
                 sumVal = sumVal + sorted_pts[i]
-            ys[bin] = sumVal/float(end_ind-start_ind)
+            ys[bin] = sumVal / float(end_ind - start_ind)
         else:
             ys[bin] = all_pts[start_ind]
 
-        xs[bin] = (d1+d2)/2.
+        xs[bin] = (d1 + d2) / 2.0
     return xs, ys
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax, step):
-    backgound = np.zeros((height, width), dtype = np.float32)
+    backgound = np.zeros((height, width), dtype=np.float32)
     zero = 0.0
 
     for x in range(width):
@@ -254,17 +272,17 @@ def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax,
                 beta_rad = 0.5
                 alpha_rad = 0.5
             else:
-                alpha_rad = 1. - (rad - floor_rad)
-                beta_rad = 1. - (ceil_rad - rad)
+                alpha_rad = 1.0 - (rad - floor_rad)
+                beta_rad = 1.0 - (ceil_rad - rad)
 
             deltax = float(abs(x - centerX))
             if deltax == zero:
-                deg = 90.0 * (1/step)
+                deg = 90.0 * (1 / step)
             else:
                 deltay = float(abs(y - centerY))
                 slope = deltay / deltax
-                deg = atan(slope)*180.0/np.pi
-                deg = deg * (1/step)
+                deg = atan(slope) * 180.0 / np.pi
+                deg = deg * (1 / step)
 
             floor_deg = floor(deg)
             ceil_deg = ceil(deg)
@@ -275,61 +293,70 @@ def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax,
                 alpha = 0.5
                 beta = 0.5
             else:
-                alpha = 1. - (deg - floor_deg)
-                beta = 1. - (ceil_deg - deg)
+                alpha = 1.0 - (deg - floor_deg)
+                beta = 1.0 - (ceil_deg - deg)
 
             if irad_ceil < rmax and irad_floor >= rmin:
                 pos1 = irad_floor - rmin
                 pos2 = irad_ceil - rmin
-                backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
-                                  + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
+                backgound[y, x] = alpha * (
+                    alpha_rad * pchipLines[ifloor, pos1]
+                    + beta_rad * pchipLines[ifloor, pos2]
+                ) + beta * (
+                    alpha_rad * pchipLines[iceil, pos1]
+                    + beta_rad * pchipLines[iceil, pos2]
+                )
     return backgound
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def combine_bgsub_float32(img1, img2, center_x, center_y, sigmoid_k, radius):
     img_height = img1.shape[0]
     img_width = img1.shape[1]
-    result = np.zeros((img_height, img_width), dtype = np.float32)
+    result = np.zeros((img_height, img_width), dtype=np.float32)
 
     for x in range(img_width):
         for y in range(img_height):
             r = qfdistance(x, y, center_x, center_y)
             tophat_ratio = sigmoid(sigmoid_k, radius, r)
             radial_ratio = 1.0 - tophat_ratio
-            tophat_val = tophat_ratio * img2[y,x]
-            radial_val = radial_ratio * img1[y,x]
-            result[y,x] = tophat_val+radial_val
+            tophat_val = tophat_ratio * img2[y, x]
+            radial_val = radial_ratio * img1[y, x]
+            result[y, x] = tophat_val + radial_val
     return result
+
 
 @jit
 def combine_bgsub_linear_float32(img1, img2, center_x, center_y, rad, delta):
     img_height = img1.shape[0]
     img_width = img1.shape[1]
-    result = np.zeros((img_height, img_width), dtype = np.float32)
+    result = np.zeros((img_height, img_width), dtype=np.float32)
 
     for x in range(img_width):
         for y in range(img_height):
             r = qfdistance(x, y, center_x, center_y)
             tophat_ratio = linear(rad, delta, r)
             radial_ratio = 1.0 - tophat_ratio
-            tophat_val = tophat_ratio * img2[y,x]
-            radial_val = radial_ratio * img1[y,x]
-            result[y,x] = tophat_val+radial_val
+            tophat_val = tophat_ratio * img2[y, x]
+            radial_val = radial_ratio * img1[y, x]
+            result[y, x] = tophat_val + radial_val
     return result
 
 
-#@jit(target_backend='cuda', nopython=True)
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def qfdistance(x1, y1, x2, y2):
     return sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
-#@jit(target_backend='cuda', nopython=True)
+
+# @jit(target_backend='cuda', nopython=True)
 @jit
 def sigmoid(k, x0, x):
     return 1.0 / (1.0 + exp(-k * (x - x0)))
 
+
 @jit
 def linear(rad, delta, x):
-    result = (x - rad + delta//2) / (delta)
+    result = (x - rad + delta // 2) / (delta)
     return max(0.0, min(1.0, result))

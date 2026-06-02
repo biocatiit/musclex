@@ -23,6 +23,7 @@ The Jacobian matrix returned has shape (n_data, n_free) and represents
 ``∂residual/∂params = ∂model/∂params`` (scipy least_squares minimises
 ``‖residual(p)‖² = ‖model(p) - y_data‖²``; sign cancels in J^T J).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,6 +32,7 @@ _SQRT_2PI = np.sqrt(2.0 * np.pi)
 
 
 # ── parameter layout helpers ─────────────────────────────────────────────────
+
 
 def _build_peak_index(free_names: list[str], model_kind: str) -> dict:
     """Return metadata describing where peak params sit in *free_names*.
@@ -45,38 +47,41 @@ def _build_peak_index(free_names: list[str], model_kind: str) -> dict:
                            'sigma_idx' : int|None — index of 'sigmai' (standard)
         'analytic_cols': set[int] — column indices covered by analytic Jac
     """
-    sigma_idx = free_names.index('common_sigma') if 'common_sigma' in free_names else None
+    sigma_idx = (
+        free_names.index("common_sigma") if "common_sigma" in free_names else None
+    )
 
     peaks = []
     i = 0
-    while f'p_{i}' in free_names:
+    while f"p_{i}" in free_names:
         entry: dict = {
-            'p_idx':   free_names.index(f'p_{i}'),
-            'amp_idx': free_names.index(f'amplitude{i}'),
-            'sigma_idx': None,
+            "p_idx": free_names.index(f"p_{i}"),
+            "amp_idx": free_names.index(f"amplitude{i}"),
+            "sigma_idx": None,
         }
-        if f'sigma{i}' in free_names:
-            entry['sigma_idx'] = free_names.index(f'sigma{i}')
+        if f"sigma{i}" in free_names:
+            entry["sigma_idx"] = free_names.index(f"sigma{i}")
         peaks.append(entry)
         i += 1
 
     analytic_cols: set[int] = set()
     for pk in peaks:
-        analytic_cols.add(pk['p_idx'])
-        analytic_cols.add(pk['amp_idx'])
-        if pk['sigma_idx'] is not None:
-            analytic_cols.add(pk['sigma_idx'])
+        analytic_cols.add(pk["p_idx"])
+        analytic_cols.add(pk["amp_idx"])
+        if pk["sigma_idx"] is not None:
+            analytic_cols.add(pk["sigma_idx"])
     if sigma_idx is not None:
         analytic_cols.add(sigma_idx)
 
     return {
-        'sigma_idx': sigma_idx,
-        'peaks': peaks,
-        'analytic_cols': analytic_cols,
+        "sigma_idx": sigma_idx,
+        "peaks": peaks,
+        "analytic_cols": analytic_cols,
     }
 
 
 # ── core Jacobian computation ────────────────────────────────────────────────
+
 
 def compute_jacobian(
     p: np.ndarray,
@@ -106,53 +111,53 @@ def compute_jacobian(
     n_free = len(free_names)
     J = np.zeros((n_data, n_free), dtype=np.float64)
 
-    peaks = peak_index['peaks']
-    sigma_idx = peak_index['sigma_idx']         # None for standard model
+    peaks = peak_index["peaks"]
+    sigma_idx = peak_index["sigma_idx"]  # None for standard model
 
     # GMM: all peaks share one sigma
-    if model_kind == 'gmm' and sigma_idx is not None:
+    if model_kind == "gmm" and sigma_idx is not None:
         sigma = p[sigma_idx]
         inv_sig = 1.0 / sigma
         prefactor = inv_sig / _SQRT_2PI
         dsigma_col = np.zeros(n_data)
 
         for pk in peaks:
-            center = centerX + p[pk['p_idx']]
-            amp    = p[pk['amp_idx']]
+            center = centerX + p[pk["p_idx"]]
+            amp = p[pk["amp_idx"]]
             z = (x - center) * inv_sig
             G = amp * prefactor * np.exp(-0.5 * z * z)
 
-            J[:, pk['amp_idx']] = G / amp                  # ∂/∂amp_i
-            J[:, pk['p_idx']]   = G * z * inv_sig          # ∂/∂p_i
-            dsigma_col         += G * (z * z - 1.0) * inv_sig  # ∂/∂σ_common
+            J[:, pk["amp_idx"]] = G / amp  # ∂/∂amp_i
+            J[:, pk["p_idx"]] = G * z * inv_sig  # ∂/∂p_i
+            dsigma_col += G * (z * z - 1.0) * inv_sig  # ∂/∂σ_common
 
         J[:, sigma_idx] = dsigma_col
 
     else:
         # Standard: each peak has its own sigma
         for pk in peaks:
-            s_idx  = pk['sigma_idx']
+            s_idx = pk["sigma_idx"]
             if s_idx is None:
                 # sigma not free for this peak — skip
                 continue
-            sigma  = p[s_idx]
+            sigma = p[s_idx]
             inv_sig = 1.0 / sigma
             prefactor = inv_sig / _SQRT_2PI
 
-            center = centerX + p[pk['p_idx']]
-            amp    = p[pk['amp_idx']]
+            center = centerX + p[pk["p_idx"]]
+            amp = p[pk["amp_idx"]]
             z = (x - center) * inv_sig
             G = amp * prefactor * np.exp(-0.5 * z * z)
 
-            J[:, pk['amp_idx']] = G / amp
-            J[:, pk['p_idx']]   = G * z * inv_sig
-            J[:, s_idx]         = G * (z * z - 1.0) * inv_sig
+            J[:, pk["amp_idx"]] = G / amp
+            J[:, pk["p_idx"]] = G * z * inv_sig
+            J[:, s_idx] = G * (z * z - 1.0) * inv_sig
 
     return J
 
 
 def make_residual_and_jac(
-    inputs,          # FitInputs
+    inputs,  # FitInputs
     free_names: list[str],
     x0: np.ndarray,
     *,
@@ -181,22 +186,23 @@ def make_residual_and_jac(
         layerlineModelGMM,
         layerlineModel,
     )
-    model_fn = layerlineModelGMM if inputs.model_kind == 'gmm' else layerlineModel
 
-    x_arr    = inputs.x
-    y_arr    = inputs.y
-    indep    = dict(inputs.independent_vars)
-    centerX  = float(indep.get('centerX', 0.0))
-    mk       = inputs.model_kind
+    model_fn = layerlineModelGMM if inputs.model_kind == "gmm" else layerlineModel
+
+    x_arr = inputs.x
+    y_arr = inputs.y
+    indep = dict(inputs.independent_vars)
+    centerX = float(indep.get("centerX", 0.0))
+    mk = inputs.model_kind
 
     peak_index = _build_peak_index(free_names, mk)
-    analytic_cols = peak_index['analytic_cols']
+    analytic_cols = peak_index["analytic_cols"]
     fd_cols = [j for j in range(len(free_names)) if j not in analytic_cols]
 
     def residual_fn(p: np.ndarray) -> np.ndarray:
         kw = dict(zip(free_names, p))
         kw.update(indep)
-        kw['x'] = x_arr
+        kw["x"] = x_arr
         return model_fn(**kw) - y_arr
 
     def jac_fn(p: np.ndarray) -> np.ndarray:
@@ -207,8 +213,10 @@ def make_residual_and_jac(
             r0 = residual_fn(p)
             for j in fd_cols:
                 step = max(abs(p[j]) * fd_step, fd_step)
-                p_hi = p.copy(); p_hi[j] += step
-                p_lo = p.copy(); p_lo[j] -= step
+                p_hi = p.copy()
+                p_hi[j] += step
+                p_lo = p.copy()
+                p_lo[j] -= step
                 J[:, j] = (residual_fn(p_hi) - residual_fn(p_lo)) / (2.0 * step)
 
         return J

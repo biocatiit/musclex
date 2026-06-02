@@ -44,6 +44,7 @@ class ImageMouseMoveState(Flag):
     MOUSE_MOVING = auto()
     CLICKED = auto()
 
+
 class ImageMouseMoveHandler:
     def __init__(self, imageAxes, img):
         self.state = ImageMouseMoveState.INIT

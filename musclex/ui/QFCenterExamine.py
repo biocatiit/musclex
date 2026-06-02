@@ -44,7 +44,7 @@ import fabio
 def displayImgToAxes(img, ax, min_inten, max_inten):
     """Clear axes and render grayscale image with intensity bounds."""
     ax.cla()
-    ax.imshow(img, cmap='gray', norm=Normalize(vmin=min_inten, vmax=max_inten))
+    ax.imshow(img, cmap="gray", norm=Normalize(vmin=min_inten, vmax=max_inten))
     ax.set_xticks([])
     ax.set_yticks([])
 
@@ -54,13 +54,13 @@ class QFCenterExamine(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.orig_img = None             # original image array
-        self.center = None               # [x, y] in orig coords
-        self.rot_angle = 0.0             # radians
+        self.orig_img = None  # original image array
+        self.center = None  # [x, y] in orig coords
+        self.rot_angle = 0.0  # radians
 
-        self.cent_img = None             # centered image
-        self.rot_img = None              # rotated image
-        self.mast_img = None             # master image
+        self.cent_img = None  # centered image
+        self.rot_img = None  # rotated image
+        self.mast_img = None  # master image
 
         self.cent_trans = None
         self.cent_scale = None
@@ -225,15 +225,29 @@ class QFCenterExamine(QMainWindow):
 
         self.rotCanvas.mpl_connect("motion_notify_event", self._rot_motion)
 
-        self.mastMinInt.valueChanged.connect(lambda v: setattr(self, "master_min_int", v))
-        self.clearMastMinIntBtn.clicked.connect(lambda: setattr(self, "master_min_int", None))
-        self.mastMaxInt.valueChanged.connect(lambda v: setattr(self, "master_max_int", v))
-        self.clearMastMaxIntBtn.clicked.connect(lambda: setattr(self, "master_max_int", None))
+        self.mastMinInt.valueChanged.connect(
+            lambda v: setattr(self, "master_min_int", v)
+        )
+        self.clearMastMinIntBtn.clicked.connect(
+            lambda: setattr(self, "master_min_int", None)
+        )
+        self.mastMaxInt.valueChanged.connect(
+            lambda v: setattr(self, "master_max_int", v)
+        )
+        self.clearMastMaxIntBtn.clicked.connect(
+            lambda: setattr(self, "master_max_int", None)
+        )
         self.mastCenterXBox.valueChanged.connect(lambda v: self._set_master_center(x=v))
         self.mastCenterYBox.valueChanged.connect(lambda v: self._set_master_center(y=v))
-        self.clearMastCenterBtn.clicked.connect(lambda: setattr(self, "master_center", None))
-        self.mastRotationAngle.valueChanged.connect(lambda v: setattr(self, "master_rot_angle", math.radians(v)))
-        self.clearMastRotAngleBtn.clicked.connect(lambda: setattr(self, "master_rot_angle", None))
+        self.clearMastCenterBtn.clicked.connect(
+            lambda: setattr(self, "master_center", None)
+        )
+        self.mastRotationAngle.valueChanged.connect(
+            lambda v: setattr(self, "master_rot_angle", math.radians(v))
+        )
+        self.clearMastRotAngleBtn.clicked.connect(
+            lambda: setattr(self, "master_rot_angle", None)
+        )
         self.mastRecalc.clicked.connect(self.recalculate)
         self.mastCanvas.mpl_connect("button_press_event", self._mast_clicked)
         self.mastCanvas.mpl_connect("motion_notify_event", self._mast_motion)
@@ -247,16 +261,16 @@ class QFCenterExamine(QMainWindow):
             self.onNewFileSelected(path)
 
     def onNewFileSelected(self, path):
-        self.orig_img = fabio.open(path).data.astype('float32')
+        self.orig_img = fabio.open(path).data.astype("float32")
         h, w = self.orig_img.shape
-        self.center = [w/2, h/2]
+        self.center = [w / 2, h / 2]
         self.rot_angle = 0.0
         self.master_min_int = self.master_max_int = None
         self.master_center = None
         self.master_rot_angle = None
 
         self.minIntOrig.setValue(0)
-        self.maxIntOrig.setValue(min(700, np.max(self.orig_img)/40))
+        self.maxIntOrig.setValue(min(700, np.max(self.orig_img) / 40))
         self.origCenterXBox.setValue(self.center[0])
         self.origCenterYBox.setValue(self.center[1])
         self.refreshOrigImg()
@@ -266,27 +280,35 @@ class QFCenterExamine(QMainWindow):
         self.refreshCentImg()
 
         self.rot_img = None
-        self.rotAxes.cla(); self.rotCanvas.draw_idle()
+        self.rotAxes.cla()
+        self.rotCanvas.draw_idle()
 
-        self.mastAxes.cla(); self.mastCanvas.draw_idle()
+        self.mastAxes.cla()
+        self.mastCanvas.draw_idle()
 
     def refreshOrigImg(self):
         if self.orig_img is None:
             return
-        displayImgToAxes(self.orig_img, self.origAxes,
-                         self.minIntOrig.value(), self.maxIntOrig.value())
-        self.origAxes.axvline(self.origCenterXBox.value(), color='y')
-        self.origAxes.axhline(self.origCenterYBox.value(), color='y')
+        displayImgToAxes(
+            self.orig_img,
+            self.origAxes,
+            self.minIntOrig.value(),
+            self.maxIntOrig.value(),
+        )
+        self.origAxes.axvline(self.origCenterXBox.value(), color="y")
+        self.origAxes.axhline(self.origCenterYBox.value(), color="y")
         self.origCanvas.draw_idle()
 
     def _orig_clicked(self, ev):
-        if ev.xdata is None: return
+        if ev.xdata is None:
+            return
         self.origCenterXBox.setValue(ev.xdata)
         self.origCenterYBox.setValue(ev.ydata)
         self.refreshOrigImg()
 
     def _orig_motion(self, ev):
-        if ev.xdata is None: return
+        if ev.xdata is None:
+            return
         self.coordLabel.setText(f"Orig coords: X={ev.xdata:.1f}, Y={ev.ydata:.1f}")
 
     def _centerizeOriginal(self):
@@ -301,16 +323,16 @@ class QFCenterExamine(QMainWindow):
         h, w = self.orig_img.shape[:2]
 
         # 3) how far to shift so that (cx,cy) lands at (w/2,h/2)
-        dx = w/2 - cx
-        dy = h/2 - cy
+        dx = w / 2 - cx
+        dy = h / 2 - cy
 
         # 4) compute the max distance from the chosen center to each image edge
         max_dist_x = max(cx, w - cx)
         max_dist_y = max(cy, h - cy)
 
         # 5) pick the smallest scale that still fits both horizontally and vertically
-        scale_x = (w/2) / max_dist_x
-        scale_y = (h/2) / max_dist_y
+        scale_x = (w / 2) / max_dist_x
+        scale_y = (h / 2) / max_dist_y
         scale = min(scale_x, scale_y)
 
         # debug prints
@@ -323,34 +345,35 @@ class QFCenterExamine(QMainWindow):
         tx = (w / 2) - scale * cx
         ty = (h / 2) - scale * cy
 
-        print("tx, ty: ", tx, ty) #debug
+        print("tx, ty: ", tx, ty)  # debug
 
         # 6) build the affine matrix: scale then translate
-        M = np.array([
-            [scale, 0,     tx],
-            [0,     scale, ty]
-        ], dtype=np.float32)
+        M = np.array([[scale, 0, tx], [0, scale, ty]], dtype=np.float32)
 
-        self.cent_trans =   (tx, ty)
+        self.cent_trans = (tx, ty)
         self.cent_scale = scale
 
         # 7) warpAffine wants dsize=(width, height)
         self.cent_img = cv2.warpAffine(self.orig_img, M, (w, h))
         self.refreshCentImg()
 
-
     def refreshCentImg(self):
-        if self.cent_img is None: return
-        displayImgToAxes(self.cent_img, self.centAxes,
-                         self.minIntOrig.value(), self.maxIntOrig.value())
+        if self.cent_img is None:
+            return
+        displayImgToAxes(
+            self.cent_img,
+            self.centAxes,
+            self.minIntOrig.value(),
+            self.maxIntOrig.value(),
+        )
         h, w = self.cent_img.shape
-        cx, cy = w/2, h/2
-        self.centAxes.axvline(cx, color='y')
-        self.centAxes.axhline(cy, color='y')
-        theta = self.rotAngSpBx.value() * math.pi/180.0
-        x2 = cx + math.cos(theta)*10
-        y2 = cy + math.sin(theta)*10
-        self.centAxes.axline((cx, cy), (x2, y2), color='b')
+        cx, cy = w / 2, h / 2
+        self.centAxes.axvline(cx, color="y")
+        self.centAxes.axhline(cy, color="y")
+        theta = self.rotAngSpBx.value() * math.pi / 180.0
+        x2 = cx + math.cos(theta) * 10
+        y2 = cy + math.sin(theta) * 10
+        self.centAxes.axline((cx, cy), (x2, y2), color="b")
         self.centCanvas.draw_idle()
 
     def _onCentAngleChanged(self, _):
@@ -363,9 +386,10 @@ class QFCenterExamine(QMainWindow):
         self._updateRotated()
 
     def _cent_clicked(self, ev):
-        if ev.xdata is None: return
+        if ev.xdata is None:
+            return
         h, w = self.cent_img.shape
-        cx, cy = w/2, h/2
+        cx, cy = w / 2, h / 2
         dx = ev.xdata - cx
         dy = ev.ydata - cy
         ang = math.degrees(math.atan2(dy, dx)) % 360
@@ -373,9 +397,10 @@ class QFCenterExamine(QMainWindow):
         self._onCentRotate()
 
     def _cent_motion(self, ev):
-        if ev.xdata is None: return
+        if ev.xdata is None:
+            return
         h, w = self.cent_img.shape
-        cx, cy = w/2, h/2
+        cx, cy = w / 2, h / 2
         dx = ev.xdata - cx
         dy = ev.ydata - cy
         ox = dx + self.center[0]
@@ -388,75 +413,67 @@ class QFCenterExamine(QMainWindow):
 
         # 1) dimensions and rotation in radians
         h, w = self.orig_img.shape
-        angle_rad = -self.rot_angle              # assuming rot_angle is in radians
+        angle_rad = -self.rot_angle  # assuming rot_angle is in radians
         cos_a, sin_a = math.cos(angle_rad), math.sin(angle_rad)
 
         # 2) the four image corners, relative to image center (0,0)
         o_h, o_w = self.orig_img.shape
         x = self.origCenterXBox.value()
         y = self.origCenterYBox.value()
-        
-        corners = [
-            (-x, -y),
-            ( o_w - x, -y),
-            ( o_w - x,  o_h - y),
-            (-x,  o_h - y)
-        ]
-        print("corners: ", corners) #debug
+
+        corners = [(-x, -y), (o_w - x, -y), (o_w - x, o_h - y), (-x, o_h - y)]
+        print("corners: ", corners)  # debug
 
         # 3) rotate each corner and track max extents
-        rotated = [(x * cos_a - y * sin_a, x * sin_a + y * cos_a)
-                for x, y in corners]
-        
-        print("rotated: ", rotated) #debug
+        rotated = [(x * cos_a - y * sin_a, x * sin_a + y * cos_a) for x, y in corners]
 
-        max_x = max(abs(x) for x,y in rotated)
-        max_y = max(abs(y) for x,y in rotated)
+        print("rotated: ", rotated)  # debug
+
+        max_x = max(abs(x) for x, y in rotated)
+        max_y = max(abs(y) for x, y in rotated)
 
         # 3) pick scale so none of those extents exceeds half‑width/height
-        scale_x = (w/2) / max_x
-        scale_y = (h/2) / max_y
-        s = min(scale_x, scale_y, 1.0)   # cap at 1.0 if you never want to up‑scale
+        scale_x = (w / 2) / max_x
+        scale_y = (h / 2) / max_y
+        s = min(scale_x, scale_y, 1.0)  # cap at 1.0 if you never want to up‑scale
 
         # 4) build affine to SCALE about center then translate back into frame
         #    T_center * S(s) * T_-center
         #    gives M1 = [ s, 0, (w/2) - s*(w/2) ]
         #             [ 0, s, (h/2) - s*(h/2) ]
-        tx = (w/2) - s*x
-        ty = (h/2) - s*y
-        M1 = np.array([
-            [s, 0,  tx],
-            [0, s,  ty]
-        ], dtype=np.float32)
+        tx = (w / 2) - s * x
+        ty = (h / 2) - s * y
+        M1 = np.array([[s, 0, tx], [0, s, ty]], dtype=np.float32)
 
         # 5) warp – this yields a scaled image, centered in a (w×h) frame
         scaled = cv2.warpAffine(self.orig_img, M1, (w, h))
 
         # 6) now rotate the scaled image about its center (no extra scale)
-        M2 = cv2.getRotationMatrix2D((w/2, h/2), math.degrees(self.rot_angle), 1.0)
+        M2 = cv2.getRotationMatrix2D((w / 2, h / 2), math.degrees(self.rot_angle), 1.0)
         self.rot_img = cv2.warpAffine(scaled, M2, (w, h))
-
 
         self.rot_trans = (tx, ty)
         self.rot_scale = s
         self.rot_angle = self.rot_angle
         # 7) redraw
-        displayImgToAxes(self.rot_img, self.rotAxes,
-                        self.minIntOrig.value(), self.maxIntOrig.value())
-        self.rotAxes.axvline(w/2, color='y')
-        self.rotAxes.axhline(h/2, color='y')
+        displayImgToAxes(
+            self.rot_img, self.rotAxes, self.minIntOrig.value(), self.maxIntOrig.value()
+        )
+        self.rotAxes.axvline(w / 2, color="y")
+        self.rotAxes.axhline(h / 2, color="y")
         self.rotCanvas.draw_idle()
 
     def _rot_motion(self, ev):
-        if ev.xdata is None: return
+        if ev.xdata is None:
+            return
         h, w = self.rot_img.shape
-        cx, cy = w/2, h/2
+        cx, cy = w / 2, h / 2
         dx = ev.xdata - cx
         dy = ev.ydata - cy
         cosA = math.cos(-self.rot_angle)
         sinA = math.sin(-self.rot_angle)
-        ux = dx*cosA - dy*sinA
-        uy = dx*sinA + dy*cosA
+        ux = dx * cosA - dy * sinA
+        uy = dx * sinA + dy * cosA
         ox = ux + self.center[0]
         oy = uy + self.center[1]
         self.coordLabel.setText(f"Orig coords: X={ox:.1f}, Y={oy:.1f}")
@@ -464,8 +481,10 @@ class QFCenterExamine(QMainWindow):
     def _set_master_center(self, x=None, y=None):
         if self.master_center is None:
             self.master_center = [self.center[0], self.center[1]]
-        if x is not None: self.master_center[0] = x
-        if y is not None: self.master_center[1] = y
+        if x is not None:
+            self.master_center[0] = x
+        if y is not None:
+            self.master_center[1] = y
 
     def recalculate(self):
         if self.orig_img is None:
@@ -484,7 +503,7 @@ class QFCenterExamine(QMainWindow):
         else:
             tx, ty = 0, 0
 
-        #Find the correct scale
+        # Find the correct scale
         if self.mast_scale is not None:
             s = self.mast_scale
         elif self.rot_scale is not None:
@@ -494,7 +513,7 @@ class QFCenterExamine(QMainWindow):
         else:
             s = 1.0
 
-        #Find the correct rotation
+        # Find the correct rotation
         if self.mast_angle is not None:
             angle = self.mast_angle
         elif self.rot_angle is not None:
@@ -504,11 +523,8 @@ class QFCenterExamine(QMainWindow):
         else:
             angle = 0.0
 
-
         # build M1 = S(fit_scale) about center + recenter
-        M1  = np.array([[s, 0,         tx],
-                        [0,         s, ty]],
-                    dtype=np.float32)
+        M1 = np.array([[s, 0, tx], [0, s, ty]], dtype=np.float32)
 
         cent_img = cv2.warpAffine(self.orig_img, M1, (w, h))
 
@@ -516,54 +532,48 @@ class QFCenterExamine(QMainWindow):
 
         # figure out how big the rotated corners go
         ang_rad = -angle
-        c, s   = math.cos(ang_rad), math.sin(ang_rad)
+        c, s = math.cos(ang_rad), math.sin(ang_rad)
         o_h, o_w = self.orig_img.shape
         x = self.origCenterXBox.value()
         y = self.origCenterYBox.value()
-        
-        corners = [
-            (-x, -y),
-            ( o_w - x, -y),
-            ( o_w - x,  o_h - y),
-            (-x,  o_h - y)
-        ]
 
-        rot_pts = [(x*c - y*s, x*s + y*c) for x,y in corners]
-        max_rx = max(abs(x) for x,_ in rot_pts)
-        max_ry = max(abs(y) for _,y in rot_pts)
+        corners = [(-x, -y), (o_w - x, -y), (o_w - x, o_h - y), (-x, o_h - y)]
+
+        rot_pts = [(x * c - y * s, x * s + y * c) for x, y in corners]
+        max_rx = max(abs(x) for x, _ in rot_pts)
+        max_ry = max(abs(y) for _, y in rot_pts)
 
         # compute fit‐scale so rotated image still fits
-        rot_fit_scale = min((w/2)/max_rx, (h/2)/max_ry, 1.0)
+        rot_fit_scale = min((w / 2) / max_rx, (h / 2) / max_ry, 1.0)
 
         # build M2 = rotate(angle) about (w/2,h/2), scaled by rot_fit_scale
-        M2 = cv2.getRotationMatrix2D(
-            (w/2, h/2),
-            math.degrees(angle),
-            1
-        )
+        M2 = cv2.getRotationMatrix2D((w / 2, h / 2), math.degrees(angle), 1)
         final = cv2.warpAffine(cent_img, M2, (w, h))
 
         # === DISPLAY ===
 
-        min_i = (self.master_min_int
-                if self.master_min_int is not None
-                else self.minIntOrig.value())
-        max_i = (self.master_max_int
-                if self.master_max_int is not None
-                else self.maxIntOrig.value())
+        min_i = (
+            self.master_min_int
+            if self.master_min_int is not None
+            else self.minIntOrig.value()
+        )
+        max_i = (
+            self.master_max_int
+            if self.master_max_int is not None
+            else self.maxIntOrig.value()
+        )
 
         self.mast_img = final
         displayImgToAxes(final, self.mastAxes, min_i, max_i)
-        self.mastAxes.axvline(w/2, color='y')
-        self.mastAxes.axhline(h/2, color='y')
+        self.mastAxes.axvline(w / 2, color="y")
+        self.mastAxes.axhline(h / 2, color="y")
         self.mastCanvas.draw_idle()
-
 
     """
     1: rotate clicked point about the current center by - angle
     2. apply inverse transformation/scale matrix to get original image coords
     3. With original image coords, calculate new translation and scale.  Save these as self.mast_trans and self.mast_scale.  Use the recalculate function to apply these to the original image.
-    """ 
+    """
 
     def _mast_clicked(self, ev):
         if ev.xdata is None or self.orig_img is None:
@@ -571,34 +581,34 @@ class QFCenterExamine(QMainWindow):
 
         # 1) grab the click in display coords
         x_disp, y_disp = ev.xdata, ev.ydata
-        print("Clicked: ", x_disp, y_disp) #debug
+        print("Clicked: ", x_disp, y_disp)  # debug
         h, w = self.mast_img.shape
-        print("Master shape: ", h, w) #debug
-        cx_disp, cy_disp = w/2, h/2
-        print("Center(master coordinates): ", cx_disp, cy_disp) #debug
+        print("Master shape: ", h, w)  # debug
+        cx_disp, cy_disp = w / 2, h / 2
+        print("Center(master coordinates): ", cx_disp, cy_disp)  # debug
         # 2) figure out which angle & stage‐1 params were used
         angle = -self._get_angle_master()
-        print("Angle: ", angle) #debug
-        s1    = self._get_scale_master()
-        print("Scale: ", s1) #debug
+        print("Angle: ", angle)  # debug
+        s1 = self._get_scale_master()
+        print("Scale: ", s1)  # debug
         tx1, ty1 = self._get_translation_master()
-        print("Translation: ", tx1, ty1) #debug
+        print("Translation: ", tx1, ty1)  # debug
 
         # === invert Stage 2 (rotation about center by +angle) ===
         # move into center‐origin
         dx = x_disp - cx_disp
         dy = y_disp - cy_disp
-        print("CLicked point in centered coordinates: ", dx, dy) #debug
+        print("CLicked point in centered coordinates: ", dx, dy)  # debug
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
         # undo rotation
-        x1 =  dx * cos_a + dy * sin_a
+        x1 = dx * cos_a + dy * sin_a
         y1 = -dx * sin_a + dy * cos_a
-        print("Centered and inverse rotated points: ", x1, y1) #debug
+        print("Centered and inverse rotated points: ", x1, y1)  # debug
         # back into the scaled frame
         x_cent = x1 + cx_disp
         y_cent = y1 + cy_disp
-        print("Inverse rotated points in master coordinates: ", x_cent, y_cent) #debug
+        print("Inverse rotated points in master coordinates: ", x_cent, y_cent)  # debug
 
         # === invert Stage 1 (scale then translate) ===
         # (x_cent, y_cent) = s1*(x_orig, y_orig) + (tx1, ty1)
@@ -606,7 +616,7 @@ class QFCenterExamine(QMainWindow):
         x_orig = (x_cent - tx1) / s1
         y_orig = (y_cent - ty1) / s1
 
-        print("original coordinates: ", x_orig, y_orig) #debug
+        print("original coordinates: ", x_orig, y_orig)  # debug
 
         # update your UI controls for the new master center
         self.mastCenterXBox.setValue(x_orig)
@@ -617,25 +627,22 @@ class QFCenterExamine(QMainWindow):
         h_o, w_o = self.orig_img.shape
 
         corners = [
-            (-x_orig,      -y_orig),
-            ( w_o - x_orig,  -y_orig),
-            ( w_o - x_orig,   h_o - y_orig),
-            (-x_orig,       h_o - y_orig)
+            (-x_orig, -y_orig),
+            (w_o - x_orig, -y_orig),
+            (w_o - x_orig, h_o - y_orig),
+            (-x_orig, h_o - y_orig),
         ]
 
-        rot_pts = [
-            (cx * cos2 - cy * sin2, cx * sin2 + cy * cos2)
-            for cx, cy in corners
-        ]
+        rot_pts = [(cx * cos2 - cy * sin2, cx * sin2 + cy * cos2) for cx, cy in corners]
 
         max_rx = max(abs(px) for px, py in rot_pts)
         max_ry = max(abs(py) for px, py in rot_pts)
 
         # fit‐to‐frame scale (never upscale beyond 1.0)
-        new_s = min((w_o/2) / max_rx, (h_o/2) / max_ry, 1.0)
+        new_s = min((w_o / 2) / max_rx, (h_o / 2) / max_ry, 1.0)
 
-        new_tx = (w_o/2) - new_s * x_orig
-        new_ty = (h_o/2) - new_s * y_orig
+        new_tx = (w_o / 2) - new_s * x_orig
+        new_ty = (h_o / 2) - new_s * y_orig
 
         # store master params y6
         self.mast_scale = new_s
@@ -643,7 +650,6 @@ class QFCenterExamine(QMainWindow):
 
         # 3) redraw
         self.recalculate()
-
 
     def _mast_motion(self, ev):
         if ev.xdata is None or self.orig_img is None:
@@ -654,7 +660,7 @@ class QFCenterExamine(QMainWindow):
 
         # original image dimensions
         h, w = self.orig_img.shape[:2]
-        cx_disp, cy_disp = w/2, h/2
+        cx_disp, cy_disp = w / 2, h / 2
 
         # 1) invert STAGE 2: rotation + rot_scale
         # pick the angle & scale actually used
@@ -674,7 +680,7 @@ class QFCenterExamine(QMainWindow):
         # undo rotation by +angle:
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
-        x_cent0 =  x1 * cos_a + y1 * sin_a
+        x_cent0 = x1 * cos_a + y1 * sin_a
         y_cent0 = -x1 * sin_a + y1 * cos_a
         # back into centered frame
         x_cent = x_cent0 + cx_disp
@@ -686,10 +692,10 @@ class QFCenterExamine(QMainWindow):
         cen_x, cen_y = (
             self.master_center
             if self.master_center is not None
-            else (self.cent_trans or (w/2, h/2))
+            else (self.cent_trans or (w / 2, h / 2))
         )
-        tx1 = (w/2) - s_cent * cen_x
-        ty1 = (h/2) - s_cent * cen_y
+        tx1 = (w / 2) - s_cent * cen_x
+        ty1 = (h / 2) - s_cent * cen_y
 
         orig_x = (x_cent - tx1) / s_cent
         orig_y = (y_cent - ty1) / s_cent
@@ -700,7 +706,6 @@ class QFCenterExamine(QMainWindow):
             f"Orig coords: X={orig_x:.1f}, Y={orig_y:.1f}"
         )
 
-
     # --- Geometry helpers ---
     def _compute_center(self, center):
         """Recenter orig_img so that `center` → middle, pad to square."""
@@ -710,39 +715,48 @@ class QFCenterExamine(QMainWindow):
         print("w: ", w)
         cx, cy = center
         print("center: ", center)
-        diff_x = (w/2 - cx); diff_y = (h/2 - cy)
+        diff_x = w / 2 - cx
+        diff_y = h / 2 - cy
         print("diff_x: ", diff_x)
         print("diff_y: ", diff_y)
-        new_w = int(math.ceil(w + 2*diff_x)); new_h = int(math.ceil(h + 2*diff_y))
+        new_w = int(math.ceil(w + 2 * diff_x))
+        new_h = int(math.ceil(h + 2 * diff_y))
         print("new_w: ", new_w)
         print("new_h: ", new_h)
         dim = max(new_w, new_h)
         print("dim: ", dim)
-        trans_x = dim/2 - cx; trans_y = dim/2 - cy
-        print("Trans_x: ", trans_x) #debug
-        print("Trans_y: ", trans_y) #debug
-        M = np.array([[1,0,trans_x],[0,1,trans_y]],dtype=np.float32)
-        canvas = np.zeros((dim,dim),dtype='float32')
-        canvas[int(abs(diff_y)):int(abs(diff_y)+h), int(abs(diff_x)):int(abs(diff_x)+w)] = self.orig_img
-        return cv2.warpAffine(canvas, M, (dim,dim))
+        trans_x = dim / 2 - cx
+        trans_y = dim / 2 - cy
+        print("Trans_x: ", trans_x)  # debug
+        print("Trans_y: ", trans_y)  # debug
+        M = np.array([[1, 0, trans_x], [0, 1, trans_y]], dtype=np.float32)
+        canvas = np.zeros((dim, dim), dtype="float32")
+        canvas[
+            int(abs(diff_y)) : int(abs(diff_y) + h),
+            int(abs(diff_x)) : int(abs(diff_x) + w),
+        ] = self.orig_img
+        return cv2.warpAffine(canvas, M, (dim, dim))
 
     def _compute_rotation(self, center, angle, cent_img):
         """Rotate `cent_img` about its center by `angle` radians, pad to square."""
         h, w = cent_img.shape
-        cx, cy = w/2, h/2
+        cx, cy = w / 2, h / 2
         theta = -angle
-        M = cv2.getRotationMatrix2D((cx,cy), math.degrees(theta), 1.0)
+        M = cv2.getRotationMatrix2D((cx, cy), math.degrees(theta), 1.0)
         # bounding box
-        corners = np.array([[0-cx,0-cy],[w-cx,0-cy],[w-cx,h-cy],[0-cx,h-cy]])
-        R = np.array([[math.cos(theta), -math.sin(theta)],
-                      [math.sin(theta),  math.cos(theta)]])
+        corners = np.array(
+            [[0 - cx, 0 - cy], [w - cx, 0 - cy], [w - cx, h - cy], [0 - cx, h - cy]]
+        )
+        R = np.array(
+            [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]]
+        )
         rotated = corners.dot(R.T)
-        max_dim = int(math.ceil(2*np.max(np.abs(rotated))))
-        canvas = np.zeros((max_dim, max_dim), dtype='float32')
-        dx = int(max_dim/2 - cx); dy = int(max_dim/2 - cy)
-        canvas[dy:dy+h, dx:dx+w] = cent_img
+        max_dim = int(math.ceil(2 * np.max(np.abs(rotated))))
+        canvas = np.zeros((max_dim, max_dim), dtype="float32")
+        dx = int(max_dim / 2 - cx)
+        dy = int(max_dim / 2 - cy)
+        canvas[dy : dy + h, dx : dx + w] = cent_img
         return cv2.warpAffine(canvas, M, (max_dim, max_dim))
-
 
     def _get_angle_master(self):
         """Get the angle of the master image."""
@@ -752,7 +766,7 @@ class QFCenterExamine(QMainWindow):
             return self.rot_angle
         else:
             return 0.0
-        
+
     def _get_scale_master(self):
         """Get the scale of the master image."""
         if self.mast_scale is not None:
@@ -763,7 +777,7 @@ class QFCenterExamine(QMainWindow):
             return self.cent_scale
         else:
             return 1.0
-        
+
     def _get_translation_master(self):
         """Get the translation of the master image."""
         if self.mast_trans is not None:
@@ -773,4 +787,4 @@ class QFCenterExamine(QMainWindow):
         elif self.cent_trans is not None:
             return self.cent_trans
         else:
-            return 0,0
+            return 0, 0
