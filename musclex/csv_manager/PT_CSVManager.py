@@ -94,7 +94,7 @@ class PT_CSVManager:
         :param boxes: Dict[str, ProcessingBox] - box objects with peaks and configuration
         :return:
         """
-        self.colnames = ["Filename", "Version", "Date"]
+        self.colnames = ["Filename", "version", "date"]
         for box_name, box in boxes.items():
             if box.peaks:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
@@ -224,8 +224,8 @@ class PT_CSVManager:
         self.removeData(file_name)
         new_data = {
             "Filename": file_name,
-            "Version": __version__,
-            "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": __version__,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
 
         for bn, box in projProc.boxes.items():
