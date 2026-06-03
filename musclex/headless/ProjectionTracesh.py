@@ -243,7 +243,7 @@ class ProjectionTracesh:
                     print(
                         f"  [onImageChanged] Box '{box.name}': Loaded from cache, peaks already mirrored (count={len(box.peaks)})"
                     )
-
+                self.projProc.store_original_boxes(box_name, box)
                 self.projProc.boxes[box_name] = box
 
         # Process new image
@@ -311,7 +311,9 @@ class ProjectionTracesh:
         self.cacheBoxesAndPeaks()
 
         # Use boxes directly from projProc - no conversion needed
-        self.csvManager = PT_CSVManager(self.output_dir, self.projProc.boxes)
+        self.csvManager = PT_CSVManager(
+            self.output_dir, self.projProc.boxes, self.projProc.original_boxes
+        )
         self.csvManager.loadSummary()
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()

@@ -26,9 +26,12 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+import json
 from os.path import exists
 import pandas as pd
 import numpy as np
+from datetime import datetime
+from musclex import __version__
 
 try:
     from ..utils.file_manager import fullPath, createFolder
@@ -41,7 +44,7 @@ class PT_CSVManager:
     A class taking care of writing results including csv file of Projection Traces
     """
 
-    def __init__(self, dir_path, boxes):
+    def __init__(self, dir_path, boxes, original_boxes=None):
         """
         init with directory path
         :param dir_path: directory path
@@ -53,18 +56,45 @@ class PT_CSVManager:
         self.filename = fullPath(result_path, "summary.csv")
         self.center_filename = fullPath(result_path, "center_log.csv")
         self.center_dataframe = None
-        self.setColumnNames(boxes=boxes)
+        self.setColumnNames(boxes=boxes, original_boxes=original_boxes)
         self.loadSummary()
         self.loadCenterLog()
 
-    def setColumnNames(self, boxes):
+    def get_original_box_info(self, original_boxes):
+        info = {}
+        for box_name, box_info in original_boxes.items():
+            box = box_info["boxes"]
+            center = box_info["center"]
+            rotation = box_info["rotation"]
+
+            info["Box " + str(box_name) + " Original Type"] = box.type
+            info["Box " + str(box_name) + " Original Coordinates"] = box.coordinates
+            info["Box " + str(box_name) + " Original bgsub"] = box.bgsub
+            info["Box " + str(box_name) + " Original peaks"] = box.peaks
+            info["Box " + str(box_name) + " Original merid_bg"] = box.merid_bg
+            info["Box " + str(box_name) + " Original hull_range"] = box.hull_range
+            info["Box " + str(box_name) + " Original param_bounds"] = box.param_bounds
+            info["Box " + str(box_name) + " Original use_common_sigma"] = (
+                box.use_common_sigma
+            )
+            info["Box " + str(box_name) + " Original Peak Tolerance"] = (
+                box.peak_tolerance
+            )
+            info["Box " + str(box_name) + " Original Sigma Tolerance"] = (
+                box.sigma_tolerance
+            )
+            info["Box " + str(box_name) + " Original Image Center"] = center
+            info["Box " + str(box_name) + " Original Image Rotation"] = rotation
+        return info
+
+    def setColumnNames(self, boxes, original_boxes=None):
         """
         Set Column names from ProcessingBox objects
         e.g. "Filename", "L1 Meridian Sigma", "L1 Meridian Amplitude", "L1 centroid 0", "L2 Meridian Sigma",...
         :param boxes: Dict[str, ProcessingBox] - box objects with peaks and configuration
         :return:
         """
-        self.colnames = ["Filename"]
+        self.colnames = ["Filename", "version", "date"]
         for box_name, box in boxes.items():
             if box.peaks:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
@@ -153,6 +183,12 @@ class PT_CSVManager:
                 self.colnames.append("Box " + str(box_name) + " error")
                 self.colnames.append("Box " + str(box_name) + " comments")
 
+        # If original_boxes provided, add columns for original box info.
+        if original_boxes is not None and len(original_boxes) > 0:
+            original_box_info = self.get_original_box_info(original_boxes)
+            for col in original_box_info.keys():
+                self.colnames.append(col)
+
         # Global reject column (used for image-level reject status)
         self.colnames.append("reject")
 
@@ -186,7 +222,11 @@ class PT_CSVManager:
         """
         file_name = projProc.filename
         self.removeData(file_name)
-        new_data = {"Filename": file_name}
+        new_data = {
+            "Filename": file_name,
+            "version": __version__,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
 
         for bn, box in projProc.boxes.items():
             if box.fit_results is not None:
@@ -299,6 +339,12 @@ class PT_CSVManager:
                 new_data["Box " + str(bn) + " Meridian Amplitude"] = model[
                     "center_amplitude2"
                 ]
+
+        # Add original box info if available
+        if projProc.original_boxes is not None:
+            original_box_info = self.get_original_box_info(projProc.original_boxes)
+            for col, val in original_box_info.items():
+                new_data[col] = val
 
         # Global reject: write reject status from ProcessingState
         if projProc.state.rejected:

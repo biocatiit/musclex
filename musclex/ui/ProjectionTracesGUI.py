@@ -181,6 +181,7 @@ class Worker(QRunnable):
                             peak_tolerance=box.peak_tolerance,
                             sigma_tolerance=box.sigma_tolerance,
                         )
+                        self.projProc.store_original_boxes(name, box_copy)
                         # Expand peaks by mirroring (folder template only contains first half)
                         self._expand_peaks_mirrored(box_copy)
                         self.projProc.state.boxes[name] = box_copy
@@ -1794,6 +1795,10 @@ class ProjectionTracesGUI(BaseGUI):
                             peak_tolerance=new_box.peak_tolerance,
                             sigma_tolerance=new_box.sigma_tolerance,
                         )
+                        # self.projProc.state.original_boxes[name] = copy.deepcopy(
+                        #     box_copy
+                        # )
+                        self.projProc.store_original_boxes(name, box_copy)
                         # Expand peaks for processor (folder template keeps first half only)
                         self._expand_peaks_mirrored(box_copy)
                         self.projProc.state.boxes[name] = box_copy
@@ -2014,6 +2019,7 @@ class ProjectionTracesGUI(BaseGUI):
                                 peak_tolerance=new_box.peak_tolerance,
                                 sigma_tolerance=new_box.sigma_tolerance,
                             )
+                            self.projProc.store_original_boxes(name, box_copy)
                             # Expand peaks for processor (folder template keeps first half only)
                             self._expand_peaks_mirrored(box_copy)
                             self.projProc.state.boxes[name] = box_copy
@@ -2579,6 +2585,7 @@ class ProjectionTracesGUI(BaseGUI):
                         # Results fields default to None
                     )
                     print(f"  After direct copy: {len(box_copy.peaks)} peaks")
+                    self.projProc.store_original_boxes(name, box_copy)
 
                     # Expand peaks by mirroring user-selected peaks
                     # (folder template only contains first half)
@@ -2831,8 +2838,10 @@ class ProjectionTracesGUI(BaseGUI):
         self.resetUI()
         self.refreshStatusbar()
 
-        # Use projProc.boxes for CSV columns (has full peaks info from processing)
-        self.csvManager.setColumnNames(self.projProc.boxes)
+        # Use processed boxes for result columns and original boxes for config columns.
+        self.csvManager.setColumnNames(
+            self.projProc.boxes, self.projProc.original_boxes
+        )
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
 
@@ -2936,8 +2945,10 @@ class ProjectionTracesGUI(BaseGUI):
         self.resetUI()
         self.refreshStatusbar()
 
-        # Use projProc.boxes for CSV columns (has full peaks info from processing)
-        self.csvManager.setColumnNames(self.projProc.boxes)
+        # Use processed boxes for result columns and original boxes for config columns.
+        self.csvManager.setColumnNames(
+            self.projProc.boxes, self.projProc.original_boxes
+        )
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
 
@@ -3346,6 +3357,8 @@ class ProjectionTracesGUI(BaseGUI):
                     peak_tolerance=box.peak_tolerance,
                     sigma_tolerance=box.sigma_tolerance,
                 )
+                # self.projProc.state.original_boxes[name] = copy.deepcopy(box_copy)
+                self.projProc.store_original_boxes(name, box_copy)
                 # Expand peaks by mirroring (only in projProc copy)
                 self._expand_peaks_mirrored(box_copy)
                 # Update projProc's boxes to match

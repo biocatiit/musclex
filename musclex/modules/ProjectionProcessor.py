@@ -172,6 +172,8 @@ class ProcessingState:
 
     # === All Processing Boxes ===
     boxes: Dict[str, ProcessingBox] = field(default_factory=dict)
+    # The boxes without processing
+    original_boxes: Dict[str, Dict] = field(default_factory=dict)
 
     # === Global Settings ===
     mask_thres: Optional[float] = None
@@ -252,6 +254,14 @@ class ProjectionProcessor:
         return self.state.boxes
 
     @property
+    def original_boxes(self) -> Dict[str, ProcessingBox]:
+        """
+        Convenient access to all original processing boxes.
+        Returns the original_boxes dictionary from state.
+        """
+        return self.state.original_boxes
+
+    @property
     def center(self):
         """
         Get center from ImageData dynamically.
@@ -271,6 +281,21 @@ class ProjectionProcessor:
         if self._image_data.rotation is not None:
             return self._image_data.rotation
         return 0.0
+
+    def store_original_boxes(
+        self,
+        name: str,
+        box: ProcessingBox,
+    ):
+        """
+        Store a copy of the original boxes before any processing.
+        This allows us to always have access to the initial box configurations.
+        """
+        self.state.original_boxes[name] = {
+            "boxes": copy.deepcopy(box),
+            "center": self.center,
+            "rotation": self.rotation,
+        }
 
     def addBox(self, name, box, typ, bgsub):
         """
