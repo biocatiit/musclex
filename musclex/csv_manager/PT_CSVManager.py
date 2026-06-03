@@ -44,7 +44,7 @@ class PT_CSVManager:
     A class taking care of writing results including csv file of Projection Traces
     """
 
-    def __init__(self, dir_path, boxes):
+    def __init__(self, dir_path, boxes, original_boxes=None):
         """
         init with directory path
         :param dir_path: directory path
@@ -56,7 +56,7 @@ class PT_CSVManager:
         self.filename = fullPath(result_path, "summary.csv")
         self.center_filename = fullPath(result_path, "center_log.csv")
         self.center_dataframe = None
-        self.setColumnNames(boxes=boxes)
+        self.setColumnNames(boxes=boxes, original_boxes=original_boxes)
         self.loadSummary()
         self.loadCenterLog()
 
@@ -184,7 +184,7 @@ class PT_CSVManager:
                 self.colnames.append("Box " + str(box_name) + " comments")
 
         # If original_boxes provided, add columns for original box info.
-        if original_boxes is not None:
+        if original_boxes is not None and len(original_boxes) > 0:
             original_box_info = self.get_original_box_info(original_boxes)
             for col in original_box_info.keys():
                 self.colnames.append(col)
