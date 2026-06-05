@@ -84,6 +84,8 @@ class EQ_CSVManager:
         self.filename2 = fullPath(result_path, "summary2.csv")
         self.colnames2 = [
             "Filename",
+            "date",
+            "version",
             "left peak 0 ",
             "right peak 0 ",
             "left peak 1 ",
