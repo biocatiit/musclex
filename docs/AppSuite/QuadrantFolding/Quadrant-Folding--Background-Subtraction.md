@@ -12,7 +12,7 @@ In principle, background should be removed consistently across the entire folded
 
 To obtain plausible background removal over the full pattern today, use **Manual Setting | Transition**, which fits an inner method at small radii and an outer method at large radii, then merges the two estimates at a **Transition Radius**. A future release will add dedicated equator-streak fitting followed by general background removal on top of that estimate.
 
-For time-resolved (**TDI**) normalization, you may instead fix one method and parameter set and apply it uniformly to every frame in a sequence. The summary csv file will contain the integrated background sum between rmin and rmax for each frame.
+The integrated intensity of the estimated background image can be used to  normalize the measured  intensities of diffraction features in a series of images. To do this, select “Manual setting |One method” and set Rmin and Rmax to values that exclude unwanted portions of the pattern. Then apply it uniformly to every frame in a sequence. The summary csv file will contain the integrated background sum between rmin and rmax for each frame.
 
 See [Examples](Quadrant-Folding--Background-Subtraction.md#examples) for more details.
 
