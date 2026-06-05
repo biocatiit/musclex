@@ -1269,13 +1269,13 @@ class BackgroundSubtractionDialog(QDialog):
     def _setup_rmin_rmax_layout(self):
         """Setup R-min/R-max settings layout."""
         rmin_layout = QGridLayout()
-        rmin_layout.addWidget(self.showRminRmaxChkBx, 0, 0, 1, 2)
         rmin_layout.addWidget(self.rminLabel, 2, 0, 1, 1)
         rmin_layout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
         rmin_layout.addWidget(self.rmaxLabel, 3, 0, 1, 1)
         rmin_layout.addWidget(self.rmaxSpnBx, 3, 1, 1, 1)
         rmin_layout.addWidget(self.setRminRmaxButton, 3, 2, 1, 2)
         rmin_layout.addWidget(self.fixedRadiusRangeChkBx, 5, 0, 1, 2)
+        rmin_layout.addWidget(self.showRminRmaxChkBx, 5, 2, 1, 2)
         self.rminGroup.setLayout(rmin_layout)
 
     def _setup_image_processing_layout(self):

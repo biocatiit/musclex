@@ -468,6 +468,10 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self._singleProcessing = False
         self._singleWorker = None
+        # Track in-flight single-image processing by image name so
+        # navigation doesn't block new images and stale results don't
+        # overwrite the current UI state.
+        self._single_processing_inflight = set()
         # Successful single-image process completions for the image currently shown
         # (reset in _on_image_data_ready). Used e.g. to seed UI once per image.
         self._restoreOptimizeCheckboxAfterProcess = False
@@ -926,16 +930,10 @@ class QuadrantFoldingGUI(BaseGUI):
                 section_layout.addLayout(header_layout, 0, 0, 1, 4)
             return section, section_layout
 
-        # 1) Background Subtraction
-        bg_sub_section, bg_sub_layout = _make_section()
-        bg_sub_layout.addWidget(self.resultDisplayModeLabel, 0, 0, 1, 2)
-        bg_sub_layout.addWidget(self.resultDisplayModeCB, 0, 2, 1, 2)
-        bg_sub_layout.addWidget(self.bgOptionsLabel, 1, 0, 1, 2)
-        bg_sub_layout.addWidget(self.bgOptionsCB, 1, 2, 1, 2)
-        bg_sub_layout.addWidget(self.downsampleProxyLabel, 2, 0, 1, 2)
-        bg_sub_layout.addWidget(self.downsampleProxyCB, 2, 2, 1, 2)
-        bg_sub_layout.addWidget(self.applyResultBGButton, 3, 0, 1, 2)
-        bg_sub_layout.addWidget(self.openBGSettingsButton, 3, 2, 1, 2)
+        # ===== Build subtraction containers first =====
+        # Several of these helpers (re)create shared widgets, e.g.
+        # _create_manual_settings_out_widgets() reassigns fixedRadiusRangeChkBx,
+        # so build them before creating the R-min/R-max proxies below.
 
         # Manual settings (reusing dialog-owned widgets)
         self.manualSettingsContainer = QWidget()
@@ -944,8 +942,6 @@ class QuadrantFoldingGUI(BaseGUI):
         manual_settings_layout.setSpacing(6)
         self._create_manual_settings_proxy()
         self._populate_manual_processing_layout_proxy(manual_settings_layout)
-        # self.bgSummaryLayout.addWidget(self.manualSettingsContainer, 5, 0, 1, 4)
-        bg_sub_layout.addWidget(self.manualSettingsContainer, 5, 0, 1, 4)
 
         # Manual settings (OUT/background transition)
         self.manualSettingsOutContainer = QWidget()
@@ -954,7 +950,6 @@ class QuadrantFoldingGUI(BaseGUI):
         manual_settings_out_layout.setSpacing(6)
         self._create_manual_settings_out_widgets()
         self._populate_manual_processing_layout_out(manual_settings_out_layout)
-        bg_sub_layout.addWidget(self.manualSettingsOutContainer, 6, 0, 1, 4)
         self.bgChoiceOutChanged()
 
         # Transition settings (radius/delta)
@@ -964,13 +959,64 @@ class QuadrantFoldingGUI(BaseGUI):
         transition_settings_layout.setSpacing(6)
         self._create_transition_settings_proxy()
         self._populate_transition_processing_layout_proxy(transition_settings_layout)
-        bg_sub_layout.addWidget(self.transitionSettingsContainer, 7, 0, 1, 4)
 
-        self.bgSummaryLayout.addWidget(bg_sub_section, 4, 0, 1, 4)
+        # ===== 1) Show selector (top-level) =====
+        show_section, show_layout = _make_section()
+        show_layout.addWidget(self.resultDisplayModeLabel, 0, 0, 1, 2)
+        show_layout.addWidget(self.resultDisplayModeCB, 0, 2, 1, 2)
 
-        bg_sub_layout.addWidget(self.applyBGButtonProxy, 15, 0, 1, 4)
+        # ===== 2) R-min/R-max (collapsible, mirrors the dialog section) =====
+        self.rminGroupMain = CollapsibleGroupBox("R-min/R-max", start_expanded=False)
+        self._create_rmin_rmax_proxy()
+        rmin_main_layout = QGridLayout()
+        rmin_main_layout.addWidget(self.rminLabelProxy, 2, 0, 1, 1)
+        rmin_main_layout.addWidget(self.rminSpnBxProxy, 2, 1, 1, 1)
+        rmin_main_layout.addWidget(self.rmaxLabelProxy, 3, 0, 1, 1)
+        rmin_main_layout.addWidget(self.rmaxSpnBxProxy, 3, 1, 1, 1)
+        rmin_main_layout.addWidget(self.setRminRmaxButtonProxy, 3, 2, 1, 2)
+        rmin_main_layout.addWidget(self.fixedRadiusRangeChkBxProxy, 5, 0, 1, 2)
+        rmin_main_layout.addWidget(self.showRminRmaxChkBxProxy, 5, 2, 1, 2)
+        self.rminGroupMain.setLayout(rmin_main_layout)
 
-        # 2) Current Configuration
+        # ===== 3) Image Processing (collapsible, mirrors the dialog section) =====
+        self.imageProcGroupMain = CollapsibleGroupBox(
+            "Image Processing", start_expanded=False
+        )
+        self.smoothImageChkbxProxy = self._clone_checkbox(self.smoothImageChkbx)
+        self.smoothImageChkbxProxy.setText("Smooth Background")
+        self._bind_proxy_two_way(
+            self.smoothImageChkbxProxy, self.smoothImageChkbx, "toggled", "setChecked"
+        )
+        image_proc_main_layout = QGridLayout()
+        image_proc_main_layout.addWidget(self.downsampleProxyLabel, 4, 0, 1, 1)
+        image_proc_main_layout.addWidget(self.downsampleProxyCB, 4, 1, 1, 1)
+        image_proc_main_layout.addWidget(self.smoothImageChkbxProxy, 4, 3, 1, 2)
+        self.imageProcGroupMain.setLayout(image_proc_main_layout)
+
+        # ===== 4) Subtraction (collapsible): Options + the rest of the controls =====
+        self.subtractionGroupMain = CollapsibleGroupBox(
+            "Subtraction", start_expanded=False
+        )
+        subtraction_main_layout = QGridLayout()
+        subtraction_main_layout.addWidget(self.bgOptionsLabel, 0, 0, 1, 2)
+        subtraction_main_layout.addWidget(self.bgOptionsCB, 0, 2, 1, 2)
+        subtraction_main_layout.addWidget(self.applyResultBGButton, 1, 0, 1, 2)
+        subtraction_main_layout.addWidget(self.openBGSettingsButton, 1, 2, 1, 2)
+        subtraction_main_layout.addWidget(self.manualSettingsContainer, 2, 0, 1, 4)
+        subtraction_main_layout.addWidget(self.manualSettingsOutContainer, 3, 0, 1, 4)
+        subtraction_main_layout.addWidget(
+            self.transitionSettingsContainer, 4, 0, 1, 4
+        )
+        subtraction_main_layout.addWidget(self.applyBGButtonProxy, 5, 0, 1, 4)
+        self.subtractionGroupMain.setLayout(subtraction_main_layout)
+
+        # ===== Assemble: Show -> R-min/R-max -> Image Processing -> Subtraction =====
+        self.bgSummaryLayout.addWidget(show_section, 0, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.rminGroupMain, 1, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.imageProcGroupMain, 2, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.subtractionGroupMain, 3, 0, 1, 4)
+
+        # ===== 5) Current Configuration =====
         current_section, current_layout = _make_section("Current Configuration")
         # TODO: define table in one place to be reused in the pop up window
 
@@ -986,7 +1032,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         current_layout.addWidget(current_summary_widget, 1, 0, 1, 4)
 
-        self.bgSummaryLayout.addWidget(current_section, 6, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(current_section, 4, 0, 1, 4)
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
@@ -1556,6 +1602,83 @@ class QuadrantFoldingGUI(BaseGUI):
 
         proxy.toggled.connect(_proxy_changed)
         source.toggled.connect(_source_changed)
+
+    def _bind_proxy_two_way(self, proxy, source, signal_name, setter_name):
+        """Generic two-way binding between a proxy widget and its source widget.
+
+        Works for any widget pair sharing a (signal, setter) contract, e.g.
+        spinboxes ("valueChanged"/"setValue"), comboboxes
+        ("currentIndexChanged"/"setCurrentIndex") or check/toggle buttons
+        ("toggled"/"setChecked"). A per-binding guard prevents echo loops.
+        """
+        guard = {"syncing": False}
+
+        def on_proxy(value):
+            if guard["syncing"]:
+                return
+            guard["syncing"] = True
+            getattr(source, setter_name)(value)
+            guard["syncing"] = False
+
+        def on_source(value):
+            if guard["syncing"]:
+                return
+            guard["syncing"] = True
+            getattr(proxy, setter_name)(value)
+            guard["syncing"] = False
+
+        getattr(proxy, signal_name).connect(on_proxy)
+        getattr(source, signal_name).connect(on_source)
+
+    def _create_rmin_rmax_proxy(self):
+        """Create main-panel proxies mirroring the dialog R-min/R-max controls.
+
+        The dialog owns the authoritative widgets (rminSpnBx, rmaxSpnBx,
+        showRminRmaxChkBx, setRminRmaxButton) and the processing logic reads
+        them, so the main-panel copies are bound two-way to keep both views in
+        sync. ``fixedRadiusRangeChkBx`` is the main-owned widget used by the
+        processing logic (see _create_manual_settings_out_widgets), so its proxy
+        is bound to that instance.
+        """
+        self.showRminRmaxChkBxProxy = self._clone_checkbox(self.showRminRmaxChkBx)
+        self.rminLabelProxy = self._clone_label(self.rminLabel)
+        self.rmaxLabelProxy = self._clone_label(self.rmaxLabel)
+        self.rminSpnBxProxy = self._clone_spinbox(self.rminSpnBx)
+        self.rmaxSpnBxProxy = self._clone_spinbox(self.rmaxSpnBx)
+        self.fixedRadiusRangeChkBxProxy = self._clone_checkbox(
+            self.fixedRadiusRangeChkBx
+        )
+
+        self.setRminRmaxButtonProxy = QPushButton(self.setRminRmaxButton.text())
+        self.setRminRmaxButtonProxy.setCheckable(True)
+        self.setRminRmaxButtonProxy.setToolTip(self.setRminRmaxButton.toolTip())
+
+        self._bind_proxy_two_way(
+            self.rminSpnBxProxy, self.rminSpnBx, "valueChanged", "setValue"
+        )
+        self._bind_proxy_two_way(
+            self.rmaxSpnBxProxy, self.rmaxSpnBx, "valueChanged", "setValue"
+        )
+        self._bind_proxy_two_way(
+            self.showRminRmaxChkBxProxy,
+            self.showRminRmaxChkBx,
+            "toggled",
+            "setChecked",
+        )
+        self._bind_proxy_two_way(
+            self.fixedRadiusRangeChkBxProxy,
+            self.fixedRadiusRangeChkBx,
+            "toggled",
+            "setChecked",
+        )
+        self._bind_proxy_two_way(
+            self.setRminRmaxButtonProxy,
+            self.setRminRmaxButton,
+            "toggled",
+            "setChecked",
+        )
+        # Clicking the proxy must run the same handler as the dialog button.
+        self.setRminRmaxButtonProxy.clicked.connect(self.setManualRminRmax)
 
     def applyDefaultOptimization(self, skip_confirm: bool = False):
         """Force automated optimization mode and process current image."""
@@ -3379,11 +3502,29 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Check if image can be processed
         """
-        return (
-            self.quadFold is not None
-            and not self.uiUpdating
-            and not self._singleProcessing
-        )
+        if self.quadFold is None or self.uiUpdating:
+            return False
+        current_name = self._get_current_image_name()
+        if current_name and current_name in self._single_processing_inflight:
+            return False
+        return True
+
+    def _get_current_image_name(self):
+        if self.current_image_data is not None:
+            name = getattr(self.current_image_data, "img_name", None)
+            if name:
+                return name
+        return getattr(self.file_manager, "current_image_name", None)
+
+    def _mark_single_processing_started(self, image_name):
+        if image_name:
+            self._single_processing_inflight.add(image_name)
+        self._singleProcessing = True
+
+    def _mark_single_processing_finished(self, image_name):
+        if image_name in self._single_processing_inflight:
+            self._single_processing_inflight.remove(image_name)
+        self._singleProcessing = bool(self._single_processing_inflight)
 
     def resetAllManual(self):
         """
@@ -4373,7 +4514,10 @@ class QuadrantFoldingGUI(BaseGUI):
             return
 
         flags = self.getFlags()
-        self._singleProcessing = True
+        image_name = self._get_current_image_name()
+        if image_name and image_name in self._single_processing_inflight:
+            return
+        self._mark_single_processing_started(image_name)
 
         self._singleWorker = SingleImageWorker(self.quadFold, flags)
         self._singleWorker.signals.result.connect(self._on_single_processing_result)
@@ -4384,13 +4528,29 @@ class QuadrantFoldingGUI(BaseGUI):
     @Slot(object)
     def _on_single_processing_result(self, quad_fold):
         print("Single processing result received")
-        # Mark single-image processing complete before UI refresh so updateUI() is not blocked.
-        self._singleProcessing = False
-        self.quadFold = quad_fold
+        image_name = getattr(quad_fold, "img_name", None)
+        self._mark_single_processing_finished(image_name)
         self._register_persisted_baseline_from_processed_info(quad_fold.info)
         self._register_persisted_synthetic_from_processed_info(quad_fold.info)
         if quad_fold.info.get("stopped"):
             return
+
+        current_name = self._get_current_image_name()
+        is_current = current_name and image_name == current_name
+        if not is_current:
+            # Stale result (user navigated to another image). Save outputs and CSVs
+            # but don't overwrite the active UI state.
+            if self.csvManager is not None:
+                self.csvManager.writeNewData(quad_fold)
+            self._upsert_background_metrics_csv(quad_fold=quad_fold)
+            ran_slow_path = bool(
+                getattr(quad_fold, "_last_process_was_slow_path", True)
+            )
+            self.saveResults(full_process=ran_slow_path, quad_fold=quad_fold)
+            return
+
+        # Mark single-image processing complete before UI refresh so updateUI() is not blocked.
+        self.quadFold = quad_fold
 
         persist_eval_ok = (
             hasattr(self, "persistEvaluationBaselineChkBx")
@@ -4479,6 +4639,8 @@ class QuadrantFoldingGUI(BaseGUI):
             tb = str(error_payload)
             error_str = tb
 
+        self._mark_single_processing_finished(image_name)
+
         errMsg = QMessageBox(self)
         errMsg.setStandardButtons(QMessageBox.Ok)
         errMsg.setFixedWidth(500)
@@ -4499,8 +4661,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
     @Slot()
     def _on_single_processing_finished(self):
-        self._singleProcessing = False
-        self._singleWorker = None
+        if not self._single_processing_inflight:
+            self._singleProcessing = False
+            self._singleWorker = None
         # self._force_no_fast_path_on_process = False
 
         if self._OptimizationRunning:
@@ -5020,7 +5183,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.currentTask = None
 
-    def saveResults(self, full_process=True):
+    def saveResults(self, full_process=True, quad_fold=None):
         """
         Save the result image to qf_results.
 
@@ -5039,8 +5202,12 @@ class QuadrantFoldingGUI(BaseGUI):
             but we re-emit it anyway to honor any newly-requested
             variant change.
         """
+        qf = quad_fold if quad_fold is not None else self.quadFold
+        if qf is None:
+            return
+
         print("SAVE RESULTS")
-        if "resultImg" not in self.quadFold.imgCache:
+        if "resultImg" not in qf.imgCache:
             return
 
         out = (
@@ -5051,8 +5218,8 @@ class QuadrantFoldingGUI(BaseGUI):
         result_path = fullPath(out, "qf_results")
         createFolder(result_path)
 
-        base, _ = splitext(str(join(result_path, self.quadFold.img_name)))
-        img = self.quadFold.imgCache["resultImg"].astype("float32")
+        base, _ = splitext(str(join(result_path, qf.img_name)))
+        img = qf.imgCache["resultImg"].astype("float32")
 
         compress = self.compressFoldedImageChkBx.isChecked()
 
@@ -5068,12 +5235,12 @@ class QuadrantFoldingGUI(BaseGUI):
             if self.batchProcessing and hasattr(self, "saveErrors"):
                 import traceback
 
-                self.saveErrors[self.quadFold.img_name] = traceback.format_exc()
+                self.saveErrors[qf.img_name] = traceback.format_exc()
 
         if full_process:
-            self.saveBackground()
+            self.saveBackground(quad_fold=qf)
 
-    def saveBackground(self):
+    def saveBackground(self, quad_fold=None):
         """
         Save the background in the bg folder.
 
@@ -5084,11 +5251,15 @@ class QuadrantFoldingGUI(BaseGUI):
         so nothing is lost. Same defensive pattern as
         FolderImageWorker._save_background.
         """
-        result = self.quadFold.imgCache.get("BgSubFold", None)
-        avg_fold = self.quadFold.imgCache.get("avg_fold", None)
+        qf = quad_fold if quad_fold is not None else self.quadFold
+        if qf is None:
+            return
+
+        result = qf.imgCache.get("BgSubFold", None)
+        avg_fold = qf.imgCache.get("avg_fold", None)
         if result is None or avg_fold is None:
             return
-        info = self.quadFold.info
+        info = qf.info
         background = avg_fold - result
         resultImg = makeFullImage(background)
 
@@ -5098,8 +5269,7 @@ class QuadrantFoldingGUI(BaseGUI):
         method = info["bgsub"]
         print(method)
         if method != "None":
-
-            filename = self.file_manager.current_image_name
+            filename = qf.img_name
             out = (
                 self.workspace.dir_context.output_dir
                 if self.workspace.dir_context
@@ -5135,16 +5305,16 @@ class QuadrantFoldingGUI(BaseGUI):
 
             csv_dists = np.sqrt((csv_x - csv_xc) ** 2 + (csv_y - csv_yc) ** 2)
 
-            if "rmin" not in self.quadFold.info or self.quadFold.info["rmin"] is None:
+            if "rmin" not in qf.info or qf.info["rmin"] is None:
                 print("Setting Rmin to default: 0")
-                self.quadFold.info["rmin"] = 0
+                qf.info["rmin"] = 0
 
-            if "rmax" not in self.quadFold.info or self.quadFold.info["rmax"] is None:
+            if "rmax" not in qf.info or qf.info["rmax"] is None:
                 print("Setting Rmax to default: 100")
-                self.quadFold.info["rmax"] = 100
+                qf.info["rmax"] = 100
 
-            csv_mask = (csv_dists >= self.quadFold.info["rmin"]) & (
-                csv_dists <= self.quadFold.info["rmax"]
+            csv_mask = (csv_dists >= qf.info["rmin"]) & (
+                csv_dists <= qf.info["rmax"]
             )
 
             csv_total = np.sum(resultImg[csv_mask])
