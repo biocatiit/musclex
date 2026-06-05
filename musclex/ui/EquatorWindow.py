@@ -3841,6 +3841,7 @@ class EquatorWindow(QMainWindow):
             else None
         )
         bioImg = EquatorImage(image_data, self, output_dir=eq_output)
+        bioImg.store_original_settings(self.getSettings())
         bioImg.info = result["info"]
 
         # Write cache (main thread only)
