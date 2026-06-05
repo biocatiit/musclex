@@ -111,6 +111,8 @@ class EquatorImage:
         else:
             self.parent = self
 
+        self.original_settings = None
+
     @property
     def center(self):
         """Get center from ImageData (handles QF, manual, and auto-detection)."""
@@ -121,6 +123,26 @@ class EquatorImage:
         """Get rotation from ImageData (handles manual overrides and auto-detection)."""
         return self._image_data.rotation
 
+    def store_original_settings(self, settings: dict):
+        settings = settings.copy()
+        for k in (
+            "lambda_sdd",
+            "detector",
+            "calib_center",
+            "silverB",
+            "radius",
+            "type",
+            "sdd",
+            "pixel_size",
+            "lambda",
+        ):
+            settings.pop(k, None)
+        print("Storing original settings for capture:", settings)
+
+        self.original_settings = {
+            f"Original setting {k}": v for k, v in settings.items()
+        }
+
     def process(self, settings, paramInfo=None):
         """
         All processing steps - all settings are provided by bio-muscle app as a dictionary
@@ -130,6 +152,8 @@ class EquatorImage:
         sigmac - (float)
         isSkeletal - is it skeletal muscle (boolean)
         """
+        # Save original settings for later use in capture
+        self.store_original_settings(settings)
         print("settings in process eqimg\n")
         print(settings)
         self.updateInfo(settings)

@@ -29,6 +29,8 @@ authorization from Illinois Institute of Technology.
 from os.path import exists
 from os import makedirs
 import pandas as pd
+from musclex import __version__
+from datetime import datetime
 
 try:
     from ..utils.file_manager import fullPath
@@ -291,32 +293,41 @@ class EQ_CSVManager:
         :param bioImg: EquatorImage object with results in its info dict
         :return: -
         """
+        # Get the original settings
+        original_settings = bioImg.original_settings or {}
+        # Add any missing keys from original settings to colnames2
+        print("Original settings in writeNewData2:", original_settings)
+        for key in original_settings.keys():
+            if key not in self.colnames2:
+                self.colnames2.append(key)
+
         self.loadSummary2()
         file_name = bioImg.filename
         info = bioImg.info
         self.removeData2(file_name)
-        data = {}
+        data = {
+            "Filename": file_name,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": __version__,
+        }
 
         # If image is rejected
         if "reject" in info and info["reject"]:
             for k in self.dataframe2.columns:
-                data[k] = "-"
-            data["Filename"] = file_name
+                data.setdefault(k, "-")
             data["comment"] = "REJECTED"
         else:
             failed = False
             # Get all needed infos
             if "peaks" not in info:
                 for k in self.dataframe2.columns:
-                    data[k] = "-"
-                data["Filename"] = file_name
+                    data.setdefault(k, "-")
                 data["comment"] = "No effective peaks detected"
                 failed = True
             else:
                 if "fit_results" in info:
                     fit_results = info["fit_results"]
                     # all_S = fit_results['all_S']
-                    data["Filename"] = file_name
                     for side in ["left", "right"]:
                         areas = fit_results[side + "_areas"]
                         for i in range(len(areas)):
@@ -370,8 +381,7 @@ class EQ_CSVManager:
                         data["d10"] = "-"
                 else:
                     for k in self.dataframe2.columns:
-                        data[k] = "-"
-                    data["Filename"] = file_name
+                        data.setdefault(k, "-")
                     data["comment"] = "Model cannot be fit"
                     failed = True
 
@@ -379,6 +389,13 @@ class EQ_CSVManager:
                 self.failedcases.add(file_name)
             elif file_name in self.failedcases:
                 self.failedcases.remove(file_name)
+
+        # Set up the data dict with original settings
+        for key in self.colnames2:
+            if key in original_settings:
+                data[key] = original_settings[key]
+            if key not in self.dataframe2.columns:
+                self.dataframe2[key] = "-"
 
         self.dataframe2 = pd.concat(
             [self.dataframe2, pd.DataFrame.from_records([data])]
