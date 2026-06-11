@@ -1387,3 +1387,8 @@ def scan_directory_files_sync(dir_path):
 
     files.sort(key=lambda x: x[0])
     return files
+
+
+def is_exclude_scan_dir(dir_path):
+    name = os.path.basename(str(dir_path).rstrip("/\\")).lower()
+    return name == "settings" or name.endswith("_results") or name.endswith("_cache")

@@ -1,4 +1,10 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QGridLayout, QLineEdit
+from PySide6.QtWidgets import (
+    QWidget,
+    QPushButton,
+    QGridLayout,
+    QLineEdit,
+    QCheckBox,
+)
 
 
 class NavigationControls(QWidget):
@@ -35,6 +41,25 @@ class NavigationControls(QWidget):
         self.processH5Button.setCheckable(checkable_process_h5)
         self.processH5Button.setStyleSheet(process_button_style)
 
+        # Batch processing options (initially hidden, can be shown by parent GUIs)
+        self.batchScopeWidget = QWidget()
+        self.batchScopeLayout = QGridLayout(self.batchScopeWidget)
+        self.batchScopeLayout.setContentsMargins(0, 0, 0, 0)
+
+        self.process_sibling_folder_checkbox = QCheckBox("Sibling folders")
+        self.process_sibling_folder_checkbox.setToolTip(
+            "Also process folders next to the current folder."
+        )
+        self.process_recursively_checkbox = QCheckBox("Recursive")
+        self.process_recursively_checkbox.setToolTip(
+            "Also process image folders inside the selected folder scope."
+        )
+        self.batchScopeLayout.addWidget(self.process_sibling_folder_checkbox, 0, 0)
+        self.batchScopeLayout.addWidget(self.process_recursively_checkbox, 0, 1)
+        self.batchScopeLayout.setColumnStretch(0, 1)
+        self.batchScopeLayout.setColumnStretch(1, 1)
+        self.batchScopeWidget.hide()
+
         self.prevButton = QPushButton("<")
         self.nextButton = QPushButton(">")
         self.prevFileButton = QPushButton("<<<")
@@ -59,6 +84,8 @@ class NavigationControls(QWidget):
         layout.addWidget(self.processFolderButton, row, 0, 1, 2)
         row += 1
         layout.addWidget(self.processH5Button, row, 0, 1, 2)
+        row += 1
+        layout.addWidget(self.batchScopeWidget, row, 0, 1, 2)
         row += 1
 
         layout.addWidget(self.prevButton, row, 0, 1, 1)
@@ -85,3 +112,26 @@ class NavigationControls(QWidget):
             self.nextFileButton.hide()
             self.prevFileButton.hide()
             self.processH5Button.hide()
+
+    def set_batch_scope_visible(self, visible):
+        """
+        Show or hide the batch processing scope options.
+        """
+        self.batchScopeWidget.setVisible(visible)
+
+        if not visible:
+            # Reset checkboxes when hiding
+            self.process_sibling_folder_checkbox.setChecked(False)
+            self.process_recursively_checkbox.setChecked(False)
+
+    def process_sibling_folders_enabled(self) -> bool:
+        return (
+            self.batchScopeWidget.isVisible()
+            and self.process_sibling_folder_checkbox.isChecked()
+        )
+
+    def process_recursively_enabled(self) -> bool:
+        return (
+            self.batchScopeWidget.isVisible()
+            and self.process_recursively_checkbox.isChecked()
+        )

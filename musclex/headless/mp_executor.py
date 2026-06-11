@@ -153,6 +153,7 @@ def process_one_qf_image(args):
     try:
         dir_path = args["dir_path"]
         filename = args["filename"]
+        save_name = args.get("save_name", os.path.basename(filename))
         spec = args["spec"]
         flags = args["flags"]
         bgsub = args.get("bgsub", "None")
@@ -189,12 +190,14 @@ def process_one_qf_image(args):
         if img is None:
             raise RuntimeError(f"load_image_via_spec returned None for {filename}")
 
-        settings_manager = SettingsManager(dir_path)
+        # settings_manager = SettingsManager(dir_path)
+        settings_manager = SettingsManager(output_dir)
 
         image_data = ImageData(
             img=img,
-            img_path=dir_path,
-            img_name=filename,
+            img_path=output_dir,
+            # img_name=filename,
+            img_name=save_name,
             center=tuple(manual_center) if manual_center is not None else None,
             rotation=manual_rotation,
             apply_blank=apply_blank,
@@ -224,7 +227,8 @@ def process_one_qf_image(args):
         # ---- Write the background tif and compute bg_sum ----
         bg_sum = None
         try:
-            bg_sum = _save_qf_background(quadFold, dir_path)
+            # bg_sum = _save_qf_background(quadFold, dir_path)
+            bg_sum = _save_qf_background(quadFold, output_dir)
         except Exception as e:
             print(f"[QF worker {pid}] Failed to save background for {filename}: {e}")
 
@@ -249,6 +253,8 @@ def process_one_qf_image(args):
             "rotation": rotation,
             "bg_sum": bg_sum,
             "error": None,
+            "output_dir": output_dir,
+            "save_name": save_name,
         }
 
     except Exception:

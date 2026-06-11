@@ -495,6 +495,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.mask_max = None
         # TODO: review whether these BG-related variables are still needed
         self.bgAsyncDict = {}
+        self.batchCsvManagers = {}
 
     # ===== BaseGUI abstract methods implementation =====
 
@@ -529,6 +530,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.image_viewer = self.workspace.navigator.image_viewer
         self.file_manager = self.workspace.file_manager
         self.navControls = self.workspace.navigator.nav_controls
+        self.navControls.set_batch_scope_visible(True)
         self.right_panel = self.workspace.right_panel
 
         # Expose select buttons from navigator
@@ -1004,9 +1006,7 @@ class QuadrantFoldingGUI(BaseGUI):
         subtraction_main_layout.addWidget(self.openBGSettingsButton, 1, 2, 1, 2)
         subtraction_main_layout.addWidget(self.manualSettingsContainer, 2, 0, 1, 4)
         subtraction_main_layout.addWidget(self.manualSettingsOutContainer, 3, 0, 1, 4)
-        subtraction_main_layout.addWidget(
-            self.transitionSettingsContainer, 4, 0, 1, 4
-        )
+        subtraction_main_layout.addWidget(self.transitionSettingsContainer, 4, 0, 1, 4)
         subtraction_main_layout.addWidget(self.applyBGButtonProxy, 5, 0, 1, 4)
         self.subtractionGroupMain.setLayout(subtraction_main_layout)
 
@@ -4771,6 +4771,24 @@ class QuadrantFoldingGUI(BaseGUI):
         filename = self.file_manager.names[job_index]
         spec = self.file_manager.specs[job_index]
 
+        if isinstance(spec, tuple) and len(spec) >= 3 and spec[0] == "h5":
+            source_dir = os.path.dirname(spec[1])
+            save_name = os.path.basename(filename)
+        else:
+            source_file = (
+                spec[1] if isinstance(spec, tuple) and len(spec) >= 2 else None
+            )
+            source_dir = (
+                os.path.dirname(str(source_file))
+                if source_file
+                else self.file_manager.dir_path
+            )
+            save_name = (
+                os.path.basename(str(source_file))
+                if source_file
+                else os.path.basename(filename)
+            )
+
         # Snapshot flags. Use deepcopy so any subsequent UI edits while the
         # batch is running don't sneak into already-submitted jobs.
         flags = copy.deepcopy(
@@ -4805,11 +4823,11 @@ class QuadrantFoldingGUI(BaseGUI):
         if self.calSettings is not None and "detector" in self.calSettings:
             detector = self.calSettings["detector"]
 
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace and self.workspace.dir_context
-            else self.file_manager.dir_path
-        )
+        # out = (
+        #     self.workspace.dir_context.output_dir
+        #     if self.workspace and self.workspace.dir_context
+        #     else self.file_manager.dir_path
+        # )
 
         compress_folded = True
         if hasattr(self, "compressFoldedImageChkBx"):
@@ -4821,12 +4839,14 @@ class QuadrantFoldingGUI(BaseGUI):
         return {
             "dir_path": self.file_manager.dir_path,
             "filename": filename,
+            "save_name": save_name,
             "spec": spec,
             "flags": flags,
             "bgsub": (
                 self.bgChoiceIn.currentText() if hasattr(self, "bgChoiceIn") else "None"
             ),
-            "output_dir": out,
+            # "output_dir": out,
+            "output_dir": source_dir,
             "manual_center": (
                 tuple(manual_center) if manual_center is not None else None
             ),
@@ -4963,12 +4983,14 @@ class QuadrantFoldingGUI(BaseGUI):
         processing_flags = (
             result.get("processing_flags") if isinstance(result, dict) else None
         )
-
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace and self.workspace.dir_context
-            else self.filePath
-        )
+        if result.get("output_dir", None):
+            out = result["output_dir"]
+        else:
+            out = (
+                self.workspace.dir_context.output_dir
+                if self.workspace and self.workspace.dir_context
+                else self.filePath
+            )
 
         try:
             os.makedirs(join(out, "qf_results"), exist_ok=True)
@@ -4980,8 +5002,11 @@ class QuadrantFoldingGUI(BaseGUI):
         # CSV write needs a quadFold-like object. Build a lightweight
         # shim mirroring the fields csvManager.writeNewData() reads.
         try:
-            if info is not None and self.csvManager is not None:
-                self.csvManager.writeNewData(
+            csv_manager = self._get_batch_csv_manager(out)
+            # if info is not None and self.csvManager is not None:
+            if info is not None and csv_manager is not None:
+                # self.csvManager.writeNewData(
+                csv_manager.writeNewData(
                     _BatchQuadFoldProxy(
                         filename, info, center, rotation, has_result, processing_flags
                     )
@@ -4994,13 +5019,15 @@ class QuadrantFoldingGUI(BaseGUI):
                 self._upsert_background_metrics_csv(
                     quad_fold=_BatchQuadFoldProxy(
                         filename, info, center, rotation, has_result
-                    )
+                    ),
+                    output_dir=out,
                 )
         except Exception as e:
             print(f"Failed to upsert background metrics for {filename}: {e}")
 
         if bg_sum is not None:
-            self.bgAsyncDict[filename] = bg_sum
+            # self.bgAsyncDict[filename] = bg_sum
+            self.bgAsyncDict.setdefault(out, {})[filename] = bg_sum
 
         # Drop the snapshot — we no longer need to retry this job.
         self.pendingJobArgs.pop(task.job_index, None)
@@ -5133,26 +5160,40 @@ class QuadrantFoldingGUI(BaseGUI):
             pass
 
         try:
-            if self.csvManager is not None:
+            if self.batchCsvManagers:
+                for manager in self.batchCsvManagers.values():
+                    manager.sortCSV()
+            elif self.csvManager is not None:
                 self.csvManager.sortCSV()
         except Exception as e:
             print(f"Failed to sort summary CSV: {e}")
 
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.filePath
-        )
+        # out = (
+        #     self.workspace.dir_context.output_dir
+        #     if self.workspace.dir_context
+        #     else self.filePath
+        # )
         try:
-            os.makedirs(join(out, "qf_results"), exist_ok=True)
-            os.makedirs(join(out, "qf_results", "bg"), exist_ok=True)
-            with open(
-                join(out, "qf_results", "bg", "background_sum.csv"), "w", newline=""
-            ) as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(["Name", "Sum"])
-                for name, total in self.bgAsyncDict.items():
-                    writer.writerow([name, total])
+            # os.makedirs(join(out, "qf_results"), exist_ok=True)
+            # os.makedirs(join(out, "qf_results", "bg"), exist_ok=True)
+            # with open(
+            #     join(out, "qf_results", "bg", "background_sum.csv"), "w", newline=""
+            # ) as csvfile:
+            #     writer = csv.writer(csvfile)
+            #     writer.writerow(["Name", "Sum"])
+            #     for name, total in self.bgAsyncDict.items():
+            #         writer.writerow([name, total])
+            for out, bg_values in self.bgAsyncDict.items():
+                bg_dir = join(out, "qf_results", "bg")
+                os.makedirs(bg_dir, exist_ok=True)
+
+                with open(
+                    join(bg_dir, "background_sum.csv"), "w", newline=""
+                ) as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(["Name", "Sum"])
+                    for name, total in bg_values.items():
+                        writer.writerow([name, total])
         except Exception as e:
             print(f"Failed to write aggregated background_sum.csv: {e}")
 
@@ -5167,6 +5208,7 @@ class QuadrantFoldingGUI(BaseGUI):
             pass
 
         self.writeProcessingLog()
+        self.batchCsvManagers.clear()
         # Only show the "Complete" popup on natural completion. For
         # user-initiated Stop we let _updateStopProgress show its own
         # "Stopped" message instead, so the user doesn't get two popups.
@@ -5313,16 +5355,16 @@ class QuadrantFoldingGUI(BaseGUI):
                 print("Setting Rmax to default: 100")
                 qf.info["rmax"] = 100
 
-            csv_mask = (csv_dists >= qf.info["rmin"]) & (
-                csv_dists <= qf.info["rmax"]
-            )
+            csv_mask = (csv_dists >= qf.info["rmin"]) & (csv_dists <= qf.info["rmax"])
 
             csv_total = np.sum(resultImg[csv_mask])
 
             self.csv_bg.loc[filename] = pd.Series({"Sum": total_inten})
             self.csv_bg.to_csv(csv_path)
 
-    def _upsert_background_metrics_csv(self, quad_fold=None, flags=None):
+    def _upsert_background_metrics_csv(
+        self, quad_fold=None, flags=None, output_dir=None
+    ):
         """
         Upsert one row per image into qf_results/bg/background_metrics.csv.
         Row key is image filename (ImageName).
@@ -5443,7 +5485,9 @@ class QuadrantFoldingGUI(BaseGUI):
         ordered_columns = list(row_data.keys())
 
         try:
-            csv_path = join(self.filePath, "qf_results", "bg", "background_metrics.csv")
+            # csv_path = join(self.filePath, "qf_results", "bg", "background_metrics.csv")
+            base_dir = output_dir or self.filePath
+            csv_path = join(base_dir, "qf_results", "bg", "background_metrics.csv")
             os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
             if exists(csv_path):
@@ -6114,8 +6158,71 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Triggered when a folder has been selected to process it
         """
+        if (
+            self.navControls.process_sibling_folders_enabled()
+            or self.navControls.process_recursively_enabled()
+        ):
+            sources = self._collect_batch_sources()
+            if not sources:
+                QMessageBox.warning(self, "Process Folder", "No image folders found.")
+                self.navControls.processFolderButton.setChecked(False)
+                return
+            self.file_manager.load_from_sources(sources)
+            idxs = range(len(self.file_manager.names))
+            self._process_image_list(idxs, text="Process Selected Folder Scope")
+            return
+
         idxs = range(len(self.file_manager.names))
         self._process_image_list(idxs, text="Process Current Folder")
+
+    def _iter_candidate_dirs(self, root, recursive):
+        if not recursive:
+            if not is_exclude_scan_dir(root):
+                yield Path(root)
+            return
+
+        for parent, dirnames, _filenames in os.walk(root):
+            dirnames[:] = [
+                d for d in dirnames if not is_exclude_scan_dir(os.path.join(parent, d))
+            ]
+
+            if not is_exclude_scan_dir(parent):
+                yield Path(parent)
+
+    def _collect_batch_sources(self):
+        current_dir = Path(self.file_manager.dir_path).resolve()
+        recursive = self.navControls.process_recursively_enabled()
+        siblings = self.navControls.process_sibling_folders_enabled()
+
+        roots = [current_dir]
+        if siblings and current_dir.parent.exists():
+            roots = [p for p in current_dir.parent.iterdir() if p.is_dir()]
+
+        sources = []
+        for root in roots:
+            for folder in self._iter_candidate_dirs(root, recursive):
+                if self._folder_has_possible_images(folder):
+                    sources.append(folder)
+        return sorted(set(sources))
+
+    def _folder_has_possible_images(self, folder):
+        try:
+            return len(scan_directory_files_sync(str(folder))) > 0
+        except Exception:
+            return False
+
+    def _get_batch_csv_manager(self, output_dir):
+        if not output_dir:
+            return self.csvManager
+
+        if output_dir not in self.batchCsvManagers:
+            self.batchCsvManagers[output_dir] = QF_CSVManager(
+                output_dir,
+                extra_colnames=_qf_setting_keys(),
+                version=__version__,
+            )
+
+        return self.batchCsvManagers[output_dir]
 
     def _process_image_list(self, img_ids, text):
         """
