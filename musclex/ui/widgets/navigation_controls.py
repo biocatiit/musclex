@@ -54,10 +54,18 @@ class NavigationControls(QWidget):
         self.process_recursively_checkbox.setToolTip(
             "Also process image folders inside the selected folder scope."
         )
+
+        self.cache_checkbox = QCheckBox("Cache Settings")
+        self.cache_checkbox.setToolTip(
+            "Save qfsettings.json automatically when processing the folder."
+        )
+
         self.batchScopeLayout.addWidget(self.process_sibling_folder_checkbox, 0, 0)
         self.batchScopeLayout.addWidget(self.process_recursively_checkbox, 0, 1)
+        self.batchScopeLayout.addWidget(self.cache_checkbox, 0, 2)
         self.batchScopeLayout.setColumnStretch(0, 1)
         self.batchScopeLayout.setColumnStretch(1, 1)
+        self.batchScopeLayout.setColumnStretch(2, 1)
         self.batchScopeWidget.hide()
 
         self.prevButton = QPushButton("<")
@@ -123,6 +131,7 @@ class NavigationControls(QWidget):
             # Reset checkboxes when hiding
             self.process_sibling_folder_checkbox.setChecked(False)
             self.process_recursively_checkbox.setChecked(False)
+            self.cache_checkbox.setChecked(False)
 
     def process_sibling_folders_enabled(self) -> bool:
         return (
@@ -135,3 +144,6 @@ class NavigationControls(QWidget):
             self.batchScopeWidget.isVisible()
             and self.process_recursively_checkbox.isChecked()
         )
+
+    def cache_enabled(self) -> bool:
+        return self.batchScopeWidget.isVisible() and self.cache_checkbox.isChecked()

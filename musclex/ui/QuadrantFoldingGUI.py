@@ -6417,6 +6417,8 @@ class QuadrantFoldingGUI(BaseGUI):
         ret = errMsg.exec_()
 
         if ret == QMessageBox.Yes:
+            self.automatic_save_settings()
+
             # Reset progress bar for batch processing (percentage mode)
             self.progressBar.setRange(0, 100)
             self.progressBar.setFormat("%p%")
@@ -6487,10 +6489,9 @@ class QuadrantFoldingGUI(BaseGUI):
             range(start_idx, end_idx + 1), text="Process Current H5 File"
         )
 
-    def saveSettings(self):
-        """
-        save settings to json
-        """
+    def _collect_settings(self):
+        """Collect current settings from the UI widgets and return as a dictionary."""
+
         # Start from all current UI flags
         settings = dict(self.getFlags())
 
@@ -6555,13 +6556,28 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if self.quadFold is not None and "bgsub" in self.quadFold.info:
             settings["bgsub"] = self.quadFold.info["bgsub"]
+        return settings
 
+    def saveSettings(self):
+        """
+        save settings to json
+        """
+        settings = self._collect_settings()
         filename = getSaveFile(
             os.path.join("musclex", "settings", "qfsettings.json"), None
         )
         if filename != "":
             with open(filename, "w") as f:
                 json.dump(settings, f)
+
+    def automatic_save_settings(self):
+        settings = self._collect_settings()
+        auto_save_dir = self.workspace.settings_manager.settings_path
+        auto_save_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = auto_save_dir / "qfsettings.json"
+        with open(filename, "w") as f:
+            json.dump(settings, f, indent=2)
 
     def loadSettings(self):
         """
