@@ -9,6 +9,7 @@ from .image_viewer_widget import ImageViewerWidget
 from .image_navigator_widget import ImageNavigatorWidget
 from .processing_workspace import ProcessingWorkspace
 from .parameter_editor_table import ParameterEditorTable
+from .batch_folder_selection_dialog import BatchFolderSelectionDialog
 
 __all__ = [
     "NavigationControls",
@@ -22,4 +23,5 @@ __all__ = [
     "ImageNavigatorWidget",
     "ProcessingWorkspace",
     "ParameterEditorTable",
+    "BatchFolderSelectionDialog",
 ]

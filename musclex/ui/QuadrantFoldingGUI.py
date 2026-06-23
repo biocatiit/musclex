@@ -55,6 +55,7 @@ from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..utils import ImageData
 from ..utils import qf_defaults
+from ..utils.settings_manager import SettingsManager
 
 from ..modules.QuadrantFolder import QuadrantFolder
 from ..csv_manager.QF_CSVManager import QF_CSVManager
@@ -91,7 +92,7 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .widgets.center_settings_widget import CenterSettingsWidget
 from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
-from .widgets import ProcessingWorkspace
+from .widgets import ProcessingWorkspace, BatchFolderSelectionDialog
 from .base_gui import BaseGUI
 from ..utils.background_search import (
     makeFullImage,
@@ -495,6 +496,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.mask_max = None
         # TODO: review whether these BG-related variables are still needed
         self.bgAsyncDict = {}
+        self.selected_batch_folders = []
         self.batchCsvManagers = {}
 
     # ===== BaseGUI abstract methods implementation =====
@@ -530,7 +532,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.image_viewer = self.workspace.navigator.image_viewer
         self.file_manager = self.workspace.file_manager
         self.navControls = self.workspace.navigator.nav_controls
-        self.navControls.set_batch_scope_visible(True)
+        self.navControls.set_select_batch_folder_visible(True)
         self.right_panel = self.workspace.right_panel
 
         # Expose select buttons from navigator
@@ -2211,6 +2213,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
         self.processFolderWithSelections.clicked.connect(
             self.navControls.processFolderButton.click
+        )
+        self.navControls.select_batch_folder_button.clicked.connect(
+            self.choose_batch_folder_for_processing
         )
 
         # NOTE: Filename editing is handled internally by ImageNavigatorWidget._on_filename_changed()
@@ -4805,6 +4810,35 @@ class QuadrantFoldingGUI(BaseGUI):
             except Exception:
                 manual_center, manual_rotation = (None, None)
 
+        if self.selected_batch_folders and self.workspace is not None:
+            try:
+                batch_center, batch_rotation = self.workspace.get_batch_all_geometry()
+            except Exception:
+                batch_center, batch_rotation = (None, None)
+
+            if batch_center is not None:
+                manual_center = batch_center
+            if batch_rotation is not None:
+                manual_rotation = batch_rotation
+
+            if batch_center is not None or batch_rotation is not None:
+                try:
+                    folder_settings = SettingsManager(source_dir)
+                    if batch_center is not None:
+                        folder_settings.set_center(
+                            save_name, batch_center, "propagated_batch_folder"
+                        )
+                        folder_settings.save_center()
+                    if batch_rotation is not None:
+                        folder_settings.set_rotation(
+                            save_name, batch_rotation, "propagated_batch_folder"
+                        )
+                        folder_settings.save_rotation()
+                except Exception as e:
+                    print(
+                        f"Warning: failed to save batch geometry for {save_name}: {e}"
+                    )
+
         blank_mask_config = {
             "apply_blank": False,
             "apply_mask": False,
@@ -6158,52 +6192,15 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Triggered when a folder has been selected to process it
         """
-        if (
-            self.navControls.process_sibling_folders_enabled()
-            or self.navControls.process_recursively_enabled()
-        ):
-            sources = self._collect_batch_sources()
-            if not sources:
-                QMessageBox.warning(self, "Process Folder", "No image folders found.")
-                self.navControls.processFolderButton.setChecked(False)
-                return
+        if self.selected_batch_folders:
+            sources = self.selected_batch_folders
             self.file_manager.load_from_sources(sources)
             idxs = range(len(self.file_manager.names))
-            self._process_image_list(idxs, text="Process Selected Folder Scope")
+            self._process_image_list(idxs, text="Process Selected Folders")
             return
 
         idxs = range(len(self.file_manager.names))
         self._process_image_list(idxs, text="Process Current Folder")
-
-    def _iter_candidate_dirs(self, root, recursive):
-        if not recursive:
-            if not is_exclude_scan_dir(root):
-                yield Path(root)
-            return
-
-        for parent, dirnames, _filenames in os.walk(root):
-            dirnames[:] = [
-                d for d in dirnames if not is_exclude_scan_dir(os.path.join(parent, d))
-            ]
-
-            if not is_exclude_scan_dir(parent):
-                yield Path(parent)
-
-    def _collect_batch_sources(self):
-        current_dir = Path(self.file_manager.dir_path).resolve()
-        recursive = self.navControls.process_recursively_enabled()
-        siblings = self.navControls.process_sibling_folders_enabled()
-
-        roots = [current_dir]
-        if siblings and current_dir.parent.exists():
-            roots = [p for p in current_dir.parent.iterdir() if p.is_dir()]
-
-        sources = []
-        for root in roots:
-            for folder in self._iter_candidate_dirs(root, recursive):
-                if self._folder_has_possible_images(folder):
-                    sources.append(folder)
-        return sorted(set(sources))
 
     def _folder_has_possible_images(self, folder):
         try:
@@ -6417,8 +6414,6 @@ class QuadrantFoldingGUI(BaseGUI):
         ret = errMsg.exec_()
 
         if ret == QMessageBox.Yes:
-            self.automatic_save_settings()
-
             # Reset progress bar for batch processing (percentage mode)
             self.progressBar.setRange(0, 100)
             self.progressBar.setFormat("%p%")
@@ -6856,6 +6851,8 @@ class QuadrantFoldingGUI(BaseGUI):
             dir_path: Directory path of the loaded file/folder
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.selected_batch_folders = []
+        self.navControls.select_batch_folder_button.setText("Select Batch Folders")
 
         try:
             # Update file path
@@ -7070,6 +7067,40 @@ class QuadrantFoldingGUI(BaseGUI):
 
     # NOTE: fileNameChanged() removed - handled by ImageNavigatorWidget._on_filename_changed()
     # The widget automatically emits imageChanged signal which triggers _on_image_changed()
+    def choose_batch_folder_for_processing(self):
+        dialog = BatchFolderSelectionDialog(
+            parent=self,
+            start_dir=self.file_manager.dir_path if self.file_manager else None,
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        selected_folders = dialog.selected_folders()
+        valid = [
+            folder
+            for folder in selected_folders
+            if self._folder_has_possible_images(folder)
+        ]
+
+        skipped = len(selected_folders) - len(valid)
+        self.selected_batch_folders = valid
+
+        count = len(self.selected_batch_folders)
+
+        if count:
+            self.navControls.select_batch_folder_button.setText(
+                f"Selected {count} folder(s)"
+            )
+            self.navControls.processFolderButton.setText(f"Process Batch Folder(s)")
+        else:
+            self.navControls.select_batch_folder_button.setText("Select Batch Folders")
+
+        if skipped:
+            QMessageBox.information(
+                self,
+                "Batch Folder Selection",
+                f"{skipped} folder(s) were skipped because they do not contain any supported image files.",
+            )
 
     def showAbout(self):
         """
