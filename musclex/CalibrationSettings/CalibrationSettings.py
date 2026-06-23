@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 from os.path import exists
+import copy
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import fabio
@@ -147,6 +148,7 @@ class CalibrationSettings(QDialog):
         self.pathText.setEnabled(False)
         self.browseButton = QPushButton("Browse")
         self.unsetButton = QPushButton("Unset")
+        self.loadButton = QPushButton("Load Calibration File")
         self.calImgFigure = plt.figure()
         self.calImgCanvas = FigureCanvas(self.calImgFigure)
         self.calImgCanvas.setHidden(True)
@@ -334,6 +336,7 @@ class CalibrationSettings(QDialog):
         self.mainLayout.addWidget(self.manDetector)
         self.mainLayout.addWidget(self.detectorChoice)
         self.mainLayout.addWidget(self.misSettingChkBx)
+        self.mainLayout.addWidget(self.loadButton)
         self.mainLayout.addWidget(self.buttons)
         self.mainLayout.setAlignment(Qt.AlignCenter)
         self.mainLayout.setAlignment(self.buttons, Qt.AlignCenter)
@@ -349,6 +352,7 @@ class CalibrationSettings(QDialog):
         """
         self.browseButton.clicked.connect(self.browseClicked)
         self.unsetButton.clicked.connect(self.unsetCalImg)
+        self.loadButton.clicked.connect(self.loadSavedCalibration)
         self.paramGrpChkBx.clicked.connect(self.paramChecked)
         # self.paramGrp.clicked.connect(self.paramChecked)
         self.calImageGrpChkBox.clicked.connect(self.calImageChecked)
@@ -608,6 +612,113 @@ class CalibrationSettings(QDialog):
     def loadSettings(self):
         """Load cached calibration from the settings directory."""
         return self._settings_manager.load_calibration_cache()
+
+    def loadSavedCalibration(self):
+        """
+        Load saved calibration settings from a user-selected file.
+
+        This restores the last accepted calibration into the dialog without
+        recalculating from points, so users can reuse a point calibration after
+        it has been saved with OK.
+        """
+        cache_path = getAFile(
+            filtr="MuscleX calibration cache (*.info);;All files (*)",
+            path=self.dir_path,
+            parent=self,
+        )
+        if not cache_path:
+            return False
+
+        try:
+            cache = self._settings_manager.load_calibration_cache_file(
+                cache_path, require_settings=True
+            )
+        except Exception as exc:
+            QMessageBox.warning(
+                self,
+                "Load Calibration",
+                f"Could not load the selected calibration file:\n{exc}",
+            )
+            return False
+
+        if cache is None:
+            QMessageBox.warning(
+                self,
+                "Load Calibration",
+                "The selected calibration file was not found.",
+            )
+            return False
+
+        settings = copy.deepcopy(cache["settings"])
+        cal_type = settings.get("type")
+        cal_path = cache.get("path", "")
+
+        self.calSettings = settings
+        self.calFile = str(cal_path)
+        self.pathText.setText(self.calFile if exists(self.calFile) else "")
+        self.cal_img = None
+        self.disp_img = None
+        self.refined_points = None
+        self._last_user_points = None
+
+        if cal_type == "img":
+            self.calImageGrpChkBox.setChecked(True)
+            self.calImageGrp.setEnabled(True)
+            self.paramGrpChkBx.setChecked(False)
+            self.paramGrp.setEnabled(False)
+            if "silverB" in settings:
+                self.silverBehenate.setValue(settings["silverB"])
+            self.manualCal.setEnabled(exists(self.calFile))
+        elif cal_type == "cont":
+            self.paramGrpChkBx.setChecked(True)
+            self.paramGrp.setEnabled(True)
+            self.calImageGrpChkBox.setChecked(False)
+            self.calImageGrp.setEnabled(False)
+            self.lambdaSpnBx.setValue(settings.get("lambda", self.lambdaSpnBx.value()))
+            self.sddSpnBx.setValue(settings.get("sdd", self.sddSpnBx.value()))
+            self.pixsSpnBx.setValue(settings.get("pixel_size", self.pixsSpnBx.value()))
+            self.manualCal.setEnabled(False)
+        else:
+            QMessageBox.warning(
+                self,
+                "Load Calibration",
+                "Saved calibration settings are missing a valid calibration type.",
+            )
+            return False
+
+        if "center" in settings and not self.quadrant_folded:
+            self.centerX.setValue(settings["center"][0])
+            self.centerY.setValue(settings["center"][1])
+
+        detector = settings.get("detector")
+        if detector in self.alldetectorChoices:
+            self.detectorChoice.setCurrentIndex(self.alldetectorChoices.index(detector))
+            self.manDetector.setChecked(True)
+            self.detectorChoice.setEnabled(True)
+        else:
+            self.manDetector.setChecked(False)
+            self.detectorChoice.setEnabled(False)
+
+        if cal_type == "img" and not exists(self.calFile):
+            QMessageBox.warning(
+                self,
+                "Load Calibration",
+                "Saved calibration values were loaded, but the calibration image file was not found.",
+            )
+            self.calImgCanvas.setHidden(True)
+            self.minIntLabel.setHidden(True)
+            self.minInt.setHidden(True)
+            self.maxIntLabel.setHidden(True)
+            self.maxInt.setHidden(True)
+            return True
+
+        self.updateImage()
+        QMessageBox.information(
+            self,
+            "Load Calibration",
+            "Saved calibration settings were loaded.",
+        )
+        return True
 
     def keyPressEvent(self, event):
         """

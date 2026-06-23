@@ -41,7 +41,7 @@ authorization from Illinois Institute of Technology.
 import json
 import pickle
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 
 class SettingsManager:
@@ -373,17 +373,49 @@ class SettingsManager:
 
     # ===== Calibration =====
 
+    @staticmethod
+    def load_calibration_cache_file(
+        path: Union[str, Path], require_settings: bool = False
+    ) -> Optional[dict]:
+        """
+        Load a calibration cache pickle from an explicit file path.
+
+        Args:
+            path: Path to a MuscleX ``calibration.info`` cache.
+            require_settings: When True, reject caches without a non-empty
+                ``settings`` dict. This is useful for user-selected imports.
+
+        Returns:
+            The calibration cache dict, or None when the file is absent.
+
+        Raises:
+            ValueError: The file exists but is not a valid calibration cache.
+            OSError/pickle.PickleError/etc.: The file cannot be read/unpickled.
+        """
+        cache_path = Path(path)
+        if not cache_path.exists():
+            return None
+
+        with open(cache_path, "rb") as f:
+            cache = pickle.load(f)
+
+        if not isinstance(cache, dict) or "version" not in cache:
+            raise ValueError("The selected file is not a valid calibration cache.")
+
+        if require_settings and not cache.get("settings"):
+            raise ValueError(
+                "The selected file does not contain saved calibration settings."
+            )
+
+        return cache
+
     def load_calibration_cache(self) -> Optional[dict]:
         """Load ``calibration.info`` (pickle). Returns the cache dict or None."""
         path = self.settings_path / "calibration.info"
-        if path.exists():
-            try:
-                with open(path, "rb") as f:
-                    cache = pickle.load(f)
-                if cache is not None and "version" in cache:
-                    return cache
-            except Exception as e:
-                print(f"Warning: Failed to load calibration cache: {e}")
+        try:
+            return self.load_calibration_cache_file(path)
+        except Exception as e:
+            print(f"Warning: Failed to load calibration cache: {e}")
         return None
 
     def save_calibration_cache(self, cache: dict):

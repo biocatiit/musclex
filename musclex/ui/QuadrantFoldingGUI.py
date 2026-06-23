@@ -6852,7 +6852,8 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.selected_batch_folders = []
-        self.navControls.select_batch_folder_button.setText("Select Batch Folders")
+        self.navControls.reset_process_folder_text()
+        self.navControls.reset_batch_folder_button_text()
 
         try:
             # Update file path
@@ -7093,7 +7094,8 @@ class QuadrantFoldingGUI(BaseGUI):
             )
             self.navControls.processFolderButton.setText(f"Process Batch Folder(s)")
         else:
-            self.navControls.select_batch_folder_button.setText("Select Batch Folders")
+            self.navControls.reset_process_folder_text()
+            self.navControls.reset_batch_folder_button_text()
 
         if skipped:
             QMessageBox.information(
