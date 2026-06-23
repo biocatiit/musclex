@@ -146,6 +146,8 @@ class ProcessingWorkspace(QWidget):
         # Orientation model and mode rotation state
         self._orientation_model = 0  # Default: Max Intensity
         self._mode_rotation = None  # Cached mode rotation value
+        self._batch_all_center = None
+        self._batch_all_rotation = None
 
         # Centralized settings I/O
         self.settings_manager = SettingsManager(settings_dir)
@@ -674,6 +676,9 @@ class ProcessingWorkspace(QWidget):
             )
             return
 
+        if scope == "all":
+            self._batch_all_center = tuple(center)
+
         self.apply_center_to_batch(center, scope)
 
         QMessageBox.information(
@@ -685,6 +690,9 @@ class ProcessingWorkspace(QWidget):
     def _on_restore_auto_center(self, scope: str):
         """Handle Restore Auto Center."""
         from PySide6.QtWidgets import QMessageBox
+
+        if scope == "all":
+            self._batch_all_center = None
 
         self.restore_auto_center_for_batch(scope)
 
@@ -711,6 +719,9 @@ class ProcessingWorkspace(QWidget):
             )
             return
 
+        if scope == "all":
+            self._batch_all_rotation = rotation
+
         self.apply_rotation_to_batch(rotation, scope)
 
         QMessageBox.information(
@@ -722,6 +733,9 @@ class ProcessingWorkspace(QWidget):
     def _on_restore_auto_rotation(self, scope: str):
         """Handle Restore Auto Rotation."""
         from PySide6.QtWidgets import QMessageBox
+
+        if scope == "all":
+            self._batch_all_rotation = None
 
         self.restore_auto_rotation_for_batch(scope)
 
@@ -840,6 +854,17 @@ class ProcessingWorkspace(QWidget):
         center = self.settings_manager.get_center(filename)
         rotation = self.settings_manager.get_rotation(filename)
         return center, rotation
+
+    def get_batch_all_geometry(
+        self,
+    ) -> Tuple[Optional[Tuple[float, float]], Optional[float]]:
+        """Return geometry captured from Apply Center/Rotation -> all images."""
+        return self._batch_all_center, self._batch_all_rotation
+
+    def clear_batch_all_geometry(self):
+        """Clear batch-wide geometry captured from Apply Center/Rotation."""
+        self._batch_all_center = None
+        self._batch_all_rotation = None
 
     def save_settings(self):
         """Save all settings to JSON files."""

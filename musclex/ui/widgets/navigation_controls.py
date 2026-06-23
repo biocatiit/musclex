@@ -31,6 +31,7 @@ class NavigationControls(QWidget):
         parent=None,
     ):
         super().__init__(parent)
+        self.default_process_folder_text = process_folder_text
 
         # Controls
         self.processFolderButton = QPushButton(process_folder_text)
@@ -41,32 +42,39 @@ class NavigationControls(QWidget):
         self.processH5Button.setCheckable(checkable_process_h5)
         self.processH5Button.setStyleSheet(process_button_style)
 
-        # Batch processing options (initially hidden, can be shown by parent GUIs)
-        self.batchScopeWidget = QWidget()
-        self.batchScopeLayout = QGridLayout(self.batchScopeWidget)
-        self.batchScopeLayout.setContentsMargins(0, 0, 0, 0)
+        # # Batch processing options (initially hidden, can be shown by parent GUIs)
+        # self.batchScopeWidget = QWidget()
+        # self.batchScopeLayout = QGridLayout(self.batchScopeWidget)
+        # self.batchScopeLayout.setContentsMargins(0, 0, 0, 0)
 
-        self.process_sibling_folder_checkbox = QCheckBox("Sibling folders")
-        self.process_sibling_folder_checkbox.setToolTip(
-            "Also process folders next to the current folder."
+        self.select_batch_folder_button = QPushButton("Choose Batch Folders")
+        self.select_batch_folder_button.setToolTip(
+            "Choose one or more folders to process with the current settings."
         )
-        self.process_recursively_checkbox = QCheckBox("Recursive")
-        self.process_recursively_checkbox.setToolTip(
-            "Also process image folders inside the selected folder scope."
-        )
+        self.select_batch_folder_button.hide()
+        # self.batchScopeLayout.addWidget(self.select_batch_folder_button, 0, 0, 1, 3)
 
-        self.cache_checkbox = QCheckBox("Cache Settings")
-        self.cache_checkbox.setToolTip(
-            "Save qfsettings.json automatically when processing the folder."
-        )
+        # self.process_sibling_folder_checkbox = QCheckBox("Sibling folders")
+        # self.process_sibling_folder_checkbox.setToolTip(
+        #     "Also process folders next to the current folder."
+        # )
+        # self.process_recursively_checkbox = QCheckBox("Recursive")
+        # self.process_recursively_checkbox.setToolTip(
+        #     "Also process image folders inside the selected folder scope."
+        # )
 
-        self.batchScopeLayout.addWidget(self.process_sibling_folder_checkbox, 0, 0)
-        self.batchScopeLayout.addWidget(self.process_recursively_checkbox, 0, 1)
-        self.batchScopeLayout.addWidget(self.cache_checkbox, 0, 2)
-        self.batchScopeLayout.setColumnStretch(0, 1)
-        self.batchScopeLayout.setColumnStretch(1, 1)
-        self.batchScopeLayout.setColumnStretch(2, 1)
-        self.batchScopeWidget.hide()
+        # self.cache_checkbox = QCheckBox("Cache Settings")
+        # self.cache_checkbox.setToolTip(
+        #     "Save qfsettings.json automatically when processing the folder."
+        # )
+
+        # self.batchScopeLayout.addWidget(self.process_sibling_folder_checkbox, 0, 0)
+        # self.batchScopeLayout.addWidget(self.process_recursively_checkbox, 0, 1)
+        # self.batchScopeLayout.addWidget(self.cache_checkbox, 0, 2)
+        # self.batchScopeLayout.setColumnStretch(0, 1)
+        # self.batchScopeLayout.setColumnStretch(1, 1)
+        # self.batchScopeLayout.setColumnStretch(2, 1)
+        # self.batchScopeWidget.hide()
 
         self.prevButton = QPushButton("<")
         self.nextButton = QPushButton(">")
@@ -89,11 +97,11 @@ class NavigationControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         row = 0
+        layout.addWidget(self.select_batch_folder_button, row, 0, 1, 2)
+        row += 1
         layout.addWidget(self.processFolderButton, row, 0, 1, 2)
         row += 1
         layout.addWidget(self.processH5Button, row, 0, 1, 2)
-        row += 1
-        layout.addWidget(self.batchScopeWidget, row, 0, 1, 2)
         row += 1
 
         layout.addWidget(self.prevButton, row, 0, 1, 1)
@@ -121,29 +129,20 @@ class NavigationControls(QWidget):
             self.prevFileButton.hide()
             self.processH5Button.hide()
 
-    def set_batch_scope_visible(self, visible):
+    def set_select_batch_folder_visible(self, visible):
         """
-        Show or hide the batch processing scope options.
+        Show or hide the "Choose Batch Folders" button.
         """
-        self.batchScopeWidget.setVisible(visible)
+        self.select_batch_folder_button.setVisible(visible)
 
-        if not visible:
-            # Reset checkboxes when hiding
-            self.process_sibling_folder_checkbox.setChecked(False)
-            self.process_recursively_checkbox.setChecked(False)
-            self.cache_checkbox.setChecked(False)
+    def reset_process_folder_text(self):
+        """
+        Reset the process folder button text to the default.
+        """
+        self.processFolderButton.setText(self.default_process_folder_text)
 
-    def process_sibling_folders_enabled(self) -> bool:
-        return (
-            self.batchScopeWidget.isVisible()
-            and self.process_sibling_folder_checkbox.isChecked()
-        )
-
-    def process_recursively_enabled(self) -> bool:
-        return (
-            self.batchScopeWidget.isVisible()
-            and self.process_recursively_checkbox.isChecked()
-        )
-
-    def cache_enabled(self) -> bool:
-        return self.batchScopeWidget.isVisible() and self.cache_checkbox.isChecked()
+    def reset_batch_folder_button_text(self):
+        """
+        Reset the batch folder button text to the default.
+        """
+        self.select_batch_folder_button.setText("Choose Batch Folders")
