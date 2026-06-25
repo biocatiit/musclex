@@ -34,6 +34,7 @@ class _ElideMiddleDelegate(QStyledItemDelegate):
 
 
 class ColKey:
+    FOLDER = "FOLDER"
     FRAME = "FRAME"
     CENTER = "CENTER"
     CENTER_MODE = "CENTER_MODE"

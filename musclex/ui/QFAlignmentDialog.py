@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -33,9 +34,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from musclex.ui.add_intensities_row_mapper import SingleRowMapper
+from musclex.ui.add_intensities_row_mapper import SourceFolderRowMapper
 from musclex.ui.widgets.image_alignment_table import ColKey
 from musclex.ui.widgets.image_alignment_widget import ImageAlignmentWidget
+from musclex.utils.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
 
@@ -67,16 +69,10 @@ class QFAlignmentDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowMinMaxButtonsHint)
 
         self.workspace = workspace
+        self._settings_manager_cache = {}
+        self._load_selected_batch_sources_if_needed()
         # row == file_manager index (QF does not group images)
-        self._row_mapper = SingleRowMapper(
-            lambda: (
-                list(self.workspace.navigator.file_manager.names)
-                if self.workspace
-                and self.workspace.navigator
-                and self.workspace.navigator.file_manager
-                else []
-            )
-        )
+        self._row_mapper = SourceFolderRowMapper(self.workspace)
 
         self._build_ui()
         self._connect_signals()
@@ -92,23 +88,25 @@ class QFAlignmentDialog(QDialog):
         # FOLD_STD is appended at the end so the symmetry score is read alongside
         # the existing image-diff metric.
         col_map = {
-            ColKey.FRAME: 0,
-            ColKey.CENTER: 1,
-            ColKey.CENTER_MODE: 2,
-            ColKey.CENTER_DIST: 3,
-            ColKey.AUTO_CENTER: 4,
-            ColKey.AUTO_MANUAL_DIST: 5,
-            ColKey.ROTATION: 6,
-            ColKey.ROTATION_MODE: 7,
-            ColKey.ROTATION_DIFF: 8,
-            ColKey.AUTO_ROTATION: 9,
-            ColKey.AUTO_ROT_DIFF: 10,
-            ColKey.SIZE: 11,
-            ColKey.IMAGE_DIFF: 12,
-            ColKey.FOLD_STD: 13,
-            ColKey.FOLD_STD_NORM: 14,
+            ColKey.FOLDER: 0,
+            ColKey.FRAME: 1,
+            ColKey.CENTER: 2,
+            ColKey.CENTER_MODE: 3,
+            ColKey.CENTER_DIST: 4,
+            ColKey.AUTO_CENTER: 5,
+            ColKey.AUTO_MANUAL_DIST: 6,
+            ColKey.ROTATION: 7,
+            ColKey.ROTATION_MODE: 8,
+            ColKey.ROTATION_DIFF: 9,
+            ColKey.AUTO_ROTATION: 10,
+            ColKey.AUTO_ROT_DIFF: 11,
+            ColKey.SIZE: 12,
+            ColKey.IMAGE_DIFF: 13,
+            ColKey.FOLD_STD: 14,
+            ColKey.FOLD_STD_NORM: 15,
         }
         headers = [
+            "Folder",
             "Frame",
             "Original\nCenter",
             "Center\nMode",
@@ -137,6 +135,7 @@ class QFAlignmentDialog(QDialog):
             worker_dir_path=worker_dir,
             enable_symmetry_test=True,
             detection_button_position="bottom_after_thresholds",
+            settings_resolver=self._settings_for_alignment_row,
             parent=self,
         )
         # Use the default context menu (Set Center/Rotation, Set Global Base, Ignore).
@@ -144,7 +143,8 @@ class QFAlignmentDialog(QDialog):
 
         # Allow the Frame column to be resized interactively.
         header = self.panel.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Interactive)
+        header.setSectionResizeMode(col_map[ColKey.FOLDER], QHeaderView.Interactive)
+        header.setSectionResizeMode(col_map[ColKey.FRAME], QHeaderView.Interactive)
 
         # Brief usage hint at the top of the dialog.
         hint = QLabel(
@@ -212,6 +212,7 @@ class QFAlignmentDialog(QDialog):
 
     def _initialize_panel(self):
         """Populate the table from the current workspace state and select the active row."""
+        self._load_selected_batch_sources_if_needed()
         fm = self.workspace.navigator.file_manager
         if fm is None or not fm.names:
             logger.info("QFAlignmentDialog: file_manager is empty, skipping table init")
@@ -285,6 +286,53 @@ class QFAlignmentDialog(QDialog):
         time to settle before ``init_table`` is called.
         """
         QTimer.singleShot(0, self._initialize_panel)
+
+    def _load_selected_batch_sources_if_needed(self):
+        """Use the same flattened FileManager view that QF batch processing uses."""
+        parent = self.parent()
+        folders = list(getattr(parent, "selected_batch_folders", []) or [])
+        if not folders:
+            return
+
+        fm = self.workspace.navigator.file_manager
+        if fm is None:
+            return
+
+        try:
+            fm.load_from_sources(folders)
+            self._settings_manager_cache.clear()
+        except Exception as exc:
+            logger.warning("Failed to load QF batch folders for alignment: %s", exc)
+
+    def _settings_for_alignment_row(self, row, name):
+        """Return the source folder SettingsManager and basename key for a row."""
+        fm = self.workspace.navigator.file_manager
+        if fm is None:
+            return self.workspace.settings_manager, name
+
+        fm_idx = self._row_mapper.fm_index_for_row(row)
+        if fm_idx is None or fm_idx >= len(fm.specs):
+            return self.workspace.settings_manager, name
+
+        spec = fm.specs[fm_idx]
+        source_dir = None
+        key = os.path.basename(str(name))
+
+        if isinstance(spec, tuple) and len(spec) >= 3 and spec[0] == "h5":
+            source_dir = os.path.dirname(str(spec[1]))
+        elif isinstance(spec, tuple) and len(spec) >= 2:
+            source_path = str(spec[1])
+            source_dir = os.path.dirname(source_path)
+            key = os.path.basename(source_path)
+
+        if not source_dir:
+            return self.workspace.settings_manager, name
+
+        manager = self._settings_manager_cache.get(source_dir)
+        if manager is None:
+            manager = SettingsManager(source_dir)
+            self._settings_manager_cache[source_dir] = manager
+        return manager, key
 
     def _on_request_set_center_rotation(self, row: int):
         """
