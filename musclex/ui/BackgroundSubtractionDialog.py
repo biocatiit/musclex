@@ -288,7 +288,7 @@ class BackgroundSubtractionDialog(QDialog):
             value=qf_defaults.DEFAULT_EQUATOR_CENTER,
         )
 
-        self.m1Label = QLabel("Layer line spacing : ")
+        self.m1Label = QLabel("Layer line spacing (M1) : ")
         self.m1SpnBx = self._create_spinbox(
             min_val=qf_defaults.LAYER_LINE_RANGE[0],
             max_val=qf_defaults.LAYER_LINE_RANGE[1],
