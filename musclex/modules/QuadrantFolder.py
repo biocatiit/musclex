@@ -1188,6 +1188,18 @@ class QuadrantFolder:
 
         return amplitude, sigma_x, sigma_y
 
+    def _resolve_m1(self, fullImg):
+        """Return the M1 layer-line spacing to use for synthetic data.
+
+        Prefer the user-supplied value in ``info["m1"]`` (driven by the M1
+        spinbox in the UI); fall back to auto-detection when it is unset.
+        """
+        m1 = int(self.info.get("m1", 0) or 0)
+        if m1 <= 0:
+            m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
+            m1 = 50 if abs(m1 - 50) > 50 else m1
+        return m1
+
     def ensureSyntheticGaussianDefaults(self):
         if "avg_fold" not in self.imgCache:
             return None
@@ -1195,8 +1207,7 @@ class QuadrantFolder:
         fullImg = makeFullImage(self.imgCache["avg_fold"])
         i0, _ = find_i0_i1_peaks_auto(fullImg, rmin=30)
         i0 = 100 if abs(i0 - 100) > 50 else i0
-        m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
-        m1 = 50 if abs(m1 - 50) > 50 else m1
+        m1 = self._resolve_m1(fullImg)
 
         return self._ensure_synthetic_gaussian_params(fullImg, i0=i0, m1=m1)
 
@@ -1207,8 +1218,7 @@ class QuadrantFolder:
 
         i0, i1 = find_i0_i1_peaks_auto(fullImg, rmin=30)
         i0 = 100 if abs(i0 - 100) > 50 else i0
-        m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
-        m1 = 50 if abs(m1 - 50) > 50 else m1
+        m1 = self._resolve_m1(fullImg)
 
         if freq == "sparse":
             offset_x = int(i0 / 2)

@@ -2952,7 +2952,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def m1Changed(self):
         """Triggered when M1 spacing changes."""
+        # Pushes the new M1 into ``info`` (via _push_session_bg_eval_settings_to_info)
+        # and refreshes the mask preview when it is the one on screen.
         self._on_evaluation_mask_settings_changed()
+        # M1 also drives the synthetic Gaussian spacing, so rebuild the
+        # synthetic data when that preview is visible.
+        self._refresh_synthetic_preview_if_visible()
 
     def layerLineMaskWidthChanged(self):
         """Triggered when layer line width changes."""
