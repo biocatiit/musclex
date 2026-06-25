@@ -73,6 +73,67 @@ class SingleRowMapper:
             table.setItem(i, table.col(ColKey.FRAME), item)
 
 
+class SourceFolderRowMapper:
+    """Identity mapping that also exposes the FileManager source label.
+
+    Used by QF's alignment dialog when the shared FileManager has been loaded
+    from multiple source folders via ``load_from_sources``.
+    """
+
+    def __init__(self, workspace):
+        self._workspace = workspace
+
+    def _file_manager(self):
+        nav = getattr(self._workspace, "navigator", None)
+        return getattr(nav, "file_manager", None)
+
+    def name_for_row(self, row: int) -> Optional[str]:
+        fm = self._file_manager()
+        if fm is None:
+            return None
+        return fm.names[row] if 0 <= row < len(fm.names) else None
+
+    def fm_index_for_row(self, row: int) -> Optional[int]:
+        fm = self._file_manager()
+        if fm is None or row < 0 or row >= len(fm.names):
+            return None
+        return row
+
+    def row_for_fm_index(self, fm_idx: int) -> Optional[int]:
+        fm = self._file_manager()
+        if fm is None or fm_idx < 0 or fm_idx >= len(fm.names):
+            return None
+        return fm_idx
+
+    def row_count(self) -> int:
+        fm = self._file_manager()
+        return len(fm.names) if fm is not None else 0
+
+    def populate_table(self, table) -> None:
+        """Fill Folder and Frame columns from the shared FileManager."""
+        from musclex.ui.widgets.image_alignment_table import ColKey
+
+        fm = self._file_manager()
+        if fm is None:
+            return
+
+        table.setRowCount(len(fm.names))
+        for i, name in enumerate(fm.names):
+            if ColKey.FOLDER in table._col:
+                label = (
+                    fm.source_labels[i]
+                    if getattr(fm, "source_labels", None) and i < len(fm.source_labels)
+                    else ""
+                )
+                folder_item = QTableWidgetItem(label)
+                folder_item.setToolTip(label)
+                table.setItem(i, table.col(ColKey.FOLDER), folder_item)
+
+            frame_item = QTableWidgetItem(os.path.basename(name))
+            frame_item.setToolTip(name)
+            table.setItem(i, table.col(ColKey.FRAME), frame_item)
+
+
 class CartesianRowMapper:
     """Reads the FM index from ``Qt.UserRole`` in a table column.
 

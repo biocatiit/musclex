@@ -84,12 +84,14 @@ class ImageAlignmentWidget(QWidget):
         worker_dir_path="",
         enable_symmetry_test=False,
         detection_button_position="top",
+        settings_resolver=None,
         parent=None,
     ):
         super().__init__(parent)
         self.workspace = workspace
         self._row_mapper = row_mapper
         self._worker_dir_path = worker_dir_path
+        self._settings_resolver = settings_resolver
         self._enable_symmetry_test = bool(enable_symmetry_test)
         if detection_button_position not in ("top", "bottom_after_thresholds"):
             detection_button_position = "top"
@@ -131,6 +133,7 @@ class ImageAlignmentWidget(QWidget):
         self.processExecutor = None
         self._in_batch = False
         self.stop_process = False
+        self._dirty_detection_settings = set()
 
         # Image-diff state
         self.diffTaskManager = ProcessingTaskManager()
@@ -376,12 +379,12 @@ class ImageAlignmentWidget(QWidget):
         self._row_geometry_cache = {}
         self.table.setRowCount(0)
         self._row_mapper.populate_table(self.table)
-        sm = self.workspace.settings_manager
         for row in range(self.table.rowCount()):
             name = self._row_mapper.name_for_row(row)
             if name is not None:
                 self._update_row_data(row, name)
-                if sm.has_ignore(name):
+                sm, key = self._settings_for_row(row, name)
+                if sm.has_ignore(key):
                     self._apply_ignore(row)
         self.table.resizeColumnsToContents()
 
@@ -410,9 +413,22 @@ class ImageAlignmentWidget(QWidget):
 
     def on_global_base_changed(self):
         """Re-read the global base from settings and refresh the table."""
-        base = self.workspace.settings_manager.get_global_base()
+        base = self._default_settings_manager().get_global_base()
         self._base_image_filename = base.get("base_image")
         self._update_table_data()
+
+    def _default_settings_manager(self):
+        return self.workspace.settings_manager
+
+    def _settings_for_row(self, row, name=None):
+        """Return ``(SettingsManager, image_key)`` for a table row."""
+        if name is None:
+            name = self._row_mapper.name_for_row(row)
+        if self._settings_resolver is not None:
+            resolved = self._settings_resolver(row, name)
+            if resolved is not None:
+                return resolved
+        return self._default_settings_manager(), name
 
     @property
     def ignored_rows(self) -> set:
@@ -446,19 +462,19 @@ class ImageAlignmentWidget(QWidget):
         """Refresh center/rotation data columns for a single row."""
         if row < 0 or row >= self.table.rowCount():
             return
-        sm = self.workspace.settings_manager
+        sm, key = self._settings_for_row(row, name)
 
-        manual_c = sm.get_center(name)
+        manual_c = sm.get_center(key)
         if manual_c is not None:
             self.table.fill_center(row, manual_c, "Manual")
         else:
-            auto_c = sm.get_auto_center(name)
+            auto_c = sm.get_auto_center(key)
             self.table.fill_center(row, auto_c, "Auto" if auto_c else None)
 
-        auto_center = sm.get_auto_center(name)
+        auto_center = sm.get_auto_center(key)
         self.table.fill_auto_center(row, auto_center)
 
-        effective_center = self._get_effective_center(name)
+        effective_center = self._get_effective_center(name, row)
         self.table.fill_auto_manual_dist(
             row,
             auto_center,
@@ -467,17 +483,17 @@ class ImageAlignmentWidget(QWidget):
             self._dist_threshold,
         )
 
-        manual_r = sm.get_rotation(name)
+        manual_r = sm.get_rotation(key)
         if manual_r is not None:
             self.table.fill_rotation(row, manual_r, "Manual")
         else:
-            auto_r = sm.get_auto_rotation(name)
+            auto_r = sm.get_auto_rotation(key)
             self.table.fill_rotation(row, auto_r, "Auto" if auto_r else None)
 
-        auto_rotation = sm.get_auto_rotation(name)
+        auto_rotation = sm.get_auto_rotation(key)
         self.table.fill_auto_rotation(row, auto_rotation)
 
-        effective_rotation = self._get_effective_rotation(name)
+        effective_rotation = self._get_effective_rotation(name, row)
         self.table.fill_auto_rot_diff(
             row,
             auto_rotation,
@@ -490,20 +506,20 @@ class ImageAlignmentWidget(QWidget):
             row,
             effective_center,
             effective_rotation,
-            self._get_base_center(),
-            self._get_base_rotation(),
+            self._get_base_center(row),
+            self._get_base_rotation(row),
         )
 
         self.table.fill_size(row, self._img_sizes.get(name, ""), self._most_common_size)
 
-        diff_val = sm.get_image_diff(name)
+        diff_val = sm.get_image_diff(key)
         self.table.fill_diff(
             row, diff_val, self._diff_thresh_enabled, self._diff_thresh_value
         )
 
         if self._enable_symmetry_test and ColKey.FOLD_STD in self.table._col:
             sym_val = (
-                sm.get_fold_std_sum(name) if hasattr(sm, "get_fold_std_sum") else None
+                sm.get_fold_std_sum(key) if hasattr(sm, "get_fold_std_sum") else None
             )
             self.table.fill_fold_std(
                 row,
@@ -513,7 +529,7 @@ class ImageAlignmentWidget(QWidget):
             )
         if self._enable_symmetry_test and ColKey.FOLD_STD_NORM in self.table._col:
             norm_val = (
-                sm.get_fold_std_norm(name) if hasattr(sm, "get_fold_std_norm") else None
+                sm.get_fold_std_norm(key) if hasattr(sm, "get_fold_std_norm") else None
             )
             self.table.fill_fold_std_norm(
                 row,
@@ -523,7 +539,7 @@ class ImageAlignmentWidget(QWidget):
             )
 
         self.table.apply_misaligned_highlight(row, name, self.misaligned_names)
-        self.table.apply_base_marker(row, name, self._base_image_filename)
+        self.table.apply_base_marker(row, key, sm.get_global_base().get("base_image"))
         if row in self._ignored_rows:
             self.table.dim_row(row)
 
@@ -539,27 +555,41 @@ class ImageAlignmentWidget(QWidget):
             if name is not None:
                 self._update_row_data(row, name)
 
-    def _get_effective_center(self, name):
+    def _get_effective_center(self, name, row=None):
         """Return (cx, cy) — manual if present, else auto, else None."""
-        sm = self.workspace.settings_manager
-        return sm.get_center(name) or sm.get_auto_center(name)
+        if row is not None:
+            sm, key = self._settings_for_row(row, name)
+        else:
+            sm, key = self._default_settings_manager(), name
+        return sm.get_center(key) or sm.get_auto_center(key)
 
-    def _get_effective_rotation(self, name):
+    def _get_effective_rotation(self, name, row=None):
         """Return rotation angle — manual if present, else auto, else None."""
-        sm = self.workspace.settings_manager
-        return sm.get_rotation(name) or sm.get_auto_rotation(name)
+        if row is not None:
+            sm, key = self._settings_for_row(row, name)
+        else:
+            sm, key = self._default_settings_manager(), name
+        return sm.get_rotation(key) or sm.get_auto_rotation(key)
 
-    def _get_base_center(self):
+    def _get_base_center(self, row=None):
         """Return the effective center of the global base image, or None."""
-        if not self._base_image_filename:
+        sm = self._default_settings_manager()
+        if row is not None:
+            sm, _key = self._settings_for_row(row)
+        base_image = sm.get_global_base().get("base_image") or self._base_image_filename
+        if not base_image:
             return None
-        return self._get_effective_center(self._base_image_filename)
+        return sm.get_center(base_image) or sm.get_auto_center(base_image)
 
-    def _get_base_rotation(self):
+    def _get_base_rotation(self, row=None):
         """Return the effective rotation of the global base image, or None."""
-        if not self._base_image_filename:
+        sm = self._default_settings_manager()
+        if row is not None:
+            sm, _key = self._settings_for_row(row)
+        base_image = sm.get_global_base().get("base_image") or self._base_image_filename
+        if not base_image:
             return None
-        return self._get_effective_rotation(self._base_image_filename)
+        return sm.get_rotation(base_image) or sm.get_auto_rotation(base_image)
 
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""
@@ -568,18 +598,28 @@ class ImageAlignmentWidget(QWidget):
         counts = Counter(s for s in self._img_sizes.values() if s)
         self._most_common_size = counts.most_common(1)[0][0] if counts else ""
 
+    def _settings_values(self, getter_name):
+        """Collect cached values across rows using the row-specific settings."""
+        values = []
+        for row in range(self._row_mapper.row_count()):
+            name = self._row_mapper.name_for_row(row)
+            if name is None:
+                continue
+            sm, key = self._settings_for_row(row, name)
+            getter = getattr(sm, getter_name, None)
+            if getter is None:
+                continue
+            value = getter(key)
+            if value is not None:
+                values.append(value)
+        return values
+
     def _compute_diff_percentile_threshold(self):
         """Compute the 80th-percentile of all cached diff values.
 
         Updates ``_diff_percentile_threshold`` and syncs the spinbox.
         """
-        sm = self.workspace.settings_manager
-        values = [
-            sm.get_image_diff(self._row_mapper.name_for_row(r))
-            for r in range(self._row_mapper.row_count())
-            if self._row_mapper.name_for_row(r) is not None
-        ]
-        values = [v for v in values if v is not None]
+        values = self._settings_values("get_image_diff")
         if len(values) >= 2:
             self._diff_percentile_threshold = float(np.percentile(values, 80))
             self._diff_thresh_spin.blockSignals(True)
@@ -602,15 +642,7 @@ class ImageAlignmentWidget(QWidget):
         """
         if not getattr(self, "_enable_symmetry_test", False):
             return
-        sm = self.workspace.settings_manager
-        if not hasattr(sm, "get_fold_std_sum"):
-            return
-        values = [
-            sm.get_fold_std_sum(self._row_mapper.name_for_row(r))
-            for r in range(self._row_mapper.row_count())
-            if self._row_mapper.name_for_row(r) is not None
-        ]
-        values = [v for v in values if v is not None]
+        values = self._settings_values("get_fold_std_sum")
         if len(values) >= 2:
             self._fold_std_percentile_threshold = float(np.percentile(values, 80))
             self._symmetry_thresh_spin.blockSignals(True)
@@ -630,15 +662,7 @@ class ImageAlignmentWidget(QWidget):
         """
         if not getattr(self, "_enable_symmetry_test", False):
             return
-        sm = self.workspace.settings_manager
-        if not hasattr(sm, "get_fold_std_norm"):
-            return
-        values = [
-            sm.get_fold_std_norm(self._row_mapper.name_for_row(r))
-            for r in range(self._row_mapper.row_count())
-            if self._row_mapper.name_for_row(r) is not None
-        ]
-        values = [v for v in values if v is not None]
+        values = self._settings_values("get_fold_std_norm")
         if len(values) >= 2:
             self._fold_std_norm_percentile_threshold = float(np.percentile(values, 80))
             self._norm_thresh_spin.blockSignals(True)
@@ -753,8 +777,8 @@ class ImageAlignmentWidget(QWidget):
         if name is None:
             return
         self._ignored_rows.add(row)
-        sm = self.workspace.settings_manager
-        sm.set_ignore(name)
+        sm, key = self._settings_for_row(row, name)
+        sm.set_ignore(key)
         sm.save_ignore()
         print(f"Ignore: {name}")
         self.table.dim_row(row)
@@ -767,8 +791,8 @@ class ImageAlignmentWidget(QWidget):
         if name is None:
             return
         self._ignored_rows.discard(row)
-        sm = self.workspace.settings_manager
-        sm.clear_ignore(name)
+        sm, key = self._settings_for_row(row, name)
+        sm.clear_ignore(key)
         sm.save_ignore()
         print(f"Cancel Ignore: {name}")
         normal = QBrush(self.table.palette().color(self.table.foregroundRole()))
@@ -831,8 +855,9 @@ class ImageAlignmentWidget(QWidget):
             r = selected_rows[0]
             img_name = self._row_mapper.name_for_row(r)
             if img_name is not None:
-                self.workspace.settings_manager.set_global_base(img_name)
-                self.workspace.settings_manager.save_global_base()
+                sm, key = self._settings_for_row(r, img_name)
+                sm.set_global_base(key)
+                sm.save_global_base()
                 self.on_global_base_changed()
                 self.globalBaseChanged.emit()
 
@@ -993,9 +1018,9 @@ class ImageAlignmentWidget(QWidget):
                 if fm_idx is not None and fm_idx < len(fm.specs)
                 else None
             )
-            manual_center, manual_rotation = self.workspace.get_manual_settings(
-                img_name
-            )
+            sm, key = self._settings_for_row(row, img_name)
+            manual_center = sm.get_center(key)
+            manual_rotation = sm.get_rotation(key)
             if self._batch_do_symmetry:
                 job_args = (
                     self._worker_dir_path,
@@ -1054,21 +1079,25 @@ class ImageAlignmentWidget(QWidget):
             # the cancel arrives is not silently lost. ``_on_batch_complete``
             # writes the cache to disk regardless of stop state.
             if not error:
-                sm = self.workspace.settings_manager
+                sm, key = self._settings_for_row(task.job_index, task.filename)
                 sm.set_auto_cache(
-                    task.filename,
+                    key,
                     result["center"],
                     result["rotation"],
                 )
+                sm.save_auto_cache()
+                self._dirty_detection_settings.add(sm)
                 # Persist the fold-symmetry scores when present (only emitted by
                 # the symmetry-aware worker). ``None`` simply means the symmetry
                 # test was not requested for this image.
                 fold_std = result.get("fold_std_sum")
                 if fold_std is not None and hasattr(sm, "set_fold_std_sum"):
-                    sm.set_fold_std_sum(task.filename, fold_std)
+                    sm.set_fold_std_sum(key, fold_std)
+                    sm.save_fold_std_sum()
                 fold_norm = result.get("fold_std_norm")
                 if fold_norm is not None and hasattr(sm, "set_fold_std_norm"):
-                    sm.set_fold_std_norm(task.filename, fold_norm)
+                    sm.set_fold_std_norm(key, fold_norm)
+                    sm.save_fold_std_norm()
 
             # When the user asked to stop, leave UI updates and the completion
             # check to the stopProcess state machine; data was already cached
@@ -1106,13 +1135,14 @@ class ImageAlignmentWidget(QWidget):
         # the batch ran to completion or was interrupted via Stop. Without
         # this, partial-but-valid results from a stopped run would be lost
         # because ``_on_batch_result`` only writes to the in-memory cache.
-        sm = self.workspace.settings_manager
-        sm.save_auto_cache()
         ran_symmetry = getattr(self, "_batch_do_symmetry", False)
-        if ran_symmetry and hasattr(sm, "save_fold_std_sum"):
-            sm.save_fold_std_sum()
-        if ran_symmetry and hasattr(sm, "save_fold_std_norm"):
-            sm.save_fold_std_norm()
+        for sm in list(self._dirty_detection_settings):
+            sm.save_auto_cache()
+            if ran_symmetry and hasattr(sm, "save_fold_std_sum"):
+                sm.save_fold_std_sum()
+            if ran_symmetry and hasattr(sm, "save_fold_std_norm"):
+                sm.save_fold_std_norm()
+        self._dirty_detection_settings.clear()
         # When the batch ran with the symmetry test enabled, derive a sensible
         # default highlight threshold (80th percentile of all scores) and push
         # it into the spinbox so flagged rows light up without manual tuning.
@@ -1160,7 +1190,17 @@ class ImageAlignmentWidget(QWidget):
         if row < 0 or row >= self.table.rowCount():
             return False
         name = self._row_mapper.name_for_row(row)
-        return name is not None and self._get_effective_center(name) is not None
+        return name is not None and self._get_effective_center(name, row) is not None
+
+    def _rows_share_settings_scope(self, row_a, row_b):
+        """Return True when two rows belong to the same settings manager."""
+        name_a = self._row_mapper.name_for_row(row_a)
+        name_b = self._row_mapper.name_for_row(row_b)
+        if name_a is None or name_b is None:
+            return False
+        sm_a, _key_a = self._settings_for_row(row_a, name_a)
+        sm_b, _key_b = self._settings_for_row(row_b, name_b)
+        return sm_a is sm_b
 
     def _trigger_diff_for_row(self, row):
         """Recompute the (at most) two diff pairs that involve *row*."""
@@ -1181,6 +1221,8 @@ class ImageAlignmentWidget(QWidget):
 
         for idx_a, idx_b in pairs:
             if (idx_a, idx_b) in self._diff_pairs_in_flight:
+                continue
+            if not self._rows_share_settings_scope(idx_a, idx_b):
                 continue
             if not self._row_has_geometry(idx_a) or not self._row_has_geometry(idx_b):
                 continue
@@ -1223,8 +1265,8 @@ class ImageAlignmentWidget(QWidget):
             return
         fm_idx_a = self._row_mapper.fm_index_for_row(idx_a)
         fm_idx_b = self._row_mapper.fm_index_for_row(idx_b)
-        base_center = self._get_base_center()
-        base_rotation = self._get_base_rotation()
+        base_center = self._get_base_center(idx_b)
+        base_rotation = self._get_base_rotation(idx_b)
 
         job_args = (
             self._worker_dir_path,
@@ -1240,10 +1282,10 @@ class ImageAlignmentWidget(QWidget):
                 if fm_idx_b is not None and fm_idx_b < len(fm.specs)
                 else None
             ),
-            self._get_effective_center(name_a),
-            self._get_effective_rotation(name_a),
-            self._get_effective_center(name_b),
-            self._get_effective_rotation(name_b),
+            self._get_effective_center(name_a, idx_a),
+            self._get_effective_rotation(name_a, idx_a),
+            self._get_effective_center(name_b, idx_b),
+            self._get_effective_rotation(name_b, idx_b),
             list(base_center) if base_center else None,
             base_rotation,
             idx_b,
@@ -1281,13 +1323,14 @@ class ImageAlignmentWidget(QWidget):
             if error:
                 print(f"Diff error for pair ({idx_a}, {idx_b}): {error}")
             elif name_b is not None:
-                sm = self.workspace.settings_manager
-                sm.set_image_diff(name_b, result["diff"])
+                sm, key = self._settings_for_row(idx_b, name_b)
+                sm.set_image_diff(key, result["diff"])
                 sm.save_image_diff()
                 self._compute_diff_percentile_threshold()
 
             if name_b is not None and idx_b < self.table.rowCount():
-                diff_val = self.workspace.settings_manager.get_image_diff(name_b)
+                sm, key = self._settings_for_row(idx_b, name_b)
+                diff_val = sm.get_image_diff(key)
                 self.table.fill_diff(
                     idx_b,
                     diff_val,

@@ -4811,6 +4811,18 @@ class QuadrantFoldingGUI(BaseGUI):
                 manual_center, manual_rotation = (None, None)
 
         if self.selected_batch_folders and self.workspace is not None:
+            folder_settings = None
+            try:
+                folder_settings = SettingsManager(source_dir)
+                source_center = folder_settings.get_center(save_name)
+                source_rotation = folder_settings.get_rotation(save_name)
+                if source_center is not None:
+                    manual_center = source_center
+                if source_rotation is not None:
+                    manual_rotation = source_rotation
+            except Exception as e:
+                print(f"Warning: failed to read batch geometry for {save_name}: {e}")
+
             try:
                 batch_center, batch_rotation = self.workspace.get_batch_all_geometry()
             except Exception:
@@ -4823,7 +4835,8 @@ class QuadrantFoldingGUI(BaseGUI):
 
             if batch_center is not None or batch_rotation is not None:
                 try:
-                    folder_settings = SettingsManager(source_dir)
+                    if folder_settings is None:
+                        folder_settings = SettingsManager(source_dir)
                     if batch_center is not None:
                         folder_settings.set_center(
                             save_name, batch_center, "propagated_batch_folder"
@@ -6193,14 +6206,75 @@ class QuadrantFoldingGUI(BaseGUI):
         Triggered when a folder has been selected to process it
         """
         if self.selected_batch_folders:
-            sources = self.selected_batch_folders
-            self.file_manager.load_from_sources(sources)
+            self._load_selected_batch_folders_into_file_manager(refresh_ui=False)
             idxs = range(len(self.file_manager.names))
             self._process_image_list(idxs, text="Process Selected Folders")
             return
 
+        self._restore_current_folder_after_batch_selection_clear(refresh_ui=False)
         idxs = range(len(self.file_manager.names))
         self._process_image_list(idxs, text="Process Current Folder")
+
+    def _load_selected_batch_folders_into_file_manager(self, refresh_ui=True):
+        """Load selected batch folders into the shared FileManager immediately."""
+        if not self.selected_batch_folders or self.file_manager is None:
+            return
+
+        try:
+            self.file_manager.load_from_sources(self.selected_batch_folders)
+            if refresh_ui:
+                try:
+                    self.workspace.navigator._load_current_image()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: failed to load selected batch folders: {e}")
+
+    def _restore_current_folder_after_batch_selection_clear(self, refresh_ui=True):
+        """Restore the normal folder listing after a cleared batch selection."""
+        fm = self.file_manager
+        if fm is None or not getattr(fm, "source_labels", None):
+            return
+
+        current_dir = getattr(self, "filePath", None)
+        if not current_dir:
+            return
+
+        try:
+            previous_name = getattr(fm, "current_image_name", "") or ""
+            previous_base = os.path.basename(previous_name)
+
+            fm.file_list = scan_directory_files_sync(current_dir)
+            fm._rebuild_path_to_file_idx()
+
+            names, specs, source_index_map, size_map = scan_directory_images_cached(
+                current_dir
+            )
+            fm.dir_path = current_dir
+            fm.names = names
+            fm.specs = specs
+            fm.source_index_map = source_index_map or {}
+            fm.source_labels = []
+            fm.image_sizes = size_map or {}
+
+            if not fm.names:
+                return
+
+            target_idx = 0
+            if previous_base:
+                for idx, name in enumerate(fm.names):
+                    if os.path.basename(name) == previous_base:
+                        target_idx = idx
+                        break
+
+            fm.switch_image_by_index(target_idx)
+            if refresh_ui:
+                try:
+                    self.workspace.navigator._load_current_image()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: failed to restore current folder listing: {e}")
 
     def _folder_has_possible_images(self, folder):
         try:
@@ -7093,9 +7167,11 @@ class QuadrantFoldingGUI(BaseGUI):
                 f"Selected {count} folder(s)"
             )
             self.navControls.processFolderButton.setText(f"Process Batch Folder(s)")
+            self._load_selected_batch_folders_into_file_manager()
         else:
             self.navControls.reset_process_folder_text()
             self.navControls.reset_batch_folder_button_text()
+            self._restore_current_folder_after_batch_selection_clear()
 
         if skipped:
             QMessageBox.information(
