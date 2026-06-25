@@ -3972,13 +3972,11 @@ class QuadrantFoldingGUI(BaseGUI):
         Clean up info dict when changing images
         """
 
-        # Clean up detector info if not manually set
-        if (
-            not (
-                self.calSettingsDialog
-                and self.calSettingsDialog.manDetector.isChecked()
-            )
-        ) and (prevInfo is not None):
+        # Clean up stale detector info unless current calibration supplies one.
+        has_calibration_detector = bool(
+            self.calSettings is not None and self.calSettings.get("detector")
+        )
+        if not has_calibration_detector and (prevInfo is not None):
             if "detector" in currentInfo:
                 del currentInfo["detector"]
 
