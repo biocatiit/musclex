@@ -248,6 +248,14 @@ class ImageData:
         # Pass settings_manager if available on the panel
         sm = getattr(settings_panel, "settings_manager", None)
 
+        detector = None
+        try:
+            cal_settings = settings_panel.calibration_settings
+            if cal_settings is not None:
+                detector = cal_settings.get("detector")
+        except Exception:
+            detector = None
+
         return cls(
             img=img,
             img_path=img_path,
@@ -255,6 +263,7 @@ class ImageData:
             center=manual_center,
             rotation=manual_rotation,
             orientation_model=orientation_model,
+            detector=detector,
             apply_blank=blank_mask_config["apply_blank"],
             apply_mask=blank_mask_config["apply_mask"],
             blank_weight=blank_mask_config["blank_weight"],
@@ -390,6 +399,21 @@ class ImageData:
         self._manual_rotation = rotation
         print(f"Manual rotation updated: {self._manual_rotation}")
 
+    def update_detector(self, detector: Optional[str]) -> bool:
+        """
+        Update detector at runtime and invalidate auto-rotation if it changed.
+
+        :param detector: PyFAI detector name or None
+        :return: True if detector changed
+        """
+        if self.detector == detector:
+            return False
+        previous = self.detector
+        self.detector = detector
+        self._computed_rotation = None
+        print(f"Detector updated: {previous} -> {self.detector}")
+        return True
+
     # ==================== Cache Management ====================
 
     def _load_auto_cache(self):
@@ -398,10 +422,21 @@ class ImageData:
             return
         c = self._settings_manager.get_auto_center(self.img_name)
         r = self._settings_manager.get_auto_rotation(self.img_name)
+        cached_detector = None
+        if hasattr(self._settings_manager, "get_auto_cache_detector"):
+            cached_detector = self._settings_manager.get_auto_cache_detector(
+                self.img_name
+            )
         if c is not None:
             self._computed_center = c
-        if r is not None:
+        detector_matches = cached_detector == self.detector
+        if r is not None and detector_matches:
             self._computed_rotation = r
+        elif r is not None and not detector_matches:
+            print(
+                "Ignoring cached auto rotation because detector changed: "
+                f"cached={cached_detector}, current={self.detector}"
+            )
         if c or r is not None:
             print(
                 f"Loaded auto geometry from cache: center={self._computed_center}, rotation={self._computed_rotation}"
@@ -412,7 +447,10 @@ class ImageData:
         if self._settings_manager is None:
             return
         self._settings_manager.set_auto_cache(
-            self.img_name, self._computed_center, self._computed_rotation
+            self.img_name,
+            self._computed_center,
+            self._computed_rotation,
+            detector=self.detector,
         )
         self._settings_manager.save_auto_cache()
 

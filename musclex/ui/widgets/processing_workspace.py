@@ -1864,6 +1864,15 @@ class ProcessingWorkspace(QWidget):
             cal_settings = cal_dialog.getValues()
 
             if cal_settings is not None:
+                if image_data.update_detector(cal_settings.get("detector")):
+                    self.settings_manager.set_auto_cache(
+                        image_data.img_name,
+                        image_data._computed_center,
+                        None,
+                        detector=image_data.detector,
+                    )
+                    self.settings_manager.save_auto_cache()
+
                 if "center" in cal_settings:
                     # Update center using workspace method
                     self.set_center_from_source(

@@ -422,6 +422,8 @@ class CalibrationSettings(QDialog):
         if name == "pixS" and obj.value() > 0:
             self.pixel_size_user_confirmed = True
             self.pixel_size_source = "manual"
+        elif name == "detector" and self.manDetector.isChecked():
+            self._apply_manual_detector_metadata()
         self.log_changes(name, obj)
 
     def decalibrate(self):
@@ -871,6 +873,55 @@ class CalibrationSettings(QDialog):
             return None
         return float(np.mean(pixels) * 1000.0)
 
+    def _detector_metadata_from_name(self, detector_name, source):
+        try:
+            detector_cls = Detector.registry.get(detector_name)
+            detector = detector_factory(detector_name)
+        except Exception:
+            detector_cls = None
+            detector = None
+
+        metadata = {
+            "name": detector_name,
+            "source": source,
+        }
+        max_shape = getattr(detector_cls, "MAX_SHAPE", None)
+        if max_shape is not None:
+            metadata["max_shape"] = tuple(max_shape)
+
+        if detector is not None:
+            pixel1 = getattr(detector, "pixel1", None)
+            pixel2 = getattr(detector, "pixel2", None)
+            if pixel1:
+                metadata["pixel1_m"] = float(pixel1)
+            if pixel2:
+                metadata["pixel2_m"] = float(pixel2)
+
+        pixel_size = self._detector_pixel_size_mm(detector_name)
+        if pixel_size:
+            metadata["pixel_size"] = pixel_size
+            metadata["pixel_size_unit"] = "mm"
+        return metadata
+
+    def _apply_manual_detector_metadata(self):
+        detector_name = self.detectorChoice.currentText()
+        if not detector_name:
+            return
+
+        self.detector_metadata = self._detector_metadata_from_name(
+            detector_name, "manual"
+        )
+        pixel_size = self.detector_metadata.get("pixel_size")
+        if pixel_size:
+            self.pixsSpnBx.setValue(pixel_size)
+            self.pixel_size_user_confirmed = True
+            self.pixel_size_source = f"manual detector:{detector_name}"
+
+        if self.calSettings is None:
+            self.calSettings = {}
+        self.calSettings["detector"] = detector_name
+        self.calSettings["detector_metadata"] = self.detector_metadata
+
     @staticmethod
     def _float_from_header_value(value):
         if value is None:
@@ -1313,6 +1364,8 @@ class CalibrationSettings(QDialog):
         ):
             self.calSettings.pop("detector")
         self.detectorChoice.setEnabled(self.manDetector.isChecked())
+        if self.manDetector.isChecked():
+            self._apply_manual_detector_metadata()
 
     def correctMisSetting(self):
         """
