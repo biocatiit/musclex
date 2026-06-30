@@ -139,7 +139,7 @@ EQ_SPECIAL_KEYS = frozenset(
 # subsystem and the EQ load path intentionally ignores them.
 #
 #   - Calibration-derived fields (lambda_sdd, detector, calib_center,
-#     silverB, radius, type, sdd, pixel_size, lambda):
+#     silverB, radius, type, sdd, pixel_size, lambda, beam_energy):
 #     single-sourced from <dataset>/settings/calibration.info via
 #     SettingsManager. EquatorWindow.saveSettings() strips these on
 #     export and EquatorWindowh.getSettings() strips them on import,
@@ -158,6 +158,7 @@ EQ_SKIP_KEYS = frozenset(
         "sdd",
         "pixel_size",
         "lambda",
+        "beam_energy",
         "blank_mask",
     }
 )

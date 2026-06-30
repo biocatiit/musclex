@@ -1862,6 +1862,7 @@ class EquatorWindow(QMainWindow):
             "sdd",
             "pixel_size",
             "lambda",
+            "beam_energy",
         ):
             settings.pop(k, None)
 

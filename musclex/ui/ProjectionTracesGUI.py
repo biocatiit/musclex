@@ -3268,6 +3268,8 @@ class ProjectionTracesGUI(BaseGUI):
             # Instrument-based calibration parameters
             if "lambda" in calSettings:
                 cache["lambda"] = calSettings["lambda"]
+            if "beam_energy" in calSettings:
+                cache["beam_energy"] = calSettings["beam_energy"]
             if "sdd" in calSettings:
                 cache["sdd"] = calSettings["sdd"]
             if "pixel_size" in calSettings:
