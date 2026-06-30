@@ -148,6 +148,7 @@ QF_SKIP_KEYS = frozenset(
         "silverB",
         "radius",
         "type",
+        "beam_energy",
     }
 )
 

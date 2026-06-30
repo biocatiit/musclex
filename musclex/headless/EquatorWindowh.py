@@ -318,6 +318,7 @@ class EquatorWindowh:
                 "sdd",
                 "pixel_size",
                 "lambda",
+                "beam_energy",
             )
             if k in settings
         ]

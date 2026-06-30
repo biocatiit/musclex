@@ -45,6 +45,8 @@ class CalibrationSettings(QDialog):
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
 
+    KEV_NM = 1.239841984
+
     def __init__(
         self,
         dir_path,
@@ -126,6 +128,7 @@ class CalibrationSettings(QDialog):
         """
         silverb = 5.83803
         init_lambda = 0.1033
+        init_energy = self.energy_from_wavelength(init_lambda)
         init_sdd = 2500
         init_pix_size = 0.0
         typ = None
@@ -135,6 +138,9 @@ class CalibrationSettings(QDialog):
             typ = self.calSettings["type"] if "type" in self.calSettings else None
             if typ == "cont":
                 init_lambda = self.calSettings["lambda"]
+                init_energy = self.calSettings.get(
+                    "beam_energy", self.energy_from_wavelength(init_lambda)
+                )
                 init_sdd = self.calSettings["sdd"]
                 init_pix_size = self.calSettings["pixel_size"]
                 self.pixel_size_user_confirmed = True
@@ -197,7 +203,8 @@ class CalibrationSettings(QDialog):
         )
         self.buttons.accepted.connect(self.okClicked)
         self.buttons.rejected.connect(self.reject)
-        self.buttons.setFixedWidth(100)
+        for button in self.buttons.buttons():
+            button.setMinimumWidth(90)
         # grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
         self.calImageGrp = QGroupBox("Setting by Calibration Image")
         self.calImageGrp.setCheckable(False)
@@ -241,6 +248,13 @@ class CalibrationSettings(QDialog):
         self.lambdaSpnBx.setValue(init_lambda)
         self.lambdaSpnBx.setObjectName("lambdaSpnBx")
         self.editableVars[self.lambdaSpnBx.objectName()] = None
+
+        self.energySpnBx = QDoubleSpinBox()
+        self.energySpnBx.setDecimals(8)
+        self.energySpnBx.setRange(0.00001, 1000.0)
+        self.energySpnBx.setValue(init_energy)
+        self.energySpnBx.setObjectName("energySpnBx")
+        self.editableVars[self.energySpnBx.objectName()] = None
 
         self.sddSpnBx = QDoubleSpinBox()
         self.sddSpnBx.setDecimals(8)
@@ -315,12 +329,15 @@ class CalibrationSettings(QDialog):
         self.paramLayout.addWidget(QLabel("Lambda : "), 0, 0, 1, 1)
         self.paramLayout.addWidget(self.lambdaSpnBx, 0, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("nm"), 0, 2, 1, 1)
-        self.paramLayout.addWidget(QLabel("S<sub>dd</sub> : "), 1, 0, 1, 1)
-        self.paramLayout.addWidget(self.sddSpnBx, 1, 1, 1, 1)
-        self.paramLayout.addWidget(QLabel("mm"), 1, 2, 1, 1)
-        self.paramLayout.addWidget(QLabel("Pixel Size : "), 2, 0, 1, 1)
-        self.paramLayout.addWidget(self.pixsSpnBx, 2, 1, 1, 1)
+        self.paramLayout.addWidget(QLabel("Beam Energy : "), 1, 0, 1, 1)
+        self.paramLayout.addWidget(self.energySpnBx, 1, 1, 1, 1)
+        self.paramLayout.addWidget(QLabel("keV"), 1, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("S<sub>dd</sub> : "), 2, 0, 1, 1)
+        self.paramLayout.addWidget(self.sddSpnBx, 2, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("mm"), 2, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("Pixel Size : "), 3, 0, 1, 1)
+        self.paramLayout.addWidget(self.pixsSpnBx, 3, 1, 1, 1)
+        self.paramLayout.addWidget(QLabel("mm"), 3, 2, 1, 1)
 
         self.mainLayout.addWidget(self.calImageGrpChkBox)
         self.mainLayout.addWidget(self.calImageGrp)
@@ -380,6 +397,9 @@ class CalibrationSettings(QDialog):
         self.lambdaSpnBx.editingFinished.connect(
             lambda: self.settingChanged("lambda", self.lambdaSpnBx)
         )
+        self.energySpnBx.editingFinished.connect(
+            lambda: self.settingChanged("energy", self.energySpnBx)
+        )
         self.sddSpnBx.editingFinished.connect(
             lambda: self.settingChanged("sdd", self.sddSpnBx)
         )
@@ -419,12 +439,38 @@ class CalibrationSettings(QDialog):
         """
         Change the log when the settings are changed.
         """
-        if name == "pixS" and obj.value() > 0:
+        if name == "lambda":
+            self.update_energy_from_wavelength()
+        elif name == "energy":
+            self.update_wavelength_from_energy()
+        elif name == "pixS" and obj.value() > 0:
             self.pixel_size_user_confirmed = True
             self.pixel_size_source = "manual"
         elif name == "detector" and self.manDetector.isChecked():
             self._apply_manual_detector_metadata()
         self.log_changes(name, obj)
+
+    @classmethod
+    def energy_from_wavelength(cls, wavelength_nm):
+        if wavelength_nm <= 0:
+            return 0.0
+        return cls.KEV_NM / wavelength_nm
+
+    @classmethod
+    def wavelength_from_energy(cls, energy_kev):
+        if energy_kev <= 0:
+            return 0.0
+        return cls.KEV_NM / energy_kev
+
+    def update_energy_from_wavelength(self):
+        energy = self.energy_from_wavelength(self.lambdaSpnBx.value())
+        if energy > 0:
+            self.energySpnBx.setValue(energy)
+
+    def update_wavelength_from_energy(self):
+        wavelength = self.wavelength_from_energy(self.energySpnBx.value())
+        if wavelength > 0:
+            self.lambdaSpnBx.setValue(wavelength)
 
     def decalibrate(self):
         """
@@ -696,6 +742,12 @@ class CalibrationSettings(QDialog):
             self.calImageGrpChkBox.setChecked(False)
             self.calImageGrp.setEnabled(False)
             self.lambdaSpnBx.setValue(settings.get("lambda", self.lambdaSpnBx.value()))
+            self.energySpnBx.setValue(
+                settings.get(
+                    "beam_energy",
+                    self.energy_from_wavelength(self.lambdaSpnBx.value()),
+                )
+            )
             self.sddSpnBx.setValue(settings.get("sdd", self.sddSpnBx.value()))
             self.pixsSpnBx.setValue(settings.get("pixel_size", self.pixsSpnBx.value()))
             self.manualCal.setEnabled(False)
@@ -777,6 +829,7 @@ class CalibrationSettings(QDialog):
 
             self.calSettings = {
                 "lambda": self.lambdaSpnBx.value(),
+                "beam_energy": self.energySpnBx.value(),
                 "pixel_size": pixel_size,
                 "sdd": self.sddSpnBx.value(),
                 "scale": (self.lambdaSpnBx.value() * self.sddSpnBx.value())

@@ -1933,7 +1933,7 @@ class ProcessingWorkspace(QWidget):
         Returns the 'settings' dict from calibration.info, which contains:
         - type: "img" or "cont"
         - For "img" type: silverB, radius
-        - For "cont" type: lambda, sdd, pixel_size, scale
+        - For "cont" type: lambda, beam_energy, sdd, pixel_size, scale
         - center: [x, y] (optional)
         - detector: detector name (optional)
 
