@@ -33,6 +33,7 @@ import matplotlib.patches as patches
 import fabio
 import musclex
 import numpy as np
+from pyFAI import detector_factory
 from pyFAI.detectors import Detector
 from ..ui.pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless
@@ -43,6 +44,8 @@ class CalibrationSettings(QDialog):
     """
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
+
+    KEV_NM = 1.239841984
 
     def __init__(
         self,
@@ -79,12 +82,16 @@ class CalibrationSettings(QDialog):
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
         self.cal_img = None
+        self.cal_fabio_img = None
         self.disp_img = None
         self.ax = None
         self.ax2 = None
         self.version = musclex.__version__
         self.uiUpdating = False
         self.quadrant_folded = quadrant_folded
+        self.detector_metadata = {}
+        self.pixel_size_source = None
+        self.pixel_size_user_confirmed = False
 
         # Initialize with provided settings or defaults
         if initial_settings is not None:
@@ -121,8 +128,9 @@ class CalibrationSettings(QDialog):
         """
         silverb = 5.83803
         init_lambda = 0.1033
+        init_energy = self.energy_from_wavelength(init_lambda)
         init_sdd = 2500
-        init_pix_size = 0.172
+        init_pix_size = 0.0
         typ = None
         center = None
         detector = None
@@ -130,8 +138,12 @@ class CalibrationSettings(QDialog):
             typ = self.calSettings["type"] if "type" in self.calSettings else None
             if typ == "cont":
                 init_lambda = self.calSettings["lambda"]
+                init_energy = self.calSettings.get(
+                    "beam_energy", self.energy_from_wavelength(init_lambda)
+                )
                 init_sdd = self.calSettings["sdd"]
                 init_pix_size = self.calSettings["pixel_size"]
+                self.pixel_size_user_confirmed = True
             elif typ == "img":
                 silverb = self.calSettings["silverB"]
 
@@ -139,6 +151,10 @@ class CalibrationSettings(QDialog):
                 center = self.calSettings["center"]
             if "detector" in self.calSettings:
                 detector = self.calSettings["detector"]
+            if "pixel_size_source" in self.calSettings:
+                self.pixel_size_source = self.calSettings["pixel_size_source"]
+            if "detector_metadata" in self.calSettings:
+                self.detector_metadata = self.calSettings["detector_metadata"]
 
         self.mainLayout = QVBoxLayout(self)
 
@@ -187,7 +203,8 @@ class CalibrationSettings(QDialog):
         )
         self.buttons.accepted.connect(self.okClicked)
         self.buttons.rejected.connect(self.reject)
-        self.buttons.setFixedWidth(100)
+        for button in self.buttons.buttons():
+            button.setMinimumWidth(90)
         # grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
         self.calImageGrp = QGroupBox("Setting by Calibration Image")
         self.calImageGrp.setCheckable(False)
@@ -232,6 +249,13 @@ class CalibrationSettings(QDialog):
         self.lambdaSpnBx.setObjectName("lambdaSpnBx")
         self.editableVars[self.lambdaSpnBx.objectName()] = None
 
+        self.energySpnBx = QDoubleSpinBox()
+        self.energySpnBx.setDecimals(8)
+        self.energySpnBx.setRange(0.00001, 1000.0)
+        self.energySpnBx.setValue(init_energy)
+        self.energySpnBx.setObjectName("energySpnBx")
+        self.editableVars[self.energySpnBx.objectName()] = None
+
         self.sddSpnBx = QDoubleSpinBox()
         self.sddSpnBx.setDecimals(8)
         self.sddSpnBx.setRange(0.0, 100000000000000000000.0)
@@ -241,7 +265,8 @@ class CalibrationSettings(QDialog):
 
         self.pixsSpnBx = QDoubleSpinBox()
         self.pixsSpnBx.setDecimals(8)
-        self.pixsSpnBx.setRange(0.00001, 5.0)
+        self.pixsSpnBx.setRange(0.0, 5.0)
+        self.pixsSpnBx.setSpecialValueText("Unknown")
         self.pixsSpnBx.setValue(init_pix_size)
         self.pixsSpnBx.setObjectName("pixsSpnBx")
         self.editableVars[self.pixsSpnBx.objectName()] = None
@@ -304,12 +329,15 @@ class CalibrationSettings(QDialog):
         self.paramLayout.addWidget(QLabel("Lambda : "), 0, 0, 1, 1)
         self.paramLayout.addWidget(self.lambdaSpnBx, 0, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("nm"), 0, 2, 1, 1)
-        self.paramLayout.addWidget(QLabel("S<sub>dd</sub> : "), 1, 0, 1, 1)
-        self.paramLayout.addWidget(self.sddSpnBx, 1, 1, 1, 1)
-        self.paramLayout.addWidget(QLabel("mm"), 1, 2, 1, 1)
-        self.paramLayout.addWidget(QLabel("Pixel Size : "), 2, 0, 1, 1)
-        self.paramLayout.addWidget(self.pixsSpnBx, 2, 1, 1, 1)
+        self.paramLayout.addWidget(QLabel("Beam Energy : "), 1, 0, 1, 1)
+        self.paramLayout.addWidget(self.energySpnBx, 1, 1, 1, 1)
+        self.paramLayout.addWidget(QLabel("keV"), 1, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("S<sub>dd</sub> : "), 2, 0, 1, 1)
+        self.paramLayout.addWidget(self.sddSpnBx, 2, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("mm"), 2, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("Pixel Size : "), 3, 0, 1, 1)
+        self.paramLayout.addWidget(self.pixsSpnBx, 3, 1, 1, 1)
+        self.paramLayout.addWidget(QLabel("mm"), 3, 2, 1, 1)
 
         self.mainLayout.addWidget(self.calImageGrpChkBox)
         self.mainLayout.addWidget(self.calImageGrp)
@@ -369,6 +397,9 @@ class CalibrationSettings(QDialog):
         self.lambdaSpnBx.editingFinished.connect(
             lambda: self.settingChanged("lambda", self.lambdaSpnBx)
         )
+        self.energySpnBx.editingFinished.connect(
+            lambda: self.settingChanged("energy", self.energySpnBx)
+        )
         self.sddSpnBx.editingFinished.connect(
             lambda: self.settingChanged("sdd", self.sddSpnBx)
         )
@@ -408,7 +439,38 @@ class CalibrationSettings(QDialog):
         """
         Change the log when the settings are changed.
         """
+        if name == "lambda":
+            self.update_energy_from_wavelength()
+        elif name == "energy":
+            self.update_wavelength_from_energy()
+        elif name == "pixS" and obj.value() > 0:
+            self.pixel_size_user_confirmed = True
+            self.pixel_size_source = "manual"
+        elif name == "detector" and self.manDetector.isChecked():
+            self._apply_manual_detector_metadata()
         self.log_changes(name, obj)
+
+    @classmethod
+    def energy_from_wavelength(cls, wavelength_nm):
+        if wavelength_nm <= 0:
+            return 0.0
+        return cls.KEV_NM / wavelength_nm
+
+    @classmethod
+    def wavelength_from_energy(cls, energy_kev):
+        if energy_kev <= 0:
+            return 0.0
+        return cls.KEV_NM / energy_kev
+
+    def update_energy_from_wavelength(self):
+        energy = self.energy_from_wavelength(self.lambdaSpnBx.value())
+        if energy > 0:
+            self.energySpnBx.setValue(energy)
+
+    def update_wavelength_from_energy(self):
+        wavelength = self.wavelength_from_energy(self.energySpnBx.value())
+        if wavelength > 0:
+            self.lambdaSpnBx.setValue(wavelength)
 
     def decalibrate(self):
         """
@@ -604,6 +666,7 @@ class CalibrationSettings(QDialog):
         file_name = getAFile(parent=self)
         if file_name != "" and exists(str(file_name)):
             self.cal_img = None
+            self.cal_fabio_img = None
             self.calFile = str(file_name)
             self.pathText.setText(str(file_name))
             self.manualCal.setEnabled(True)
@@ -657,9 +720,13 @@ class CalibrationSettings(QDialog):
         self.calFile = str(cal_path)
         self.pathText.setText(self.calFile if exists(self.calFile) else "")
         self.cal_img = None
+        self.cal_fabio_img = None
         self.disp_img = None
         self.refined_points = None
         self._last_user_points = None
+        self.detector_metadata = settings.get("detector_metadata", {})
+        self.pixel_size_source = settings.get("pixel_size_source")
+        self.pixel_size_user_confirmed = "pixel_size" in settings
 
         if cal_type == "img":
             self.calImageGrpChkBox.setChecked(True)
@@ -675,6 +742,12 @@ class CalibrationSettings(QDialog):
             self.calImageGrpChkBox.setChecked(False)
             self.calImageGrp.setEnabled(False)
             self.lambdaSpnBx.setValue(settings.get("lambda", self.lambdaSpnBx.value()))
+            self.energySpnBx.setValue(
+                settings.get(
+                    "beam_energy",
+                    self.energy_from_wavelength(self.lambdaSpnBx.value()),
+                )
+            )
             self.sddSpnBx.setValue(settings.get("sdd", self.sddSpnBx.value()))
             self.pixsSpnBx.setValue(settings.get("pixel_size", self.pixsSpnBx.value()))
             self.manualCal.setEnabled(False)
@@ -737,14 +810,34 @@ class CalibrationSettings(QDialog):
             self.calSettings = {}
 
         if self.paramGrpChkBx.isChecked():
+            pixel_size = self.pixsSpnBx.value()
+            if pixel_size <= 0:
+                pixel_size, ok = QInputDialog.getDouble(
+                    self,
+                    "Pixel Size Required",
+                    "Detector pixel size was not identified. Enter pixel size in mm:",
+                    0.0,
+                    0.00001,
+                    5.0,
+                    8,
+                )
+                if not ok:
+                    return False
+                self.pixsSpnBx.setValue(pixel_size)
+                self.pixel_size_user_confirmed = True
+                self.pixel_size_source = "manual"
+
             self.calSettings = {
                 "lambda": self.lambdaSpnBx.value(),
-                "pixel_size": self.pixsSpnBx.value(),
+                "beam_energy": self.energySpnBx.value(),
+                "pixel_size": pixel_size,
                 "sdd": self.sddSpnBx.value(),
                 "scale": (self.lambdaSpnBx.value() * self.sddSpnBx.value())
-                / self.pixsSpnBx.value(),
+                / pixel_size,
                 "type": "cont",
             }
+            if self.pixel_size_source:
+                self.calSettings["pixel_size_source"] = self.pixel_size_source
         elif self.calImageGrpChkBox.isChecked():
             self.calSettings["silverB"] = self.silverBehenate.value()
             self.calSettings["type"] = "img"
@@ -754,6 +847,11 @@ class CalibrationSettings(QDialog):
 
         if self.manDetector.isChecked():
             self.calSettings["detector"] = self.detectorChoice.currentText()
+        elif self.detector_metadata.get("name"):
+            self.calSettings["detector"] = self.detector_metadata["name"]
+
+        if self.detector_metadata:
+            self.calSettings["detector_metadata"] = self.detector_metadata
 
         cache = {
             "path": self.pathText.text(),
@@ -761,6 +859,198 @@ class CalibrationSettings(QDialog):
             "version": self.version,
         }
         self._settings_manager.save_calibration_cache(cache)
+        return True
+
+    @staticmethod
+    def _normalized_detector_name(name):
+        return "".join(ch.lower() for ch in str(name) if ch.isalnum())
+
+    def _match_detector_name(self, raw_name):
+        if raw_name is None:
+            return None
+        raw_norm = self._normalized_detector_name(raw_name)
+        if not raw_norm:
+            return None
+        for detector_name in Detector.registry.keys():
+            det_norm = self._normalized_detector_name(detector_name)
+            if raw_norm == det_norm or raw_norm in det_norm or det_norm in raw_norm:
+                return detector_name
+        return None
+
+    def _detector_from_shape(self, img_shape):
+        for detector_name, detector_cls in Detector.registry.items():
+            max_shape = getattr(detector_cls, "MAX_SHAPE", None)
+            if max_shape == img_shape or max_shape == tuple(reversed(img_shape)):
+                return detector_name
+        return None
+
+    def _detector_from_fabio(self, fabio_img, img_shape):
+        candidates = []
+        for attr in ("detector", "detector_name", "instrument"):
+            if hasattr(fabio_img, attr):
+                candidates.append(getattr(fabio_img, attr))
+
+        header = getattr(fabio_img, "header", {}) or {}
+        for key in (
+            "Detector",
+            "detector",
+            "Detector_name",
+            "detector_name",
+            "DETECTOR",
+            "INSTRUMENT",
+            "instrument",
+        ):
+            if key in header:
+                candidates.append(header[key])
+
+        for candidate in candidates:
+            detector_name = self._match_detector_name(candidate)
+            if detector_name:
+                return detector_name, "fabio metadata"
+
+        detector_name = self._detector_from_shape(img_shape)
+        if detector_name:
+            return detector_name, "image shape"
+        return None, None
+
+    def _detector_pixel_size_mm(self, detector_name):
+        try:
+            detector = detector_factory(detector_name)
+        except Exception:
+            return None
+
+        pixel1 = getattr(detector, "pixel1", None)
+        pixel2 = getattr(detector, "pixel2", None)
+        pixels = [p for p in (pixel1, pixel2) if p]
+        if not pixels:
+            return None
+        return float(np.mean(pixels) * 1000.0)
+
+    def _detector_metadata_from_name(self, detector_name, source):
+        try:
+            detector_cls = Detector.registry.get(detector_name)
+            detector = detector_factory(detector_name)
+        except Exception:
+            detector_cls = None
+            detector = None
+
+        metadata = {
+            "name": detector_name,
+            "source": source,
+        }
+        max_shape = getattr(detector_cls, "MAX_SHAPE", None)
+        if max_shape is not None:
+            metadata["max_shape"] = tuple(max_shape)
+
+        if detector is not None:
+            pixel1 = getattr(detector, "pixel1", None)
+            pixel2 = getattr(detector, "pixel2", None)
+            if pixel1:
+                metadata["pixel1_m"] = float(pixel1)
+            if pixel2:
+                metadata["pixel2_m"] = float(pixel2)
+
+        pixel_size = self._detector_pixel_size_mm(detector_name)
+        if pixel_size:
+            metadata["pixel_size"] = pixel_size
+            metadata["pixel_size_unit"] = "mm"
+        return metadata
+
+    def _apply_manual_detector_metadata(self):
+        detector_name = self.detectorChoice.currentText()
+        if not detector_name:
+            return
+
+        self.detector_metadata = self._detector_metadata_from_name(
+            detector_name, "manual"
+        )
+        pixel_size = self.detector_metadata.get("pixel_size")
+        if pixel_size:
+            self.pixsSpnBx.setValue(pixel_size)
+            self.pixel_size_user_confirmed = True
+            self.pixel_size_source = f"manual detector:{detector_name}"
+
+        if self.calSettings is None:
+            self.calSettings = {}
+        self.calSettings["detector"] = detector_name
+        self.calSettings["detector_metadata"] = self.detector_metadata
+
+    @staticmethod
+    def _float_from_header_value(value):
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        text = str(value).strip().replace(",", " ")
+        for part in text.split():
+            try:
+                return float(part)
+            except ValueError:
+                continue
+        return None
+
+    def _header_pixel_size_mm(self, fabio_img):
+        header = getattr(fabio_img, "header", {}) or {}
+        pixel_keys = (
+            (("PixelSize_mm", "pixel_size_mm", "XPixelSize_mm", "YPixelSize_mm"), 1.0),
+            (
+                ("PixelSize_um", "pixel_size_um", "XPixelSize_um", "YPixelSize_um"),
+                0.001,
+            ),
+            (("PSize_1", "PSize_2", "PixelSize_m", "pixel_size_m"), 1000.0),
+        )
+        values = []
+        for keys, multiplier in pixel_keys:
+            for key in keys:
+                if key in header:
+                    value = self._float_from_header_value(header[key])
+                    if value:
+                        values.append(value * multiplier)
+        if values:
+            return float(np.mean(values))
+        return None
+
+    def _apply_detector_metadata(self, fabio_img, img):
+        detector_name, source = self._detector_from_fabio(fabio_img, img.shape)
+        header_pixel_size = self._header_pixel_size_mm(fabio_img)
+        if not detector_name:
+            if header_pixel_size and not self.pixel_size_user_confirmed:
+                self.pixsSpnBx.setValue(header_pixel_size)
+                self.pixel_size_source = "fabio header"
+                self.detector_metadata = {
+                    "source": "fabio header",
+                    "pixel_size": header_pixel_size,
+                    "pixel_size_unit": "mm",
+                }
+            return
+
+        pixel_size = self._detector_pixel_size_mm(detector_name)
+        self.detector_metadata = {
+            "name": detector_name,
+            "source": source,
+        }
+        if header_pixel_size:
+            self.detector_metadata["header_pixel_size"] = header_pixel_size
+            self.detector_metadata["header_pixel_size_unit"] = "mm"
+        if pixel_size:
+            self.detector_metadata["pixel_size"] = pixel_size
+            self.detector_metadata["pixel_size_unit"] = "mm"
+            if not self.pixel_size_user_confirmed:
+                self.pixsSpnBx.setValue(pixel_size)
+                self.pixel_size_source = f"detector:{detector_name}"
+        elif header_pixel_size and not self.pixel_size_user_confirmed:
+            self.detector_metadata["pixel_size"] = header_pixel_size
+            self.detector_metadata["pixel_size_unit"] = "mm"
+            self.pixsSpnBx.setValue(header_pixel_size)
+            self.pixel_size_source = "fabio header"
+
+        if (
+            detector_name in self.alldetectorChoices
+            and not self.manDetector.isChecked()
+        ):
+            self.detectorChoice.setCurrentIndex(
+                self.alldetectorChoices.index(detector_name)
+            )
 
     def refine_point_on_ring(self, img, center, user_point, search_radius=20):
         """
@@ -863,8 +1153,10 @@ class CalibrationSettings(QDialog):
         Get the image and returns a copy of the calibration image and the image displayed.
         """
         if self.cal_img is None:
-            self.cal_img = fabio.open(str(self.calFile)).data
+            self.cal_fabio_img = fabio.open(str(self.calFile))
+            self.cal_img = self.cal_fabio_img.data
             self.cal_img = ifHdfReadConvertless(str(self.calFile), self.cal_img)
+            self._apply_detector_metadata(self.cal_fabio_img, self.cal_img)
 
         if self.minInt.value() == 0 and self.maxInt.value() == 0:
             self.uiUpdating = True
@@ -1118,9 +1410,15 @@ class CalibrationSettings(QDialog):
         """
         React to the Manual Select Detector checkbox.
         """
-        if not self.manDetector.isChecked() and "detector" in self.calSettings:
+        if (
+            self.calSettings
+            and not self.manDetector.isChecked()
+            and "detector" in self.calSettings
+        ):
             self.calSettings.pop("detector")
         self.detectorChoice.setEnabled(self.manDetector.isChecked())
+        if self.manDetector.isChecked():
+            self._apply_manual_detector_metadata()
 
     def correctMisSetting(self):
         """
@@ -1138,7 +1436,8 @@ class CalibrationSettings(QDialog):
         """
         React to the OK button.
         """
-        self.saveSettings()
+        if not self.saveSettings():
+            return
         print(self.calSettings)
         self.accept()
 

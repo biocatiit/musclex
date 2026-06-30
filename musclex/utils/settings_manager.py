@@ -236,10 +236,17 @@ class SettingsManager:
             return data["rotation"]
         return None
 
-    def set_auto_cache(self, filename: str, center, rotation):
+    def get_auto_cache_detector(self, filename: str) -> Optional[str]:
+        data = self._auto_cache.get(filename)
+        if data:
+            return data.get("detector")
+        return None
+
+    def set_auto_cache(self, filename: str, center, rotation, detector=None):
         self._auto_cache[filename] = {
             "center": list(center) if center else None,
             "rotation": rotation if rotation is not None else None,
+            "detector": detector if detector is not None else None,
         }
 
     # ===== Global base =====
