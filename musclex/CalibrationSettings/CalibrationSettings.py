@@ -39,6 +39,38 @@ from ..ui.pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless
 from ..utils.image_processor import *
 
+CUSTOM_MAR_165_2X2 = "MAR_165_2x2"
+MAR_165_BASE_PIXEL_SIZE_MM = 0.079
+MAR_165_BASE_SHAPE = (2048, 2048)
+
+
+def _normalized_detector_name(name):
+    return "".join(ch.lower() for ch in str(name) if ch.isalnum())
+
+
+def _find_mar_165_base_detector_name(registry=None):
+    registry = Detector.registry if registry is None else registry
+    for detector_name in registry.keys():
+        normalized = _normalized_detector_name(detector_name)
+        if "mar" in normalized and "165" in normalized and "2x2" not in normalized:
+            return detector_name
+    return None
+
+
+def _detector_shape_from_registry(detector_name, registry=None):
+    registry = Detector.registry if registry is None else registry
+    detector_cls = registry.get(detector_name)
+    shape = getattr(detector_cls, "MAX_SHAPE", None)
+    if shape is None:
+        return None
+    return tuple(int(value) for value in shape)
+
+
+def _halved_shape(shape):
+    if not shape:
+        return None
+    return tuple(max(1, int(value) // 2) for value in shape)
+
 
 class CalibrationSettings(QDialog):
     """
@@ -46,6 +78,7 @@ class CalibrationSettings(QDialog):
     """
 
     KEV_NM = 1.239841984
+    CUSTOM_MAR_165_2X2 = CUSTOM_MAR_165_2X2
 
     def __init__(
         self,
@@ -283,6 +316,7 @@ class CalibrationSettings(QDialog):
 
         self.misSettingChkBx = QCheckBox("Correct Mis-Setting Angles")
         self.misSettingChkBx.setEnabled(False)
+        self.misSettingChkBx.setHidden(True)
         self.misSettingChkBx.setToolTip("Not yet implemented")
 
         if center is not None:
@@ -313,13 +347,23 @@ class CalibrationSettings(QDialog):
 
         self.manDetector = QCheckBox("Manually Select Detector")
         self.detectorChoice = QComboBox()
-        self.alldetectorChoices = list(Detector.registry.keys())
+        self.detectorChoice.setObjectName("detectorChoice")
+        self._register_custom_mar_165_2x2_detector()
+        self.alldetectorChoices = self._detector_choices()
         for c in self.alldetectorChoices:
             self.detectorChoice.addItem(c)
         if detector is not None:
-            self.detectorChoice.setCurrentIndex(self.alldetectorChoices.index(detector))
-            self.manDetector.setChecked(True)
-            self.detectorChoice.setEnabled(True)
+            matched_detector = self._match_detector_name(detector)
+            if matched_detector in self.alldetectorChoices:
+                self.detectorChoice.setCurrentIndex(
+                    self.alldetectorChoices.index(matched_detector)
+                )
+                self.manDetector.setChecked(True)
+                self.detectorChoice.setEnabled(True)
+            else:
+                self.detectorChoice.setCurrentIndex(0)
+                self.manDetector.setChecked(False)
+                self.detectorChoice.setEnabled(False)
         else:
             self.detectorChoice.setCurrentIndex(0)
             self.manDetector.setChecked(False)
@@ -338,6 +382,12 @@ class CalibrationSettings(QDialog):
         self.paramLayout.addWidget(QLabel("Pixel Size : "), 3, 0, 1, 1)
         self.paramLayout.addWidget(self.pixsSpnBx, 3, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("mm"), 3, 2, 1, 1)
+        self.scaleComputedLabel = QLabel()
+        self.scaleComputedLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.sddComputedLabel = QLabel()
+        self.sddComputedLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.paramLayout.addWidget(self.scaleComputedLabel, 4, 0, 1, 3)
+        self.paramLayout.addWidget(self.sddComputedLabel, 5, 0, 1, 3)
 
         self.mainLayout.addWidget(self.calImageGrpChkBox)
         self.mainLayout.addWidget(self.calImageGrp)
@@ -415,6 +465,13 @@ class CalibrationSettings(QDialog):
         self.detectorChoice.currentIndexChanged.connect(
             lambda: self.settingChanged("detector", self.detectorChoice)
         )
+        self.lambdaSpnBx.valueChanged.connect(self._update_computed_labels)
+        self.energySpnBx.valueChanged.connect(self._update_computed_labels)
+        self.sddSpnBx.valueChanged.connect(self._update_computed_labels)
+        self.pixsSpnBx.valueChanged.connect(self._update_computed_labels)
+        self.silverBehenate.valueChanged.connect(self._update_computed_labels)
+        self.detectorChoice.currentIndexChanged.connect(self._update_computed_labels)
+        self._update_computed_labels()
 
     def paramChecked(self):
         """
@@ -425,6 +482,7 @@ class CalibrationSettings(QDialog):
         self.calImageGrp.setEnabled(False)
 
         self.decalibrate()
+        self._update_computed_labels()
 
     def calImageChecked(self):
         """
@@ -434,6 +492,7 @@ class CalibrationSettings(QDialog):
         self.paramGrpChkBx.setChecked(False)
         self.paramGrp.setEnabled(False)
         self.decalibrate()
+        self._update_computed_labels()
 
     def settingChanged(self, name, obj):
         """
@@ -446,8 +505,10 @@ class CalibrationSettings(QDialog):
         elif name == "pixS" and obj.value() > 0:
             self.pixel_size_user_confirmed = True
             self.pixel_size_source = "manual"
+            self._clear_manual_detector_selection()
         elif name == "detector" and self.manDetector.isChecked():
             self._apply_manual_detector_metadata()
+        self._update_computed_labels()
         self.log_changes(name, obj)
 
     @classmethod
@@ -471,6 +532,83 @@ class CalibrationSettings(QDialog):
         wavelength = self.wavelength_from_energy(self.energySpnBx.value())
         if wavelength > 0:
             self.lambdaSpnBx.setValue(wavelength)
+
+    def _clear_manual_detector_selection(self):
+        self.detector_metadata = {}
+        if self.calSettings:
+            self.calSettings.pop("detector", None)
+            self.calSettings.pop("detector_metadata", None)
+
+        self.manDetector.blockSignals(True)
+        self.detectorChoice.blockSignals(True)
+        self.manDetector.setChecked(False)
+        self.detectorChoice.setEnabled(False)
+        self.detectorChoice.blockSignals(False)
+        self.manDetector.blockSignals(False)
+
+    def _calibration_image_scale(self):
+        if not self.calSettings or self.calSettings.get("type") != "img":
+            return None
+        radius = self.calSettings.get("radius")
+        if radius is None:
+            return None
+        return float(self.silverBehenate.value()) * float(radius)
+
+    def _parameter_scale(self):
+        pixel_size = float(self.pixsSpnBx.value())
+        if pixel_size <= 0:
+            return None
+        return (
+            float(self.lambdaSpnBx.value()) * float(self.sddSpnBx.value()) / pixel_size
+        )
+
+    def _current_scale(self):
+        image_scale = self._calibration_image_scale()
+        if image_scale is not None:
+            return image_scale
+        return self._parameter_scale()
+
+    def _inferred_sdd_from_scale(self, scale=None):
+        pixel_size = float(self.pixsSpnBx.value())
+        wavelength = float(self.lambdaSpnBx.value())
+        if pixel_size <= 0 or wavelength <= 0:
+            return None
+        if scale is None:
+            scale = self._current_scale()
+        if scale is None:
+            return None
+        return float(scale) * pixel_size / wavelength
+
+    def _update_computed_labels(self, *args):
+        if not hasattr(self, "scaleComputedLabel"):
+            return
+
+        scale = self._current_scale()
+        if scale is None:
+            scale_text = "scale = silverB * radius: unavailable"
+        else:
+            scale_text = f"scale = silverB * radius: {scale:.8g}"
+
+        inferred_sdd = self._inferred_sdd_from_scale(scale)
+        if inferred_sdd is None:
+            sdd_text = "Sdd = scale * pixel_size / lambda: unavailable"
+        else:
+            sdd_text = f"Sdd = scale * pixel_size / lambda: {inferred_sdd:.8g} mm"
+
+        self.scaleComputedLabel.setText(scale_text)
+        self.sddComputedLabel.setText(sdd_text)
+
+    def _sync_parameters_from_calibration_image(self):
+        scale = self._calibration_image_scale()
+        if scale is None:
+            self._update_computed_labels()
+            return
+
+        self.calSettings["scale"] = scale
+        inferred_sdd = self._inferred_sdd_from_scale(scale)
+        if inferred_sdd is not None:
+            self.sddSpnBx.setValue(inferred_sdd)
+        self._update_computed_labels()
 
     def decalibrate(self):
         """
@@ -533,13 +671,15 @@ class CalibrationSettings(QDialog):
                                 round(cal_results["center"][1], 4),
                             ],
                             "radius": round(cal_results["radius"], 4),
-                            "scale": round(cal_results["scale"], 4),
+                            "scale": cal_results["silver_behenate"]
+                            * round(cal_results["radius"], 4),
                             "silverB": cal_results["silver_behenate"],
                             "type": "img",
                         }
 
                         # Update silver behenate value
                         self.silverBehenate.setValue(cal_results["silver_behenate"])
+                        self._sync_parameters_from_calibration_image()
 
                         print(
                             f"Manual calibration completed with {len(cal_results['selected_points'])} points"
@@ -763,7 +903,7 @@ class CalibrationSettings(QDialog):
             self.centerX.setValue(settings["center"][0])
             self.centerY.setValue(settings["center"][1])
 
-        detector = settings.get("detector")
+        detector = self._match_detector_name(settings.get("detector"))
         if detector in self.alldetectorChoices:
             self.detectorChoice.setCurrentIndex(self.alldetectorChoices.index(detector))
             self.manDetector.setChecked(True)
@@ -783,9 +923,11 @@ class CalibrationSettings(QDialog):
             self.minInt.setHidden(True)
             self.maxIntLabel.setHidden(True)
             self.maxInt.setHidden(True)
+            self._update_computed_labels()
             return True
 
         self.updateImage()
+        self._update_computed_labels()
         QMessageBox.information(
             self,
             "Load Calibration",
@@ -841,6 +983,11 @@ class CalibrationSettings(QDialog):
         elif self.calImageGrpChkBox.isChecked():
             self.calSettings["silverB"] = self.silverBehenate.value()
             self.calSettings["type"] = "img"
+            if "radius" in self.calSettings:
+                self.calSettings["scale"] = (
+                    self.silverBehenate.value() * self.calSettings["radius"]
+                )
+                self._sync_parameters_from_calibration_image()
 
         if not self.quadrant_folded:
             self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
@@ -863,7 +1010,57 @@ class CalibrationSettings(QDialog):
 
     @staticmethod
     def _normalized_detector_name(name):
-        return "".join(ch.lower() for ch in str(name) if ch.isalnum())
+        return _normalized_detector_name(name)
+
+    @classmethod
+    def _detector_choices(cls):
+        cls._register_custom_mar_165_2x2_detector()
+        return sorted(Detector.registry.keys(), key=str.casefold)
+
+    @classmethod
+    def _custom_mar_165_2x2_metadata(cls):
+        base_name = _find_mar_165_base_detector_name()
+        base_pixel_size = None
+        base_shape = None
+        if base_name:
+            try:
+                base_detector = detector_factory(base_name)
+                pixel1 = getattr(base_detector, "pixel1", None)
+                pixel2 = getattr(base_detector, "pixel2", None)
+                pixels = [p for p in (pixel1, pixel2) if p]
+                if pixels:
+                    base_pixel_size = float(np.mean(pixels) * 1000.0)
+            except Exception:
+                base_pixel_size = None
+            base_shape = _detector_shape_from_registry(base_name)
+
+        if base_pixel_size is None:
+            base_pixel_size = MAR_165_BASE_PIXEL_SIZE_MM
+        if base_shape is None:
+            base_shape = MAR_165_BASE_SHAPE
+
+        pixel_size = float(base_pixel_size) * 2.0
+        shape = _halved_shape(base_shape)
+        return base_name, pixel_size, shape
+
+    @classmethod
+    def _register_custom_mar_165_2x2_detector(cls):
+        if CUSTOM_MAR_165_2X2 in Detector.registry:
+            return
+
+        _, pixel_size_mm, shape = cls._custom_mar_165_2x2_metadata()
+        pixel_size_m = pixel_size_mm / 1000.0
+
+        attrs = {
+            "pixel1": pixel_size_m,
+            "pixel2": pixel_size_m,
+            "aliases": [CUSTOM_MAR_165_2X2],
+        }
+        if shape:
+            attrs["MAX_SHAPE"] = tuple(shape)
+
+        custom_detector = type(CUSTOM_MAR_165_2X2, (Detector,), attrs)
+        Detector.registry[CUSTOM_MAR_165_2X2] = custom_detector
 
     def _match_detector_name(self, raw_name):
         if raw_name is None:
@@ -914,6 +1111,10 @@ class CalibrationSettings(QDialog):
         return None, None
 
     def _detector_pixel_size_mm(self, detector_name):
+        if detector_name == CUSTOM_MAR_165_2X2:
+            _, pixel_size, _ = self._custom_mar_165_2x2_metadata()
+            return pixel_size
+
         try:
             detector = detector_factory(detector_name)
         except Exception:
@@ -927,6 +1128,22 @@ class CalibrationSettings(QDialog):
         return float(np.mean(pixels) * 1000.0)
 
     def _detector_metadata_from_name(self, detector_name, source):
+        if detector_name == CUSTOM_MAR_165_2X2:
+            base_name, pixel_size, shape = self._custom_mar_165_2x2_metadata()
+            metadata = {
+                "name": detector_name,
+                "source": source,
+                "pixel_size": pixel_size,
+                "pixel_size_unit": "mm",
+                "pixel1_m": pixel_size / 1000.0,
+                "pixel2_m": pixel_size / 1000.0,
+            }
+            if base_name:
+                metadata["base_detector"] = base_name
+            if shape:
+                metadata["max_shape"] = tuple(shape)
+            return metadata
+
         try:
             detector_cls = Detector.registry.get(detector_name)
             detector = detector_factory(detector_name)
@@ -1215,6 +1432,8 @@ class CalibrationSettings(QDialog):
                 "radius": round((final_radius[0] + final_radius[1]) / 4.0),
                 "scale": round((final_radius[0] + final_radius[1]) / 4.0)
                 * self.silverBehenate.value(),
+                "silverB": self.silverBehenate.value(),
+                "type": "img",
             }
 
             # Optional: Visualize refined points on the image
@@ -1295,8 +1514,11 @@ class CalibrationSettings(QDialog):
                 "center": [fixcenter[0], fixcenter[1]],
                 "radius": cali_radius,
                 "scale": cali_radius * self.silverBehenate.value(),
+                "silverB": self.silverBehenate.value(),
+                "type": "img",
             }
 
+        self._sync_parameters_from_calibration_image()
         self.updateImage()
 
     def updateImage(self):
@@ -1390,6 +1612,7 @@ class CalibrationSettings(QDialog):
         else:
             self.resize(500, 1)
             self.calImgCanvas.setHidden(True)
+        self._update_computed_labels()
 
     def centerFixed(self):
         """
@@ -1416,6 +1639,13 @@ class CalibrationSettings(QDialog):
             and "detector" in self.calSettings
         ):
             self.calSettings.pop("detector")
+        if (
+            not self.manDetector.isChecked()
+            and self.detector_metadata.get("source") == "manual"
+        ):
+            self.detector_metadata = {}
+            if self.calSettings:
+                self.calSettings.pop("detector_metadata", None)
         self.detectorChoice.setEnabled(self.manDetector.isChecked())
         if self.manDetector.isChecked():
             self._apply_manual_detector_metadata()
