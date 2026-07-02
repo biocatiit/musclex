@@ -27,10 +27,19 @@ authorization from Illinois Institute of Technology.
 """
 
 import json
+import traceback
 from pathlib import Path
 from typing import Optional, Tuple
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDialog
-from PySide6.QtCore import Signal
+import numpy as np
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QDialog,
+    QMessageBox,
+    QProgressDialog,
+)
+from PySide6.QtCore import Signal, QObject, QRunnable, QThreadPool, Qt
 
 from ...utils.image_data import ImageData
 from ...utils.settings_manager import SettingsManager
@@ -40,6 +49,55 @@ from .collapsible_right_panel import CollapsibleRightPanel
 from .center_settings_widget import CenterSettingsWidget
 from .rotation_settings_widget import RotationSettingsWidget
 from .blank_mask_settings_widget import BlankMaskSettingsWidget
+
+
+class _RefinementWorkerSignals(QObject):
+    result = Signal(object)
+    error = Signal(object)
+    finished = Signal()
+
+
+class _RefinementWorker(QRunnable):
+    def __init__(self, kind, image, mask, center, rotation, methods=None):
+        super().__init__()
+        self.kind = kind
+        self.image = image
+        self.mask = mask
+        self.center = center
+        self.rotation = rotation
+        self.methods = methods or []
+        self.signals = _RefinementWorkerSignals()
+
+    def run(self):
+        try:
+            from ...algorithms.calibration_refinement.adapter import (
+                refine_center,
+                refine_rotation,
+            )
+
+            if self.kind == "center":
+                result = refine_center(
+                    self.image,
+                    self.mask,
+                    self.center,
+                    self.rotation,
+                    self.methods,
+                )
+            else:
+                result = refine_rotation(
+                    self.image,
+                    self.mask,
+                    self.center,
+                    self.rotation,
+                )
+        except Exception as exc:
+            self.signals.error.emit(
+                {"error": str(exc), "traceback": traceback.format_exc()}
+            )
+        else:
+            self.signals.result.emit(result)
+        finally:
+            self.signals.finished.emit()
 
 
 class ProcessingWorkspace(QWidget):
@@ -148,6 +206,12 @@ class ProcessingWorkspace(QWidget):
         self._mode_rotation = None  # Cached mode rotation value
         self._batch_all_center = None
         self._batch_all_rotation = None
+        self._refinement_progress = None
+        self._refinement_worker = None
+        self._refinement_initial_center = None
+        self._refinement_initial_rotation = None
+        self._refinement_thread_pool = QThreadPool()
+        self._refinement_thread_pool.setMaxThreadCount(1)
 
         # Centralized settings I/O
         self.settings_manager = SettingsManager(settings_dir)
@@ -280,11 +344,17 @@ class ProcessingWorkspace(QWidget):
         self._center_widget.calibrationButton.clicked.connect(
             self._on_calibration_button_clicked
         )
+        self._center_widget.refineCenterRequested.connect(
+            self._on_refine_center_requested
+        )
         self._rotation_widget.setRotationButton.clicked.connect(
             lambda checked: self._on_rotation_button_clicked(checked)
         )
         self._rotation_widget.setAngleBtn.clicked.connect(
             self._on_set_angle_manually_clicked
+        )
+        self._rotation_widget.refineRotationRequested.connect(
+            self._on_refine_rotation_requested
         )
 
         # Tool completed -> Handle result
@@ -495,6 +565,147 @@ class ProcessingWorkspace(QWidget):
             print(
                 f"Rotation manually set with increment {angle_increment:.2f}° from SetAngleDialog"
             )
+
+    def _get_refinement_inputs(self):
+        """Return image/mask/geometry in original image coordinates."""
+        if not self._current_image_data:
+            raise ValueError("No image loaded.")
+
+        image_data = self._current_image_data
+        image = image_data.get_working_image()
+        mask = np.zeros(image.shape, dtype=np.uint8)
+
+        if image_data.apply_mask:
+            image_data._load_blank_and_mask()
+            masks = []
+            if image_data._mask is not None:
+                masks.append(image_data._mask == 0)
+            if image_data._mask_only is not None:
+                masks.append(image_data._mask_only == 0)
+            if masks:
+                excluded = np.logical_or.reduce(masks)
+                mask[excluded] = 1
+
+        return image, mask, image_data.center, image_data.rotation
+
+    def _show_refinement_progress(self, title, message):
+        progress = QProgressDialog(message, None, 0, 0, self.window())
+        progress.setWindowTitle(title)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.show()
+        self._refinement_progress = progress
+
+    def _close_refinement_progress(self):
+        if self._refinement_progress is not None:
+            self._refinement_progress.close()
+            self._refinement_progress = None
+
+    def _start_refinement(self, kind, methods=None):
+        if self._refinement_worker is not None:
+            QMessageBox.information(
+                self.window(),
+                "Refinement Running",
+                "A calibration refinement is already running.",
+            )
+            return
+
+        try:
+            image, mask, center, rotation = self._get_refinement_inputs()
+        except Exception as exc:
+            QMessageBox.warning(self.window(), "Refinement Unavailable", str(exc))
+            return
+
+        if kind == "center":
+            title = "Refine Center"
+            message = "Refining center..."
+        else:
+            title = "Refine Rotation"
+            message = "Refining rotation..."
+
+        self._show_refinement_progress(title, message)
+        self._refinement_initial_center = tuple(center) if center is not None else None
+        self._refinement_initial_rotation = rotation
+        worker = _RefinementWorker(kind, image, mask, center, rotation, methods)
+        self._refinement_worker = worker
+        if kind == "center":
+            worker.signals.result.connect(self._on_refine_center_result)
+        else:
+            worker.signals.result.connect(self._on_refine_rotation_result)
+        worker.signals.error.connect(self._on_refinement_error)
+        worker.signals.finished.connect(self._on_refinement_finished)
+        self._refinement_thread_pool.start(worker)
+
+    def _on_refine_center_requested(self, methods):
+        self._start_refinement("center", methods=methods)
+
+    def _on_refine_rotation_requested(self):
+        self._start_refinement("rotation")
+
+    def _on_refine_center_result(self, result):
+        self._close_refinement_progress()
+        old_center = self._refinement_initial_center
+        center = tuple(result["center"])
+        self.set_center_from_source(
+            self._current_filename,
+            center,
+            "calibration_refinement_center",
+        )
+        self.needsReprocess.emit()
+        QMessageBox.information(
+            self.window(),
+            "Center Refined",
+            (
+                f"Center refined from x={old_center[0]:.2f}, y={old_center[1]:.2f} px "
+                f"to x={center[0]:.2f}, y={center[1]:.2f} px."
+                if old_center is not None
+                else f"Center refined to x={center[0]:.2f}, y={center[1]:.2f} px."
+            ),
+        )
+
+    def _on_refine_rotation_result(self, result):
+        self._close_refinement_progress()
+        old_rotation = self._refinement_initial_rotation
+        rotation = float(result["rotation"])
+        self.set_absolute_rotation_from_source(
+            self._current_filename,
+            rotation,
+            "calibration_refinement_rotation",
+        )
+        self.needsReprocess.emit()
+        QMessageBox.information(
+            self.window(),
+            "Rotation Refined",
+            (
+                f"Rotation refined from {float(old_rotation) % 360:.2f} ° "
+                f"to {rotation % 360:.2f} °."
+                if old_rotation is not None
+                else f"Rotation refined to {rotation % 360:.2f} °."
+            ),
+        )
+
+    def _on_refinement_error(self, payload):
+        self._close_refinement_progress()
+        error = (
+            payload.get("error", "Unknown error")
+            if isinstance(payload, dict)
+            else str(payload)
+        )
+        details = payload.get("traceback", "") if isinstance(payload, dict) else ""
+        QMessageBox.critical(
+            self.window(),
+            "Refinement Failed",
+            f"{error}\n\n{details}",
+        )
+
+    def _on_refinement_finished(self):
+        self._close_refinement_progress()
+        self._refinement_worker = None
+        self._refinement_initial_center = None
+        self._refinement_initial_rotation = None
 
     # ==================== Tool Completion Handlers ====================
 
@@ -836,6 +1047,25 @@ class ProcessingWorkspace(QWidget):
             else:
                 new_rotation = self.settings_manager.get_rotation(filename)
                 self._current_image_data.update_manual_rotation(new_rotation)
+            self.update_display(self._current_image_data)
+
+    def set_absolute_rotation_from_source(
+        self, filename: str, rotation: Optional[float], source: str
+    ):
+        """
+        Public method for setting an absolute manual rotation value.
+
+        Refinement returns the final rotation angle, unlike SetAngleDialog which
+        returns an increment relative to the current displayed image.
+        """
+        if rotation is None:
+            self.settings_manager.clear_rotation(filename)
+        else:
+            self.settings_manager.set_rotation(filename, rotation, source)
+        self.save_settings()
+
+        if self._current_image_data and self._current_filename == filename:
+            self._current_image_data.update_manual_rotation(rotation)
             self.update_display(self._current_image_data)
 
     def get_manual_settings(

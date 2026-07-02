@@ -211,6 +211,7 @@ class RotationSettingsWidget(CollapsibleGroupBox):
     autoOrientationRequested = Signal(int, bool)  # orientation_model, mode_enabled
     applyRotationRequested = Signal(str)  # scope
     restoreAutoRotationRequested = Signal(str)  # scope
+    refineRotationRequested = Signal()
 
     def __init__(
         self, parent=None, orientation_model=None, mode_orientation_enabled=False
@@ -237,6 +238,11 @@ class RotationSettingsWidget(CollapsibleGroupBox):
         self.setAngleBtn = QPushButton("Set Angle Manually")
         self.setAngleBtn.setCheckable(False)
         self.setAngleBtn.setToolTip("Type the rotation angle in degrees in a dialog")
+
+        self.refineRotationBtn = QPushButton("Refine Rotation")
+        self.refineRotationBtn.setToolTip(
+            "Refine the current rotation once with the current center fixed"
+        )
 
         # Labels for displaying rotation info
         self.rotationLabel = QLabel()
@@ -273,6 +279,9 @@ class RotationSettingsWidget(CollapsibleGroupBox):
         layout.addWidget(self.setAngleBtn, row, 2, 1, 2)
         row += 1
 
+        layout.addWidget(self.refineRotationBtn, row, 0, 1, 4)
+        row += 1
+
         layout.addWidget(self.rotationLabel, row, 0, 1, 4)
         row += 1
 
@@ -287,6 +296,7 @@ class RotationSettingsWidget(CollapsibleGroupBox):
     def _connect_internal(self):
         """Connect buttons that need internal dialog handling"""
         self.setAutoOrientationBtn.clicked.connect(self._on_auto_orientation_clicked)
+        self.refineRotationBtn.clicked.connect(self.refineRotationRequested.emit)
         self.applyRotationBtn.clicked.connect(self._on_apply_rotation_clicked)
         self.restoreAutoRotationBtn.clicked.connect(self._on_restore_rotation_clicked)
 

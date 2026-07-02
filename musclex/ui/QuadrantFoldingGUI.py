@@ -772,8 +772,10 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.workspace._center_widget.setCentByChords,
                 self.workspace._center_widget.setCentByPerp,
                 self.workspace._center_widget.setCentBtn,
+                self.workspace._center_widget.refineCenterBtn,
                 self.workspace._rotation_widget.setRotationButton,
                 self.workspace._rotation_widget.setAngleBtn,
+                self.workspace._rotation_widget.refineRotationBtn,
             ]
         )
 

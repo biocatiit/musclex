@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QDialogButtonBox,
     QMessageBox,
+    QCheckBox,
 )
 from PySide6.QtCore import Signal
 from .collapsible_groupbox import CollapsibleGroupBox
@@ -124,6 +125,64 @@ class RestoreAutoCenterDialog(QDialog):
             return "all"
 
 
+class RefineCenterDialog(QDialog):
+    """Dialog for selecting center refinement pipeline stages."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Refine Center")
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Select refinement stages:"))
+
+        self.registrationChkBx = QCheckBox("Registration")
+        self.gradientChkBx = QCheckBox("Gradient")
+        self.searchChkBx = QCheckBox("Local Search")
+
+        self.registrationChkBx.setToolTip("Run ECC registration refinement")
+        self.gradientChkBx.setToolTip("Run gradient refinement after registration")
+        self.searchChkBx.setToolTip(
+            "Run local search after registration and gradient refinement"
+        )
+
+        layout.addWidget(self.registrationChkBx)
+        layout.addWidget(self.gradientChkBx)
+        layout.addWidget(self.searchChkBx)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        layout.addWidget(self.buttonBox)
+
+        self.setLayout(layout)
+        self.registrationChkBx.stateChanged.connect(self._sync_pipeline)
+        self.gradientChkBx.stateChanged.connect(self._sync_pipeline)
+        self.searchChkBx.stateChanged.connect(self._sync_pipeline)
+        self._sync_pipeline()
+
+    def _sync_pipeline(self):
+        if self.searchChkBx.isChecked():
+            self.gradientChkBx.setChecked(True)
+        if self.gradientChkBx.isChecked():
+            self.registrationChkBx.setChecked(True)
+        ok_button = self.buttonBox.button(QDialogButtonBox.Ok)
+        ok_button.setEnabled(
+            self.registrationChkBx.isChecked()
+            or self.gradientChkBx.isChecked()
+            or self.searchChkBx.isChecked()
+        )
+
+    def getMethods(self):
+        methods = []
+        if self.registrationChkBx.isChecked():
+            methods.append("registration")
+        if self.gradientChkBx.isChecked():
+            methods.append("gradient")
+        if self.searchChkBx.isChecked():
+            methods.append("search")
+        return methods
+
+
 class CenterSettingsWidget(CollapsibleGroupBox):
     """
     Widget for center point settings.
@@ -142,6 +201,7 @@ class CenterSettingsWidget(CollapsibleGroupBox):
     # Signals for complex interactions (that require dialog selection)
     applyCenterRequested = Signal(str)  # scope
     restoreAutoCenterRequested = Signal(str)  # scope
+    refineCenterRequested = Signal(list)  # selected methods
 
     def __init__(self, parent=None):
         super().__init__("Set Center", start_expanded=True, parent=parent)
@@ -178,6 +238,11 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         self.setCentBtn.setCheckable(False)
         self.setCentBtn.setToolTip(
             "Click a single point on the image to use as the center"
+        )
+
+        self.refineCenterBtn = QPushButton("Refine Center")
+        self.refineCenterBtn.setToolTip(
+            "Refine the current center once and save it as a manual center"
         )
 
         # Labels for displaying center info
@@ -219,6 +284,9 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         layout.addWidget(self.setCentByPerp, row, 2, 1, 2)
         row += 1
 
+        layout.addWidget(self.refineCenterBtn, row, 0, 1, 4)
+        row += 1
+
         layout.addWidget(self.centerLabel, row, 0, 1, 4)
         row += 1
 
@@ -234,6 +302,7 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         """Connect buttons that need internal dialog handling"""
         self.applyCenterBtn.clicked.connect(self._on_apply_center_clicked)
         self.restoreAutoCenterBtn.clicked.connect(self._on_restore_center_clicked)
+        self.refineCenterBtn.clicked.connect(self._on_refine_center_clicked)
 
     def _on_apply_center_clicked(self):
         """Handle Apply Center button - show dialog and emit signal"""
@@ -248,6 +317,12 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         if dialog.exec() == QDialog.Accepted:
             scope = dialog.getSelection()
             self.restoreAutoCenterRequested.emit(scope)
+
+    def _on_refine_center_clicked(self):
+        """Handle Refine Center button - show dialog and emit signal"""
+        dialog = RefineCenterDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            self.refineCenterRequested.emit(dialog.getMethods())
 
     # Public methods for updating display
 
