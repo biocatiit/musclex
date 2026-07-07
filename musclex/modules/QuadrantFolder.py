@@ -48,7 +48,7 @@ try:
     from ..utils.file_manager import fullPath, createFolder
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
-    from ..utils.background_search import *
+    from ..utils.bg_search.background_search import *
     from ..utils.image_data import ImageData
     from ..utils import qf_defaults
     from ..utils.fold_symmetry import _compute_fold_symmetry
@@ -57,7 +57,7 @@ except:  # for coverage
     from utils.file_manager import fullPath, createFolder
     from utils.histogram_processor import *
     from utils.image_processor import *
-    from utils.background_search import *
+    from utils.bg_search.background_search import *
     from utils.image_data import ImageData
     from utils import qf_defaults
     from utils.fold_symmetry import _compute_fold_symmetry

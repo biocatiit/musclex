@@ -317,7 +317,7 @@ def _save_qf_background(quadFold, dir_path):
     if not method or method == "None":
         return None
 
-    from musclex.utils.background_search import makeFullImage
+    from musclex.utils.bg_search.background_search import makeFullImage
 
     background = avg_fold - result
     result_img = makeFullImage(background)
