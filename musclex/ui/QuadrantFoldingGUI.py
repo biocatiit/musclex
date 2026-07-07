@@ -885,17 +885,14 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.resultDisplayModeLabel = QLabel("Show:")
         self.resultDisplayModeCB = QComboBox()
-        self.resultDisplayModeCB.addItems(
-            [
-                "Subtracted",
-                "Background",
-                "Folded",
-                "Evaluation Mask",
-                "Synthetic Signal",
-                "Synthetic Mask",
-            ]
-        )
-        self.resultDisplayModeCB.setCurrentIndex(0)
+        # The full set of options is gated: mask / synthetic previews only
+        # appear once "Advanced Configuration" has been opened, and
+        # "Background (Fit)" only once the Iterative 2D Background Fitting
+        # window has been opened. _updateResultDisplayModeItems() (re)builds
+        # the list from those flags.
+        self._advancedConfigOpened = False
+        self._bgFittingOpened = False
+        self._updateResultDisplayModeItems()
         self.resultDisplayModeCB.setToolTip(
             "Choose which result visualization to display in the Results tab"
         )
@@ -999,9 +996,30 @@ class QuadrantFoldingGUI(BaseGUI):
         image_proc_main_layout.addWidget(self.smoothImageChkbxProxy, 4, 3, 1, 2)
         self.imageProcGroupMain.setLayout(image_proc_main_layout)
 
-        # ===== 4) Subtraction (collapsible): Options + the rest of the controls =====
+        # ===== 4) Parametric Background Fitting (collapsible) =====
+        # Button opens the shared Iterative 2D Background Fitting window (owned by
+        # the popup dialog), and the checkbox proxies the dialog-owned
+        # subtractBgFitChkBx so both UIs stay in sync.
+        self.parametricFittingGroupMain = CollapsibleGroupBox(
+            "Parametric Background Fitting", start_expanded=False
+        )
+        self.openFittingButtonMain = QPushButton("Iterative 2D Background Fitting…")
+        self.openFittingButtonMain.setToolTip(self.openFittingButton.toolTip())
+        self.openFittingButtonMain.clicked.connect(
+            self.bgSubDialog.openBackgroundFittingDialog
+        )
+        self.subtractBgFitChkBxProxy = self._clone_checkbox(self.subtractBgFitChkBx)
+        self._bind_proxy_two_way(
+            self.subtractBgFitChkBxProxy, self.subtractBgFitChkBx, "toggled", "setChecked"
+        )
+        parametric_main_layout = QGridLayout()
+        parametric_main_layout.addWidget(self.openFittingButtonMain, 0, 0, 1, 4)
+        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 1, 0, 1, 4)
+        self.parametricFittingGroupMain.setLayout(parametric_main_layout)
+
+        # ===== 5) Non-parametric Background Subtraction (collapsible): Options + the rest of the controls =====
         self.subtractionGroupMain = CollapsibleGroupBox(
-            "Subtraction", start_expanded=False
+            "Non-parametric Background Subtraction", start_expanded=False
         )
         subtraction_main_layout = QGridLayout()
         subtraction_main_layout.addWidget(self.bgOptionsLabel, 0, 0, 1, 2)
@@ -1014,13 +1032,15 @@ class QuadrantFoldingGUI(BaseGUI):
         subtraction_main_layout.addWidget(self.applyBGButtonProxy, 5, 0, 1, 4)
         self.subtractionGroupMain.setLayout(subtraction_main_layout)
 
-        # ===== Assemble: Show -> R-min/R-max -> Image Processing -> Subtraction =====
+        # ===== Assemble: Show -> R-min/R-max -> Image Processing ->
+        #                 Parametric Background Fitting -> Non-parametric Subtraction =====
         self.bgSummaryLayout.addWidget(show_section, 0, 0, 1, 4)
         self.bgSummaryLayout.addWidget(self.rminGroupMain, 1, 0, 1, 4)
         self.bgSummaryLayout.addWidget(self.imageProcGroupMain, 2, 0, 1, 4)
-        self.bgSummaryLayout.addWidget(self.subtractionGroupMain, 3, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.parametricFittingGroupMain, 3, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.subtractionGroupMain, 4, 0, 1, 4)
 
-        # ===== 5) Current Configuration =====
+        # ===== 6) Current Configuration =====
         current_section, current_layout = _make_section("Current Configuration")
         # TODO: define table in one place to be reused in the pop up window
 
@@ -1036,7 +1056,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         current_layout.addWidget(current_summary_widget, 1, 0, 1, 4)
 
-        self.bgSummaryLayout.addWidget(current_section, 4, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(current_section, 5, 0, 1, 4)
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
@@ -1861,6 +1881,8 @@ class QuadrantFoldingGUI(BaseGUI):
             "createNewConfigurationsChkBx",
             "assignConfgurationsManually",
             "processFolderWithSelections",
+            "openFittingButton",
+            "subtractBgFitChkBx",
         ]:
             setattr(self, attr, getattr(self.bgSubDialog, attr))
 
@@ -1876,6 +1898,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def openBackgroundSubtractionDialog(self):
         """Open the background subtraction settings popup."""
+        self.markAdvancedConfigOpened()
         self._update_bg_method_summary()
         self.bgSubDialog.show()
         self.bgSubDialog.raise_()
@@ -2844,6 +2867,52 @@ class QuadrantFoldingGUI(BaseGUI):
         self.uiUpdating = True
         self.rminSpnBx.setValue(rmin)
         self.uiUpdating = False
+
+    def _updateResultDisplayModeItems(self):
+        """(Re)build the Show dropdown, revealing gated options only after the
+        relevant window has been opened:
+
+        - "Background (Fit)" once the Iterative 2D Background Fitting window has
+          been opened (``_bgFittingOpened``);
+        - "Evaluation Mask" / "Synthetic Signal" / "Synthetic Mask" once
+          "Advanced Configuration" has been opened (``_advancedConfigOpened``).
+
+        The current selection is preserved when it survives; otherwise it falls
+        back to "Subtracted".
+        """
+        if not hasattr(self, "resultDisplayModeCB"):
+            return
+        advanced = getattr(self, "_advancedConfigOpened", False)
+        fitting = getattr(self, "_bgFittingOpened", False)
+        ordered = [
+            ("Subtracted", True),
+            ("Background", True),
+            ("Background (Fit)", fitting),
+            ("Folded", True),
+            ("Evaluation Mask", advanced),
+            ("Synthetic Signal", advanced),
+            ("Synthetic Mask", advanced),
+        ]
+        items = [name for name, show in ordered if show]
+        current = self.resultDisplayModeCB.currentText()
+        self.resultDisplayModeCB.blockSignals(True)
+        self.resultDisplayModeCB.clear()
+        self.resultDisplayModeCB.addItems(items)
+        idx = self.resultDisplayModeCB.findText(current)
+        self.resultDisplayModeCB.setCurrentIndex(idx if idx >= 0 else 0)
+        self.resultDisplayModeCB.blockSignals(False)
+
+    def markAdvancedConfigOpened(self):
+        """Reveal the advanced (mask / synthetic) Show options."""
+        if not getattr(self, "_advancedConfigOpened", False):
+            self._advancedConfigOpened = True
+            self._updateResultDisplayModeItems()
+
+    def markBgFittingOpened(self):
+        """Reveal the "Background (Fit)" Show option."""
+        if not getattr(self, "_bgFittingOpened", False):
+            self._bgFittingOpened = True
+            self._updateResultDisplayModeItems()
 
     def _is_mask_preview_visible(self):
         if not hasattr(self, "resultDisplayModeCB"):
@@ -4239,7 +4308,17 @@ class QuadrantFoldingGUI(BaseGUI):
                 display_mode = self.resultDisplayModeCB.currentText()
 
             try:
-                if display_mode == "Background" or display_mode == "Folded":
+                if display_mode == "Background (Fit)":
+                    bg_fit = self.quadFold.imgCache.get("BgFoldFit", None)
+                    if bg_fit is not None and np.asarray(bg_fit).size > 0:
+                        img = makeFullImage(bg_fit)
+                        if (
+                            "rotate" in self.quadFold.info
+                            and self.quadFold.info["rotate"]
+                        ):
+                            img = np.rot90(img)
+
+                elif display_mode == "Background" or display_mode == "Folded":
                     bg_fold = self.quadFold.imgCache.get("BgFold", None)
                     if bg_fold is not None:
                         background = makeFullImage(bg_fold)
@@ -5814,6 +5893,11 @@ class QuadrantFoldingGUI(BaseGUI):
         flags["layer_line_width"] = self.layerLineWidthSpnBx.value()
         flags["smooth_image"] = self.smoothImageChkbx.isChecked()
         flags["downsample"] = int(self.downsampleCB.currentText())
+        flags["subtract_bg_fit"] = bool(
+            hasattr(self, "subtractBgFitChkBx")
+            and self.subtractBgFitChkBx is not None
+            and self.subtractBgFitChkBx.isChecked()
+        )
         flags["save_metrics_to_csv"] = bool(
             hasattr(self, "saveMetricsToCsvChkBx")
             and self.saveMetricsToCsvChkBx is not None
