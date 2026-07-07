@@ -112,6 +112,10 @@ class QuadrantFolder:
         # self.dl, self.db = 0, 0
         # self.empty = False
         self.imgCache = {}  # displayed images will be saved in this param
+        # Iterative-fit background (set by BackgroundFittingDialog); empty until
+        # a fit is applied. When present and enabled it is subtracted from the
+        # average fold before the normal QF background removal.
+        self.imgCache["BgFoldFit"] = np.array([])
         self.ignoreFolds = set()
         self.version = __version__
         cache = self.loadCache()  # load from cache if it's available
@@ -550,6 +554,7 @@ class QuadrantFolder:
                 "Please check the input file."
             )
         self.getRminmax()
+        self.subtractFittedBackground()
         self.createMask()
         self.createArtificialData()
         self.smoothFold()
@@ -1380,6 +1385,34 @@ class QuadrantFolder:
 
         self.imgCache["avg_fold"] = result
         self.info["folded"] = True
+
+    def subtractFittedBackground(self):
+        """Optionally subtract the iterative-fit background from the average fold
+        before the normal QF background removal.
+
+        The fit background lives in ``imgCache['BgFoldFit']`` (a quadrant-shaped
+        array written by the Iterative 2D Background Fitting window) and starts
+        as an empty array. It is only removed when the ``subtract_bg_fit`` flag
+        is set and a fit of the matching shape is available; a stale fit (fold
+        geometry changed since it was computed) is dropped instead of applied.
+        """
+        if not self.info.get("subtract_bg_fit", False):
+            return
+        bg_fit = self.imgCache.get("BgFoldFit", None)
+        if bg_fit is None or np.asarray(bg_fit).size == 0:
+            return
+        avg_fold = self.imgCache["avg_fold"]
+        if np.asarray(bg_fit).shape != avg_fold.shape:
+            print(
+                "Fitted background shape "
+                f"{np.asarray(bg_fit).shape} does not match the average fold "
+                f"{avg_fold.shape}; dropping the stale fit."
+            )
+            self.imgCache["BgFoldFit"] = np.array([])
+            return
+        self.parent.statusPrint("Subtracting Fitted Background...")
+        self.imgCache["avg_fold"] = (avg_fold - bg_fit).astype(np.float32)
+        print("Fitted background subtracted from average fold.")
 
     def searchBackground(self):
         """
