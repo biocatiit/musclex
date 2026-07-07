@@ -94,7 +94,7 @@ from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
 from .widgets import ProcessingWorkspace, BatchFolderSelectionDialog
 from .base_gui import BaseGUI
-from ..utils.background_search import (
+from ..utils.bg_search.background_search import (
     makeFullImage,
     get_projection,
     find_i0_i1_peaks_auto,

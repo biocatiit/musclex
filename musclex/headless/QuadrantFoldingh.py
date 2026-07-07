@@ -38,7 +38,7 @@ from musclex import __version__
 
 try:
     from ..utils.file_manager import *
-    from ..utils.background_search import makeFullImage
+    from ..utils.bg_search.background_search import makeFullImage
     from ..utils.image_processor import *
     from ..utils.qf_defaults import build_default_flags
     from ..utils.qf_settings_bindings import qf_setting_keys
@@ -46,7 +46,7 @@ try:
     from ..csv_manager.QF_CSVManager import QF_CSVManager
 except:  # for coverage
     from utils.file_manager import *
-    from utils.background_search import makeFullImage
+    from utils.bg_search.background_search import makeFullImage
     from utils.image_processor import *
     from utils.qf_defaults import build_default_flags
     from utils.qf_settings_bindings import qf_setting_keys

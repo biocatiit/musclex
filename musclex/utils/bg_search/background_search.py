@@ -7,12 +7,12 @@ from scipy import ndimage
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 
 from .background_search_utils import *
-from ..converted_fortran.converted_fortran import *
-from ..utils import qf_defaults
+from ...converted_fortran.converted_fortran import *
+from ...utils import qf_defaults
 
 try:
-    from ..utils.histogram_processor import *
-    from ..utils.image_processor import *
+    from ...utils.histogram_processor import *
+    from ...utils.image_processor import *
 except:  # for coverage
     from utils.histogram_processor import *
     from utils.image_processor import *
@@ -53,7 +53,6 @@ def find_m3_peak(meridian_half, rmin=10):
     sorted_indices = np.argsort(prominences)[::-1]
     top_2nd_peak_index = peaks[sorted_indices[1]]
     m3 = top_2nd_peak_index
-    print(f"Auto-detected m3: {m3} pixels")
     return int(m3)
 
 
@@ -944,7 +943,7 @@ def apply2DConvexhull(img, rmin, step=1):
     """
     Apply 2D Convex hull Background Subtraction to average fold
     """
-    from ..modules import QF_utilities as qfu
+    from ...modules import QF_utilities as qfu
 
     center = [img.shape[1] - 1, img.shape[0] - 1]
     rmax = img.shape[0] + 10
@@ -1260,7 +1259,7 @@ def applyBackgroundRemoval(
     """
     Apply background removal
     """
-    from ..modules import QF_utilities as qfu
+    from ...modules import QF_utilities as qfu
 
     if method == "None":
         bg = np.zeros_like(avg_fold)
