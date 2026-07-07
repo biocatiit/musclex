@@ -19,6 +19,7 @@ from matplotlib.figure import Figure
 
 from ..utils.bg_fitting import background_fitting as bf
 from ..utils.bg_search.background_search import get_projection, makeFullImage
+from .widgets.collapsible_groupbox import CollapsibleGroupBox
 
 
 # View modes for the visualization dropdown.
@@ -121,7 +122,11 @@ class BackgroundFittingDialog(QDialog):
         self.fitSizeSpnBx = QSpinBox()
         self.fitSizeSpnBx.setRange(256, 8192)
         self.fitSizeSpnBx.setSingleStep(100)
-        self.fitSizeSpnBx.setValue(2000)
+        # Default the crop to 2*rmax so the full fitted annulus is covered; fall
+        # back to 2000 when the parent QF GUI has no rmax yet.
+        qf = self._get_quadfold()
+        rmax = qf.info.get("rmax") if qf is not None else None
+        self.fitSizeSpnBx.setValue(int(2 * rmax) if rmax else 2000)
         self.fitSizeSpnBx.setToolTip(
             "Image is center-cropped to this size for fitting; the background is "
             "reconstructed at the original full resolution.")
@@ -180,6 +185,7 @@ class BackgroundFittingDialog(QDialog):
         self.statusLabel = QLabel("Ready.")
         self.statusLabel.setWordWrap(True)
         self.statusLabel.setAlignment(Qt.AlignCenter)
+        self.statusLabel.setStyleSheet("font-size: 10px;")
 
         self.viewModeCB = QComboBox()
         self.viewModeCB.addItems(VIEW_MODES)
@@ -243,15 +249,23 @@ class BackgroundFittingDialog(QDialog):
         form.addRow("Component 1:", QLabel("Exponential"))
         form.addRow("Component 2:", self.comp2CB)
         form.addRow("Component 3:", QLabel("Constant Baseline"))
-        form.addRow("Max iterations:", self.itersSpnBx)
-        form.addRow("Equator max fit iters:", self.eqMaxNfevSpnBx)
-        form.addRow("General max fit iters:", self.genMaxNfevSpnBx)
-        form.addRow("Fit size (px):", self.fitSizeSpnBx)
-        form.addRow("Downsample:", self.downsampleSpnBx)
-        form.addRow(self.useStep0ChkBx)
-        form.addRow("Baseline reduction:", self.baselineReductionSpnBx)
-        form.addRow("Equator reduction:", self.equatorReductionSpnBx)
-        form.addRow(self.autoReduceChkBx)
+
+        # Advanced knobs tucked into a collapsible section (collapsed by default).
+        self.additionalSettingsBox = CollapsibleGroupBox(
+            "Additional Settings", start_expanded=False)
+        additional_form = QFormLayout()
+        additional_form.addRow("Max iterations:", self.itersSpnBx)
+        additional_form.addRow("Equator max fit iters:", self.eqMaxNfevSpnBx)
+        additional_form.addRow("General max fit iters:", self.genMaxNfevSpnBx)
+        additional_form.addRow("Fit size (px):", self.fitSizeSpnBx)
+        additional_form.addRow("Downsample:", self.downsampleSpnBx)
+        additional_form.addRow(self.useStep0ChkBx)
+        additional_form.addRow("Baseline reduction:", self.baselineReductionSpnBx)
+        additional_form.addRow("Equator reduction:", self.equatorReductionSpnBx)
+        additional_form.addRow(self.autoReduceChkBx)
+        self.additionalSettingsBox.set_content_layout(additional_form)
+        form.addRow(self.additionalSettingsBox)
+
         form.addRow(self.saveBgChkBx)
         form.addRow(self.saveParamsChkBx)
         form.addRow(self.runButton)
