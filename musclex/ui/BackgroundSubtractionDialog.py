@@ -996,7 +996,12 @@ class BackgroundSubtractionDialog(QDialog):
         self.imageProcGroup = CollapsibleGroupBox(
             "Image Processing", start_expanded=False
         )
-        self.subtractionGroup = CollapsibleGroupBox("Subtraction", start_expanded=False)
+        self.parametricFittingGroup = CollapsibleGroupBox(
+            "Parametric Background Fitting", start_expanded=False
+        )
+        self.subtractionGroup = CollapsibleGroupBox(
+            "Non-parametric Background Subtraction", start_expanded=False
+        )
         self.configurationGroup = CollapsibleGroupBox(
             "Configurations", start_expanded=False
         )
@@ -1047,6 +1052,7 @@ class BackgroundSubtractionDialog(QDialog):
         self._setup_metrics_layout()
         self._setup_rmin_rmax_layout()
         self._setup_image_processing_layout()
+        self._setup_parametric_fitting_layout()
         self._setup_evaluation_mask_layout()
         self._setup_evaluation_results_layout()
 
@@ -1088,6 +1094,7 @@ class BackgroundSubtractionDialog(QDialog):
 
         common_layout.addWidget(self.rminGroup)
         common_layout.addWidget(self.imageProcGroup)
+        common_layout.addWidget(self.parametricFittingGroup)
         common_layout.addWidget(self.subtractionGroup)
 
         evaluation_layout.addWidget(self.evalMaskGroup)
@@ -1307,6 +1314,13 @@ class BackgroundSubtractionDialog(QDialog):
         image_proc_layout.addWidget(self.downsampleLabel, 4, 0, 1, 1)
         image_proc_layout.addWidget(self.downsampleCB, 4, 1, 1, 1)
         self.imageProcGroup.setLayout(image_proc_layout)
+
+    def _setup_parametric_fitting_layout(self):
+        """Setup parametric (iterative 2D) background fitting layout."""
+        parametric_layout = QGridLayout()
+        parametric_layout.addWidget(self.openFittingButton, 0, 0, 1, 4)
+        parametric_layout.addWidget(self.subtractBgFitChkBx, 1, 0, 1, 4)
+        self.parametricFittingGroup.setLayout(parametric_layout)
 
     def _setup_evaluation_mask_layout(self):
         """Setup evaluation mask settings layout."""
