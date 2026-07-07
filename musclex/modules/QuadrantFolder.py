@@ -1078,6 +1078,13 @@ class QuadrantFolder:
         self.info["equator_mask_height"] = y_height
         mask = create_rectangle_mask(h, w, x_length=w, y_height=y_height)
         return mask.astype(int)
+    
+    def _create_non_equator_mask(self, h, w, fullImg):
+        mask = self._create_equator_mask(h, w, fullImg)
+        # flip the binary mask (0<->1); mask-1 would give -1/0, not the opposite
+        mask = 1 - mask
+        return mask.astype(int)
+
 
     def _create_equator_peaks_mask(self, h, w, fullImg):
 

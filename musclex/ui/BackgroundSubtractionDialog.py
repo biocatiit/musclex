@@ -7,6 +7,7 @@ import copy
 from .pyqt_utils import *
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .ManualBackgroundAssignmentDialog import ManualBackgroundAssignmentDialog
+from .BackgroundFittingDialog import BackgroundFittingDialog
 from ..utils.optimization_cache import (
     get_user_background_configurations,
     set_user_background_configurations,
@@ -886,6 +887,27 @@ class BackgroundSubtractionDialog(QDialog):
         # ===== Apply Button =====
         self.applyBGButton = QPushButton("Apply Selected Subtraction Settings")
         self.applyBGButton.setStyleSheet(self.STYLES["apply_button"])
+
+        # ===== Iterative 2D Background Fitting (separate window) =====
+        self.openFittingButton = QPushButton("Iterative 2D Background Fitting…")
+        self.openFittingButton.setToolTip(
+            "Open the iterative two-stage (equator + general) background fitting "
+            "window for the current folded image.")
+        self.openFittingButton.clicked.connect(self.openBackgroundFittingDialog)
+        self._backgroundFittingDialog = None
+
+        # Whether to subtract the iterative-fit background (imgCache["BgFoldFit"],
+        # populated from the Iterative 2D Background Fitting window) from the
+        # folded image before the normal QF background removal.
+        self.subtractBgFitChkBx = QCheckBox(
+            "Subtract fitted background before QF removal"
+        )
+        self.subtractBgFitChkBx.setChecked(False)
+        self.subtractBgFitChkBx.setToolTip(
+            "When checked, the background produced by the Iterative 2D Background "
+            "Fitting window is subtracted from the folded image before the "
+            "selected QF background-subtraction method is applied."
+        )
 
         # ===== Background Configurations Table =====
         self.addBackgroundConfigButton = QPushButton("Add Background Configuration")
@@ -1944,6 +1966,17 @@ class BackgroundSubtractionDialog(QDialog):
         )
         dialog.accepted.connect(lambda: self._on_manual_assignment_accepted(dialog))
         dialog.show()
+
+    def openBackgroundFittingDialog(self):
+        """Open the iterative 2D background fitting window for the current image."""
+        parent = self._get_parent_gui()
+        if parent is not None and hasattr(parent, "markBgFittingOpened"):
+            parent.markBgFittingOpened()
+        if self._backgroundFittingDialog is None:
+            self._backgroundFittingDialog = BackgroundFittingDialog(parent)
+        self._backgroundFittingDialog.show()
+        self._backgroundFittingDialog.raise_()
+        self._backgroundFittingDialog.activateWindow()
 
     def _resolve_manual_background_assignments_for_batch(self, configurations):
         """
