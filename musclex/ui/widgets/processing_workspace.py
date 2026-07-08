@@ -210,6 +210,7 @@ class ProcessingWorkspace(QWidget):
         self._refinement_worker = None
         self._refinement_initial_center = None
         self._refinement_initial_rotation = None
+        self._refinement_save_rotation = False
         self._refinement_thread_pool = QThreadPool()
         self._refinement_thread_pool.setMaxThreadCount(1)
 
@@ -604,7 +605,9 @@ class ProcessingWorkspace(QWidget):
             self._refinement_progress.close()
             self._refinement_progress = None
 
-    def _start_refinement(self, kind, methods=None):
+    CENTER_REFINEMENT_METHODS = ["registration", "gradient", "search"]
+
+    def _start_refinement(self, kind, methods=None, save_rotation=False):
         if self._refinement_worker is not None:
             QMessageBox.information(
                 self.window(),
@@ -629,6 +632,7 @@ class ProcessingWorkspace(QWidget):
         self._show_refinement_progress(title, message)
         self._refinement_initial_center = tuple(center) if center is not None else None
         self._refinement_initial_rotation = rotation
+        self._refinement_save_rotation = bool(save_rotation)
         worker = _RefinementWorker(kind, image, mask, center, rotation, methods)
         self._refinement_worker = worker
         if kind == "center":
@@ -639,8 +643,12 @@ class ProcessingWorkspace(QWidget):
         worker.signals.finished.connect(self._on_refinement_finished)
         self._refinement_thread_pool.start(worker)
 
-    def _on_refine_center_requested(self, methods):
-        self._start_refinement("center", methods=methods)
+    def _on_refine_center_requested(self, save_rotation):
+        self._start_refinement(
+            "center",
+            methods=self.CENTER_REFINEMENT_METHODS,
+            save_rotation=save_rotation,
+        )
 
     def _on_refine_rotation_requested(self):
         self._start_refinement("rotation")
@@ -648,23 +656,50 @@ class ProcessingWorkspace(QWidget):
     def _on_refine_center_result(self, result):
         self._close_refinement_progress()
         old_center = self._refinement_initial_center
+        old_rotation = self._refinement_initial_rotation
         center = tuple(result["center"])
+        rotation = float(result["rotation"])
         self.set_center_from_source(
             self._current_filename,
             center,
             "calibration_refinement_center",
         )
+        if self._refinement_save_rotation:
+            self.set_absolute_rotation_from_source(
+                self._current_filename,
+                rotation,
+                "calibration_refinement_center_rotation",
+            )
         self.needsReprocess.emit()
         self._refresh_alignment_after_refinement()
-        QMessageBox.information(
-            self.window(),
-            "Center Refined",
-            (
+        if self._refinement_save_rotation:
+            center_detail = (
                 f"Center refined from x={old_center[0]:.2f}, y={old_center[1]:.2f} px "
                 f"to x={center[0]:.2f}, y={center[1]:.2f} px."
                 if old_center is not None
                 else f"Center refined to x={center[0]:.2f}, y={center[1]:.2f} px."
-            ),
+            )
+            if old_rotation is not None:
+                detail = (
+                    f"{center_detail}\n"
+                    f"Rotation refined from {float(old_rotation) % 360:.2f} ° "
+                    f"to {rotation % 360:.2f} °."
+                )
+            else:
+                detail = (
+                    f"{center_detail}\n" f"Rotation refined to {rotation % 360:.2f} °."
+                )
+        else:
+            detail = (
+                f"Center refined from x={old_center[0]:.2f}, y={old_center[1]:.2f} px "
+                f"to x={center[0]:.2f}, y={center[1]:.2f} px."
+                if old_center is not None
+                else f"Center refined to x={center[0]:.2f}, y={center[1]:.2f} px."
+            )
+        QMessageBox.information(
+            self.window(),
+            "Center Refined",
+            detail,
         )
 
     def _on_refine_rotation_result(self, result):
@@ -708,6 +743,7 @@ class ProcessingWorkspace(QWidget):
         self._refinement_worker = None
         self._refinement_initial_center = None
         self._refinement_initial_rotation = None
+        self._refinement_save_rotation = False
 
     def _refresh_alignment_after_refinement(self):
         """Notify an open parent alignment dialog that geometry has changed."""
