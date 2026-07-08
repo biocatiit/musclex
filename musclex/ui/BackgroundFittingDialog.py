@@ -137,16 +137,19 @@ class BackgroundFittingDialog(QDialog):
             "general-background fit.")
 
         self.fitSizeSpnBx = QSpinBox()
-        self.fitSizeSpnBx.setRange(256, 8192)
-        self.fitSizeSpnBx.setSingleStep(100)
-        # Default the crop to 2*rmax so the full fitted annulus is covered; fall
-        # back to 2000 when the parent QF GUI has no rmax yet.
+        self.fitSizeSpnBx.setRange(128, 4096)
+        self.fitSizeSpnBx.setSingleStep(50)
+        # This is the fit radius (rmax); the image is center-cropped to twice
+        # this value. Default to 0.8*rmax so the crop tightly covers the data;
+        # fall back to 1000 when the parent QF GUI has no rmax yet.
         qf = self._get_quadfold()
         rmax = qf.info.get("rmax") if qf is not None else None
-        self.fitSizeSpnBx.setValue(int(2 * rmax) if rmax else 2000)
+        self.fitSizeSpnBx.setValue(int(rmax * 0.8) if rmax else 1000)
         self.fitSizeSpnBx.setToolTip(
-            "Image is center-cropped to this size for fitting; the background is "
-            "reconstructed at the original full resolution.")
+            "Fit radius (rmax) used only for the fitting step, to speed up "
+            "processing. The image is center-cropped to twice this value. "
+            "Lower values are preferred for faster fitting, as long as they "
+            "still cover the data.")
 
         self.downsampleSpnBx = QSpinBox()
         self.downsampleSpnBx.setRange(1, 8)
@@ -573,7 +576,7 @@ class BackgroundFittingDialog(QDialog):
             iters=self.itersSpnBx.value(),
             eq_max_nfev=self.eqMaxNfevSpnBx.value(),
             gen_max_nfev=self.genMaxNfevSpnBx.value(),
-            fit_size=self.fitSizeSpnBx.value(),
+            fit_size=2 * self.fitSizeSpnBx.value(),
             downsample_factor=self.downsampleSpnBx.value(),
             use_step0=self.useStep0ChkBx.isChecked(),
             baseline_reduction=self.baselineReductionSpnBx.value() / 100.0,
