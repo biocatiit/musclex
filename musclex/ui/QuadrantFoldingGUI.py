@@ -4322,6 +4322,10 @@ class QuadrantFoldingGUI(BaseGUI):
                             and self.quadFold.info["rotate"]
                         ):
                             img = np.rot90(img)
+                    else:
+                        # No fitted background available: show a black image
+                        # (all zeros) rather than falling back to the folded image.
+                        img = np.zeros_like(img)
 
                 elif display_mode == "Background" or display_mode == "Folded":
                     bg_fold = self.quadFold.imgCache.get("BgFold", None)
