@@ -655,6 +655,7 @@ class ProcessingWorkspace(QWidget):
             "calibration_refinement_center",
         )
         self.needsReprocess.emit()
+        self._refresh_alignment_after_refinement()
         QMessageBox.information(
             self.window(),
             "Center Refined",
@@ -676,6 +677,7 @@ class ProcessingWorkspace(QWidget):
             "calibration_refinement_rotation",
         )
         self.needsReprocess.emit()
+        self._refresh_alignment_after_refinement()
         QMessageBox.information(
             self.window(),
             "Rotation Refined",
@@ -706,6 +708,19 @@ class ProcessingWorkspace(QWidget):
         self._refinement_worker = None
         self._refinement_initial_center = None
         self._refinement_initial_rotation = None
+
+    def _refresh_alignment_after_refinement(self):
+        """Notify an open parent alignment dialog that geometry has changed."""
+        parent = self.window()
+        dialog = getattr(parent, "_alignment_dialog", None)
+        if dialog is None:
+            return
+        try:
+            dialog.refresh_after_refinement(rerun_symmetry=True)
+        except RuntimeError:
+            parent._alignment_dialog = None
+        except Exception as exc:
+            print(f"Warning: failed to refresh alignment after refinement: {exc}")
 
     # ==================== Tool Completion Handlers ====================
 

@@ -70,6 +70,7 @@ class QFAlignmentDialog(QDialog):
 
         self.workspace = workspace
         self._settings_manager_cache = {}
+        self._loaded_batch_sources = None
         self._load_selected_batch_sources_if_needed()
         # row == file_manager index (QF does not group images)
         self._row_mapper = SourceFolderRowMapper(self.workspace)
@@ -235,6 +236,12 @@ class QFAlignmentDialog(QDialog):
         # Highlight the row corresponding to the QF main window's current image.
         self._sync_selection_from_navigator()
 
+    def refresh_after_refinement(self, rerun_symmetry=True):
+        """Refresh table data after QF refines center/rotation in the main window."""
+        self._initialize_panel()
+        if rerun_symmetry:
+            self.panel.run_detection_with_symmetry()
+
     def _on_row_selected(self, row: int):
         """
         @description Row selected in table: navigate the QF main window to that image.
@@ -292,14 +299,20 @@ class QFAlignmentDialog(QDialog):
         parent = self.parent()
         folders = list(getattr(parent, "selected_batch_folders", []) or [])
         if not folders:
+            self._loaded_batch_sources = None
             return
 
         fm = self.workspace.navigator.file_manager
         if fm is None:
             return
 
+        source_key = tuple(str(folder) for folder in folders)
+        if self._loaded_batch_sources == source_key and getattr(fm, "names", None):
+            return
+
         try:
             fm.load_from_sources(folders)
+            self._loaded_batch_sources = source_key
             self._settings_manager_cache.clear()
         except Exception as exc:
             logger.warning("Failed to load QF batch folders for alignment: %s", exc)
