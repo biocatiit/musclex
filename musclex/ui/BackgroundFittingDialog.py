@@ -35,6 +35,10 @@ VIEW_MODES = [
     "Equator mask",
 ]
 
+# View modes available before a fit: only the mask overlays, so the user can
+# inspect and adjust the masking before running the fit.
+MASK_VIEW_MODES = ["General mask", "Equator mask"]
+
 COMP2_OPTIONS = ["auto", "lorentzian", "powerlaw", "stretched"]
 
 # Colormap options for the image views: display name -> matplotlib cmap.
@@ -87,6 +91,7 @@ class BackgroundFittingDialog(QDialog):
         self._create_widgets()
         self._create_layout()
         self._init_mask_param_sync()
+        self._init_mask_preview()
 
     # ------------------------------------------------------------------ #
     # widgets / layout
@@ -226,9 +231,10 @@ class BackgroundFittingDialog(QDialog):
         self.statusLabel.setAlignment(Qt.AlignCenter)
         self.statusLabel.setStyleSheet("font-size: 10px;")
 
+        # Before a fit only the mask overlays are available; the full set of
+        # views is populated once a fit completes (see _on_finished).
         self.viewModeCB = QComboBox()
-        self.viewModeCB.addItems(VIEW_MODES)
-        self.viewModeCB.setCurrentIndex(1)
+        self.viewModeCB.addItems(MASK_VIEW_MODES)
         self.viewModeCB.currentIndexChanged.connect(self._on_view_mode_changed)
         self.viewModeCB.setEnabled(False)
 
@@ -289,6 +295,20 @@ class BackgroundFittingDialog(QDialog):
         form.addRow("Component 2:", self.comp2CB)
         form.addRow("Component 3:", QLabel("Constant Baseline"))
 
+        # Evaluation-mask parameters (mirrored from the Background Subtraction
+        # settings) in their own collapsible box, placed above the advanced
+        # settings so the masking can be inspected/adjusted (via the mask views)
+        # before running a fit.
+        self.maskParamsBox = CollapsibleGroupBox(
+            "Mask Parameters", start_expanded=True)
+        mask_form = QFormLayout()
+        mask_form.addRow("Equator Height:", self.maskEquatorHeightSpnBx)
+        mask_form.addRow("Equator Center Radius:", self.maskEquatorCenterSpnBx)
+        mask_form.addRow("Layer line spacing (M1):", self.maskM1SpnBx)
+        mask_form.addRow("Layer line width:", self.maskLayerWidthSpnBx)
+        self.maskParamsBox.set_content_layout(mask_form)
+        form.addRow(self.maskParamsBox)
+
         # Advanced knobs tucked into a collapsible section (collapsed by default).
         self.additionalSettingsBox = CollapsibleGroupBox(
             "Additional Settings", start_expanded=False)
@@ -302,19 +322,6 @@ class BackgroundFittingDialog(QDialog):
         additional_form.addRow("Baseline reduction:", self.baselineReductionSpnBx)
         additional_form.addRow("Equator reduction:", self.equatorReductionSpnBx)
         additional_form.addRow(self.autoReduceChkBx)
-
-        # Evaluation-mask parameters (mirrored from the Background Subtraction
-        # settings) in their own nested collapsible box.
-        self.maskParamsBox = CollapsibleGroupBox(
-            "Mask Parameters", start_expanded=False)
-        mask_form = QFormLayout()
-        mask_form.addRow("Equator Height:", self.maskEquatorHeightSpnBx)
-        mask_form.addRow("Equator Center Radius:", self.maskEquatorCenterSpnBx)
-        mask_form.addRow("Layer line spacing (M1):", self.maskM1SpnBx)
-        mask_form.addRow("Layer line width:", self.maskLayerWidthSpnBx)
-        self.maskParamsBox.set_content_layout(mask_form)
-        additional_form.addRow(self.maskParamsBox)
-
         self.additionalSettingsBox.set_content_layout(additional_form)
         form.addRow(self.additionalSettingsBox)
 
@@ -376,17 +383,19 @@ class BackgroundFittingDialog(QDialog):
         n = getattr(qf, "img_name", "") or ""
         return os.path.join(d, n) if d else n
 
-    def _grab_inputs(self):
+    def _grab_inputs(self, warn=True):
         """Collect the folded image, masks and rmin/rmax from the parent QF GUI.
 
         Returns (img, general_mask, equator_mask, rmin, rmax, rminrmax_mask)
-        or None.
+        or None. Pass ``warn=False`` to suppress the warning popups (used for the
+        silent mask preview built when the dialog opens).
         """
         qf = self._get_quadfold()
         if qf is None or not getattr(qf, "imgCache", None):
-            QMessageBox.warning(self, "No image",
-                                "No processed folded image available. Process an "
-                                "image in Quadrant Folding first.")
+            if warn:
+                QMessageBox.warning(self, "No image",
+                                    "No processed folded image available. Process "
+                                    "an image in Quadrant Folding first.")
             return None
 
         # Recompute the average fold from the original image; calculateAvgFold
@@ -395,12 +404,15 @@ class BackgroundFittingDialog(QDialog):
         try:
             qf.calculateAvgFold()
         except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "No image",
-                                f"Could not compute the average fold:\n{e}")
+            if warn:
+                QMessageBox.warning(self, "No image",
+                                    f"Could not compute the average fold:\n{e}")
             return None
         avg_fold = qf.imgCache.get("avg_fold")
         if avg_fold is None:
-            QMessageBox.warning(self, "No image", "No folded image (avg_fold) found.")
+            if warn:
+                QMessageBox.warning(self, "No image",
+                                    "No folded image (avg_fold) found.")
             return None
 
         img = makeFullImage(avg_fold).astype(float)
@@ -414,8 +426,9 @@ class BackgroundFittingDialog(QDialog):
             qf.createMask()
             general_mask = np.asarray(qf.imgCache.get("mask")).astype(bool)
         except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "Mask error",
-                                f"Could not build mask from Quadrant Folding:\n{e}")
+            if warn:
+                QMessageBox.warning(self, "Mask error",
+                                    f"Could not build mask from Quadrant Folding:\n{e}")
             return None
 
         # rmin..rmax annulus: the region shared by both fit masks, and the one
@@ -470,6 +483,27 @@ class BackgroundFittingDialog(QDialog):
                     lambda _v, l=local, s=src: self._on_source_mask_changed(l, s))
             local.valueChanged.connect(
                 lambda _v, l=local, n=src_name: self._on_local_mask_changed(l, n))
+
+    def _init_mask_preview(self):
+        """Build the fit masks when the dialog opens so the user can inspect and
+        adjust the masking (via the Mask Parameters) before running a fit. On
+        success the view dropdown is enabled with the mask overlays only."""
+        inputs = self._grab_inputs(warn=False)
+        if inputs is None:
+            return
+        self._inputs = inputs
+        self.viewModeCB.setEnabled(True)
+        self.updateView()
+
+    def _set_view_modes(self, modes, default_text):
+        """Repopulate the view dropdown with ``modes`` and select ``default_text``
+        without emitting change signals."""
+        self.viewModeCB.blockSignals(True)
+        self.viewModeCB.clear()
+        self.viewModeCB.addItems(modes)
+        idx = modes.index(default_text) if default_text in modes else 0
+        self.viewModeCB.setCurrentIndex(idx)
+        self.viewModeCB.blockSignals(False)
 
     def _source_mask_spinbox(self, name):
         """The matching mask spinbox owned by the parent (QF GUI / Background
@@ -598,6 +632,9 @@ class BackgroundFittingDialog(QDialog):
         self.runButton.setEnabled(True)
         self.applyButton.setEnabled(True)
         self.viewModeCB.setEnabled(True)
+        # A fit is available now: offer the full set of views, defaulting to the
+        # fitted background.
+        self._set_view_modes(VIEW_MODES, "Residual (background removed)")
         self._reflect_reductions_from_result()
         self._update_params_panel()
         self._maybe_save_outputs()
@@ -870,25 +907,39 @@ class BackgroundFittingDialog(QDialog):
 
     # -- drawing --------------------------------------------------------- #
     def updateView(self):
-        if self.result is None or self._inputs is None:
+        if self._inputs is None:
             return
         img, general_mask, equator_mask = self._inputs[0], self._inputs[1], self._inputs[2]
-        equator = self.result["equator"]
-        general = self.result["general"]
-        residual = self.result["residual"]
         mode = self.viewModeCB.currentText()
+
+        # The mask overlays use a fixed grayscale base + green overlay, so the
+        # colormap picker is irrelevant there.
+        self.cmapCB.setEnabled(mode not in MASK_VIEW_MODES)
 
         self.figure.clear()
 
+        # Mask overlays only need the (pre-fit) masks, so they work before a fit.
+        if mode == "General mask":
+            self._draw_mask(general_mask, img, "General mask (green = used)")
+            self.canvas.draw_idle()
+            return
+        if mode == "Equator mask":
+            self._draw_mask(
+                equator_mask, img,
+                "Equator-fit mask (green = used)",
+                none_text="Equator mask fell back to the general mask.")
+            self.canvas.draw_idle()
+            return
+
+        # Every other view needs a completed fit.
+        if self.result is None:
+            return
+        equator = self.result["equator"]
+        general = self.result["general"]
+        residual = self.result["residual"]
+
         if mode == "Equator / Meridian profiles":
             self._draw_profiles(img, equator, general, residual)
-        elif mode == "General mask":
-            self._draw_mask(general_mask, "General mask (yellow = used)")
-        elif mode == "Equator mask":
-            self._draw_mask(
-                equator_mask,
-                "Equator-fit mask (yellow = used)",
-                none_text="Equator mask fell back to the general mask.")
         else:
             cmap = self._selected_cmap()
             if mode == "Original":
@@ -912,15 +963,24 @@ class BackgroundFittingDialog(QDialog):
         ax.set_title(title)
         self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-    def _draw_mask(self, mask, title, none_text=None):
+    def _draw_mask(self, mask, img, title, none_text=None):
         ax = self.figure.add_subplot(111)
         if mask is None:
             ax.axis("off")
             ax.text(0.5, 0.5, none_text or "No mask available.",
                     ha="center", va="center", transform=ax.transAxes)
             return
-        ax.imshow(np.asarray(mask).astype(float), origin="upper",
-                  cmap="viridis", vmin=0, vmax=1)
+        # Base image (grayscale) with the mask overlaid semi-transparently so the
+        # masked regions can be read against the data being fitted.
+        lo, hi = self._resolve_range(img, sym=False)
+        ax.imshow(img, origin="upper", cmap="gray", vmin=lo, vmax=hi)
+        mask = np.asarray(mask).astype(bool)
+        overlay = np.zeros(mask.shape + (4,), dtype=float)
+        overlay[..., 0] = 0.6            # light green marks the used pixels
+        overlay[..., 1] = 1.0
+        overlay[..., 2] = 0.6
+        overlay[..., 3] = np.where(mask, 0.5, 0.0)
+        ax.imshow(overlay, origin="upper")
         ax.set_title(title)
 
     def _draw_profiles(self, img, equator, general, residual):
