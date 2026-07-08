@@ -7,7 +7,10 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
+    QStyle,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -41,12 +44,41 @@ class BatchFolderSelectionDialog(QDialog):
 
         layout.addLayout(buttonLayout)
 
+        selectionLayout = QHBoxLayout()
+
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Folder"])
         self.tree.setColumnCount(1)
         self.tree.itemExpanded.connect(self._on_item_expanded)
         self.tree.itemChanged.connect(self._on_item_changed)
-        layout.addWidget(self.tree)
+        selectionLayout.addWidget(self.tree, 3)
+
+        selectedLayout = QVBoxLayout()
+        selectedLayout.addWidget(QLabel("Selected order"))
+
+        self.selectedList = QListWidget()
+        selectedLayout.addWidget(self.selectedList, 1)
+
+        moveLayout = QHBoxLayout()
+        self.moveUpButton = QPushButton()
+        self.moveUpButton.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp)
+        )
+        self.moveUpButton.setToolTip("Move selected folder up")
+        self.moveUpButton.clicked.connect(self.move_selected_folder_up)
+        moveLayout.addWidget(self.moveUpButton)
+
+        self.moveDownButton = QPushButton()
+        self.moveDownButton.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
+        )
+        self.moveDownButton.setToolTip("Move selected folder down")
+        self.moveDownButton.clicked.connect(self.move_selected_folder_down)
+        moveLayout.addWidget(self.moveDownButton)
+
+        selectedLayout.addLayout(moveLayout)
+        selectionLayout.addLayout(selectedLayout, 2)
+        layout.addLayout(selectionLayout)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -67,6 +99,7 @@ class BatchFolderSelectionDialog(QDialog):
     def set_root_folder(self, folder):
         self.start_dir = Path(folder).resolve()
         self.tree.clear()
+        self.selectedList.clear()
 
         root_item = self._make_item(self.start_dir)
         self.tree.addTopLevelItem(root_item)
@@ -77,19 +110,16 @@ class BatchFolderSelectionDialog(QDialog):
 
     def selected_folders(self):
         folders = []
+        seen = set()
 
-        def walk(item):
-            for i in range(item.childCount()):
-                child = item.child(i)
-                raw_path = child.data(0, Qt.UserRole)
+        for row in range(self.selectedList.count()):
+            raw_path = self.selectedList.item(row).data(Qt.UserRole)
+            if not raw_path or raw_path in seen:
+                continue
+            folders.append(Path(raw_path))
+            seen.add(raw_path)
 
-                if raw_path and child.checkState(0) == Qt.Checked:
-                    folders.append(Path(raw_path))
-
-                walk(child)
-
-        walk(self.tree.invisibleRootItem())
-        return sorted(set(folders))
+        return folders
 
     def clear_checks(self):
         self._updating_checks = True
@@ -99,7 +129,14 @@ class BatchFolderSelectionDialog(QDialog):
         finally:
             self._updating_checks = False
 
+        self.selectedList.clear()
         self._update_summary()
+
+    def move_selected_folder_up(self):
+        self._move_selected_folder(-1)
+
+    def move_selected_folder_down(self):
+        self._move_selected_folder(1)
 
     def _make_item(self, path):
         item = QTreeWidgetItem([path.name or str(path)])
@@ -143,6 +180,13 @@ class BatchFolderSelectionDialog(QDialog):
         if self._updating_checks or column != 0:
             return
 
+        raw_path = item.data(0, Qt.UserRole)
+        if raw_path:
+            if item.checkState(0) == Qt.Checked:
+                self._add_selected_folder(raw_path)
+            else:
+                self._remove_selected_folder(raw_path)
+
         self._update_summary()
 
     def _set_checks_recursive(self, item, state):
@@ -151,6 +195,44 @@ class BatchFolderSelectionDialog(QDialog):
             if child.data(0, Qt.UserRole):
                 child.setCheckState(0, state)
             self._set_checks_recursive(child, state)
+
+    def _add_selected_folder(self, raw_path):
+        raw_path = str(raw_path)
+        if self._selected_list_row(raw_path) is not None:
+            return
+
+        path = Path(raw_path)
+        selected_item = QListWidgetItem(path.name or str(path))
+        selected_item.setData(Qt.UserRole, raw_path)
+        selected_item.setToolTip(raw_path)
+        self.selectedList.addItem(selected_item)
+        self.selectedList.setCurrentRow(self.selectedList.count() - 1)
+
+    def _remove_selected_folder(self, raw_path):
+        row = self._selected_list_row(raw_path)
+        if row is not None:
+            self.selectedList.takeItem(row)
+
+    def _selected_list_row(self, raw_path):
+        raw_path = str(raw_path)
+        for row in range(self.selectedList.count()):
+            if self.selectedList.item(row).data(Qt.UserRole) == raw_path:
+                return row
+        return None
+
+    def _move_selected_folder(self, offset):
+        row = self.selectedList.currentRow()
+        if row < 0:
+            return
+
+        target = row + offset
+        if target < 0 or target >= self.selectedList.count():
+            return
+
+        item = self.selectedList.takeItem(row)
+        self.selectedList.insertItem(target, item)
+        self.selectedList.setCurrentRow(target)
+        self._update_summary()
 
     def _update_summary(self):
         count = len(self.selected_folders())
