@@ -126,28 +126,28 @@ class RestoreAutoCenterDialog(QDialog):
 
 
 class RefineCenterDialog(QDialog):
-    """Dialog for selecting center refinement pipeline stages."""
+    """Dialog for selecting what geometry to save from center refinement."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Refine Center")
+        self.resize(420, 170)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Select refinement stages:"))
-
-        self.registrationChkBx = QCheckBox("Registration")
-        self.gradientChkBx = QCheckBox("Gradient")
-        self.searchChkBx = QCheckBox("Local Search")
-
-        self.registrationChkBx.setToolTip("Run ECC registration refinement")
-        self.gradientChkBx.setToolTip("Run gradient refinement after registration")
-        self.searchChkBx.setToolTip(
-            "Run local search after registration and gradient refinement"
+        layout.addWidget(QLabel("Run all center refinement steps."))
+        warningLabel = QLabel("Warning: this refinement may take a few minutes.")
+        warningLabel.setWordWrap(True)
+        warningLabel.setStyleSheet(
+            "background-color: #fff3cd; color: #7a4f00; "
+            "font-weight: bold; padding: 6px; border: 1px solid #f0c36d;"
         )
+        layout.addWidget(warningLabel)
 
-        layout.addWidget(self.registrationChkBx)
-        layout.addWidget(self.gradientChkBx)
-        layout.addWidget(self.searchChkBx)
+        self.refineRotationChkBx = QCheckBox("Also refine rotation")
+        self.refineRotationChkBx.setToolTip(
+            "Save the rotation returned by the center refinement pipeline too."
+        )
+        layout.addWidget(self.refineRotationChkBx)
 
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttonBox.accepted.connect(self.accept)
@@ -155,32 +155,9 @@ class RefineCenterDialog(QDialog):
         layout.addWidget(self.buttonBox)
 
         self.setLayout(layout)
-        self.registrationChkBx.stateChanged.connect(self._sync_pipeline)
-        self.gradientChkBx.stateChanged.connect(self._sync_pipeline)
-        self.searchChkBx.stateChanged.connect(self._sync_pipeline)
-        self._sync_pipeline()
 
-    def _sync_pipeline(self):
-        if self.searchChkBx.isChecked():
-            self.gradientChkBx.setChecked(True)
-        if self.gradientChkBx.isChecked():
-            self.registrationChkBx.setChecked(True)
-        ok_button = self.buttonBox.button(QDialogButtonBox.Ok)
-        ok_button.setEnabled(
-            self.registrationChkBx.isChecked()
-            or self.gradientChkBx.isChecked()
-            or self.searchChkBx.isChecked()
-        )
-
-    def getMethods(self):
-        methods = []
-        if self.registrationChkBx.isChecked():
-            methods.append("registration")
-        if self.gradientChkBx.isChecked():
-            methods.append("gradient")
-        if self.searchChkBx.isChecked():
-            methods.append("search")
-        return methods
+    def shouldRefineRotation(self):
+        return self.refineRotationChkBx.isChecked()
 
 
 class CenterSettingsWidget(CollapsibleGroupBox):
@@ -201,7 +178,7 @@ class CenterSettingsWidget(CollapsibleGroupBox):
     # Signals for complex interactions (that require dialog selection)
     applyCenterRequested = Signal(str)  # scope
     restoreAutoCenterRequested = Signal(str)  # scope
-    refineCenterRequested = Signal(list)  # selected methods
+    refineCenterRequested = Signal(bool)  # save rotation too
 
     def __init__(self, parent=None):
         super().__init__("Set Center", start_expanded=True, parent=parent)
@@ -322,7 +299,7 @@ class CenterSettingsWidget(CollapsibleGroupBox):
         """Handle Refine Center button - show dialog and emit signal"""
         dialog = RefineCenterDialog(self)
         if dialog.exec() == QDialog.Accepted:
-            self.refineCenterRequested.emit(dialog.getMethods())
+            self.refineCenterRequested.emit(dialog.shouldRefineRotation())
 
     # Public methods for updating display
 
