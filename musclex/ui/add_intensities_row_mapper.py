@@ -109,6 +109,27 @@ class SourceFolderRowMapper:
         fm = self._file_manager()
         return len(fm.names) if fm is not None else 0
 
+    def _folder_label_for_index(self, fm, index: int) -> tuple[str, str]:
+        if getattr(fm, "source_labels", None) and index < len(fm.source_labels):
+            label = fm.source_labels[index] or ""
+        else:
+            label = ""
+
+        folder_path = ""
+        if getattr(fm, "specs", None) and index < len(fm.specs):
+            spec = fm.specs[index]
+            if isinstance(spec, tuple) and len(spec) >= 3 and spec[0] == "h5":
+                folder_path = os.path.dirname(str(spec[1]))
+            elif isinstance(spec, tuple) and len(spec) >= 2:
+                folder_path = os.path.dirname(str(spec[1]))
+
+        if not folder_path:
+            folder_path = getattr(fm, "dir_path", "") or ""
+        if not label and folder_path:
+            label = os.path.basename(str(folder_path).rstrip("/\\")) or str(folder_path)
+
+        return label, folder_path or label
+
     def populate_table(self, table) -> None:
         """Fill Folder and Frame columns from the shared FileManager."""
         from musclex.ui.widgets.image_alignment_table import ColKey
@@ -120,13 +141,9 @@ class SourceFolderRowMapper:
         table.setRowCount(len(fm.names))
         for i, name in enumerate(fm.names):
             if ColKey.FOLDER in table._col:
-                label = (
-                    fm.source_labels[i]
-                    if getattr(fm, "source_labels", None) and i < len(fm.source_labels)
-                    else ""
-                )
+                label, tooltip = self._folder_label_for_index(fm, i)
                 folder_item = QTableWidgetItem(label)
-                folder_item.setToolTip(label)
+                folder_item.setToolTip(tooltip)
                 table.setItem(i, table.col(ColKey.FOLDER), folder_item)
 
             frame_item = QTableWidgetItem(os.path.basename(name))

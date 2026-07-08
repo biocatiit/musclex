@@ -396,6 +396,32 @@ class ImageAlignmentWidget(QWidget):
         """Refresh data columns for all existing rows."""
         self._update_table_data()
 
+    def run_detection_with_symmetry(self):
+        """Start a detection pass with the symmetry test enabled.
+
+        Returns True when a pass was started. The detection worker computes
+        center/rotation as usual and, with symmetry enabled, recomputes the
+        fold-symmetry columns using the current manual center/rotation values.
+        """
+        if not self._enable_symmetry_test or self._in_batch:
+            return False
+
+        self._symmetry_enabled = True
+        if hasattr(self, "_symmetry_enable_chk"):
+            self._symmetry_enable_chk.setChecked(True)
+
+        self.start_detection_btn.blockSignals(True)
+        self.start_detection_btn.setChecked(True)
+        self.start_detection_btn.setText("Stop")
+        self.start_detection_btn.blockSignals(False)
+        self._start_detection()
+        if not self._in_batch:
+            self.start_detection_btn.blockSignals(True)
+            self.start_detection_btn.setChecked(False)
+            self.start_detection_btn.setText("Start Detection")
+            self.start_detection_btn.blockSignals(False)
+        return self._in_batch
+
     def set_img_sizes(self, sizes: dict):
         """Store image sizes and recompute most-common size."""
         self._img_sizes = sizes
