@@ -71,6 +71,31 @@ DEFAULT_WEIGHT_NEG_CON = 0.05
 DEFAULT_WEIGHT_SMOOTH = 0.1
 
 
+# Iterative 2D Background Fitting (BackgroundFittingDialog)
+# Second general-background component options and default selection.
+COMP2_OPTIONS = ["auto", "lorentzian", "powerlaw", "stretched"]
+DEFAULT_COMP2_INDEX = 1  # "lorentzian"
+# Downsample factor used during fitting (speed).
+FIT_DOWNSAMPLE_RANGE = (1, 8)
+DEFAULT_FIT_DOWNSAMPLE = 2
+# Number of equator<->general alternating rounds.
+FIT_MAX_ITERATIONS_RANGE = (1, 10)
+DEFAULT_FIT_MAX_ITERATIONS = 5
+# Maximum least-squares iterations (function evaluations) for the fits.
+FIT_MAX_NFEV_RANGE = (50, 100000)
+FIT_MAX_NFEV_STEP = 100
+DEFAULT_EQUATOR_MAX_NFEV = 1000
+DEFAULT_GENERAL_MAX_NFEV = 600
+# Reduction spinbox defaults (percent) and auto-reduce toggle.
+FIT_REDUCTION_RANGE = (0.0, 100.0)  # percent
+DEFAULT_BASELINE_REDUCTION = 5.0
+DEFAULT_EQUATOR_REDUCTION = 5.0
+DEFAULT_AUTO_REDUCE = True
+# Save-output checkbox defaults.
+DEFAULT_SAVE_FITTED_BACKGROUNDS = False
+DEFAULT_SAVE_FIT_PARAMS = False
+
+
 # Downsample and Frequency Options
 DOWNSAMPLE_OPTIONS = ["1", "2", "4"]
 DEFAULT_DOWNSAMPLE_INDEX = 1
