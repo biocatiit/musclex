@@ -19,6 +19,7 @@ from matplotlib.figure import Figure
 
 from ..utils.bg_fitting import background_fitting as bf
 from ..utils.bg_search.background_search import get_projection, makeFullImage
+from ..utils import qf_defaults
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 
 
@@ -85,10 +86,21 @@ class BackgroundFittingDialog(QDialog):
 
         self._create_widgets()
         self._create_layout()
+        self._init_mask_param_sync()
 
     # ------------------------------------------------------------------ #
     # widgets / layout
     # ------------------------------------------------------------------ #
+    @staticmethod
+    def _make_mask_spinbox(rng, value, tooltip):
+        """Factory for a mirrored evaluation-mask QSpinBox."""
+        spn = QSpinBox()
+        spn.setRange(rng[0], rng[1])
+        spn.setValue(value)
+        spn.setKeyboardTracking(False)
+        spn.setToolTip(tooltip)
+        return spn
+
     def _create_widgets(self):
         self.comp2CB = QComboBox()
         self.comp2CB.addItems(COMP2_OPTIONS)
@@ -177,6 +189,23 @@ class BackgroundFittingDialog(QDialog):
         self.autoReduceChkBx.setToolTip(
             "Automatically increase both reductions on top of the fixed values "
             "above until the oversubtracted-pixel fraction stops improving.")
+
+        # Evaluation-mask parameters mirrored from the Background Subtraction
+        # settings. They drive the general/equator masks used by the fit and are
+        # kept two-way synced with the originals (see _init_mask_param_sync).
+        self._mask_sync_guard = False
+        self.maskEquatorHeightSpnBx = self._make_mask_spinbox(
+            qf_defaults.EQUATOR_HEIGHT_RANGE, qf_defaults.DEFAULT_EQUATOR_HEIGHT,
+            "Half-height (px) of the equatorial band kept for the equator fit.")
+        self.maskEquatorCenterSpnBx = self._make_mask_spinbox(
+            qf_defaults.EQUATOR_CENTER_RANGE, qf_defaults.DEFAULT_EQUATOR_CENTER,
+            "Radius (px) of the central beam removed from the equator mask.")
+        self.maskM1SpnBx = self._make_mask_spinbox(
+            qf_defaults.LAYER_LINE_RANGE, qf_defaults.DEFAULT_LAYER_SPACING,
+            "Layer-line spacing M1 (px) used to mask the layer lines.")
+        self.maskLayerWidthSpnBx = self._make_mask_spinbox(
+            qf_defaults.LAYER_LINE_RANGE, qf_defaults.DEFAULT_LAYER_WIDTH,
+            "Width (px) of each masked layer line.")
 
         self.saveBgChkBx = QCheckBox("Save fitted backgrounds")
         self.saveParamsChkBx = QCheckBox("Save fit parameters")
@@ -267,12 +296,25 @@ class BackgroundFittingDialog(QDialog):
         additional_form.addRow("Max iterations:", self.itersSpnBx)
         additional_form.addRow("Equator max fit iters:", self.eqMaxNfevSpnBx)
         additional_form.addRow("General max fit iters:", self.genMaxNfevSpnBx)
-        additional_form.addRow("Fit size (px):", self.fitSizeSpnBx)
+        additional_form.addRow("Fit size (rmax*):", self.fitSizeSpnBx)
         additional_form.addRow("Downsample:", self.downsampleSpnBx)
         additional_form.addRow(self.useStep0ChkBx)
         additional_form.addRow("Baseline reduction:", self.baselineReductionSpnBx)
         additional_form.addRow("Equator reduction:", self.equatorReductionSpnBx)
         additional_form.addRow(self.autoReduceChkBx)
+
+        # Evaluation-mask parameters (mirrored from the Background Subtraction
+        # settings) in their own nested collapsible box.
+        self.maskParamsBox = CollapsibleGroupBox(
+            "Mask Parameters", start_expanded=False)
+        mask_form = QFormLayout()
+        mask_form.addRow("Equator Height:", self.maskEquatorHeightSpnBx)
+        mask_form.addRow("Equator Center Radius:", self.maskEquatorCenterSpnBx)
+        mask_form.addRow("Layer line spacing (M1):", self.maskM1SpnBx)
+        mask_form.addRow("Layer line width:", self.maskLayerWidthSpnBx)
+        self.maskParamsBox.set_content_layout(mask_form)
+        additional_form.addRow(self.maskParamsBox)
+
         self.additionalSettingsBox.set_content_layout(additional_form)
         form.addRow(self.additionalSettingsBox)
 
@@ -386,20 +428,110 @@ class BackgroundFittingDialog(QDialog):
 
         # Equator-fit mask: keep the equatorial streak but drop the beam and the
         # equatorial Bragg peaks (rebuilt from QF's own mask pieces).
-        equator_mask = None
+        equator_mask = self._build_equator_mask(qf, avg_fold, h, w, rminrmax_mask)
+
+        return img, general_mask, equator_mask, rmin, rmax, rminrmax_mask
+
+    def _build_equator_mask(self, qf, avg_fold, h, w, rminrmax_mask):
+        """Equator-fit mask from QF's own mask pieces (rmin..rmax ring minus the
+        beam and equatorial Bragg peaks). Returns None to fall back to the
+        general mask inside the fitter."""
         try:
             full = makeFullImage(avg_fold)
             eq_ring = (rminrmax_mask if rminrmax_mask is not None
                        else np.asarray(qf._create_rminrmax_mask(h, w)).astype(bool))
-            equator_mask = (
+            return (
                 eq_ring
                 & np.asarray(qf._create_equator_peaks_mask(h, w, full)).astype(bool)
                 & np.asarray(qf._create_non_equator_mask(h, w, full)).astype(bool)
                 & np.asarray(qf._create_equator_center_beam_mask(h, w, full)).astype(bool))
         except Exception:  # noqa: BLE001
-            equator_mask = None   # fall back to general mask inside the fitter
+            return None
 
-        return img, general_mask, equator_mask, rmin, rmax, rminrmax_mask
+    # ------------------------------------------------------------------ #
+    # evaluation-mask parameter sync
+    # ------------------------------------------------------------------ #
+    def _init_mask_param_sync(self):
+        """Seed the mirrored mask spinboxes from the Background Subtraction
+        controls and keep the two sets two-way synced."""
+        self._mask_param_pairs = [
+            (self.maskEquatorHeightSpnBx, "equatorMaskHeightSpnBx"),
+            (self.maskEquatorCenterSpnBx, "equatorCenterBeamSpnBx"),
+            (self.maskM1SpnBx, "m1SpnBx"),
+            (self.maskLayerWidthSpnBx, "layerLineWidthSpnBx"),
+        ]
+        for local, src_name in self._mask_param_pairs:
+            src = self._source_mask_spinbox(src_name)
+            if src is not None:
+                local.blockSignals(True)
+                local.setValue(src.value())
+                local.blockSignals(False)
+                src.valueChanged.connect(
+                    lambda _v, l=local, s=src: self._on_source_mask_changed(l, s))
+            local.valueChanged.connect(
+                lambda _v, l=local, n=src_name: self._on_local_mask_changed(l, n))
+
+    def _source_mask_spinbox(self, name):
+        """The matching mask spinbox owned by the parent (QF GUI / Background
+        Subtraction settings), or None."""
+        parent = self._parent_gui if self._parent_gui is not None else self.parent()
+        return getattr(parent, name, None) if parent is not None else None
+
+    def _on_local_mask_changed(self, local, src_name):
+        """User edited a mirrored mask spinbox: push the value into the source
+        control (which refreshes info + the QF mask cache), then rebuild our
+        general/equator masks."""
+        if self._mask_sync_guard:
+            return
+        self._mask_sync_guard = True
+        try:
+            src = self._source_mask_spinbox(src_name)
+            if src is not None and src.value() != local.value():
+                src.setValue(local.value())
+        finally:
+            self._mask_sync_guard = False
+        self._recompute_masks()
+
+    def _on_source_mask_changed(self, local, src):
+        """A Background Subtraction mask control changed elsewhere: mirror it
+        here and rebuild our masks."""
+        if self._mask_sync_guard:
+            return
+        self._mask_sync_guard = True
+        try:
+            if local.value() != src.value():
+                local.setValue(src.value())
+        finally:
+            self._mask_sync_guard = False
+        self._recompute_masks()
+
+    def _recompute_masks(self):
+        """Rebuild the general/equator masks from the current mask settings so
+        the mask views and the next fit reflect the new parameters."""
+        if self._inputs is None:
+            return
+        qf = self._get_quadfold()
+        if qf is None or not getattr(qf, "imgCache", None):
+            return
+        avg_fold = qf.imgCache.get("avg_fold")
+        if avg_fold is None:
+            return
+        img = self._inputs[0]
+        h, w = img.shape
+        try:
+            qf.createMask()
+            general_mask = np.asarray(qf.imgCache.get("mask")).astype(bool)
+        except Exception:  # noqa: BLE001
+            return
+        try:
+            rminrmax_mask = np.asarray(qf._create_rminrmax_mask(h, w)).astype(bool)
+        except Exception:  # noqa: BLE001
+            rminrmax_mask = self._inputs[5] if len(self._inputs) > 5 else None
+        equator_mask = self._build_equator_mask(qf, avg_fold, h, w, rminrmax_mask)
+        self._inputs = (img, general_mask, equator_mask,
+                        self._inputs[3], self._inputs[4], rminrmax_mask)
+        if self.viewModeCB.currentText() in ("General mask", "Equator mask"):
+            self.updateView()
 
     def _build_cfg(self):
         return bf.FitConfig(
