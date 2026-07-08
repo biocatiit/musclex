@@ -134,18 +134,33 @@ class BackgroundSubtractionDialog(QDialog):
         method_label,
         params_label,
         loss_label,
+        method_out_label=None,
+        status_label=None,
         title=None,
         min_params_width=400,
         value_style="font-size: 13px; color: #222;",
         field_label_style="font-size: 11px; font-weight: 700; color: #444;",
     ):
-        """Create a reusable "Current Configuration" summary widget."""
+        """Create a reusable "Current Configuration" summary widget.
+
+        When ``method_out_label`` is provided an extra "Method (Out):" row is
+        added (hidden by default; shown for the "Transition" background mode).
+        When ``status_label`` is provided an extra "Fitted BG:" row is added
+        (hidden by default; shown once a fitted background has been subtracted).
+        The header labels created here are attached to the returned widget so
+        callers can relabel/toggle them (e.g. "Method:" -> "Method (In):").
+        """
         params_label.setWordWrap(True)
         params_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         if min_params_width:
             params_label.setMinimumWidth(min_params_width)
 
-        for label in [method_label, params_label, loss_label]:
+        value_labels = [method_label, params_label, loss_label]
+        if method_out_label is not None:
+            value_labels.append(method_out_label)
+        if status_label is not None:
+            value_labels.append(status_label)
+        for label in value_labels:
             label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             label.setStyleSheet(value_style)
 
@@ -171,8 +186,30 @@ class BackgroundSubtractionDialog(QDialog):
         loss_label_header.setStyleSheet(field_label_style)
 
         form.addRow(method_label_header, method_label)
+
+        method_out_label_header = None
+        if method_out_label is not None:
+            method_out_label_header = QLabel("Method (Out):")
+            method_out_label_header.setStyleSheet(field_label_style)
+            form.addRow(method_out_label_header, method_out_label)
+            method_out_label_header.setVisible(False)
+            method_out_label.setVisible(False)
+
         form.addRow(params_label_header, params_label)
         form.addRow(loss_label_header, loss_label)
+
+        status_label_header = None
+        if status_label is not None:
+            status_label_header = QLabel("Fitted BG:")
+            status_label_header.setStyleSheet(field_label_style)
+            form.addRow(status_label_header, status_label)
+            status_label_header.setVisible(False)
+            status_label.setVisible(False)
+
+        # Expose header/row widgets so callers can relabel and toggle them.
+        current_summary_widget.method_header = method_label_header
+        current_summary_widget.method_out_header = method_out_label_header
+        current_summary_widget.status_header = status_label_header
 
         return current_summary_widget
 
@@ -1357,15 +1394,22 @@ class BackgroundSubtractionDialog(QDialog):
     def _create_current_configs(self):
         self.currentBGMethodLabel = QLabel("None")
         self.currentBGModeLabel = QLabel("None")
+        self.currentBGMethodOutLabel = QLabel("None")
         self.currentBGParamsLabel = QLabel("None")
         self.currentBGLossLabel = QLabel("None")
+        self.currentBGFitStatusLabel = QLabel("None")
         current_summary_widget = self.build_current_config_summary_widget(
             method_label=self.currentBGMethodLabel,
             params_label=self.currentBGParamsLabel,
             loss_label=self.currentBGLossLabel,
+            method_out_label=self.currentBGMethodOutLabel,
+            status_label=self.currentBGFitStatusLabel,
             title="Current Configuration",
             min_params_width=520,
         )
+        self.currentBGMethodHeader = current_summary_widget.method_header
+        self.currentBGMethodOutHeader = current_summary_widget.method_out_header
+        self.currentBGFitStatusHeader = current_summary_widget.status_header
 
         current_config_section = QWidget()
         current_config_layout = QGridLayout(current_config_section)

@@ -899,8 +899,10 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # ===== Current Configuration =====
         self.currentBGMethodLabelMain = QLabel("None")
+        self.currentBGMethodOutLabelMain = QLabel("None")
         self.currentBGParamsLabelMain = QLabel("None")
         self.currentBGLossLabelMain = QLabel("None")
+        self.currentBGFitStatusLabelMain = QLabel("None")
         self.currentBGParamsLabelMain.setWordWrap(True)
 
         self.bgSummaryLayout = QGridLayout()
@@ -1049,10 +1051,15 @@ class QuadrantFoldingGUI(BaseGUI):
                 method_label=self.currentBGMethodLabelMain,
                 params_label=self.currentBGParamsLabelMain,
                 loss_label=self.currentBGLossLabelMain,
+                method_out_label=self.currentBGMethodOutLabelMain,
+                status_label=self.currentBGFitStatusLabelMain,
                 title=None,
                 min_params_width=320,
             )
         )
+        self.currentBGMethodHeaderMain = current_summary_widget.method_header
+        self.currentBGMethodOutHeaderMain = current_summary_widget.method_out_header
+        self.currentBGFitStatusHeaderMain = current_summary_widget.status_header
 
         current_layout.addWidget(current_summary_widget, 1, 0, 1, 4)
 
@@ -1868,8 +1875,13 @@ class QuadrantFoldingGUI(BaseGUI):
             "weightSmoothSpnBx",
             "currentBGMethodLabel",
             "currentBGModeLabel",
+            "currentBGMethodOutLabel",
             "currentBGParamsLabel",
             "currentBGLossLabel",
+            "currentBGFitStatusLabel",
+            "currentBGMethodHeader",
+            "currentBGMethodOutHeader",
+            "currentBGFitStatusHeader",
             "bgMetricsTable",
             "bgMetricsTableTitle",
             "saveMetricsToCsvChkBx",
@@ -1894,6 +1906,10 @@ class QuadrantFoldingGUI(BaseGUI):
         if hasattr(self, "persistSyntheticDataChkBx"):
             self.persistSyntheticDataChkBx.toggled.connect(
                 self._on_persist_synthetic_data_toggled
+            )
+        if hasattr(self, "subtractBgFitChkBx"):
+            self.subtractBgFitChkBx.toggled.connect(
+                lambda _checked: self._update_bg_method_summary()
             )
 
     def openBackgroundSubtractionDialog(self):
@@ -2086,6 +2102,7 @@ class QuadrantFoldingGUI(BaseGUI):
             return
 
         method = None
+        method_out = None
         params = None
         loss = None
 
@@ -2097,19 +2114,117 @@ class QuadrantFoldingGUI(BaseGUI):
 
             if method in (None, ""):
                 method = self.quadFold.info.get("bgsub", None)
+            method_out = self.quadFold.info.get("bgsub_out", None)
+
+        # Fall back to the current UI selections when the folder has not been
+        # processed yet so the summary still reflects the chosen methods.
+        if method in (None, "") and hasattr(self, "bgChoiceIn"):
+            method = self.bgChoiceIn.currentText()
+        if method_out in (None, "") and hasattr(self, "bgChoiceOut"):
+            method_out = self.bgChoiceOut.currentText()
+
+        # "Transition" mode subtracts a different background inside/outside the
+        # transition radius, so show the inner and outer methods separately.
+        is_transition = (
+            hasattr(self, "bgOptionsCB")
+            and self.bgOptionsCB.currentText() == "Manual Setting | Transition"
+        )
 
         method_text = "None" if method in (None, "") else str(method)
+        method_out_text = "None" if method_out in (None, "") else str(method_out)
         params_text = self._format_bg_params_text(params)
         loss_text = "—" if loss is None else _to_metric_text(loss, decimal_places=4)
 
-        self.currentBGMethodLabel.setText(method_text)
-        self.currentBGParamsLabel.setText(params_text)
-        self.currentBGLossLabel.setText(loss_text)
+        # Whether a fitted (parametric) background is currently being subtracted:
+        # the "Subtract fitted background" checkbox is on and a matching fit is
+        # available in the cache.
+        fit_subtracted = self._is_fitted_bg_subtracted()
+
+        self._apply_bg_method_summary(
+            method_label=self.currentBGMethodLabel,
+            method_out_label=getattr(self, "currentBGMethodOutLabel", None),
+            params_label=self.currentBGParamsLabel,
+            loss_label=self.currentBGLossLabel,
+            status_label=getattr(self, "currentBGFitStatusLabel", None),
+            method_header=getattr(self, "currentBGMethodHeader", None),
+            method_out_header=getattr(self, "currentBGMethodOutHeader", None),
+            status_header=getattr(self, "currentBGFitStatusHeader", None),
+            method_text=method_text,
+            method_out_text=method_out_text,
+            params_text=params_text,
+            loss_text=loss_text,
+            is_transition=is_transition,
+            fit_subtracted=fit_subtracted,
+        )
 
         if hasattr(self, "currentBGMethodLabelMain"):
-            self.currentBGMethodLabelMain.setText(method_text)
-            self.currentBGParamsLabelMain.setText(params_text)
-            self.currentBGLossLabelMain.setText(loss_text)
+            self._apply_bg_method_summary(
+                method_label=self.currentBGMethodLabelMain,
+                method_out_label=getattr(self, "currentBGMethodOutLabelMain", None),
+                params_label=self.currentBGParamsLabelMain,
+                loss_label=self.currentBGLossLabelMain,
+                status_label=getattr(self, "currentBGFitStatusLabelMain", None),
+                method_header=getattr(self, "currentBGMethodHeaderMain", None),
+                method_out_header=getattr(self, "currentBGMethodOutHeaderMain", None),
+                status_header=getattr(self, "currentBGFitStatusHeaderMain", None),
+                method_text=method_text,
+                method_out_text=method_out_text,
+                params_text=params_text,
+                loss_text=loss_text,
+                is_transition=is_transition,
+                fit_subtracted=fit_subtracted,
+            )
+
+    def _is_fitted_bg_subtracted(self):
+        """True when the fitted background is set to be subtracted and a
+        matching fit is available in the cache."""
+        checked = bool(
+            hasattr(self, "subtractBgFitChkBx")
+            and self.subtractBgFitChkBx is not None
+            and self.subtractBgFitChkBx.isChecked()
+        )
+        if not checked or self.quadFold is None:
+            return False
+        bg_fit = self.quadFold.imgCache.get("BgFoldFit", None)
+        return bg_fit is not None and np.asarray(bg_fit).size > 0
+
+    def _apply_bg_method_summary(
+        self,
+        method_label,
+        method_out_label,
+        params_label,
+        loss_label,
+        status_label,
+        method_header,
+        method_out_header,
+        status_header,
+        method_text,
+        method_out_text,
+        params_text,
+        loss_text,
+        is_transition,
+        fit_subtracted,
+    ):
+        """Populate one "Current Configuration" summary block."""
+        method_label.setText(method_text)
+        params_label.setText(params_text)
+        loss_label.setText(loss_text)
+
+        # Inner/outer method rows (Transition mode only).
+        if method_header is not None:
+            method_header.setText("Method (In):" if is_transition else "Method:")
+        if method_out_label is not None:
+            method_out_label.setText(method_out_text)
+            method_out_label.setVisible(is_transition)
+        if method_out_header is not None:
+            method_out_header.setVisible(is_transition)
+
+        # Fitted-background status row.
+        if status_label is not None:
+            status_label.setText("Subtracted")
+            status_label.setVisible(fit_subtracted)
+        if status_header is not None:
+            status_header.setVisible(fit_subtracted)
 
     def _set_selected_optimization_methods(self, methods):
         """Set selected optimization methods in list widget."""
@@ -2401,10 +2516,11 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.bgSubDialog.manualGroup.setVisible(True)
             elif is_automated:
                 self.bgSubDialog.processingModeCB.setCurrentText("Automated")
-        if self.quadFold is None:
-            return
-        else:
+        if self.quadFold is not None:
             self.quadFold.info["bg_options"] = index
+
+        # Reflect the inner/outer method split (Transition mode) in the summary.
+        self._update_bg_method_summary()
 
     def updateLeftWidgetWidth(self):
         """Update left panel width based on image viewer visibility."""
@@ -3424,6 +3540,8 @@ class QuadrantFoldingGUI(BaseGUI):
         _set_hidden_proxy("tensionLabel", not choice in ("Roving Window"))
         _set_hidden_proxy("tensionSpnBx", not choice in ("Roving Window"))
 
+        self._update_bg_method_summary()
+
     def bgChoiceOutChanged(self):
         """
         Trigger when OUT background subtraction method is changed.
@@ -3482,6 +3600,8 @@ class QuadrantFoldingGUI(BaseGUI):
         )
         _set_hidden_out_widget("tensionOutLabel", not choice in ("Roving Window"))
         _set_hidden_out_widget("tensionOutSpnBx", not choice in ("Roving Window"))
+
+        self._update_bg_method_summary()
 
     def updateImportedBG(self):
         """
