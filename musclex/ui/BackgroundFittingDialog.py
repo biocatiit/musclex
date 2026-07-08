@@ -147,10 +147,15 @@ class BackgroundFittingDialog(QDialog):
         self.baselineReductionSpnBx.setDecimals(1)
         self.baselineReductionSpnBx.setSingleStep(1.0)
         self.baselineReductionSpnBx.setSuffix(" %")
-        self.baselineReductionSpnBx.setValue(25.0)
+        self.baselineReductionSpnBx.setValue(5.0)
+        self.baselineReductionSpnBx.setKeyboardTracking(False)
         self.baselineReductionSpnBx.setToolTip(
             "Cut the general-background baseline by this fraction before "
-            "subtracting (always applied) to guard against oversubtraction.")
+            "subtracting (always applied) to guard against oversubtraction.\n"
+            "After a fit this shows the reduction actually used (including any "
+            "auto-reduce increase); editing it rebuilds the background and "
+            "residual with the new value.")
+        self.baselineReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.equatorReductionSpnBx = QDoubleSpinBox()
         self.equatorReductionSpnBx.setRange(0.0, 100.0)
@@ -158,9 +163,14 @@ class BackgroundFittingDialog(QDialog):
         self.equatorReductionSpnBx.setSingleStep(1.0)
         self.equatorReductionSpnBx.setSuffix(" %")
         self.equatorReductionSpnBx.setValue(5.0)
+        self.equatorReductionSpnBx.setKeyboardTracking(False)
         self.equatorReductionSpnBx.setToolTip(
             "Scale the fitted equator streak down by this fraction before "
-            "subtracting (always applied).")
+            "subtracting (always applied).\n"
+            "After a fit this shows the reduction actually used (including any "
+            "auto-reduce increase); editing it rebuilds the background and "
+            "residual with the new value.")
+        self.equatorReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.autoReduceChkBx = QCheckBox("Auto-reduce (equator && baseline)")
         self.autoReduceChkBx.setChecked(True)
@@ -456,10 +466,65 @@ class BackgroundFittingDialog(QDialog):
         self.runButton.setEnabled(True)
         self.applyButton.setEnabled(True)
         self.viewModeCB.setEnabled(True)
+        self._reflect_reductions_from_result()
         self._update_params_panel()
         self._maybe_save_outputs()
         self.updateView()
         self._warn_if_no_lobes(result)
+
+    def _reflect_reductions_from_result(self):
+        """Show the reductions actually used by the fit (post auto-reduce) in the
+        spinboxes, without triggering a recompute."""
+        if self.result is None:
+            return
+        eq_red = self.result.get("equator_reduction")
+        bl_red = self.result.get("baseline_reduction")
+        for box, frac in ((self.equatorReductionSpnBx, eq_red),
+                          (self.baselineReductionSpnBx, bl_red)):
+            if frac is None:
+                continue
+            box.blockSignals(True)
+            box.setValue(float(frac) * 100.0)
+            box.blockSignals(False)
+
+    def _on_reduction_changed(self, _value=0.0):
+        """Rebuild the reduced backgrounds/residual from the fitted parameters
+        when the user edits a reduction after a fit (no re-fit)."""
+        if self.result is None:
+            return
+        try:
+            eq_red = self.equatorReductionSpnBx.value() / 100.0
+            bl_red = self.baselineReductionSpnBx.value() / 100.0
+            equator, general, residual = bf.reduce_backgrounds(
+                self._inputs[0],
+                self.result["equator_params"], self.result["general_params"],
+                self.result["eq_norm"], self.result["gen_norm"],
+                self.result["comp2"], self.result["downsample_factor"],
+                eq_red, bl_red,
+                self.result.get("equator_keep_baseline", False))
+        except Exception as e:  # noqa: BLE001
+            self.statusLabel.setText(f"Could not update reductions: {e}")
+            return
+        self.result["equator"] = equator
+        self.result["general"] = general
+        self.result["residual"] = residual
+        self.result["equator_reduction"] = eq_red
+        self.result["baseline_reduction"] = bl_red
+        # Refresh the reported oversubtraction over the rmin..rmax annulus so the
+        # params panel matches the new residual.
+        rrmask = self._inputs[5] if len(self._inputs) > 5 else None
+        if rrmask is not None:
+            try:
+                valid = np.isfinite(residual) & (self._inputs[0] > 0) & np.asarray(rrmask)
+                neg = bf.bfu.negative_stats(residual, valid)
+                self.result["oversub_frac"] = neg["frac_negative"]
+                self.result["oversub_flux_frac"] = neg["oversub_flux_frac"]
+                self.result["n_negative"] = neg["n_negative"]
+                self.result["n_valid"] = neg["n_valid"]
+            except Exception:  # noqa: BLE001
+                pass
+        self._update_params_panel()
+        self.updateView()
 
     def _warn_if_no_lobes(self, result):
         """Warn when the equator never formed two lobes (lobe_ok False for every
