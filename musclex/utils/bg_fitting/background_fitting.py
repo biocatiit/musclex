@@ -362,6 +362,34 @@ def fit_general_best(target, mask, cfg, quiet=True, comp2=None):
 
 
 # --------------------------------------------------------------------------- #
+# Post-fit reduced reconstruction
+# --------------------------------------------------------------------------- #
+def reduce_backgrounds(img, eq_params, gen_params, eq_norm, gen_norm, comp2, ds,
+                       eq_red, bl_red, equator_keep_baseline=False):
+    """Reconstruct the reduced equator/general backgrounds and residual.
+
+    Rebuilds the full-resolution backgrounds from the fitted parameters with the
+    given equator/baseline reduction *fractions* applied (the equator is scaled
+    by ``1 - eq_red``; the general baseline parameter is cut by ``1 - bl_red``
+    before reconstruction). Returns ``(equator_full, general_full, residual)``.
+
+    This is the same reconstruction the fit driver performs for its chosen
+    reductions, factored out so the UI can recompute cheaply when the user edits
+    the reductions after a fit without re-running the fit.
+    """
+    full_shape = img.shape
+    equator_full = bfu.reconstruct_equator(
+        eq_params, full_shape, ds, eq_norm, equator_keep_baseline)
+    equator_full = equator_full * (1.0 - float(eq_red))
+    gen_params_red = np.asarray(gen_params, dtype=float).copy()
+    gen_params_red[0] *= (1.0 - float(bl_red))
+    general_full = bfu.reconstruct_general(
+        gen_params_red, full_shape, comp2, ds, gen_norm)
+    residual_full = img - equator_full - general_full
+    return equator_full, general_full, residual_full
+
+
+# --------------------------------------------------------------------------- #
 # Main driver
 # --------------------------------------------------------------------------- #
 def two_stage_iterative_fit(img, general_mask, equator_mask=None, rmin=30, rmax=None,
@@ -553,14 +581,9 @@ def two_stage_iterative_fit(img, general_mask, equator_mask=None, rmin=30, rmax=
 
     # ---- reconstruct the chosen (reduced) backgrounds at FULL resolution ----
     with maybe_quiet(cfg.quiet):
-        equator_full = bfu.reconstruct_equator(
-            eq_params, full_shape, ds, eq_norm, cfg.equator_keep_baseline)
-        equator_full *= (1.0 - eq_red)
-        gen_params_red = gen_params.copy()
-        gen_params_red[0] *= (1.0 - bl_red)
-        general_full = bfu.reconstruct_general(
-            gen_params_red, full_shape, comp2, ds, gen_norm)
-    residual_full = img - equator_full - general_full
+        equator_full, general_full, residual_full = reduce_backgrounds(
+            img, eq_params, gen_params, eq_norm, gen_norm, comp2, ds,
+            eq_red, bl_red, cfg.equator_keep_baseline)
 
     report("Done", 1.0)
     return {
@@ -575,6 +598,12 @@ def two_stage_iterative_fit(img, general_mask, equator_mask=None, rmin=30, rmax=
         "rounds": iter_records,
         "step0": step0_bg,
         "full_shape": full_shape,
+        # reconstruction inputs, so the reduced backgrounds can be rebuilt
+        # (reduce_backgrounds) when the reductions change without re-fitting.
+        "eq_norm": eq_norm,
+        "gen_norm": gen_norm,
+        "downsample_factor": ds,
+        "equator_keep_baseline": cfg.equator_keep_baseline,
         "equator_reduction": eq_red,
         "baseline_reduction": bl_red,
         "oversub_frac": final_neg["frac_negative"],
