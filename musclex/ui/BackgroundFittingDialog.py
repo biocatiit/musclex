@@ -1039,6 +1039,13 @@ class BackgroundFittingDialog(QDialog):
             qf.info["bgfit_applied"] = True
         except Exception:  # noqa: BLE001
             return
+        # A fit has now been applied and a matching background is in the cache,
+        # so turn on subtraction of the fitted background automatically. The
+        # toggled signal keeps the main-panel proxy and summary in sync.
+        if parent is not None:
+            chk = getattr(parent, "subtractBgFitChkBx", None)
+            if chk is not None and not chk.isChecked():
+                chk.setChecked(True)
         # Redraw the parent's result tab from the updated cache.
         if parent is not None:
             for meth in ("refreshResultTab", "refreshAllTabs"):
