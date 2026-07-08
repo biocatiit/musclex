@@ -39,8 +39,6 @@ VIEW_MODES = [
 # inspect and adjust the masking before running the fit.
 MASK_VIEW_MODES = ["General mask", "Equator mask"]
 
-COMP2_OPTIONS = ["auto", "lorentzian", "powerlaw", "stretched"]
-
 # Colormap options for the image views: display name -> matplotlib cmap.
 COLORMAPS = [
     ("Viridis", "viridis"),
@@ -108,30 +106,30 @@ class BackgroundFittingDialog(QDialog):
 
     def _create_widgets(self):
         self.comp2CB = QComboBox()
-        self.comp2CB.addItems(COMP2_OPTIONS)
+        self.comp2CB.addItems(qf_defaults.COMP2_OPTIONS)
         self.comp2CB.setToolTip(
             "Second general-background component (exp + comp2 + baseline). "
             "'auto' tries lorentzian/powerlaw/stretched each iteration and keeps "
             "the best by anti-oversubtraction score.")
-        self.comp2CB.setCurrentIndex(1)
+        self.comp2CB.setCurrentIndex(qf_defaults.DEFAULT_COMP2_INDEX)
 
         self.itersSpnBx = QSpinBox()
-        self.itersSpnBx.setRange(1, 10)
-        self.itersSpnBx.setValue(3)
+        self.itersSpnBx.setRange(*qf_defaults.FIT_MAX_ITERATIONS_RANGE)
+        self.itersSpnBx.setValue(qf_defaults.DEFAULT_FIT_MAX_ITERATIONS)
         self.itersSpnBx.setToolTip("Number of equator<->general alternating rounds.")
 
         self.eqMaxNfevSpnBx = QSpinBox()
-        self.eqMaxNfevSpnBx.setRange(50, 100000)
-        self.eqMaxNfevSpnBx.setSingleStep(100)
-        self.eqMaxNfevSpnBx.setValue(1000)
+        self.eqMaxNfevSpnBx.setRange(*qf_defaults.FIT_MAX_NFEV_RANGE)
+        self.eqMaxNfevSpnBx.setSingleStep(qf_defaults.FIT_MAX_NFEV_STEP)
+        self.eqMaxNfevSpnBx.setValue(qf_defaults.DEFAULT_EQUATOR_MAX_NFEV)
         self.eqMaxNfevSpnBx.setToolTip(
             "Maximum least-squares iterations (function evaluations) for the "
             "equator fit.")
 
         self.genMaxNfevSpnBx = QSpinBox()
-        self.genMaxNfevSpnBx.setRange(50, 100000)
-        self.genMaxNfevSpnBx.setSingleStep(100)
-        self.genMaxNfevSpnBx.setValue(600)
+        self.genMaxNfevSpnBx.setRange(*qf_defaults.FIT_MAX_NFEV_RANGE)
+        self.genMaxNfevSpnBx.setSingleStep(qf_defaults.FIT_MAX_NFEV_STEP)
+        self.genMaxNfevSpnBx.setValue(qf_defaults.DEFAULT_GENERAL_MAX_NFEV)
         self.genMaxNfevSpnBx.setToolTip(
             "Maximum least-squares iterations (function evaluations) for the "
             "general-background fit.")
@@ -152,8 +150,8 @@ class BackgroundFittingDialog(QDialog):
             "still cover the data.")
 
         self.downsampleSpnBx = QSpinBox()
-        self.downsampleSpnBx.setRange(1, 8)
-        self.downsampleSpnBx.setValue(2)
+        self.downsampleSpnBx.setRange(*qf_defaults.FIT_DOWNSAMPLE_RANGE)
+        self.downsampleSpnBx.setValue(qf_defaults.DEFAULT_FIT_DOWNSAMPLE)
         self.downsampleSpnBx.setToolTip("Downsample factor used during fitting (speed).")
 
         self.useStep0ChkBx = QCheckBox("Use step-0 projection background")
@@ -163,11 +161,11 @@ class BackgroundFittingDialog(QDialog):
             "background (per-sector cone fit).")
 
         self.baselineReductionSpnBx = QDoubleSpinBox()
-        self.baselineReductionSpnBx.setRange(0.0, 100.0)
+        self.baselineReductionSpnBx.setRange(*qf_defaults.FIT_REDUCTION_RANGE)
         self.baselineReductionSpnBx.setDecimals(1)
         self.baselineReductionSpnBx.setSingleStep(1.0)
         self.baselineReductionSpnBx.setSuffix(" %")
-        self.baselineReductionSpnBx.setValue(5.0)
+        self.baselineReductionSpnBx.setValue(qf_defaults.DEFAULT_BASELINE_REDUCTION)
         self.baselineReductionSpnBx.setKeyboardTracking(False)
         self.baselineReductionSpnBx.setToolTip(
             "Cut the general-background baseline by this fraction before "
@@ -178,11 +176,11 @@ class BackgroundFittingDialog(QDialog):
         self.baselineReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.equatorReductionSpnBx = QDoubleSpinBox()
-        self.equatorReductionSpnBx.setRange(0.0, 100.0)
+        self.equatorReductionSpnBx.setRange(*qf_defaults.FIT_REDUCTION_RANGE)
         self.equatorReductionSpnBx.setDecimals(1)
         self.equatorReductionSpnBx.setSingleStep(1.0)
         self.equatorReductionSpnBx.setSuffix(" %")
-        self.equatorReductionSpnBx.setValue(5.0)
+        self.equatorReductionSpnBx.setValue(qf_defaults.DEFAULT_EQUATOR_REDUCTION)
         self.equatorReductionSpnBx.setKeyboardTracking(False)
         self.equatorReductionSpnBx.setToolTip(
             "Scale the fitted equator streak down by this fraction before "
@@ -193,7 +191,7 @@ class BackgroundFittingDialog(QDialog):
         self.equatorReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.autoReduceChkBx = QCheckBox("Auto-reduce (equator && baseline)")
-        self.autoReduceChkBx.setChecked(True)
+        self.autoReduceChkBx.setChecked(qf_defaults.DEFAULT_AUTO_REDUCE)
         self.autoReduceChkBx.setToolTip(
             "Automatically increase both reductions on top of the fixed values "
             "above until the oversubtracted-pixel fraction stops improving.")
@@ -216,7 +214,9 @@ class BackgroundFittingDialog(QDialog):
             "Width (px) of each masked layer line.")
 
         self.saveBgChkBx = QCheckBox("Save fitted backgrounds")
+        self.saveBgChkBx.setChecked(qf_defaults.DEFAULT_SAVE_FITTED_BACKGROUNDS)
         self.saveParamsChkBx = QCheckBox("Save fit parameters")
+        self.saveParamsChkBx.setChecked(qf_defaults.DEFAULT_SAVE_FIT_PARAMS)
         self.saveParamsChkBx.setToolTip(
             "Saved automatically to <output>/qf_results/bg_fit_params/.")
 
