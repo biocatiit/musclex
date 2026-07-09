@@ -2036,6 +2036,22 @@ class BackgroundSubtractionDialog(QDialog):
         self._backgroundFittingDialog.raise_()
         self._backgroundFittingDialog.activateWindow()
 
+    def runBackgroundFittingAndApply(self):
+        """Run the iterative 2D background fit with the current settings and
+        apply it automatically (save the fitted background, subtract it and tick
+        the subtraction checkbox), without opening the fitting dialog.
+
+        The dialog is created (so it holds the fit result / parameters and can be
+        opened later to review the masking) but stays hidden; the fit runs in the
+        background and a completion message is shown when it finishes.
+        """
+        parent = self._get_parent_gui()
+        if parent is not None and hasattr(parent, "markBgFittingOpened"):
+            parent.markBgFittingOpened()
+        if self._backgroundFittingDialog is None:
+            self._backgroundFittingDialog = BackgroundFittingDialog(parent)
+        self._backgroundFittingDialog.runFitAndApply()
+
     def _resolve_manual_background_assignments_for_batch(self, configurations):
         """
         Resolve manual image->configuration-name selections into image->configuration records.
