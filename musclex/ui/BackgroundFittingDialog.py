@@ -1278,9 +1278,45 @@ class BackgroundFittingDialog(QDialog):
             # the "Background (Fit)" view; the "Background (Non-param)" view keeps
             # showing the non-parametric background (imgCache["BgFold"]).
             qf.imgCache["BgFoldFit"] = bg_fold
+            # generateResultImage() is not re-run here, so refresh the
+            # display-ready fitted background (imgCache["resultBgFit"]) directly,
+            # mirroring the transform in QuadrantFolder.generateResultImage().
+            # Without this the "Background (Fit)" view keeps showing the zero
+            # array stored while BgFoldFit was still empty.
+            bgfit_full = makeFullImage(np.asarray(bg_fold).copy())
+            qf.imgCache["resultBgFit"] = qf._applyTransformations(bgfit_full)
+            # The fit replaces the non-parametric subtraction, so clear the
+            # non-parametric background: empty the raw array and blank the
+            # display array (zeros, not empty, so the "Background (Non-param)"
+            # view still renders without hitting .min() on an empty array).
+            qf.imgCache["BgFold"] = np.array([])
+            qf.imgCache["resultBg"] = np.zeros_like(residual, dtype=np.float32)
             qf.info["bgfit_applied"] = True
         except Exception:  # noqa: BLE001
             return
+        # The fit replaces the non-parametric background subtraction, so reset
+        # the subtraction method to "None". Driving the combobox keeps info,
+        # the manual proxy and the method summary in sync.
+        qf.info["bgsub"] = "None"
+        # The Current Configuration panel reads info["result_bg"]["method"]
+        # before falling back to info["bgsub"], so reset it too or the panel
+        # keeps showing the stale non-parametric method.
+        result_bg = qf.info.get("result_bg")
+        if isinstance(result_bg, dict):
+            result_bg["method"] = "None"
+            result_bg["final_params"] = None
+            result_bg["loss"] = None
+        if parent is not None:
+            cb = getattr(parent, "bgChoiceIn", None)
+            choices = getattr(parent, "allBGChoices", None)
+            if cb is not None and choices is not None and "None" in choices:
+                cb.setCurrentIndex(choices.index("None"))
+            # Refresh the Current Configuration panel explicitly: setCurrentIndex
+            # only fires bgChoiceInChanged when the value actually changes, so
+            # this covers the case where "None" was already selected.
+            summarize = getattr(parent, "_update_bg_method_summary", None)
+            if callable(summarize):
+                summarize()
         # A fit has now been applied and a matching background is in the cache,
         # so turn on subtraction of the fitted background automatically. The
         # toggled signal keeps the main-panel proxy and summary in sync.
