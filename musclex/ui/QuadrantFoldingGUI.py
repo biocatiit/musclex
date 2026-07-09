@@ -3156,6 +3156,8 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         if not self.ableToProcess():
             return
+        if "resultImg" not in self.quadFold.imgCache:
+            return
 
         x = event.xdata
         y = event.ydata
@@ -3263,10 +3265,13 @@ class QuadrantFoldingGUI(BaseGUI):
         if not self.ableToProcess():
             return
 
+        img = self.quadFold.imgCache.get("resultImg")
+        if img is None:
+            return
+
         x = event.xdata
         y = event.ydata
         ax = self.resultAxes
-        img = self.quadFold.imgCache["resultImg"]
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             x = int(round(x))
@@ -3397,6 +3402,8 @@ class QuadrantFoldingGUI(BaseGUI):
         This function is called when a mouse scrolled on the image in result tab. This will affect zoom-in and zoom-out
         """
         if self.quadFold is None or event.xdata is None or event.ydata is None:
+            return
+        if "resultImg" not in self.quadFold.imgCache:
             return
 
         direction = event.button
