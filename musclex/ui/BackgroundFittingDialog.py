@@ -22,7 +22,6 @@ from ..utils.bg_search.background_search import get_projection, makeFullImage
 from ..utils import qf_defaults
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 
-
 # View modes for the visualization dropdown.
 VIEW_MODES = [
     "Original",
@@ -72,19 +71,25 @@ class FitWorker(QObject):
     finished = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, img, general_mask, equator_mask, rmin, rmax, cfg,
-                 rminrmax_mask=None):
+    def __init__(
+        self, img, general_mask, equator_mask, rmin, rmax, cfg, rminrmax_mask=None
+    ):
         super().__init__()
-        self._args = (img, general_mask, equator_mask, rmin, rmax, cfg,
-                      rminrmax_mask)
+        self._args = (img, general_mask, equator_mask, rmin, rmax, cfg, rminrmax_mask)
 
     def run(self):
         img, gmask, emask, rmin, rmax, cfg, rrmask = self._args
         try:
             result = bf.two_stage_iterative_fit(
-                img, gmask, equator_mask=emask, rmin=rmin, rmax=rmax, cfg=cfg,
+                img,
+                gmask,
+                equator_mask=emask,
+                rmin=rmin,
+                rmax=rmax,
+                cfg=cfg,
                 rminrmax_mask=rrmask,
-                progress_cb=lambda stage, frac: self.progress.emit(stage, frac))
+                progress_cb=lambda stage, frac: self.progress.emit(stage, frac),
+            )
             self.finished.emit(result)
         except Exception:  # noqa: BLE001
             self.failed.emit(traceback.format_exc())
@@ -99,8 +104,8 @@ class BackgroundFittingDialog(QDialog):
         self.resize(1000, 720)
 
         self._parent_gui = parent
-        self.result = None            # last fit result dict
-        self._inputs = None           # (img, gmask, emask, rmin, rmax, rrmask)
+        self.result = None  # last fit result dict
+        self._inputs = None  # (img, gmask, emask, rmin, rmax, rrmask)
         self._thread = None
         self._worker = None
         # When True, the fitted residual is applied to the parent automatically
@@ -136,7 +141,8 @@ class BackgroundFittingDialog(QDialog):
         self.comp2CB.setToolTip(
             "Second general-background component (exp + comp2 + baseline). "
             "'auto' tries lorentzian/powerlaw/stretched each iteration and keeps "
-            "the best by anti-oversubtraction score.")
+            "the best by anti-oversubtraction score."
+        )
         self.comp2CB.setCurrentIndex(qf_defaults.DEFAULT_COMP2_INDEX)
 
         self.itersSpnBx = QSpinBox()
@@ -150,7 +156,8 @@ class BackgroundFittingDialog(QDialog):
         self.eqMaxNfevSpnBx.setValue(qf_defaults.DEFAULT_EQUATOR_MAX_NFEV)
         self.eqMaxNfevSpnBx.setToolTip(
             "Maximum least-squares iterations (function evaluations) for the "
-            "equator fit.")
+            "equator fit."
+        )
 
         self.genMaxNfevSpnBx = QSpinBox()
         self.genMaxNfevSpnBx.setRange(*qf_defaults.FIT_MAX_NFEV_RANGE)
@@ -158,7 +165,8 @@ class BackgroundFittingDialog(QDialog):
         self.genMaxNfevSpnBx.setValue(qf_defaults.DEFAULT_GENERAL_MAX_NFEV)
         self.genMaxNfevSpnBx.setToolTip(
             "Maximum least-squares iterations (function evaluations) for the "
-            "general-background fit.")
+            "general-background fit."
+        )
 
         self.fitSizeSpnBx = QSpinBox()
         self.fitSizeSpnBx.setRange(128, 4096)
@@ -173,18 +181,22 @@ class BackgroundFittingDialog(QDialog):
             "Fit radius (rmax) used only for the fitting step, to speed up "
             "processing. The image is center-cropped to twice this value. "
             "Lower values are preferred for faster fitting, as long as they "
-            "still cover the data.")
+            "still cover the data."
+        )
 
         self.downsampleSpnBx = QSpinBox()
         self.downsampleSpnBx.setRange(*qf_defaults.FIT_DOWNSAMPLE_RANGE)
         self.downsampleSpnBx.setValue(qf_defaults.DEFAULT_FIT_DOWNSAMPLE)
-        self.downsampleSpnBx.setToolTip("Downsample factor used during fitting (speed).")
+        self.downsampleSpnBx.setToolTip(
+            "Downsample factor used during fitting (speed)."
+        )
 
         self.useStep0ChkBx = QCheckBox("Use step-0 projection background")
         self.useStep0ChkBx.setChecked(True)
         self.useStep0ChkBx.setToolTip(
             "Seed the first equator fit with a rough projection-based general "
-            "background (per-sector cone fit).")
+            "background (per-sector cone fit)."
+        )
 
         self.baselineReductionSpnBx = QDoubleSpinBox()
         self.baselineReductionSpnBx.setRange(*qf_defaults.FIT_REDUCTION_RANGE)
@@ -198,7 +210,8 @@ class BackgroundFittingDialog(QDialog):
             "subtracting (always applied) to guard against oversubtraction.\n"
             "After a fit this shows the reduction actually used (including any "
             "auto-reduce increase); editing it rebuilds the background and "
-            "residual with the new value.")
+            "residual with the new value."
+        )
         self.baselineReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.equatorReductionSpnBx = QDoubleSpinBox()
@@ -213,50 +226,67 @@ class BackgroundFittingDialog(QDialog):
             "subtracting (always applied).\n"
             "After a fit this shows the reduction actually used (including any "
             "auto-reduce increase); editing it rebuilds the background and "
-            "residual with the new value.")
+            "residual with the new value."
+        )
         self.equatorReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.autoReduceChkBx = QCheckBox("Auto-reduce (equator && baseline)")
         self.autoReduceChkBx.setChecked(qf_defaults.DEFAULT_AUTO_REDUCE)
         self.autoReduceChkBx.setToolTip(
             "Automatically increase both reductions on top of the fixed values "
-            "above until the oversubtracted-pixel fraction stops improving.")
+            "above until the oversubtracted-pixel fraction stops improving."
+        )
 
         # Evaluation-mask parameters mirrored from the Background Subtraction
         # settings. They drive the general/equator masks used by the fit and are
         # kept two-way synced with the originals (see _init_mask_param_sync).
         self._mask_sync_guard = False
         self.maskEquatorHeightSpnBx = self._make_mask_spinbox(
-            qf_defaults.EQUATOR_HEIGHT_RANGE, qf_defaults.DEFAULT_EQUATOR_HEIGHT,
-            "Half-height (px) of the equatorial band kept for the equator fit.")
+            qf_defaults.EQUATOR_HEIGHT_RANGE,
+            qf_defaults.DEFAULT_EQUATOR_HEIGHT,
+            "Half-height (px) of the equatorial band kept for the equator fit.",
+        )
         self.maskEquatorCenterSpnBx = self._make_mask_spinbox(
-            qf_defaults.EQUATOR_CENTER_RANGE, qf_defaults.DEFAULT_EQUATOR_CENTER,
-            "Radius (px) of the central beam removed from the equator mask.")
+            qf_defaults.EQUATOR_CENTER_RANGE,
+            qf_defaults.DEFAULT_EQUATOR_CENTER,
+            "Radius (px) of the central beam removed from the equator mask.",
+        )
         self.maskM1SpnBx = self._make_mask_spinbox(
-            qf_defaults.LAYER_LINE_RANGE, qf_defaults.DEFAULT_LAYER_SPACING,
-            "Layer-line spacing M1 (px) used to mask the layer lines.")
+            qf_defaults.LAYER_LINE_RANGE,
+            qf_defaults.DEFAULT_LAYER_SPACING,
+            "Layer-line spacing M1 (px) used to mask the layer lines.",
+        )
         self.maskLayerWidthSpnBx = self._make_mask_spinbox(
-            qf_defaults.LAYER_LINE_RANGE, qf_defaults.DEFAULT_LAYER_WIDTH,
-            "Width (px) of each masked layer line.")
+            qf_defaults.LAYER_LINE_RANGE,
+            qf_defaults.DEFAULT_LAYER_WIDTH,
+            "Width (px) of each masked layer line.",
+        )
         self.maskRmaxSpnBx = self._make_mask_spinbox(
-            qf_defaults.RMIN_RMAX_RANGE, qf_defaults.DEFAULT_RMIN_RMAX,
+            qf_defaults.RMIN_RMAX_RANGE,
+            qf_defaults.DEFAULT_RMIN_RMAX,
             "Outer radius (px) of the rmin..rmax annulus used for the fit "
             "masks. Kept in sync with R-max in the Background Subtraction "
-            "settings (-1 uses the automatic value).")
+            "settings (-1 uses the automatic value).",
+        )
         # Equatorial Bragg-peak mask (local to this dialog; drives
         # QuadrantFolder._create_equator_peaks_mask via qf.info).
         self.maskNPeaksSpnBx = self._make_mask_spinbox(
-            qf_defaults.N_PEAKS_RANGE, qf_defaults.DEFAULT_N_PEAKS,
+            qf_defaults.N_PEAKS_RANGE,
+            qf_defaults.DEFAULT_N_PEAKS,
             "Number of equatorial Bragg peaks to detect and mask out of the "
-            "equator fit (0 masks no peaks).")
+            "equator fit (0 masks no peaks).",
+        )
         self.maskPeakWidthSpnBx = self._make_mask_spinbox(
-            qf_defaults.PEAK_WIDTH_RANGE, qf_defaults.DEFAULT_PEAK_WIDTH,
+            qf_defaults.PEAK_WIDTH_RANGE,
+            qf_defaults.DEFAULT_PEAK_WIDTH,
             "Width (px) of the mask placed over each detected equatorial "
-            "Bragg peak.")
+            "Bragg peak.",
+        )
 
         self.runButton = QPushButton("Run Fit")
         self.runButton.setStyleSheet(
-            "QPushButton { color: #ededed; background-color: #af6207; }")
+            "QPushButton { color: #ededed; background-color: #af6207; }"
+        )
         self.runButton.clicked.connect(self.runFit)
 
         self.progressBar = QProgressBar()
@@ -285,7 +315,8 @@ class BackgroundFittingDialog(QDialog):
         self.autoClipChkBx.setChecked(True)
         self.autoClipChkBx.setToolTip(
             "Auto: 2nd-98th percentile for images, data range for profiles. "
-            "Uncheck to set the color-clip (images) or y-limits (profiles) below.")
+            "Uncheck to set the color-clip (images) or y-limits (profiles) below."
+        )
         self.autoClipChkBx.toggled.connect(self._on_auto_clip_toggled)
 
         # Toggles whether the "Equator / Meridian profiles" view draws the data
@@ -295,7 +326,8 @@ class BackgroundFittingDialog(QDialog):
         self.maskedProfileChkBx.setChecked(False)
         self.maskedProfileChkBx.setToolTip(
             "Profiles view: show the data projection with the general "
-            "evaluation mask applied (masked-out pixels set to 0).")
+            "evaluation mask applied (masked-out pixels set to 0)."
+        )
         self.maskedProfileChkBx.toggled.connect(self._on_view_mode_changed)
 
         self.clipMinSpnBx = QDoubleSpinBox()
@@ -353,8 +385,7 @@ class BackgroundFittingDialog(QDialog):
         # settings) in their own collapsible box, placed above the advanced
         # settings so the masking can be inspected/adjusted (via the mask views)
         # before running a fit.
-        self.maskParamsBox = CollapsibleGroupBox(
-            "Mask Parameters", start_expanded=True)
+        self.maskParamsBox = CollapsibleGroupBox("Mask Parameters", start_expanded=True)
         mask_form = QFormLayout()
         mask_form.addRow("Equator Height:", self.maskEquatorHeightSpnBx)
         mask_form.addRow("Equator Center Radius:", self.maskEquatorCenterSpnBx)
@@ -368,7 +399,8 @@ class BackgroundFittingDialog(QDialog):
 
         # Advanced knobs tucked into a collapsible section (collapsed by default).
         self.additionalSettingsBox = CollapsibleGroupBox(
-            "Additional Settings", start_expanded=False)
+            "Additional Settings", start_expanded=False
+        )
         additional_form = QFormLayout()
         additional_form.addRow("Max iterations:", self.itersSpnBx)
         additional_form.addRow("Equator max fit iters:", self.eqMaxNfevSpnBx)
@@ -450,9 +482,12 @@ class BackgroundFittingDialog(QDialog):
         qf = self._get_quadfold()
         if qf is None or not getattr(qf, "imgCache", None):
             if warn:
-                QMessageBox.warning(self, "No image",
-                                    "No processed folded image available. Process "
-                                    "an image in Quadrant Folding first.")
+                QMessageBox.warning(
+                    self,
+                    "No image",
+                    "No processed folded image available. Process "
+                    "an image in Quadrant Folding first.",
+                )
             return None
 
         # Recompute the average fold from the original image; calculateAvgFold
@@ -462,14 +497,16 @@ class BackgroundFittingDialog(QDialog):
             qf.calculateAvgFold()
         except Exception as e:  # noqa: BLE001
             if warn:
-                QMessageBox.warning(self, "No image",
-                                    f"Could not compute the average fold:\n{e}")
+                QMessageBox.warning(
+                    self, "No image", f"Could not compute the average fold:\n{e}"
+                )
             return None
         avg_fold = qf.imgCache.get("avg_fold")
         if avg_fold is None:
             if warn:
-                QMessageBox.warning(self, "No image",
-                                    "No folded image (avg_fold) found.")
+                QMessageBox.warning(
+                    self, "No image", "No folded image (avg_fold) found."
+                )
             return None
 
         img = makeFullImage(avg_fold).astype(float)
@@ -494,8 +531,11 @@ class BackgroundFittingDialog(QDialog):
             general_mask = np.asarray(qf.imgCache.get("mask")).astype(bool)
         except Exception as e:  # noqa: BLE001
             if warn:
-                QMessageBox.warning(self, "Mask error",
-                                    f"Could not build mask from Quadrant Folding:\n{e}")
+                QMessageBox.warning(
+                    self,
+                    "Mask error",
+                    f"Could not build mask from Quadrant Folding:\n{e}",
+                )
             return None
 
         # rmin..rmax annulus: the region shared by both fit masks, and the one
@@ -504,7 +544,7 @@ class BackgroundFittingDialog(QDialog):
         try:
             rminrmax_mask = np.asarray(qf._create_rminrmax_mask(h, w)).astype(bool)
         except Exception:  # noqa: BLE001
-            rminrmax_mask = None   # fall back to synthetic ring inside the fitter
+            rminrmax_mask = None  # fall back to synthetic ring inside the fitter
 
         # Equator-fit mask: keep the equatorial streak but drop the beam and the
         # equatorial Bragg peaks (rebuilt from QF's own mask pieces).
@@ -518,13 +558,19 @@ class BackgroundFittingDialog(QDialog):
         general mask inside the fitter."""
         try:
             full = makeFullImage(avg_fold)
-            eq_ring = (rminrmax_mask if rminrmax_mask is not None
-                       else np.asarray(qf._create_rminrmax_mask(h, w)).astype(bool))
+            eq_ring = (
+                rminrmax_mask
+                if rminrmax_mask is not None
+                else np.asarray(qf._create_rminrmax_mask(h, w)).astype(bool)
+            )
             return (
                 eq_ring
                 & np.asarray(qf._create_equator_peaks_mask(h, w, full)).astype(bool)
                 & np.asarray(qf._create_non_equator_mask(h, w, full)).astype(bool)
-                & np.asarray(qf._create_equator_center_beam_mask(h, w, full)).astype(bool))
+                & np.asarray(qf._create_equator_center_beam_mask(h, w, full)).astype(
+                    bool
+                )
+            )
         except Exception:  # noqa: BLE001
             return None
 
@@ -548,9 +594,11 @@ class BackgroundFittingDialog(QDialog):
                 local.setValue(src.value())
                 local.blockSignals(False)
                 src.valueChanged.connect(
-                    lambda _v, l=local, s=src: self._on_source_mask_changed(l, s))
+                    lambda _v, l=local, s=src: self._on_source_mask_changed(l, s)
+                )
             local.valueChanged.connect(
-                lambda _v, l=local, n=src_name: self._on_local_mask_changed(l, n))
+                lambda _v, l=local, n=src_name: self._on_local_mask_changed(l, n)
+            )
 
         # Equatorial Bragg-peak controls have no Background Subtraction
         # counterpart: they live only on qf.info and drive
@@ -568,7 +616,8 @@ class BackgroundFittingDialog(QDialog):
                 spn.blockSignals(False)
                 info[key] = spn.value()
             spn.valueChanged.connect(
-                lambda _v, s=spn, k=key: self._on_peak_mask_changed(s, k))
+                lambda _v, s=spn, k=key: self._on_peak_mask_changed(s, k)
+            )
 
     def _on_peak_mask_changed(self, spn, key):
         """User edited an equatorial Bragg-peak control: store the value on
@@ -608,11 +657,16 @@ class BackgroundFittingDialog(QDialog):
         try:
             equator, general, residual = bf.reduce_backgrounds(
                 self._inputs[0],
-                params["equator_params"], params["general_params"],
-                params["eq_norm"], params["gen_norm"], params["comp2"],
+                params["equator_params"],
+                params["general_params"],
+                params["eq_norm"],
+                params["gen_norm"],
+                params["comp2"],
                 params["downsample_factor"],
-                params["equator_reduction"], params["baseline_reduction"],
-                params.get("equator_keep_baseline", False))
+                params["equator_reduction"],
+                params["baseline_reduction"],
+                params.get("equator_keep_baseline", False),
+            )
         except Exception:  # noqa: BLE001
             return
         result = dict(params)
@@ -620,7 +674,9 @@ class BackgroundFittingDialog(QDialog):
         rrmask = self._inputs[5] if len(self._inputs) > 5 else None
         if rrmask is not None:
             try:
-                valid = np.isfinite(residual) & (self._inputs[0] > 0) & np.asarray(rrmask)
+                valid = (
+                    np.isfinite(residual) & (self._inputs[0] > 0) & np.asarray(rrmask)
+                )
                 neg = bf.bfu.negative_stats(residual, valid)
                 result["oversub_frac"] = neg["frac_negative"]
                 result["oversub_flux_frac"] = neg["oversub_flux_frac"]
@@ -702,8 +758,14 @@ class BackgroundFittingDialog(QDialog):
         except Exception:  # noqa: BLE001
             rminrmax_mask = self._inputs[5] if len(self._inputs) > 5 else None
         equator_mask = self._build_equator_mask(qf, avg_fold, h, w, rminrmax_mask)
-        self._inputs = (img, general_mask, equator_mask,
-                        self._inputs[3], self._inputs[4], rminrmax_mask)
+        self._inputs = (
+            img,
+            general_mask,
+            equator_mask,
+            self._inputs[3],
+            self._inputs[4],
+            rminrmax_mask,
+        )
         if self.viewModeCB.currentText() in ("General mask", "Equator mask"):
             self.updateView()
 
@@ -848,7 +910,8 @@ class BackgroundFittingDialog(QDialog):
                 "Background fit complete",
                 "Fit complete and subtracted from pattern.\n\n"
                 "Please review and adjust masking in the Iterative 2D "
-                "Background Fitting dialog if needed.")
+                "Background Fitting dialog if needed.",
+            )
 
     def _reflect_reductions_from_result(self):
         """Show the reductions actually used by the fit (post auto-reduce) in the
@@ -857,8 +920,10 @@ class BackgroundFittingDialog(QDialog):
             return
         eq_red = self.result.get("equator_reduction")
         bl_red = self.result.get("baseline_reduction")
-        for box, frac in ((self.equatorReductionSpnBx, eq_red),
-                          (self.baselineReductionSpnBx, bl_red)):
+        for box, frac in (
+            (self.equatorReductionSpnBx, eq_red),
+            (self.baselineReductionSpnBx, bl_red),
+        ):
             if frac is None:
                 continue
             box.blockSignals(True)
@@ -875,11 +940,16 @@ class BackgroundFittingDialog(QDialog):
             bl_red = self.baselineReductionSpnBx.value() / 100.0
             equator, general, residual = bf.reduce_backgrounds(
                 self._inputs[0],
-                self.result["equator_params"], self.result["general_params"],
-                self.result["eq_norm"], self.result["gen_norm"],
-                self.result["comp2"], self.result["downsample_factor"],
-                eq_red, bl_red,
-                self.result.get("equator_keep_baseline", False))
+                self.result["equator_params"],
+                self.result["general_params"],
+                self.result["eq_norm"],
+                self.result["gen_norm"],
+                self.result["comp2"],
+                self.result["downsample_factor"],
+                eq_red,
+                bl_red,
+                self.result.get("equator_keep_baseline", False),
+            )
         except Exception as e:  # noqa: BLE001
             self.statusLabel.setText(f"Could not update reductions: {e}")
             return
@@ -893,7 +963,9 @@ class BackgroundFittingDialog(QDialog):
         rrmask = self._inputs[5] if len(self._inputs) > 5 else None
         if rrmask is not None:
             try:
-                valid = np.isfinite(residual) & (self._inputs[0] > 0) & np.asarray(rrmask)
+                valid = (
+                    np.isfinite(residual) & (self._inputs[0] > 0) & np.asarray(rrmask)
+                )
                 neg = bf.bfu.negative_stats(residual, valid)
                 self.result["oversub_frac"] = neg["frac_negative"]
                 self.result["oversub_flux_frac"] = neg["oversub_flux_frac"]
@@ -910,11 +982,13 @@ class BackgroundFittingDialog(QDialog):
         rounds = result.get("rounds") or []
         if rounds and all(not r.get("lobe_ok") for r in rounds):
             QMessageBox.warning(
-                self, "Equator lobes not detected",
+                self,
+                "Equator lobes not detected",
                 "The equator fit did not form two lobes in any iteration; the "
                 "result fell back to the least-oversubtracted round. The fitted "
                 "equator background may be unreliable -- inspect it before "
-                "applying.")
+                "applying.",
+            )
 
     def _on_failed(self, tb):
         self._auto_apply = False
@@ -941,6 +1015,7 @@ class BackgroundFittingDialog(QDialog):
             return None
         try:
             from ..utils.file_manager import fullPath
+
             save_dir = fullPath(fullPath(out, "qf_results"), "bg_fit_params")
             os.makedirs(save_dir, exist_ok=True)
             return save_dir
@@ -955,17 +1030,24 @@ class BackgroundFittingDialog(QDialog):
             return
         save_dir = self._bgfit_save_dir()
         if not save_dir:
-            QMessageBox.warning(self, "Save error",
-                                "No output directory available to save fit outputs.")
+            QMessageBox.warning(
+                self, "Save error", "No output directory available to save fit outputs."
+            )
             return
         qf = self._get_quadfold()
-        name = os.path.splitext(os.path.basename(
-            getattr(qf, "img_name", "") or "image"))[0] or "image"
+        name = (
+            os.path.splitext(os.path.basename(getattr(qf, "img_name", "") or "image"))[
+                0
+            ]
+            or "image"
+        )
         try:
             from PIL import Image
+
             for key in ("equator", "general", "residual"):
                 Image.fromarray(self.result[key].astype(np.float32)).save(
-                    os.path.join(save_dir, f"{name}_{key}.tif"))
+                    os.path.join(save_dir, f"{name}_{key}.tif")
+                )
             np.savez(
                 os.path.join(save_dir, f"{name}_bgfit_params.npz"),
                 equator_params=self.result["equator_params"],
@@ -975,7 +1057,8 @@ class BackgroundFittingDialog(QDialog):
                 fallback=self.result["fallback"],
                 equator_reduction=self.result.get("equator_reduction", 0.0),
                 baseline_reduction=self.result.get("baseline_reduction", 0.0),
-                oversub_frac=self.result.get("oversub_frac", float("nan")))
+                oversub_frac=self.result.get("oversub_frac", float("nan")),
+            )
             self.statusLabel.setText(f"{self.statusLabel.text()}  Saved to {save_dir}")
         except Exception as e:  # noqa: BLE001
             QMessageBox.warning(self, "Save error", str(e))
@@ -1046,13 +1129,15 @@ class BackgroundFittingDialog(QDialog):
         if over is not None:
             head.append(
                 f"Oversubtraction: {over * 100:.2f}%  "
-                f"({r.get('n_negative')}/{r.get('n_valid')} px)")
+                f"({r.get('n_negative')}/{r.get('n_valid')} px)"
+            )
         eq_red = r.get("equator_reduction")
         bl_red = r.get("baseline_reduction")
         if eq_red is not None and bl_red is not None:
             head.append(
                 f"Reductions     : equator {eq_red * 100:.1f}%, "
-                f"baseline {bl_red * 100:.1f}%")
+                f"baseline {bl_red * 100:.1f}%"
+            )
         head.append("")
         try:
             eq = self._format_equator_params(r.get("equator_params"))
@@ -1122,7 +1207,11 @@ class BackgroundFittingDialog(QDialog):
         self.coordLabel.setText("")
         if self._inputs is None:
             return
-        img, general_mask, equator_mask = self._inputs[0], self._inputs[1], self._inputs[2]
+        img, general_mask, equator_mask = (
+            self._inputs[0],
+            self._inputs[1],
+            self._inputs[2],
+        )
         mode = self.viewModeCB.currentText()
 
         # The mask overlays use a fixed grayscale base + green overlay, so the
@@ -1140,9 +1229,11 @@ class BackgroundFittingDialog(QDialog):
             return
         if mode == "Equator mask":
             self._draw_mask(
-                equator_mask, img,
+                equator_mask,
+                img,
                 "Equator-fit mask (green = used)",
-                none_text="Equator mask fell back to the general mask.")
+                none_text="Equator mask fell back to the general mask.",
+            )
             self.canvas.draw_idle()
             return
 
@@ -1154,8 +1245,9 @@ class BackgroundFittingDialog(QDialog):
         residual = self.result["residual"]
 
         if mode == "Equator / Meridian profiles":
-            self._draw_profiles(img, equator, general, residual,
-                                general_mask, equator_mask)
+            self._draw_profiles(
+                img, equator, general, residual, general_mask, equator_mask
+            )
         else:
             cmap = self._selected_cmap()
             if mode == "Original":
@@ -1177,15 +1269,18 @@ class BackgroundFittingDialog(QDialog):
         mirroring the main QF window's status bar. Only active for the image
         views (the profiles view leaves ``_display_data`` None)."""
         data = self._display_data
-        if (data is None or event.inaxes is None
-                or event.xdata is None or event.ydata is None):
+        if (
+            data is None
+            or event.inaxes is None
+            or event.xdata is None
+            or event.ydata is None
+        ):
             self.coordLabel.setText("")
             return
         x = int(round(event.xdata))
         y = int(round(event.ydata))
         if 0 <= x < data.shape[1] and 0 <= y < data.shape[0]:
-            self.coordLabel.setText(
-                f"x={x}, y={y}, value={np.round(data[y][x], 2)}")
+            self.coordLabel.setText(f"x={x}, y={y}, value={np.round(data[y][x], 2)}")
         else:
             self.coordLabel.setText("")
 
@@ -1201,8 +1296,14 @@ class BackgroundFittingDialog(QDialog):
         ax = self.figure.add_subplot(111)
         if mask is None:
             ax.axis("off")
-            ax.text(0.5, 0.5, none_text or "No mask available.",
-                    ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                none_text or "No mask available.",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             return
         # Report the underlying image value (not the mask) under the cursor.
         self._display_data = np.asarray(img)
@@ -1212,7 +1313,7 @@ class BackgroundFittingDialog(QDialog):
         ax.imshow(img, origin="upper", cmap="gray", vmin=lo, vmax=hi)
         mask = np.asarray(mask).astype(bool)
         overlay = np.zeros(mask.shape + (4,), dtype=float)
-        overlay[..., 0] = 0.6            # light green marks the used pixels
+        overlay[..., 0] = 0.6  # light green marks the used pixels
         overlay[..., 1] = 1.0
         overlay[..., 2] = 0.6
         overlay[..., 3] = np.where(mask, 0.5, 0.0)
@@ -1238,8 +1339,9 @@ class BackgroundFittingDialog(QDialog):
         proj = np.where(mask_strip, data_strip, 0.0).sum(axis=orientation)
         return np.where(used > 0, proj, np.nan)
 
-    def _draw_profiles(self, img, equator, general, residual,
-                       general_mask=None, equator_mask=None):
+    def _draw_profiles(
+        self, img, equator, general, residual, general_mask=None, equator_mask=None
+    ):
         bg = equator + general
         # Optionally show the masked data projection: sum only the pixels used
         # by the evaluation mask (mask True = used) and leave gaps where they
@@ -1335,13 +1437,15 @@ class BackgroundFittingDialog(QDialog):
                 "eq_norm": self.result["eq_norm"],
                 "gen_norm": self.result["gen_norm"],
                 "downsample_factor": self.result["downsample_factor"],
-                "equator_keep_baseline": self.result.get("equator_keep_baseline", False),
+                "equator_keep_baseline": self.result.get(
+                    "equator_keep_baseline", False
+                ),
                 "equator_reduction": self.result.get("equator_reduction", 0.0),
                 "baseline_reduction": self.result.get("baseline_reduction", 0.0),
                 "best_iter": self.result.get("best_iter"),
                 "fallback": self.result.get("fallback"),
             }
-            
+
         except Exception:  # noqa: BLE001
             return
         # The fit replaces the non-parametric background subtraction, so reset
