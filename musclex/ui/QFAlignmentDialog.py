@@ -277,13 +277,14 @@ class QFAlignmentDialog(QDialog):
             return
 
         row = self._row_mapper.row_for_fm_index(idx)
-        if row is not None:
-            self.panel.select_row(row)
+        if row is None:
+            return
+        self.panel.select_row(row)
 
         # The QF main window may have just changed center/rotation; refresh that row.
-        name = self._row_mapper.name_for_row(idx)
+        name = self._row_mapper.name_for_row(row)
         if name is not None:
-            self.panel.update_row(idx, name)
+            self.panel.update_row(row, name)
 
     def _on_folder_reloaded(self, *_args):
         """

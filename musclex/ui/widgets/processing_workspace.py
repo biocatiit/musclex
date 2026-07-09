@@ -2154,7 +2154,11 @@ class ProcessingWorkspace(QWidget):
                     )
                     self.settings_manager.save_auto_cache()
 
-                if "center" in cal_settings:
+                if image_data.is_quadrant_folded:
+                    self.set_center_from_source(
+                        image_data.img_name, None, "calibration_qf_ignored"
+                    )
+                elif "center" in cal_settings:
                     # Update center using workspace method
                     self.set_center_from_source(
                         image_data.img_name, cal_settings["center"], "calibration"
@@ -2223,5 +2227,13 @@ class ProcessingWorkspace(QWidget):
         """
         cache = self._load_calibration_cache()
         if cache is not None and "settings" in cache:
-            return cache["settings"]
+            settings = cache["settings"]
+            if (
+                self._current_image_data is not None
+                and self._current_image_data.is_quadrant_folded
+                and isinstance(settings, dict)
+            ):
+                settings = dict(settings)
+                settings.pop("center", None)
+            return settings
         return None

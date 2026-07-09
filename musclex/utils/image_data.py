@@ -230,17 +230,19 @@ class ImageData:
                 img, self.file_manager.dir_path, img_name, self.workspace
             )
         """
+        # Auto-detect quadrant folded (PT specific, QF won't use this)
+        quadrant_folded = cls.detect_folded(img_path, img_name)
+
         # Get manual center/rotation from panel
         manual_center, manual_rotation = settings_panel.get_manual_settings(img_name)
+        if quadrant_folded:
+            manual_center = None
 
         # Get blank/mask configuration
         blank_mask_config = settings_panel.get_blank_mask_config()
 
         # Get orientation model (if available, default to 0)
         orientation_model = getattr(settings_panel, "_orientation_model", 0)
-
-        # Auto-detect quadrant folded (PT specific, QF won't use this)
-        quadrant_folded = cls.detect_folded(img_path, img_name)
 
         # Get inpaint flag from panel (if available)
         inpaint = getattr(settings_panel, "inpaint_enabled", False)
