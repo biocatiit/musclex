@@ -893,7 +893,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self._advancedConfigOpened = False
         self._bgFittingOpened = False
         self._updateResultDisplayModeItems()
-        self.resultDisplayModeCB.setCurrentText("Folded")
+        self.resultDisplayModeCB.setCurrentText("Subtracted")
         self.resultDisplayModeCB.setToolTip(
             "Choose which result visualization to display in the Results tab"
         )
@@ -3013,8 +3013,8 @@ class QuadrantFoldingGUI(BaseGUI):
         advanced = getattr(self, "_advancedConfigOpened", False)
         fitting = getattr(self, "_bgFittingOpened", False)
         ordered = [
-            ("Folded", True),
             ("Subtracted", True),
+            ("Folded", True),
             ("Background (Fit)", fitting),
             ("Background (Non-param)", True),
             ("Evaluation Mask", advanced),
@@ -4457,16 +4457,8 @@ class QuadrantFoldingGUI(BaseGUI):
             if img is None:
                 self.uiUpdating = False
                 return
-            def _hasBackground(bg):
-                return bg is not None and np.asarray(bg).size > 0 and np.any(bg)
             
-
-            if _hasBackground(bg_fit) or _hasBackground(bg_fold):
-                display_mode = "Subtracted"
-                print("Display mode set to Subtracted (background available)")
-            else:
-                display_mode = "Folded"
-                print("Display mode set to Folded (no background available)")
+            display_mode = "Subtracted"
             if hasattr(self, "resultDisplayModeCB"):
                 display_mode = self.resultDisplayModeCB.currentText()
 
