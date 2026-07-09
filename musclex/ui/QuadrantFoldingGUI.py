@@ -802,11 +802,36 @@ class QuadrantFoldingGUI(BaseGUI):
             "When disabled, the original (unfolded) image is used for background subtraction."
         )
 
+        self.solidAngleCorrectionChkBx = QCheckBox("Solid Angle")
+        self.solidAngleCorrectionChkBx.setChecked(False)
+        self.solidAngleCorrectionChkBx.setToolTip(
+            "Apply a flat-detector solid-angle correction before quadrant folding"
+        )
+
+        self.polarizationCorrectionChkBx = QCheckBox("Polarization")
+        self.polarizationCorrectionChkBx.setChecked(False)
+        self.polarizationCorrectionChkBx.setToolTip(
+            "Apply an X-ray polarization correction before quadrant folding"
+        )
+
+        self.polarizationModeCB = QComboBox()
+        self.polarizationModeCB.addItems(qf_defaults.POLARIZATION_CORRECTION_OPTIONS)
+        self.polarizationModeCB.setCurrentText(
+            qf_defaults.DEFAULT_POLARIZATION_CORRECTION_MODE
+        )
+        self.polarizationModeCB.setToolTip(
+            "Select the incident-beam polarization model used by the correction"
+        )
+
         self.settingsLayout.addWidget(
             QLabel("Mask Threshold : Use Set Mask"), 0, 0, 1, 2
         )
         self.settingsLayout.addWidget(self.toggleFoldImage, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 1, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Intensity Correction"), 2, 0, 1, 4)
+        self.settingsLayout.addWidget(self.solidAngleCorrectionChkBx, 3, 0, 1, 1)
+        self.settingsLayout.addWidget(self.polarizationCorrectionChkBx, 3, 1, 1, 1)
+        self.settingsLayout.addWidget(self.polarizationModeCB, 3, 2, 1, 2)
 
         self.settingsGroup.setLayout(self.settingsLayout)
         # Note: settingsGroup is added in _create_quadrant_settings(), not here
@@ -2444,6 +2469,15 @@ class QuadrantFoldingGUI(BaseGUI):
             self._on_result_display_mode_changed
         )
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
+        self.solidAngleCorrectionChkBx.stateChanged.connect(
+            self.intensityCorrectionChanged
+        )
+        self.polarizationCorrectionChkBx.stateChanged.connect(
+            self.intensityCorrectionChanged
+        )
+        self.polarizationModeCB.currentIndexChanged.connect(
+            self.intensityCorrectionChanged
+        )
         self.compressFoldedImageChkBx.stateChanged.connect(
             self.compressFoldedImageChanged
         )
@@ -4289,6 +4323,38 @@ class QuadrantFoldingGUI(BaseGUI):
             self.deleteImgCache(["BgSubFold"])
             self.processImage()
 
+    def intensityCorrectionChanged(self):
+        if self.uiUpdating or self.quadFold is None:
+            return
+        if self.sender() is self.polarizationModeCB and not (
+            self.polarizationCorrectionChkBx.isChecked()
+        ):
+            return
+        print("Intensity correction settings changed; reprocessing image.")
+        self.quadFold.info.pop("processing_fingerprint", None)
+        self.deleteImgCache(
+            [
+                "avg_fold",
+                "avg_fold_with_syn",
+                "_avg_fold",
+                "_avg_fold_with_syn",
+                "BgSubFold",
+                "BgFold",
+                "BgSubFold_in",
+                "BgFold_in",
+                "BgSubFold_out",
+                "BgFold_out",
+                "BgSubFold_syn",
+                "BgFold_syn",
+                "BgSubFold_syn_in",
+                "BgFold_syn_in",
+                "BgSubFold_syn_out",
+                "BgFold_syn_out",
+                "resultImg",
+            ]
+        )
+        self.processImage()
+
     def closeEvent(self, ev):
         """
         Close the event
@@ -4917,6 +4983,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self._register_persisted_synthetic_from_processed_info(quad_fold.info)
         if quad_fold.info.get("stopped"):
             return
+        correction_status = quad_fold.info.get("intensity_correction_status")
+        if correction_status:
+            self.statusPrint(f"Intensity corrections {correction_status}")
 
         current_name = self._get_current_image_name()
         is_current = current_name and image_name == current_name
@@ -6081,6 +6150,15 @@ class QuadrantFoldingGUI(BaseGUI):
         flags["apply_mask"] = sm.mask_enabled
 
         flags["fold_image"] = self.toggleFoldImage.isChecked()
+        flags["apply_solid_angle_correction"] = bool(
+            self.solidAngleCorrectionChkBx.isChecked()
+        )
+        flags["apply_polarization_correction"] = bool(
+            self.polarizationCorrectionChkBx.isChecked()
+        )
+        flags["polarization_correction_mode"] = str(
+            self.polarizationModeCB.currentText()
+        )
 
         # ===== Background removal flags =====
         flags["bgsub"] = self.bgChoiceIn.currentText()
@@ -6321,6 +6399,21 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if self.calSettings is not None and "detector" in self.calSettings:
             flags["detector"] = self.calSettings["detector"]
+        if self.calSettings is not None and (
+            flags["apply_solid_angle_correction"]
+            or flags["apply_polarization_correction"]
+        ):
+            if "sdd" in self.calSettings:
+                flags["sdd"] = self.calSettings["sdd"]
+            if "pixel_size" in self.calSettings:
+                flags["pixel_size"] = self.calSettings["pixel_size"]
+            try:
+                sdd = float(self.calSettings.get("sdd", 0))
+                pixel_size = float(self.calSettings.get("pixel_size", 0))
+            except (TypeError, ValueError):
+                sdd = pixel_size = 0
+            if sdd > 0 and pixel_size > 0:
+                flags["intensity_correction_sdd_pixels"] = sdd / pixel_size
 
         # if getattr(self, '_force_no_fast_path_on_process', False):
         #     flags['no_fast_path'] = True
@@ -7007,6 +7100,9 @@ class QuadrantFoldingGUI(BaseGUI):
             "roi_w",
             "roi_h",
             "detector",
+            "sdd",
+            "pixel_size",
+            "intensity_correction_sdd_pixels",
             "center",
             "fold_image",
             "rotate",

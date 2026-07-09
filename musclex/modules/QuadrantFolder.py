@@ -256,6 +256,12 @@ class QuadrantFolder:
         "bgimg1",
         "bgimg2",
         "bg_line",
+        # Runtime calibration geometry/status for optional corrections.
+        # The geometry is re-injected from current flags when needed.
+        "sdd",
+        "pixel_size",
+        "intensity_correction_sdd_pixels",
+        "intensity_correction_status",
         # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
         *_RUNTIME_STATE_KEYS,
     )
@@ -283,6 +289,7 @@ class QuadrantFolder:
         # not a processing input, so it must not vote on the fingerprint.
         "bgfit_applied",
         "bgfit_result_params",
+        "intensity_correction_status",
         # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
         *_RUNTIME_STATE_KEYS,
         # Computed defaults that the GUI's widgets can silently truncate
@@ -1352,7 +1359,7 @@ class QuadrantFolder:
         therefore want a fresh fold.
         """
         self.parent.statusPrint("Calculating Avg Fold...")
-        rotate_img = self.orig_img
+        rotate_img = self._apply_intensity_corrections(self.orig_img)
         center = self.center
         center_x = int(center[0])
         center_y = int(center[1])
@@ -1419,6 +1426,91 @@ class QuadrantFolder:
         if "resultImg" in self.imgCache:
             del self.imgCache["resultImg"]
         print("Done.")
+
+    def _apply_intensity_corrections(self, img):
+        """
+        Apply optional geometry-dependent multiplicative corrections before
+        quadrants are mirrored/averaged.
+
+        Solid-angle correction uses the relative flat-detector pixel solid
+        angle cos(2θ)^3. Polarization correction uses the Thomson scattering
+        factor for unpolarized, horizontally polarized, or vertically
+        polarized X-rays and divides intensities by that factor.
+        """
+        apply_solid_angle = bool(self.info.get("apply_solid_angle_correction", False))
+        apply_polarization = bool(self.info.get("apply_polarization_correction", False))
+        if not apply_solid_angle and not apply_polarization:
+            self.info.pop("intensity_correction_status", None)
+            return img
+
+        sdd_pixels = self._get_sdd_pixels_for_intensity_corrections()
+        if sdd_pixels is None or sdd_pixels <= 0:
+            self.info["intensity_correction_status"] = (
+                "skipped: sample-detector distance in pixels is unavailable"
+            )
+            msg = f"Intensity corrections {self.info['intensity_correction_status']}"
+            print(msg)
+            self.parent.statusPrint(msg)
+            return img
+
+        center_x, center_y = float(self.center[0]), float(self.center[1])
+        height, width = img.shape[:2]
+        y, x = np.indices((height, width), dtype=np.float32)
+        dx = x - center_x
+        dy = y - center_y
+        radius_sq = dx * dx + dy * dy
+        sdd_sq = float(sdd_pixels) * float(sdd_pixels)
+        cos_two_theta = float(sdd_pixels) / np.sqrt(sdd_sq + radius_sq)
+
+        multiplier = np.ones((height, width), dtype=np.float32)
+        applied = []
+        if apply_solid_angle:
+            solid_angle = np.maximum(cos_two_theta**3, 1e-6)
+            multiplier /= solid_angle
+            applied.append("solid_angle")
+
+        if apply_polarization:
+            mode = str(self.info.get("polarization_correction_mode", "Unpolarized"))
+            sin_two_theta_sq = np.maximum(1.0 - cos_two_theta**2, 0.0)
+            azimuth = np.arctan2(dy, dx)
+            if mode == "Horizontal":
+                pol_factor = 1.0 - sin_two_theta_sq * np.cos(azimuth) ** 2
+            elif mode == "Vertical":
+                pol_factor = 1.0 - sin_two_theta_sq * np.sin(azimuth) ** 2
+            else:
+                pol_factor = 0.5 * (1.0 + cos_two_theta**2)
+                mode = "Unpolarized"
+            multiplier /= np.maximum(pol_factor, 1e-6)
+            applied.append(f"polarization:{mode}")
+
+        corrected = img.astype(np.float32, copy=False) * multiplier
+        self.info["intensity_correction_status"] = "applied: " + ", ".join(applied)
+        self.info["intensity_correction_sdd_pixels"] = float(sdd_pixels)
+        msg = (
+            f"Intensity corrections {self.info['intensity_correction_status']} "
+            f"(SDD={sdd_pixels:.6g} px)"
+        )
+        print(msg)
+        self.parent.statusPrint(msg)
+        return corrected
+
+    def _get_sdd_pixels_for_intensity_corrections(self):
+        for key in ("intensity_correction_sdd_pixels", "sdd_pixels"):
+            try:
+                value = float(self.info.get(key, 0))
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                return value
+
+        try:
+            sdd = float(self.info.get("sdd", 0))
+            pixel_size = float(self.info.get("pixel_size", 0))
+        except (TypeError, ValueError):
+            return None
+        if sdd > 0 and pixel_size > 0:
+            return sdd / pixel_size
+        return None
 
     def get_avg_fold(self, quadrants, fold_height, fold_width):
         """
