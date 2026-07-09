@@ -78,6 +78,7 @@ QF_COMBO_TEXT_BINDINGS = (
     ("degree", "degreeCB", _degree_to_combo),
     ("downsample", "downsampleCB", lambda v: str(int(v))),
     ("freq", "freqCB", str),
+    ("polarization_correction_mode", "polarizationModeCB", str),
 )
 
 
@@ -90,6 +91,8 @@ QF_CHECKBOX_BINDINGS = (
     ("persist_synthetic_data", "persistSyntheticDataChkBx"),
     ("save_metrics_to_csv", "saveMetricsToCsvChkBx"),
     ("compressed", "compressFoldedImageChkBx"),
+    ("apply_solid_angle_correction", "solidAngleCorrectionChkBx"),
+    ("apply_polarization_correction", "polarizationCorrectionChkBx"),
 )
 
 
@@ -146,6 +149,10 @@ QF_SKIP_KEYS = frozenset(
         "roi_w",
         "roi_h",
         "detector",
+        "sdd",
+        "pixel_size",
+        "intensity_correction_sdd_pixels",
+        "intensity_correction_status",
         "center",
         "fold_image",
         "rotate",

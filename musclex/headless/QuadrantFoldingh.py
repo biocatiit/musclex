@@ -161,6 +161,11 @@ class QuadrantFoldingh:
         from ..utils.settings_manager import SettingsManager
 
         settings_manager = SettingsManager(self.dir_path)
+        self.settings_manager = settings_manager
+        self.calibration_settings = None
+        calibration_cache = settings_manager.load_calibration_cache()
+        if calibration_cache and calibration_cache.get("settings"):
+            self.calibration_settings = calibration_cache["settings"]
         manual_center = settings_manager.get_center(fileName)
         manual_rotation = settings_manager.get_rotation(fileName)
         # Wire blank/mask preprocessing from the settings directory so headless
@@ -588,6 +593,27 @@ class QuadrantFoldingh:
             flags.update(self.calSettings)
         if "center" in flags:
             flags.pop("center")
+
+        if isinstance(getattr(self, "calibration_settings", None), dict):
+            cal = self.calibration_settings
+            if "detector" in cal:
+                flags["detector"] = cal["detector"]
+        if isinstance(getattr(self, "calibration_settings", None), dict) and (
+            flags.get("apply_solid_angle_correction")
+            or flags.get("apply_polarization_correction")
+        ):
+            cal = self.calibration_settings
+            if "sdd" in cal:
+                flags["sdd"] = cal["sdd"]
+            if "pixel_size" in cal:
+                flags["pixel_size"] = cal["pixel_size"]
+            try:
+                sdd = float(cal.get("sdd", 0))
+                pixel_size = float(cal.get("pixel_size", 0))
+            except (TypeError, ValueError):
+                sdd = pixel_size = 0
+            if sdd > 0 and pixel_size > 0:
+                flags["intensity_correction_sdd_pixels"] = sdd / pixel_size
 
         # Defensive: strip caller-injected runtime state if it ever made
         # it into qfsettings.json (older GUI versions, or a hand-edited

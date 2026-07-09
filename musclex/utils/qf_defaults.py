@@ -48,6 +48,8 @@ DEFAULT_TRANSITION_DELTA = 60
 DEFAULT_OPTIMIZE_TIMEOUT = 20  # minutes; 0 = disabled
 OPTIMIZE_TIMEOUT_RANGE = (0, 300)  # minutes
 DEFAULT_OPTIMIZE_TIMEOUT_SINGLE_RUN = 2 * 60  # 2 minutes
+POLARIZATION_CORRECTION_OPTIONS = ["Unpolarized", "Horizontal", "Vertical"]
+DEFAULT_POLARIZATION_CORRECTION_MODE = "Unpolarized"
 DEFAULT_MEAN_MSE = 0.0142451
 DEFAULT_MEAN_NEG_SYN = 0.513271
 DEFAULT_MEAN_BASELINE = 0.344556
@@ -176,6 +178,9 @@ def build_default_flags() -> Dict[str, Any]:
         "degree": default_degree,
         "downsample": default_downsample,
         "smooth_image": False,
+        "apply_solid_angle_correction": False,
+        "apply_polarization_correction": False,
+        "polarization_correction_mode": DEFAULT_POLARIZATION_CORRECTION_MODE,
         "optimize": False,
         "optimize_each_image": False,
         "save_metrics_to_csv": False,
