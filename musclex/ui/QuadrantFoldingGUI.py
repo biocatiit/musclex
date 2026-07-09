@@ -1005,7 +1005,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.parametricFittingGroupMain = CollapsibleGroupBox(
             "Parametric Background Fitting", start_expanded=False
         )
-        self.openFittingButtonMain = QPushButton("Iterative 2D Background Fitting…")
+        self.openFittingButtonMain = QPushButton("Iterative 2D Background Fitting Dialog")
         self.openFittingButtonMain.setToolTip(self.openFittingButton.toolTip())
         self.openFittingButtonMain.clicked.connect(
             self.bgSubDialog.openBackgroundFittingDialog

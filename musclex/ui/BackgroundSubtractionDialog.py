@@ -926,7 +926,7 @@ class BackgroundSubtractionDialog(QDialog):
         self.applyBGButton.setStyleSheet(self.STYLES["apply_button"])
 
         # ===== Iterative 2D Background Fitting (separate window) =====
-        self.openFittingButton = QPushButton("Iterative 2D Background Fitting…")
+        self.openFittingButton = QPushButton("Iterative 2D Background Fitting Dialog")
         self.openFittingButton.setToolTip(
             "Open the iterative two-stage (equator + general) background fitting "
             "window for the current folded image.")
@@ -937,7 +937,7 @@ class BackgroundSubtractionDialog(QDialog):
         # populated from the Iterative 2D Background Fitting window) from the
         # folded image before the normal QF background removal.
         self.subtractBgFitChkBx = QCheckBox(
-            "Subtract fitted background before QF removal"
+            "Subtract fitted before non-parametric"
         )
         self.subtractBgFitChkBx.setChecked(False)
         self.subtractBgFitChkBx.setToolTip(
