@@ -2189,6 +2189,7 @@ class QuadrantFolder:
 
         result = self.imgCache["resultImg"]
         bg = self.imgCache.get("resultBg", None)
+        bg = bg + self.imgCache.get("resultBgFit", None) if bg is not None else bg
 
         stack = result if bg is None else (result + bg)
         persist_manual = bool(self.info.get("persist_evaluation_baseline", False))
