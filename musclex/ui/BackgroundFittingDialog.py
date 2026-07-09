@@ -1163,7 +1163,9 @@ class BackgroundFittingDialog(QDialog):
         bg_fold = bg_full[: h // 2, : w // 2].astype(np.float32)
         try:
             qf.imgCache["resultImg"] = residual.astype(np.float32)
-            qf.imgCache["BgFold"] = bg_fold
+            # Only populate the fitted-background cache so the fit is shown in
+            # the "Background (Fit)" view; the "Background (Non-param)" view keeps
+            # showing the non-parametric background (imgCache["BgFold"]).
             qf.imgCache["BgFoldFit"] = bg_fold
             qf.info["bgfit_applied"] = True
         except Exception:  # noqa: BLE001
