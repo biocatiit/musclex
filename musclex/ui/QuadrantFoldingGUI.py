@@ -1006,23 +1006,30 @@ class QuadrantFoldingGUI(BaseGUI):
         self.parametricFittingGroupMain = CollapsibleGroupBox(
             "Parametric Background Fitting", start_expanded=False
         )
-        self.openFittingButtonMain = QPushButton("Iterative 2D Background Fitting Dialog")
+        self.openFittingButtonMain = QPushButton(
+            "Iterative 2D Background Fitting Dialog"
+        )
         self.openFittingButtonMain.setToolTip(self.openFittingButton.toolTip())
         self.openFittingButtonMain.clicked.connect(
             self.bgSubDialog.openBackgroundFittingDialog
         )
         self.runFittingApplyButtonMain = QPushButton(
-            "Run Fitting with current setting and apply")
+            "Run Fitting with current setting and apply"
+        )
         self.runFittingApplyButtonMain.setToolTip(
             "Run the iterative 2D background fit with the current settings, then "
             "automatically save the fitted background, subtract it and enable "
-            "the subtraction checkbox -- without stepping through the dialog.")
+            "the subtraction checkbox -- without stepping through the dialog."
+        )
         self.runFittingApplyButtonMain.clicked.connect(
             self.bgSubDialog.runBackgroundFittingAndApply
         )
         self.subtractBgFitChkBxProxy = self._clone_checkbox(self.subtractBgFitChkBx)
         self._bind_proxy_two_way(
-            self.subtractBgFitChkBxProxy, self.subtractBgFitChkBx, "toggled", "setChecked"
+            self.subtractBgFitChkBxProxy,
+            self.subtractBgFitChkBx,
+            "toggled",
+            "setChecked",
         )
         parametric_main_layout = QGridLayout()
         parametric_main_layout.addWidget(self.openFittingButtonMain, 0, 0, 1, 4)
@@ -3885,9 +3892,7 @@ class QuadrantFoldingGUI(BaseGUI):
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info["bgsub"]))
             # if info["bgsub"] != "None":
-            self.tophatSpnBx.setValue(
-                int(info.get("tophat", self.tophatSpnBx.value()))
-            )
+            self.tophatSpnBx.setValue(int(info.get("tophat", self.tophatSpnBx.value())))
             self.maxPixRange.setValue(
                 float(info.get("cirmax", self.maxPixRange.value()))
             )
@@ -3905,12 +3910,8 @@ class QuadrantFoldingGUI(BaseGUI):
                 float(info.get("tension", self.tensionSpnBx.value()))
             )
 
-            self.winSizeX.setValue(
-                int(info.get("win_size_x", self.winSizeX.value()))
-            )
-            self.winSizeY.setValue(
-                int(info.get("win_size_y", self.winSizeY.value()))
-            )
+            self.winSizeX.setValue(int(info.get("win_size_x", self.winSizeX.value())))
+            self.winSizeY.setValue(int(info.get("win_size_y", self.winSizeY.value())))
             self.winSepX.setValue(int(info.get("win_sep_x", self.winSepX.value())))
             self.winSepY.setValue(int(info.get("win_sep_y", self.winSepY.value())))
             self.gaussFWHM.setValue(int(info.get("fwhm", self.gaussFWHM.value())))
@@ -3941,7 +3942,9 @@ class QuadrantFoldingGUI(BaseGUI):
             if "equator_mask_height" in info:
                 self.equatorMaskHeightSpnBx.setValue(int(info["equator_mask_height"]))
             if "equator_center_beam_width" in info:
-                self.equatorCenterBeamSpnBx.setValue(int(info["equator_center_beam_width"]))
+                self.equatorCenterBeamSpnBx.setValue(
+                    int(info["equator_center_beam_width"])
+                )
             if "layer_line_width" in info:
                 self.layerLineWidthSpnBx.setValue(int(info["layer_line_width"]))
             # n_peaks/peak_width have no QuadrantFoldingGUI widget; they live only
@@ -4473,7 +4476,7 @@ class QuadrantFoldingGUI(BaseGUI):
             if img is None:
                 self.uiUpdating = False
                 return
-            
+
             display_mode = "Subtracted"
             if hasattr(self, "resultDisplayModeCB"):
                 display_mode = self.resultDisplayModeCB.currentText()

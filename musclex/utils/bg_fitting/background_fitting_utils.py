@@ -106,8 +106,9 @@ def reconstruct_equator(params, shape, ds, max_norm, keep_baseline):
     if not keep_baseline:
         p[1] = 0.0
     dummy = np.zeros((shape[0] // ds, shape[1] // ds))
-    f = EllipticalSAXSFitter(dummy, mask=None, model="elliptical", n_peaks=1,
-                             downsample_factor=1)
+    f = EllipticalSAXSFitter(
+        dummy, mask=None, model="elliptical", n_peaks=1, downsample_factor=1
+    )
     e = f.compute_intensity(p) * max_norm
     return resize(e, shape, anti_aliasing=False)
 
@@ -115,9 +116,18 @@ def reconstruct_equator(params, shape, ds, max_norm, keep_baseline):
 def reconstruct_general(params, shape, comp2, ds, max_norm):
     """Reconstruct the circular exp+comp2+baseline general background onto ``shape``."""
     dummy = np.zeros((shape[0] // ds, shape[1] // ds))
-    f = EllipticalSAXSFitter(dummy, mask=None, model="circular_exponential", K=0,
-                             n_peaks=1, downsample_factor=1, comp1="exponential",
-                             comp2=comp2, comp3=None, aspect=True)
+    f = EllipticalSAXSFitter(
+        dummy,
+        mask=None,
+        model="circular_exponential",
+        K=0,
+        n_peaks=1,
+        downsample_factor=1,
+        comp1="exponential",
+        comp2=comp2,
+        comp3=None,
+        aspect=True,
+    )
     g = f.compute_intensity(params) * max_norm
     return resize(g, shape, anti_aliasing=False)
 
@@ -132,8 +142,9 @@ def loss_mode_kwargs(mode, neg_weight, pos_weight):
     harder than under-fit; ``log`` fits log-residuals with no asymmetry.
     """
     if mode == "linear_asym":
-        return dict(loss="linear", log_space=False,
-                    neg_weight=neg_weight, pos_weight=pos_weight)
+        return dict(
+            loss="linear", log_space=False, neg_weight=neg_weight, pos_weight=pos_weight
+        )
     if mode == "log":
         return dict(loss="linear", log_space=True, neg_weight=1.0, pos_weight=1.0)
     raise ValueError(f"unknown loss mode {mode!r}")
@@ -219,7 +230,7 @@ def inject_initial_params(base_params, init, aspect=True):
     scl_idx = amp_idx + 1
     p[amp_idx] = init["amp"]
     d0 = init["decay"]
-    p[scl_idx] = np.log(np.expm1(d0)) if d0 > 1 else d0   # softplus^-1(d0)
+    p[scl_idx] = np.log(np.expm1(d0)) if d0 > 1 else d0  # softplus^-1(d0)
     return p
 
 
@@ -241,7 +252,7 @@ def compute_metrics(data, model, mask, n_params):
     if n < 5:
         return out
 
-    ss_res = float(np.sum(res ** 2))
+    ss_res = float(np.sum(res**2))
     ss_tot = float(np.sum((d - d.mean()) ** 2)) + 1e-12
     out["r2"] = 1.0 - ss_res / ss_tot
     out["rmse"] = float(np.sqrt(ss_res / n))
@@ -252,12 +263,12 @@ def compute_metrics(data, model, mask, n_params):
 
     sigma2 = np.maximum(d, 1.0)
     dof = max(n - n_params, 1)
-    out["chi2_red"] = float(np.sum(res ** 2 / sigma2) / dof)
+    out["chi2_red"] = float(np.sum(res**2 / sigma2) / dof)
 
     pos = (d > 0) & (m > 0)
     if pos.sum() > 5:
         lr = np.log(d[pos]) - np.log(m[pos])
-        out["logres_rms"] = float(np.sqrt(np.mean(lr ** 2)))
+        out["logres_rms"] = float(np.sqrt(np.mean(lr**2)))
         out["logres_bias"] = float(np.mean(lr))
     else:
         out["logres_rms"] = np.nan
@@ -305,9 +316,11 @@ def decision_score(metrics):
     chi = metrics.get("chi2_red", np.nan)
     if not np.isfinite(ofl):
         return float("inf")
-    return float(ofl * 100.0
-                 + 0.5 * (ofr if np.isfinite(ofr) else 1.0)
-                 + 0.1 * np.log(chi if (np.isfinite(chi) and chi > 0) else 1e6))
+    return float(
+        ofl * 100.0
+        + 0.5 * (ofr if np.isfinite(ofr) else 1.0)
+        + 0.1 * np.log(chi if (np.isfinite(chi) and chi > 0) else 1e6)
+    )
 
 
 def equator_lobes_ok(eq_params, max_v0_dev):
@@ -317,15 +330,28 @@ def equator_lobes_ok(eq_params, max_v0_dev):
     Returns (ok: bool, info: dict).
     """
     p = np.asarray(eq_params, dtype=float)
-    A = float(p[0]); amp = float(p[2]); u0 = float(p[3]); uw = float(p[4])
-    v0 = float(p[5]); vw = float(p[6])
+    A = float(p[0])
+    amp = float(p[2])
+    u0 = float(p[3])
+    uw = float(p[4])
+    v0 = float(p[5])
+    vw = float(p[6])
     v_mod = abs(v0) % 180.0
     v0_dev = min(v_mod, 180.0 - v_mod)
     x_peak = float(np.hypot(max(u0, 0.0), A))
     sep = 2.0 * x_peak
     ok = bool(amp > 0 and A < 10 and vw >= 2 and v0_dev <= max_v0_dev)
-    info = {"A": A, "amp": amp, "u0": u0, "uw": uw, "v0": v0,
-            "v0_dev": v0_dev, "x_peak": x_peak, "sep": sep, "ok": ok}
+    info = {
+        "A": A,
+        "amp": amp,
+        "u0": u0,
+        "uw": uw,
+        "v0": v0,
+        "v0_dev": v0_dev,
+        "x_peak": x_peak,
+        "sep": sep,
+        "ok": ok,
+    }
     return ok, info
 
 
@@ -355,6 +381,7 @@ def select_best_iteration(iter_records):
 
     Returns (best_record, fallback: bool).
     """
+
     def key(rec):
         return (rec["neg_red"]["n_negative"], rec["gen_cost"])
 
@@ -367,8 +394,9 @@ def select_best_iteration(iter_records):
 # --------------------------------------------------------------------------- #
 # Angular-sector radial projections (pyFAI) -- used by the step-0 pass
 # --------------------------------------------------------------------------- #
-def get_radial_projections(copy_img, copy_img_masked, rmin=100, rmax=950,
-                           step=1, ignore_equator=0, srange=None):
+def get_radial_projections(
+    copy_img, copy_img_masked, rmin=100, rmax=950, step=1, ignore_equator=0, srange=None
+):
     """Radial intensity profiles integrated over angular sectors (bottom-left
     quadrant, 180-270 deg), using pyFAI azimuthal integration.
 
@@ -392,7 +420,8 @@ def get_radial_projections(copy_img, copy_img_masked, rmin=100, rmax=950,
     projections_x = []
 
     integration_method = IntegrationMethod.select_one_available(
-        "csr", dim=1, default="csr", degradable=True)
+        "csr", dim=1, default="csr", degradable=True
+    )
 
     if srange is not None:
         sectors = list(srange)
@@ -408,20 +437,28 @@ def get_radial_projections(copy_img, copy_img_masked, rmin=100, rmax=950,
                 sectors.append((deg - step / 2, deg + step / 2))
 
     for start_deg, end_deg in sectors:
-        _, I = ai.integrate1d(copy_img_masked, npt_rad, unit="r_mm",
-                              method=integration_method,
-                              azimuth_range=(start_deg, end_deg),
-                              correctSolidAngle=False)
-        hist_y = I[int(rmin):int(rmax + 1)]
+        _, I = ai.integrate1d(
+            copy_img_masked,
+            npt_rad,
+            unit="r_mm",
+            method=integration_method,
+            azimuth_range=(start_deg, end_deg),
+            correctSolidAngle=False,
+        )
+        hist_y = I[int(rmin) : int(rmax + 1)]
         hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
         projections_y.append(hist_y)
         projections_x.append(hist_x)
 
-        _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm",
-                              method=integration_method,
-                              azimuth_range=(start_deg, end_deg),
-                              correctSolidAngle=False)
-        hist_y = I[int(rmin):int(rmax + 1)]
+        _, I = ai.integrate1d(
+            copy_img,
+            npt_rad,
+            unit="r_mm",
+            method=integration_method,
+            azimuth_range=(start_deg, end_deg),
+            correctSolidAngle=False,
+        )
+        hist_y = I[int(rmin) : int(rmax + 1)]
         hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
         projections_y_full.append(hist_y)
 
