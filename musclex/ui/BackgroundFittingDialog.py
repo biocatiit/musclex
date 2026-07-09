@@ -306,6 +306,13 @@ class BackgroundFittingDialog(QDialog):
 
         self.figure = Figure(figsize=(6, 6), tight_layout=True)
         self.canvas = FigureCanvas(self.figure)
+        # Cursor readout under the canvas, shown only for the image views (not
+        # the profiles view). Holds the array currently drawn so the handler can
+        # report the value under the mouse.
+        self._display_data = None
+        self.coordLabel = QLabel("")
+        self.coordLabel.setStyleSheet("font-family: Monospace; font-size: 11px;")
+        self.canvas.mpl_connect("motion_notify_event", self._on_canvas_motion)
 
         self.applyButton = QPushButton("Apply (use residual) && Close")
         self.applyButton.clicked.connect(self.applyAndClose)
@@ -392,6 +399,7 @@ class BackgroundFittingDialog(QDialog):
         view_row.addWidget(self.clipMaxSpnBx)
         right.addLayout(view_row)
         right.addWidget(self.canvas, 1)
+        right.addWidget(self.coordLabel)
 
         right_widget = QWidget()
         right_widget.setLayout(right)
@@ -966,6 +974,10 @@ class BackgroundFittingDialog(QDialog):
 
     # -- drawing --------------------------------------------------------- #
     def updateView(self):
+        # Reset the cursor readout; the draw helpers set the array back for the
+        # image views (the profiles view leaves it None so no value is shown).
+        self._display_data = None
+        self.coordLabel.setText("")
         if self._inputs is None:
             return
         img, general_mask, equator_mask = self._inputs[0], self._inputs[1], self._inputs[2]
@@ -1018,7 +1030,25 @@ class BackgroundFittingDialog(QDialog):
 
         self.canvas.draw_idle()
 
+    def _on_canvas_motion(self, event):
+        """Show the cursor's image coordinates and pixel value under the canvas,
+        mirroring the main QF window's status bar. Only active for the image
+        views (the profiles view leaves ``_display_data`` None)."""
+        data = self._display_data
+        if (data is None or event.inaxes is None
+                or event.xdata is None or event.ydata is None):
+            self.coordLabel.setText("")
+            return
+        x = int(round(event.xdata))
+        y = int(round(event.ydata))
+        if 0 <= x < data.shape[1] and 0 <= y < data.shape[0]:
+            self.coordLabel.setText(
+                f"x={x}, y={y}, value={np.round(data[y][x], 2)}")
+        else:
+            self.coordLabel.setText("")
+
     def _draw_image(self, data, cmap, sym, title):
+        self._display_data = np.asarray(data)
         ax = self.figure.add_subplot(111)
         lo, hi = self._resolve_range(data, sym)
         im = ax.imshow(data, origin="upper", cmap=cmap, vmin=lo, vmax=hi)
@@ -1032,6 +1062,8 @@ class BackgroundFittingDialog(QDialog):
             ax.text(0.5, 0.5, none_text or "No mask available.",
                     ha="center", va="center", transform=ax.transAxes)
             return
+        # Report the underlying image value (not the mask) under the cursor.
+        self._display_data = np.asarray(img)
         # Base image (grayscale) with the mask overlaid semi-transparently so the
         # masked regions can be read against the data being fitted.
         lo, hi = self._resolve_range(img, sym=False)
