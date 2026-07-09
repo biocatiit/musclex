@@ -2127,10 +2127,21 @@ class QuadrantFolder:
         bg_scaled = self._applyTransformations(bg)
         self.imgCache["resultBg"] = bg_scaled
 
-        if self.info["bgsub"] == "None":
-            self.imgCache["resultFolded"] = result_scaled
+        # Fitted (parametric) background, transformed identically to resultImg so
+        # it can be added back / displayed consistently. When no fit was applied,
+        # store zeros so callers can add it unconditionally.
+        bg_fit = self.imgCache.get("BgFoldFit", None)
+        if bg_fit is not None and np.asarray(bg_fit).size > 0:
+            bgfit_full = makeFullImage(copy.copy(np.asarray(bg_fit)))
+            bgfit_scaled = self._applyTransformations(bgfit_full)
         else:
-            self.imgCache["resultFolded"] = result_scaled + bg_scaled
+            bgfit_scaled = np.zeros_like(result_scaled)
+        self.imgCache["resultBgFit"] = bgfit_scaled
+
+        if self.info["bgsub"] == "None":
+            self.imgCache["resultFolded"] = result_scaled + bgfit_scaled
+        else:
+            self.imgCache["resultFolded"] = result_scaled + bg_scaled + bgfit_scaled
 
         print("Done.")
 

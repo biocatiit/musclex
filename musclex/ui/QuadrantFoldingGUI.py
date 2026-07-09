@@ -893,6 +893,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self._advancedConfigOpened = False
         self._bgFittingOpened = False
         self._updateResultDisplayModeItems()
+        self.resultDisplayModeCB.setCurrentText("Folded")
         self.resultDisplayModeCB.setToolTip(
             "Choose which result visualization to display in the Results tab"
         )
@@ -3001,10 +3002,10 @@ class QuadrantFoldingGUI(BaseGUI):
         advanced = getattr(self, "_advancedConfigOpened", False)
         fitting = getattr(self, "_bgFittingOpened", False)
         ordered = [
+            ("Folded", True),
             ("Subtracted", True),
             ("Background (Fit)", fitting),
             ("Background (Non-param)", True),
-            ("Folded", True),
             ("Evaluation Mask", advanced),
             ("Synthetic Signal", advanced),
             ("Synthetic Mask", advanced),
@@ -4429,45 +4430,45 @@ class QuadrantFoldingGUI(BaseGUI):
         self.uiUpdating = True
         try:
             img = self.quadFold.imgCache.get("resultImg", None)
-            if img is None:
-                img = self.quadFold.imgCache.get("resultFolded", None)
+            folded = self.quadFold.imgCache.get("resultFolded", None)
+
+            bg_fit = self.quadFold.imgCache.get("resultBgFit", None)
+            bg_fold = self.quadFold.imgCache.get("resultBg", None)
 
             if img is None:
                 self.uiUpdating = False
                 return
-            display_mode = "Subtracted"
+            def _hasBackground(bg):
+                print("BG sum:", np.sum(bg))
+                print("np.any(bg)", np.any(bg))
+                return bg is not None and np.asarray(bg).size > 0 and np.any(bg)
+            
+
+            if _hasBackground(bg_fit) or _hasBackground(bg_fold):
+                display_mode = "Subtracted"
+                print("Display mode set to Subtracted (background available)")
+            else:
+                display_mode = "Folded"
+                print("Display mode set to Folded (no background available)")
             if hasattr(self, "resultDisplayModeCB"):
                 display_mode = self.resultDisplayModeCB.currentText()
 
             try:
-                if display_mode == "Background (Fit)":
-                    bg_fit = self.quadFold.imgCache.get("BgFoldFit", None)
-                    if bg_fit is not None and np.asarray(bg_fit).size > 0:
-                        img = makeFullImage(bg_fit)
-                        if (
-                            "rotate" in self.quadFold.info
-                            and self.quadFold.info["rotate"]
-                        ):
-                            img = np.rot90(img)
-                    else:
-                        # No fitted background available: show a black image
-                        # (all zeros) rather than falling back to the folded image.
-                        img = np.zeros_like(img)
-
-                elif display_mode == "Background (Non-param)" or display_mode == "Folded":
-                    bg_fold = self.quadFold.imgCache.get("BgFold", None)
-                    if bg_fold is not None:
-                        background = makeFullImage(bg_fold)
-                        img = (
-                            background
-                            if display_mode == "Background (Non-param)"
-                            else img + background
-                        )
-                        if (
-                            "rotate" in self.quadFold.info
-                            and self.quadFold.info["rotate"]
-                        ):
-                            img = np.rot90(img)
+                if (
+                    display_mode == "Background (Fit)"
+                    or display_mode == "Background (Non-param)"
+                    or display_mode == "Folded"
+                    or display_mode == "Subtracted"
+                ):
+                    # resultImg / resultFolded / resultBg / resultBgFit are
+                    # already full-size and transformed (see generateResultImage),
+                    # so they are displayed as-is without makeFullImage/rot90.
+                    if display_mode == "Folded":
+                        img = folded
+                    elif display_mode == "Background (Fit)":
+                        img = bg_fit
+                    elif display_mode == "Background (Non-param)":
+                        img = bg_fold
 
                 elif (
                     display_mode == "Synthetic Signal"
