@@ -242,8 +242,6 @@ class QuadrantFolder:
         "synthetic_amplitude",
         "synthetic_sigma_x",
         "synthetic_sigma_y",
-        "m1",
-        "layer_line_width",
     )
 
     _NON_CACHED_KEYS = (
@@ -281,6 +279,10 @@ class QuadrantFolder:
         "inv_transform",
         "centImgTransMat",
         "folded",
+        # Output of the (manual, dialog-driven) iterative background fit --
+        # not a processing input, so it must not vote on the fingerprint.
+        "bgfit_applied",
+        "bgfit_result_params",
         # Runtime state (see _RUNTIME_STATE_KEYS docstring above)
         *_RUNTIME_STATE_KEYS,
         # Computed defaults that the GUI's widgets can silently truncate
