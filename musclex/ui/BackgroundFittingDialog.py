@@ -212,6 +212,21 @@ class BackgroundFittingDialog(QDialog):
         self.maskLayerWidthSpnBx = self._make_mask_spinbox(
             qf_defaults.LAYER_LINE_RANGE, qf_defaults.DEFAULT_LAYER_WIDTH,
             "Width (px) of each masked layer line.")
+        self.maskRmaxSpnBx = self._make_mask_spinbox(
+            qf_defaults.RMIN_RMAX_RANGE, qf_defaults.DEFAULT_RMIN_RMAX,
+            "Outer radius (px) of the rmin..rmax annulus used for the fit "
+            "masks. Kept in sync with R-max in the Background Subtraction "
+            "settings (-1 uses the automatic value).")
+        # Equatorial Bragg-peak mask (local to this dialog; drives
+        # QuadrantFolder._create_equator_peaks_mask via qf.info).
+        self.maskNPeaksSpnBx = self._make_mask_spinbox(
+            qf_defaults.N_PEAKS_RANGE, qf_defaults.DEFAULT_N_PEAKS,
+            "Number of equatorial Bragg peaks to detect and mask out of the "
+            "equator fit (0 masks no peaks).")
+        self.maskPeakWidthSpnBx = self._make_mask_spinbox(
+            qf_defaults.PEAK_WIDTH_RANGE, qf_defaults.DEFAULT_PEAK_WIDTH,
+            "Width (px) of the mask placed over each detected equatorial "
+            "Bragg peak.")
 
         self.saveBgChkBx = QCheckBox("Save fitted backgrounds")
         self.saveBgChkBx.setChecked(qf_defaults.DEFAULT_SAVE_FITTED_BACKGROUNDS)
@@ -309,6 +324,9 @@ class BackgroundFittingDialog(QDialog):
         mask_form.addRow("Equator Center Radius:", self.maskEquatorCenterSpnBx)
         mask_form.addRow("Layer line spacing (M1):", self.maskM1SpnBx)
         mask_form.addRow("Layer line width:", self.maskLayerWidthSpnBx)
+        mask_form.addRow("Rmax:", self.maskRmaxSpnBx)
+        mask_form.addRow("Equator peaks:", self.maskNPeaksSpnBx)
+        mask_form.addRow("Equator peak width:", self.maskPeakWidthSpnBx)
         self.maskParamsBox.set_content_layout(mask_form)
         form.addRow(self.maskParamsBox)
 
@@ -475,6 +493,7 @@ class BackgroundFittingDialog(QDialog):
             (self.maskEquatorCenterSpnBx, "equatorCenterBeamSpnBx"),
             (self.maskM1SpnBx, "m1SpnBx"),
             (self.maskLayerWidthSpnBx, "layerLineWidthSpnBx"),
+            (self.maskRmaxSpnBx, "rmaxSpnBx"),
         ]
         for local, src_name in self._mask_param_pairs:
             src = self._source_mask_spinbox(src_name)
@@ -486,6 +505,32 @@ class BackgroundFittingDialog(QDialog):
                     lambda _v, l=local, s=src: self._on_source_mask_changed(l, s))
             local.valueChanged.connect(
                 lambda _v, l=local, n=src_name: self._on_local_mask_changed(l, n))
+
+        # Equatorial Bragg-peak controls have no Background Subtraction
+        # counterpart: they live only on qf.info and drive
+        # QuadrantFolder._create_equator_peaks_mask directly.
+        self._peak_mask_pairs = [
+            (self.maskNPeaksSpnBx, "n_peaks", qf_defaults.DEFAULT_N_PEAKS),
+            (self.maskPeakWidthSpnBx, "peak_width", qf_defaults.DEFAULT_PEAK_WIDTH),
+        ]
+        qf = self._get_quadfold()
+        info = getattr(qf, "info", None) if qf is not None else None
+        for spn, key, default in self._peak_mask_pairs:
+            if info is not None:
+                spn.blockSignals(True)
+                spn.setValue(int(info.get(key, default)))
+                spn.blockSignals(False)
+                info[key] = spn.value()
+            spn.valueChanged.connect(
+                lambda _v, s=spn, k=key: self._on_peak_mask_changed(s, k))
+
+    def _on_peak_mask_changed(self, spn, key):
+        """User edited an equatorial Bragg-peak control: store the value on
+        qf.info and rebuild the masks so the views/next fit reflect it."""
+        qf = self._get_quadfold()
+        if qf is not None and getattr(qf, "info", None) is not None:
+            qf.info[key] = spn.value()
+        self._recompute_masks()
 
     def _init_mask_preview(self):
         """Build the fit masks when the dialog opens so the user can inspect and
