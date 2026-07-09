@@ -269,6 +269,16 @@ class BackgroundFittingDialog(QDialog):
             "Uncheck to set the color-clip (images) or y-limits (profiles) below.")
         self.autoClipChkBx.toggled.connect(self._on_auto_clip_toggled)
 
+        # Toggles whether the "Equator / Meridian profiles" view draws the data
+        # projection from the raw image or from the image with the general
+        # evaluation mask applied (unused pixels zeroed).
+        self.maskedProfileChkBx = QCheckBox("Masked")
+        self.maskedProfileChkBx.setChecked(False)
+        self.maskedProfileChkBx.setToolTip(
+            "Profiles view: show the data projection with the general "
+            "evaluation mask applied (masked-out pixels set to 0).")
+        self.maskedProfileChkBx.toggled.connect(self._on_view_mode_changed)
+
         self.clipMinSpnBx = QDoubleSpinBox()
         self.clipMinSpnBx.setRange(-1e9, 1e9)
         self.clipMinSpnBx.setDecimals(2)
@@ -374,6 +384,7 @@ class BackgroundFittingDialog(QDialog):
         view_row.addWidget(self.viewModeCB, 1)
         view_row.addWidget(QLabel("Colormap:"))
         view_row.addWidget(self.cmapCB)
+        view_row.addWidget(self.maskedProfileChkBx)
         view_row.addWidget(self.autoClipChkBx)
         view_row.addWidget(QLabel("Min:"))
         view_row.addWidget(self.clipMinSpnBx)
@@ -963,6 +974,8 @@ class BackgroundFittingDialog(QDialog):
         # The mask overlays use a fixed grayscale base + green overlay, so the
         # colormap picker is irrelevant there.
         self.cmapCB.setEnabled(mode not in MASK_VIEW_MODES)
+        # The "Masked" toggle only affects the profiles view.
+        self.maskedProfileChkBx.setEnabled(mode == "Equator / Meridian profiles")
 
         self.figure.clear()
 
@@ -987,7 +1000,8 @@ class BackgroundFittingDialog(QDialog):
         residual = self.result["residual"]
 
         if mode == "Equator / Meridian profiles":
-            self._draw_profiles(img, equator, general, residual)
+            self._draw_profiles(img, equator, general, residual,
+                                general_mask, equator_mask)
         else:
             cmap = self._selected_cmap()
             if mode == "Original":
@@ -1031,16 +1045,54 @@ class BackgroundFittingDialog(QDialog):
         ax.imshow(overlay, origin="upper")
         ax.set_title(title)
 
-    def _draw_profiles(self, img, equator, general, residual):
+    @staticmethod
+    def _masked_projection(img, mask, gap, orientation):
+        """Projection over the same central strip as ``get_projection`` but
+        summing only the masked-in (used) pixels. Columns of the strip that are
+        fully masked out are returned as NaN so the plotted line shows a gap
+        there instead of collapsing to zero."""
+        img = np.asarray(img, dtype=float)
+        mask = np.asarray(mask).astype(bool)
+        center = img.shape[0] // 2, img.shape[1] // 2
+        if orientation == 0:
+            sl = slice(center[0] - gap // 2, center[0] + gap // 2)
+            data_strip, mask_strip = img[sl, :], mask[sl, :]
+        else:
+            sl = slice(center[1] - gap // 2, center[1] + gap // 2)
+            data_strip, mask_strip = img[:, sl], mask[:, sl]
+        used = mask_strip.sum(axis=orientation)
+        proj = np.where(mask_strip, data_strip, 0.0).sum(axis=orientation)
+        return np.where(used > 0, proj, np.nan)
+
+    def _draw_profiles(self, img, equator, general, residual,
+                       general_mask=None, equator_mask=None):
         bg = equator + general
+        # Optionally show the masked data projection: sum only the pixels used
+        # by the evaluation mask (mask True = used) and leave gaps where they
+        # are fully masked out. The equatorial profile uses the equator-fit mask
+        # (falling back to the general mask when unavailable); the meridional
+        # profile uses the general mask.
+        show_masked = self.maskedProfileChkBx.isChecked()
+        masks = {
+            0: equator_mask if equator_mask is not None else general_mask,
+            1: general_mask,
+        }
         ax1 = self.figure.add_subplot(211)
         ax2 = self.figure.add_subplot(212)
         manual = not self.autoClipChkBx.isChecked()
         for ax, orient, name in ((ax1, 0, "Equatorial"), (ax2, 1, "Meridional")):
-            d = get_projection(img, gap=4, orientation=orient)
+            mask = masks[orient]
+            masked = show_masked and mask is not None
+            if masked:
+                # Sum over used pixels only and break the line (NaN) where a
+                # strip column is fully masked, so the trace shows gaps instead
+                # of dropping to zero across the masked-out regions.
+                d = self._masked_projection(img, mask, gap=4, orientation=orient)
+            else:
+                d = get_projection(img, gap=4, orientation=orient)
             b = get_projection(bg, gap=4, orientation=orient)
             r = get_projection(residual, gap=4, orientation=orient)
-            ax.plot(d, label="data", alpha=0.7)
+            ax.plot(d, label="masked data" if masked else "data", alpha=0.7)
             ax.plot(b, label="background", alpha=0.7)
             ax.plot(r, label="residual", ls="--", alpha=0.7)
             ax.axhline(0, color="k", lw=0.6)
