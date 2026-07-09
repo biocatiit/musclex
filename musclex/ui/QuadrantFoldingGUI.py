@@ -3002,8 +3002,8 @@ class QuadrantFoldingGUI(BaseGUI):
         fitting = getattr(self, "_bgFittingOpened", False)
         ordered = [
             ("Subtracted", True),
-            ("Background", True),
             ("Background (Fit)", fitting),
+            ("Background (Non-param)", True),
             ("Folded", True),
             ("Evaluation Mask", advanced),
             ("Synthetic Signal", advanced),
@@ -4447,13 +4447,13 @@ class QuadrantFoldingGUI(BaseGUI):
                         # (all zeros) rather than falling back to the folded image.
                         img = np.zeros_like(img)
 
-                elif display_mode == "Background" or display_mode == "Folded":
+                elif display_mode == "Background (Non-param)" or display_mode == "Folded":
                     bg_fold = self.quadFold.imgCache.get("BgFold", None)
                     if bg_fold is not None:
                         background = makeFullImage(bg_fold)
                         img = (
                             background
-                            if display_mode == "Background"
+                            if display_mode == "Background (Non-param)"
                             else img + background
                         )
                         if (
