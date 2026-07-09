@@ -1500,9 +1500,10 @@ class EquatorImage:
         cache_path = fullPath(self.output_dir, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + ".info")
 
-        # Create cache path if it does not exist
-        if not exists(cache_path):
-            makedirs(cache_path)
+        # Create cache path, including any nested parent introduced by filename.
+        cache_parent = os.path.dirname(cache_file)
+        if not exists(cache_parent):
+            makedirs(cache_parent)
 
         self.info["program_version"] = self.version
         self.info["_image_data_fingerprint"] = self._image_data.get_fingerprint()

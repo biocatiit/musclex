@@ -45,7 +45,12 @@ import fabio
 import tifffile
 from musclex import __version__
 from ..utils.misc_utils import qFromCenter
-from ..utils.file_manager import fullPath, getImgFiles, createFolder
+from ..utils.file_manager import (
+    fullPath,
+    createFolder,
+    scan_directory_files_sync,
+    scan_directory_images_cached,
+)
 from ..utils.image_processor import (
     getPerpendicularLineHomogenous,
     calcSlope,
@@ -68,13 +73,22 @@ from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from .pyqt_utils import *
 from .base_gui import BaseGUI
-from .widgets import ProcessingWorkspace
+from .widgets import ProcessingWorkspace, BatchFolderSelectionDialog
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .tools.placeholder_tool import PlaceholderTool
 
 
 class ProjectionParams:
-    def __init__(self, settings, index, file_manager, gui, boxes_copy):
+    def __init__(
+        self,
+        settings,
+        index,
+        file_manager,
+        gui,
+        boxes_copy,
+        image_dir=None,
+        image_name=None,
+    ):
         """
         Parameters for Worker thread (batch processing).
 
@@ -90,6 +104,8 @@ class ProjectionParams:
         self.file_manager = file_manager
         self.gui = gui
         self.boxes_copy = boxes_copy  # Thread-safe copy of boxes configuration
+        self.image_dir = image_dir
+        self.image_name = image_name
 
 
 class WorkerSignals(QObject):
@@ -143,23 +159,24 @@ class Worker(QRunnable):
             if self.projProc is None and self.params:
                 # Load image from FileManager
                 img = self.params.file_manager.get_image_by_index(self.params.index)
-                filename = self.params.file_manager.names[self.params.index]
+                filename = (
+                    self.params.image_name
+                    or self.params.file_manager.names[self.params.index]
+                )
+                image_dir = self.params.image_dir or self.params.file_manager.dir_path
 
                 # Create ImageData using factory method
                 from ..utils.image_data import ImageData
 
                 image_data = ImageData.from_settings_panel(
                     img,
-                    self.params.file_manager.dir_path,
+                    image_dir,
                     filename,
                     self.params.gui.workspace,
                 )
 
                 # Create ProjectionProcessor with ImageData
-                pt_output = None
-                ws = getattr(self.params.gui, "workspace", None)
-                if ws and ws.dir_context:
-                    pt_output = ws.dir_context.output_dir
+                pt_output = self.params.gui._output_dir_for_source(image_dir)
                 self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
 
                 # Transfer folder template boxes to processor if cache is empty
@@ -443,6 +460,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
+        self.selected_batch_folders = []
+        self._batch_original_dir = ""
+        self.batchCsvManagers = {}
 
         self.initUI()  # initial all GUI
 
@@ -490,6 +510,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.image_viewer = self.workspace.navigator.image_viewer
         self.file_manager = self.workspace.file_manager
         self.navControls = self.workspace.navigator.nav_controls
+        self.navControls.set_select_batch_folder_visible(True)
         self.right_panel = self.workspace.right_panel
 
         # Expose select buttons from navigator
@@ -826,6 +847,26 @@ class ProjectionTracesGUI(BaseGUI):
         if self.csvManager is not None:
             self.csvManager = PT_CSVManager(new_output_dir, self.boxes)
 
+    def _custom_output_dir(self):
+        """Return an explicit output override, or None for colocated output."""
+        ctx = getattr(self.workspace, "dir_context", None)
+        if ctx is not None and not ctx.is_colocated:
+            return ctx.output_dir
+        return None
+
+    def _output_dir_for_source(self, source_dir):
+        """Mirror QF: write to custom output only when explicitly changed."""
+        return self._custom_output_dir() or source_dir
+
+    def _active_output_dir(self):
+        """Return the output directory for the current PT processing context."""
+        custom_output = self._custom_output_dir()
+        if custom_output is not None:
+            return custom_output
+        if self.projProc is not None and getattr(self.projProc, "output_dir", None):
+            return self.projProc.output_dir
+        return self.dir_path
+
     def _show_oriented_box_warning(self):
         """
         Show a warning dialog about non-axis aligned (oriented) boxes.
@@ -948,6 +989,9 @@ class ProjectionTracesGUI(BaseGUI):
         # Process Folder buttons (access via navControls)
         self.navControls.processFolderButton.clicked.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.clicked.connect(self.h5batchProcBtnToggled)
+        self.navControls.select_batch_folder_button.clicked.connect(
+            self.choose_batch_folder_for_processing
+        )
 
         self.displayImgFigure.canvas.mpl_connect("button_press_event", self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect(
@@ -1110,8 +1154,133 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Triggered when a folder has been selected to process it
         """
+        if self.selected_batch_folders:
+            self._load_selected_batch_folders_into_file_manager(refresh_ui=False)
+            idxs = range(len(self.file_manager.names))
+            self._process_image_list(idxs, text="Process Selected Folders")
+            return
+
+        self._restore_current_folder_after_batch_selection_clear(refresh_ui=False)
         idxs = range(len(self.file_manager.names))
         self._process_image_list(idxs, text="Process Current Folder")
+
+    def _load_selected_batch_folders_into_file_manager(self, refresh_ui=True):
+        """Load selected batch folders into the shared FileManager immediately."""
+        if not self.selected_batch_folders or self.file_manager is None:
+            return
+
+        try:
+            self.file_manager.load_from_sources(self.selected_batch_folders)
+            if refresh_ui:
+                try:
+                    self.workspace.navigator._load_current_image()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: failed to load selected batch folders: {e}")
+
+    def _restore_current_folder_after_batch_selection_clear(self, refresh_ui=True):
+        """Restore the normal folder listing after a cleared batch selection."""
+        fm = self.file_manager
+        if fm is None or not getattr(fm, "source_labels", None):
+            return
+
+        current_dir = (
+            getattr(self, "_batch_original_dir", None)
+            or getattr(self, "filePath", None)
+            or getattr(self, "dir_path", None)
+        )
+        if not current_dir:
+            return
+
+        try:
+            previous_name = getattr(fm, "current_image_name", "") or ""
+            previous_base = os.path.basename(previous_name)
+
+            fm.file_list = scan_directory_files_sync(current_dir)
+            fm._rebuild_path_to_file_idx()
+
+            names, specs, source_index_map, size_map = scan_directory_images_cached(
+                current_dir
+            )
+            fm.dir_path = current_dir
+            self.dir_path = current_dir
+            self.filePath = current_dir
+            fm.names = names
+            fm.specs = specs
+            fm.source_index_map = source_index_map or {}
+            fm.source_labels = []
+            fm.image_sizes = size_map or {}
+
+            if not fm.names:
+                return
+
+            target_idx = 0
+            if previous_base:
+                for idx, name in enumerate(fm.names):
+                    if os.path.basename(name) == previous_base:
+                        target_idx = idx
+                        break
+
+            fm.switch_image_by_index(target_idx)
+            if refresh_ui:
+                try:
+                    self.workspace.navigator._load_current_image()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: failed to restore current folder listing: {e}")
+
+    def _folder_has_possible_images(self, folder):
+        try:
+            return len(scan_directory_files_sync(str(folder))) > 0
+        except Exception:
+            return False
+
+    def choose_batch_folder_for_processing(self):
+        dialog = BatchFolderSelectionDialog(
+            parent=self,
+            start_dir=self.file_manager.dir_path if self.file_manager else None,
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        selected_folders = dialog.selected_folders()
+        valid = [
+            folder
+            for folder in selected_folders
+            if self._folder_has_possible_images(folder)
+        ]
+
+        skipped = len(selected_folders) - len(valid)
+        self.selected_batch_folders = valid
+
+        count = len(self.selected_batch_folders)
+        if count:
+            if not self._batch_original_dir:
+                self._batch_original_dir = (
+                    getattr(self, "filePath", None)
+                    or getattr(self, "dir_path", None)
+                    or self.file_manager.dir_path
+                )
+            self.navControls.select_batch_folder_button.setText(
+                f"Selected {count} folder(s)"
+            )
+            self.navControls.processFolderButton.setText("Process Batch Folder(s)")
+            self._load_selected_batch_folders_into_file_manager()
+        else:
+            self.navControls.reset_process_folder_text()
+            self.navControls.reset_batch_folder_button_text()
+            self._restore_current_folder_after_batch_selection_clear()
+            self._batch_original_dir = ""
+            self.batchCsvManagers.clear()
+
+        if skipped:
+            QMessageBox.information(
+                self,
+                "Batch Folder Selection",
+                f"{skipped} folder(s) were skipped because they do not contain any supported image files.",
+            )
 
     def processH5File(self):
         """
@@ -1193,7 +1362,9 @@ class ProjectionTracesGUI(BaseGUI):
             self.navControls.processH5Button.setChecked(False)
 
         # Reset button text based on mode
-        if self.workspace.navigator.is_h5_mode:
+        if self.selected_batch_folders:
+            self.navControls.processFolderButton.setText("Process Batch Folder(s)")
+        elif self.workspace.navigator.is_h5_mode:
             self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
             self.navControls.processFolderButton.setText("Process Current Folder")
@@ -2497,6 +2668,12 @@ class ProjectionTracesGUI(BaseGUI):
         """
         # Update directory path
         self.dir_path = dir_path
+        self.filePath = dir_path
+        self.selected_batch_folders = []
+        self._batch_original_dir = ""
+        self.batchCsvManagers.clear()
+        self.navControls.reset_process_folder_text()
+        self.navControls.reset_batch_folder_button_text()
 
         # Enable PT-specific settings groups
         self.propGrp.setEnabled(True)
@@ -2517,11 +2694,7 @@ class ProjectionTracesGUI(BaseGUI):
             self.boxes = {}
 
         # Create CSV manager for this folder (write to output dir)
-        csv_dir = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
+        csv_dir = self._custom_output_dir() or self.dir_path
         self.csvManager = PT_CSVManager(csv_dir, self.boxes)
 
         # Add box tabs for loaded boxes
@@ -2546,12 +2719,19 @@ class ProjectionTracesGUI(BaseGUI):
             image_data: ImageData instance ready for processing
         """
         try:
+            if getattr(self.file_manager, "source_labels", None):
+                image_dir, image_name = self._batch_image_context(
+                    self.file_manager.current
+                )
+                image_data = ImageData.from_settings_panel(
+                    self.file_manager.current_image,
+                    image_dir,
+                    image_name,
+                    self.workspace,
+                )
+
             # Create ProjectionProcessor (automatically loads image cache in __init__)
-            pt_output = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else None
-            )
+            pt_output = self._output_dir_for_source(str(image_data.img_path))
             self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
 
             # Check if image-level cache was loaded
@@ -2839,10 +3019,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.refreshStatusbar()
 
         # Use processed boxes for result columns and original boxes for config columns.
-        self.csvManager.setColumnNames(
-            self.projProc.boxes, self.projProc.original_boxes
-        )
-        self.csvManager.writeNewData(self.projProc)
+        csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
+        csv_manager.setColumnNames(self.projProc.boxes, self.projProc.original_boxes)
+        csv_manager.writeNewData(self.projProc)
         self.exportHistograms()
 
         # Restore reject checkbox state from cache
@@ -2883,6 +3062,23 @@ class ProjectionTracesGUI(BaseGUI):
                 print("all threads are done")
                 self.progressBar.setVisible(False)
                 self.csvManager.sortCSV()
+                for manager in self.batchCsvManagers.values():
+                    manager.sortCSV()
+
+    def _get_batch_csv_manager_for_proc(self, projProc):
+        if (
+            not self.selected_batch_folders
+            or self._custom_output_dir() is not None
+            or projProc is None
+            or not getattr(projProc, "output_dir", None)
+        ):
+            return self.csvManager
+
+        output_dir = projProc.output_dir
+        if output_dir not in self.batchCsvManagers:
+            self.batchCsvManagers[output_dir] = PT_CSVManager(output_dir, self.boxes)
+
+        return self.batchCsvManagers[output_dir]
 
     def addTask(self, i, boxes_copy=None):
         """Add a processing task to the queue (for batch processing).
@@ -2891,16 +3087,41 @@ class ProjectionTracesGUI(BaseGUI):
             i: Image index to process
             boxes_copy: Pre-copied boxes configuration (shared across batch)
         """
+        image_dir, image_name = self._batch_image_context(i)
         params = ProjectionParams(
             settings=self.getSettings(),
             index=i,
             file_manager=self.file_manager,
             gui=self,
             boxes_copy=boxes_copy or self._create_boxes_copy(),
+            image_dir=image_dir,
+            image_name=image_name,
         )
         self.tasksQueue.put(params)
 
         self.startNextTask()
+
+    def _batch_image_context(self, index):
+        """Return the original image directory and slash-free image name."""
+        filename = self.file_manager.names[index]
+        image_dir = self.file_manager.dir_path
+
+        try:
+            spec = self.file_manager.specs[index]
+        except Exception:
+            spec = None
+
+        if isinstance(spec, tuple) and len(spec) >= 2:
+            source_path = spec[1]
+            if source_path:
+                image_dir = os.path.dirname(source_path) or image_dir
+
+            if spec[0] == "tiff" and source_path:
+                filename = os.path.basename(source_path)
+            elif spec[0] == "h5":
+                filename = os.path.basename(filename)
+
+        return image_dir, filename
 
     def _create_boxes_copy(self):
         """Create a deep copy of folder template boxes for batch processing."""
@@ -2946,10 +3167,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.refreshStatusbar()
 
         # Use processed boxes for result columns and original boxes for config columns.
-        self.csvManager.setColumnNames(
-            self.projProc.boxes, self.projProc.original_boxes
-        )
-        self.csvManager.writeNewData(self.projProc)
+        csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
+        csv_manager.setColumnNames(self.projProc.boxes, self.projProc.original_boxes)
+        csv_manager.writeNewData(self.projProc)
         self.exportHistograms()
 
         # Restore reject checkbox state from cache
@@ -2991,8 +3211,9 @@ class ProjectionTracesGUI(BaseGUI):
             self.projProc.cacheInfo()
 
             # Update CSV
-            if self.csvManager is not None:
-                self.csvManager.writeNewData(self.projProc)
+            csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
+            if csv_manager is not None:
+                csv_manager.writeNewData(self.projProc)
 
     def onEditComments(self):
         """Switch comments to edit mode."""
@@ -3023,8 +3244,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.projProc.cacheInfo()
 
         # Update CSV
-        if self.csvManager is not None:
-            self.csvManager.writeNewData(self.projProc)
+        csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
+        if csv_manager is not None:
+            csv_manager.writeNewData(self.projProc)
 
     def onSubmitComments(self):
         """Submit edited comments, save to cache and CSV."""
@@ -3050,8 +3272,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.projProc.cacheInfo()
 
         # Update CSV
-        if self.csvManager is not None:
-            self.csvManager.writeNewData(self.projProc)
+        csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
+        if csv_manager is not None:
+            csv_manager.writeNewData(self.projProc)
 
     def onCancelComments(self):
         """Cancel editing, switch back to display mode without saving."""
@@ -3068,11 +3291,7 @@ class ProjectionTracesGUI(BaseGUI):
         :return:
         """
         if self.exportChkBx.isChecked() and self.projProc:
-            pt_out = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else self.dir_path
-            )
+            pt_out = self._custom_output_dir() or self.projProc.output_dir
             path = fullPath(pt_out, os.path.join("pt_results", "1d_projections"))
             createFolder(path)
             fullname = str(self.projProc.filename)
@@ -3198,27 +3417,19 @@ class ProjectionTracesGUI(BaseGUI):
             "centery": self.centery,
             "mask_thres": self.maskThresSpnBx.value(),
         }
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
+        out = self._active_output_dir()
         cache_dir = fullPath(out, "pt_cache")
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, "boxes_config.json")
         with open(cache_file, "w") as f:
             json.dump(cache, f, indent=2)
 
-    def loadBoxesConfig(self):
+    def loadBoxesConfig(self, output_dir=None):
         """
         Load folder-level box configuration from cache.
         Returns dict with 'boxes', 'centerx', 'centery', 'mask_thres' or None.
         """
-        out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
+        out = output_dir or self._custom_output_dir() or self.dir_path
         cache_file = fullPath(fullPath(out, "pt_cache"), "boxes_config.json")
         if exists(cache_file):
             try:
@@ -3313,18 +3524,14 @@ class ProjectionTracesGUI(BaseGUI):
             print("Warning: No directory loaded")
             return
 
-        pt_out = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else self.dir_path
-        )
+        pt_out = self._active_output_dir()
         cache_dir = fullPath(pt_out, "pt_cache")
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, "boxes_config.json")
         shutil.copyfile(filename, cache_file)
 
         # Load configuration
-        cache = self.loadBoxesConfig()
+        cache = self.loadBoxesConfig(output_dir=pt_out)
         if cache is None:
             print("Warning: Failed to load template configuration")
             return
@@ -3377,11 +3584,7 @@ class ProjectionTracesGUI(BaseGUI):
 
         # Update CSV manager with new boxes (write to output dir)
         if self.csvManager is not None:
-            csv_dir = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else self.dir_path
-            )
+            csv_dir = self._active_output_dir()
             self.csvManager = PT_CSVManager(csv_dir, self.boxes)
 
         # Redraw image with new boxes

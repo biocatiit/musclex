@@ -41,7 +41,11 @@ from skimage.feature import peak_local_max
 from musclex import __version__
 from .pyqt_utils import *
 from ..CalibrationSettings import CalibrationSettings
-from ..utils.file_manager import FileManager, fullPath, getImgFiles
+from ..utils.file_manager import (
+    fullPath,
+    scan_directory_files_sync,
+    scan_directory_images_cached,
+)
 from ..utils import logger
 from ..utils.image_processor import *
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
@@ -53,7 +57,7 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from .widgets.navigation_controls import NavigationControls
-from .widgets import ProcessingWorkspace
+from .widgets import ProcessingWorkspace, BatchFolderSelectionDialog
 from ..utils.image_data import ImageData
 from skimage.morphology import binary_dilation
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal, QTimer
@@ -156,6 +160,9 @@ class EquatorWindow(QMainWindow):
         self.tasksDone = 0
         self.totalFiles = 1
         self.imageMaskingTool = None
+        self.selected_batch_folders = []
+        self._batch_original_dir = ""
+        self.batchCsvManagers = {}
 
         self.gap_lines = []
         self.gaps = []
@@ -328,6 +335,7 @@ class EquatorWindow(QMainWindow):
         self.navigator = self.workspace.navigator
         self.image_viewer = self.workspace.image_viewer
         self.navControls = self.workspace.navigator.nav_controls
+        self.navControls.set_select_batch_folder_visible(True)
         self.right_panel = self.workspace.right_panel
 
         # Expose the navigator's built-in select panel + button (matches QF / PT).
@@ -652,6 +660,7 @@ class EquatorWindow(QMainWindow):
             process_folder_text="Process Current Folder",
             process_h5_text="Process Current H5 File",
         )
+        self.navFit.set_select_batch_folder_visible(True)
 
         self.bottomLayout2 = QGridLayout()
         self.bottomLayout2.addWidget(self.navFit, 0, 0, 1, 2)
@@ -924,6 +933,9 @@ class EquatorWindow(QMainWindow):
         # We only connect batch processing buttons
         self.navImg.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navImg.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navImg.select_batch_folder_button.clicked.connect(
+            self.choose_batch_folder_for_processing
+        )
         self.displayImgFigure.canvas.mpl_connect("button_press_event", self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect(
             "motion_notify_event", self.imgOnMotion
@@ -952,6 +964,9 @@ class EquatorWindow(QMainWindow):
         # self.navFit.processFolderButton.clicked.connect(self.processFolder)
         self.navFit.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navFit.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navFit.select_batch_folder_button.clicked.connect(
+            self.choose_batch_folder_for_processing
+        )
         self.navFit.prevButton.clicked.connect(self.prevClicked)
         self.navFit.nextButton.clicked.connect(self.nextClicked)
         self.navFit.nextFileButton.clicked.connect(self.nextFileClicked)
@@ -983,6 +998,9 @@ class EquatorWindow(QMainWindow):
 
     def _connectWorkspaceSignals(self):
         """Connect ProcessingWorkspace signals to EquatorWindow handlers."""
+        # Folder-level state reset before the first image is emitted.
+        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
+
         # Main processing pipeline: ImageData ready -> create EquatorImage -> process
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
 
@@ -1002,6 +1020,28 @@ class EquatorWindow(QMainWindow):
     def _on_output_dir_changed(self, new_output_dir):
         """Reset CSV manager when the output directory changes."""
         self.csvManager = EQ_CSVManager(new_output_dir)
+
+    def _custom_output_dir(self):
+        """Return an explicit output override, or None for colocated output."""
+        ctx = getattr(self.workspace, "dir_context", None)
+        if ctx is not None and not ctx.is_colocated:
+            return ctx.output_dir
+        return None
+
+    def _output_dir_for_source(self, source_dir):
+        """Mirror QF: write to custom output only when explicitly changed."""
+        return self._custom_output_dir() or source_dir
+
+    def _on_folder_loaded(self, dir_path: str):
+        """Reset batch-folder UI state after a normal folder/file load."""
+        self.dir_path = dir_path
+        self.filePath = dir_path
+        self.selected_batch_folders = []
+        self._batch_original_dir = ""
+        self.batchCsvManagers.clear()
+        for nav in (self.navImg, self.navFit):
+            nav.reset_process_folder_text()
+            nav.reset_batch_folder_button_text()
 
     def _coord_transform_func(self, x, y):
         """
@@ -1045,7 +1085,9 @@ class EquatorWindow(QMainWindow):
         Args:
             image_data: ImageData instance from workspace
         """
-        self.current_image_data = image_data
+        self.current_image_data = self._image_data_for_current_file(
+            fallback_image_data=image_data
+        )
 
         # Sync legacy path tracking variables (still referenced by save /
         # status-bar code paths).
@@ -1054,11 +1096,7 @@ class EquatorWindow(QMainWindow):
 
         if not self._first_load_done:
             self._first_load_done = True
-            csv_dir = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else self.dir_path
-            )
+            csv_dir = self._custom_output_dir() or self.dir_path
             self.csvManager = EQ_CSVManager(csv_dir)
             self.onImageChanged(first_run=True)
         else:
@@ -2189,11 +2227,16 @@ class EquatorWindow(QMainWindow):
         self.progressBar.setVisible(False)
         self.navImg.processFolderButton.setChecked(False)
         self.navFit.processFolderButton.setChecked(False)
-        self.navImg.processFolderButton.setText("Process current folder")
-        self.navFit.processFolderButton.setText("Process current folder")
+        if self.selected_batch_folders:
+            self.navImg.processFolderButton.setText("Process Batch Folder(s)")
+            self.navFit.processFolderButton.setText("Process Batch Folder(s)")
+        else:
+            self.navImg.reset_process_folder_text()
+            self.navFit.reset_process_folder_text()
 
         # Clear reference after shutdown
         self.processExecutor = None
+        self.batchCsvManagers.clear()
 
     def _buildProcessSettingsText(self, settings, nImg, description):
         """
@@ -2391,9 +2434,10 @@ class EquatorWindow(QMainWindow):
             if self.stop_process:
                 break
 
-            filename = self.file_manager.names[job_index]
             spec = self.file_manager.specs[job_index]
-            job_args = (settings, None, self.file_manager.dir_path, filename, spec)
+            image_dir, filename = self._batch_image_context(job_index)
+            output_dir = self._output_dir_for_source(image_dir)
+            job_args = (settings, None, image_dir, filename, spec, output_dir)
 
             future = self.processExecutor.submit(process_one_image, job_args)
             task = self.taskManager.submit_task(filename, job_index, future)
@@ -2403,17 +2447,68 @@ class EquatorWindow(QMainWindow):
 
         print(f"Batch {process_type} started: {nImg} images submitted to process pool")
 
+    def _batch_image_context(self, index):
+        """Return the original image directory and slash-free image name."""
+        filename = self.file_manager.names[index]
+        image_dir = self.file_manager.dir_path
+
+        try:
+            spec = self.file_manager.specs[index]
+        except Exception:
+            spec = None
+
+        if isinstance(spec, tuple) and len(spec) >= 2:
+            source_path = spec[1]
+            if source_path:
+                image_dir = os.path.dirname(source_path) or image_dir
+
+            if spec[0] == "tiff" and source_path:
+                filename = os.path.basename(source_path)
+            elif spec[0] == "h5":
+                filename = os.path.basename(filename)
+
+        return image_dir, filename
+
+    def _current_image_context(self):
+        """Return source folder and basename for the currently displayed image."""
+        try:
+            index = self.file_manager.current
+        except Exception:
+            return self.file_manager.dir_path, self.file_manager.current_image_name
+
+        return self._batch_image_context(index)
+
+    def _image_data_for_current_file(self, fallback_image_data=None):
+        """Build ImageData for the current image using source-folder context."""
+        image_dir, image_name = self._current_image_context()
+        img = (
+            fallback_image_data.img
+            if fallback_image_data is not None
+            else self.file_manager.current_image
+        )
+        return ImageData.from_settings_panel(img, image_dir, image_name, self.workspace)
+
     def processFolder(self):
         """
-        Process current folder
+        Process current folder or selected batch folders.
         """
         ## Popup confirm dialog with settings
+        description = "current folder"
+        dialog_title = "Process Current Folder"
+
+        if self.selected_batch_folders:
+            self._load_selected_batch_folders_into_file_manager(refresh_ui=False)
+            description = "selected folders"
+            dialog_title = "Process Selected Folders"
+        else:
+            self._restore_current_folder_after_batch_selection_clear(refresh_ui=False)
+
         nImg = len(self.file_manager.names)
         settings = self.getSettings()
 
         errMsg = QMessageBox()
-        errMsg.setText("Process Current Folder")
-        text = self._buildProcessSettingsText(settings, nImg, "current folder")
+        errMsg.setText(dialog_title)
+        text = self._buildProcessSettingsText(settings, nImg, description)
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
@@ -2429,6 +2524,124 @@ class EquatorWindow(QMainWindow):
             # User cancelled
             self.navImg.processFolderButton.setChecked(False)
             self.navFit.processFolderButton.setChecked(False)
+
+    def _load_selected_batch_folders_into_file_manager(self, refresh_ui=True):
+        """Load selected batch folders into the shared FileManager immediately."""
+        if not self.selected_batch_folders or self.file_manager is None:
+            return
+
+        try:
+            self.file_manager.load_from_sources(self.selected_batch_folders)
+            if refresh_ui:
+                try:
+                    self.workspace.navigator._load_current_image()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: failed to load selected batch folders: {e}")
+
+    def _restore_current_folder_after_batch_selection_clear(self, refresh_ui=True):
+        """Restore the normal folder listing after a cleared batch selection."""
+        fm = self.file_manager
+        if fm is None or not getattr(fm, "source_labels", None):
+            return
+
+        current_dir = (
+            getattr(self, "_batch_original_dir", None)
+            or getattr(self, "filePath", None)
+            or getattr(self, "dir_path", None)
+        )
+        if not current_dir:
+            return
+
+        try:
+            previous_name = getattr(fm, "current_image_name", "") or ""
+            previous_base = os.path.basename(previous_name)
+
+            fm.file_list = scan_directory_files_sync(current_dir)
+            fm._rebuild_path_to_file_idx()
+
+            names, specs, source_index_map, size_map = scan_directory_images_cached(
+                current_dir
+            )
+            fm.dir_path = current_dir
+            self.dir_path = current_dir
+            self.filePath = current_dir
+            fm.names = names
+            fm.specs = specs
+            fm.source_index_map = source_index_map or {}
+            fm.source_labels = []
+            fm.image_sizes = size_map or {}
+
+            if not fm.names:
+                return
+
+            target_idx = 0
+            if previous_base:
+                for idx, name in enumerate(fm.names):
+                    if os.path.basename(name) == previous_base:
+                        target_idx = idx
+                        break
+
+            fm.switch_image_by_index(target_idx)
+            if refresh_ui:
+                try:
+                    self.workspace.navigator._load_current_image()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: failed to restore current folder listing: {e}")
+
+    def _folder_has_possible_images(self, folder):
+        try:
+            return len(scan_directory_files_sync(str(folder))) > 0
+        except Exception:
+            return False
+
+    def choose_batch_folder_for_processing(self):
+        dialog = BatchFolderSelectionDialog(
+            parent=self,
+            start_dir=self.file_manager.dir_path if self.file_manager else None,
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        selected_folders = dialog.selected_folders()
+        valid = [
+            folder
+            for folder in selected_folders
+            if self._folder_has_possible_images(folder)
+        ]
+
+        skipped = len(selected_folders) - len(valid)
+        self.selected_batch_folders = valid
+
+        count = len(self.selected_batch_folders)
+        if count:
+            if not self._batch_original_dir:
+                self._batch_original_dir = (
+                    getattr(self, "filePath", None)
+                    or getattr(self, "dir_path", None)
+                    or self.file_manager.dir_path
+                )
+            for nav in (self.navImg, self.navFit):
+                nav.select_batch_folder_button.setText(f"Selected {count} folder(s)")
+                nav.processFolderButton.setText("Process Batch Folder(s)")
+            self._load_selected_batch_folders_into_file_manager()
+        else:
+            for nav in (self.navImg, self.navFit):
+                nav.reset_process_folder_text()
+                nav.reset_batch_folder_button_text()
+            self._restore_current_folder_after_batch_selection_clear()
+            self._batch_original_dir = ""
+            self.batchCsvManagers.clear()
+
+        if skipped:
+            QMessageBox.information(
+                self,
+                "Batch Folder Selection",
+                f"{skipped} folder(s) were skipped because they do not contain any supported image files.",
+            )
 
     def processH5Folder(self):
         """
@@ -2602,14 +2815,8 @@ class EquatorWindow(QMainWindow):
         self.file_manager.next_frame()
         fileName = self.file_manager.current_image_name
         self.navFit.filenameLineEdit.setText(fileName)
-        self.current_image_data = self.workspace.create_image_data(
-            self.file_manager.current_image, fileName
-        )
-        eq_output = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else None
-        )
+        self.current_image_data = self._image_data_for_current_file()
+        eq_output = self._output_dir_for_source(str(self.current_image_data.img_path))
         self.bioImg = EquatorImage(self.current_image_data, self, output_dir=eq_output)
         if reprocess:
             self.refreshProcessingParams()
@@ -3461,22 +3668,18 @@ class EquatorWindow(QMainWindow):
         # Update UI with current filename
         fileName = self.file_manager.current_image_name
         self.navFit.filenameLineEdit.setText(fileName)
+        image_dir, image_name = self._current_image_context()
 
         # Create ImageData if not already provided (e.g., from _on_image_data_ready)
         if (
             self.current_image_data is None
-            or self.current_image_data.img_name != fileName
+            or self.current_image_data.img_name != image_name
+            or str(self.current_image_data.img_path) != image_dir
         ):
-            self.current_image_data = self.workspace.create_image_data(
-                self.file_manager.current_image, fileName
-            )
+            self.current_image_data = self._image_data_for_current_file()
 
         # Create EquatorImage with ImageData
-        eq_output = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else None
-        )
+        eq_output = self._output_dir_for_source(str(self.current_image_data.img_path))
         self.bioImg = EquatorImage(self.current_image_data, self, output_dir=eq_output)
         self.bioImg.skeletalVarsNotSet = not (
             "isSkeletal" in self.bioImg.info and self.bioImg.info["isSkeletal"]
@@ -3829,18 +4032,19 @@ class EquatorWindow(QMainWindow):
         ALWAYS runs in main thread - safe for file I/O.
         """
         result = task.result
-        filename = task.filename
+        image_dir, filename = self._batch_image_context(task.job_index)
+        result_output_dir = (
+            result.get("output_dir") if isinstance(result, dict) else None
+        )
 
         # Get the correct image for this task
         img = self.file_manager.get_image_by_index(task.job_index)
 
         # Create ImageData and EquatorImage with correct filename from task
-        image_data = self.workspace.create_image_data(img, filename)
-        eq_output = (
-            self.workspace.dir_context.output_dir
-            if self.workspace.dir_context
-            else None
+        image_data = ImageData.from_settings_panel(
+            img, image_dir, filename, self.workspace
         )
+        eq_output = result_output_dir or self._output_dir_for_source(image_dir)
         bioImg = EquatorImage(image_data, self, output_dir=eq_output)
         bioImg.store_original_settings(self.getSettings())
         bioImg.info = result["info"]
@@ -3853,8 +4057,9 @@ class EquatorWindow(QMainWindow):
 
         # Write CSV (main thread only)
         try:
-            self.csvManager.writeNewData(bioImg)
-            self.csvManager.writeNewData2(bioImg)
+            csv_manager = self._get_batch_csv_manager_for_dir(bioImg.output_dir)
+            csv_manager.writeNewData(bioImg)
+            csv_manager.writeNewData2(bioImg)
         except Exception as e:
             print(f"Failed to write CSV for {filename}: {e}")
 
@@ -3873,6 +4078,19 @@ class EquatorWindow(QMainWindow):
             )
 
         print(f"✓ Completed {filename} in {task.processing_time:.2f}s")
+
+    def _get_batch_csv_manager_for_dir(self, output_dir):
+        if (
+            not self.selected_batch_folders
+            or self._custom_output_dir() is not None
+            or not output_dir
+        ):
+            return self.csvManager
+
+        if output_dir not in self.batchCsvManagers:
+            self.batchCsvManagers[output_dir] = EQ_CSVManager(output_dir)
+
+        return self.batchCsvManagers[output_dir]
 
     def _processImageFallback(self, paramInfo=None):
         """Fallback to thread-based processing if multiprocessing fails"""
