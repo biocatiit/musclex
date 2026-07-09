@@ -4446,8 +4446,6 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.uiUpdating = False
                 return
             def _hasBackground(bg):
-                print("BG sum:", np.sum(bg))
-                print("np.any(bg)", np.any(bg))
                 return bg is not None and np.asarray(bg).size > 0 and np.any(bg)
             
 
