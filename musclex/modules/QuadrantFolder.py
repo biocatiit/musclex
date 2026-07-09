@@ -1098,8 +1098,12 @@ class QuadrantFolder:
 
         # Number of equatorial Bragg peaks to mask and the width of each masked
         # peak are user inputs (BackgroundFittingDialog "Mask Parameters").
+        # Write the resolved values back into info (like the other mask params)
+        # so they are persisted by cacheInfo() and reloaded on the next session.
         n_peaks = int(self.info.get("n_peaks", qf_defaults.DEFAULT_N_PEAKS))
         peak_width = int(self.info.get("peak_width", qf_defaults.DEFAULT_PEAK_WIDTH))
+        self.info["n_peaks"] = n_peaks
+        self.info["peak_width"] = peak_width
 
         peak_positions, _ = find_n_most_prominent_peaks(equator, n=n_peaks)
 
