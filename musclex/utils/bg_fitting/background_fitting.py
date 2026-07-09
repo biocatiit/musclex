@@ -485,12 +485,12 @@ def two_stage_iterative_fit(img, general_mask, equator_mask=None, rmin=30, rmax=
     # for all remaining iterations (rather than re-selecting each round).
     active_comp2 = cfg.comp2
     for it in range(1, cfg.iters + 1):
-        report(f"Step {it}. Fit Equator", (it*2 - 1) / max(cfg.iters*2, 1))
+        report(f"Step {it}. Fit Equator", 0.9 * (it*2 - 1) / max(cfg.iters*2, 1))
         # Stage A: equator on img - current general background
         eq_target = base - general
         equator, eq_params, eq_norm, eq_info = fit_equator(eq_target, emask_fit, cfg, cfg.quiet)
         # Stage B: general background on img - current equator (best comp2)
-        report(f"Step {it}. Fit General", (it*2) / max(cfg.iters*2, 1))
+        report(f"Step {it}. Fit General", 0.9 * (it*2) / max(cfg.iters*2, 1))
         gen_target = base - equator
         gen_best, _ = fit_general_best(gen_target, gmask_fit, cfg, cfg.quiet,
                                        comp2=active_comp2)
@@ -535,7 +535,7 @@ def two_stage_iterative_fit(img, general_mask, equator_mask=None, rmin=30, rmax=
     # fixed fraction until the oversubtracted-pixel fraction stops improving. The
     # sweep runs on the fit-size crop where `valid` is defined, then the chosen
     # fractions are applied to the full-resolution reconstruction.
-    report("Reduce", 0.9)
+    report("Reduce", 0.95)
     with maybe_quiet(cfg.quiet):
         eq_fit = bfu.reconstruct_equator(eq_params, img_fit.shape, ds, eq_norm,
                                          cfg.equator_keep_baseline)
