@@ -2188,17 +2188,25 @@ class QuadrantFoldingGUI(BaseGUI):
             )
 
     def _is_fitted_bg_subtracted(self):
-        """True only when the most recent processing actually subtracted the
-        fitted background.
+        """True as soon as a fitted background is applied and enabled.
 
-        This reflects the processed result (the ``fitted_bg_subtracted`` flag
-        set by :meth:`QuadrantFolder.subtractFittedBackground`), not merely the
-        state of the "Subtract fitted background" checkbox, so the status label
-        appears only after the subtraction has really happened.
+        ``bgfit_applied`` is set the moment the user clicks "Apply" in the
+        Iterative 2D Background Fitting dialog (see
+        BackgroundFittingDialog._apply_residual_to_parent), which already
+        updates the displayed result -- so the status label should reflect
+        that immediately rather than waiting for the next full process() run
+        to set ``fitted_bg_subtracted``. The "Subtract fitted background"
+        checkbox is still consulted so unchecking it (opting out of the fit
+        on the next run) hides the status again.
         """
         if self.quadFold is None:
             return False
-        return bool(self.quadFold.info.get("fitted_bg_subtracted", False))
+        info = self.quadFold.info
+        if not info.get("bgfit_applied", False):
+            return False
+        if getattr(self, "subtractBgFitChkBx", None) is not None:
+            return self.subtractBgFitChkBx.isChecked()
+        return bool(info.get("subtract_bg_fit", False))
 
     def _apply_bg_method_summary(
         self,
@@ -3952,6 +3960,14 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if "rotate" in info:
             self.rotate90Chkbx.setChecked(info["rotate"])
+
+        # Restore "Subtract fitted background" per-image: this checkbox is a
+        # single global widget, not per-image, so without this it keeps
+        # whatever state the previous image left it in and getFlags() (called
+        # right after by processImage()) would push that stale value back
+        # into this image's info, clobbering subtract_bg_fit from the cache.
+        if hasattr(self, "subtractBgFitChkBx") and self.subtractBgFitChkBx is not None:
+            self.subtractBgFitChkBx.setChecked(bool(info.get("subtract_bg_fit", False)))
 
         self.uiUpdating = False
 
