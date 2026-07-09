@@ -96,9 +96,6 @@ FIT_REDUCTION_RANGE = (0.0, 100.0)  # percent
 DEFAULT_BASELINE_REDUCTION = 5.0
 DEFAULT_EQUATOR_REDUCTION = 5.0
 DEFAULT_AUTO_REDUCE = True
-# Save-output checkbox defaults.
-DEFAULT_SAVE_FITTED_BACKGROUNDS = False
-DEFAULT_SAVE_FIT_PARAMS = False
 
 
 # Downsample and Frequency Options

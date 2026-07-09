@@ -62,8 +62,6 @@ def default_fit_flags(rmax=None):
         "bgfit_baseline_reduction": qf_defaults.DEFAULT_BASELINE_REDUCTION / 100.0,
         "bgfit_equator_reduction": qf_defaults.DEFAULT_EQUATOR_REDUCTION / 100.0,
         "bgfit_auto_reduce": qf_defaults.DEFAULT_AUTO_REDUCE,
-        "bgfit_save_bg": qf_defaults.DEFAULT_SAVE_FITTED_BACKGROUNDS,
-        "bgfit_save_params": qf_defaults.DEFAULT_SAVE_FIT_PARAMS,
     }
 
 
@@ -256,13 +254,6 @@ class BackgroundFittingDialog(QDialog):
             "Width (px) of the mask placed over each detected equatorial "
             "Bragg peak.")
 
-        self.saveBgChkBx = QCheckBox("Save fitted backgrounds")
-        self.saveBgChkBx.setChecked(qf_defaults.DEFAULT_SAVE_FITTED_BACKGROUNDS)
-        self.saveParamsChkBx = QCheckBox("Save fit parameters")
-        self.saveParamsChkBx.setChecked(qf_defaults.DEFAULT_SAVE_FIT_PARAMS)
-        self.saveParamsChkBx.setToolTip(
-            "Saved automatically to <output>/qf_results/bg_fit_params/.")
-
         self.runButton = QPushButton("Run Fit")
         self.runButton.setStyleSheet(
             "QPushButton { color: #ededed; background-color: #af6207; }")
@@ -391,8 +382,6 @@ class BackgroundFittingDialog(QDialog):
         self.additionalSettingsBox.set_content_layout(additional_form)
         form.addRow(self.additionalSettingsBox)
 
-        form.addRow(self.saveBgChkBx)
-        form.addRow(self.saveParamsChkBx)
         form.addRow(self.runButton)
         form.addRow(self.progressBar)
         form.addRow(self.statusLabel)
@@ -592,13 +581,59 @@ class BackgroundFittingDialog(QDialog):
     def _init_mask_preview(self):
         """Build the fit masks when the dialog opens so the user can inspect and
         adjust the masking (via the Mask Parameters) before running a fit. On
-        success the view dropdown is enabled with the mask overlays only."""
+        success the view dropdown is enabled with the mask overlays only, unless
+        the image's cache already has an applied fit, in which case it is
+        rebuilt and shown instead (see _try_load_cached_fit)."""
         inputs = self._grab_inputs(warn=False)
         if inputs is None:
             return
         self._inputs = inputs
         self.viewModeCB.setEnabled(True)
+        self._try_load_cached_fit()
         self.updateView()
+
+    def _try_load_cached_fit(self):
+        """If the current image's cache already has a fit that was applied
+        (this session or a previous one), rebuild it from the small
+        reconstruction params stored in qf.info (see
+        _apply_residual_to_parent) instead of the full-size arrays -- so the
+        dialog shows the applied result without re-running the fit."""
+        qf = self._get_quadfold()
+        info = getattr(qf, "info", None) if qf is not None else None
+        if not info or not info.get("bgfit_applied"):
+            return
+        params = info.get("bgfit_result_params")
+        if not params:
+            return
+        try:
+            equator, general, residual = bf.reduce_backgrounds(
+                self._inputs[0],
+                params["equator_params"], params["general_params"],
+                params["eq_norm"], params["gen_norm"], params["comp2"],
+                params["downsample_factor"],
+                params["equator_reduction"], params["baseline_reduction"],
+                params.get("equator_keep_baseline", False))
+        except Exception:  # noqa: BLE001
+            return
+        result = dict(params)
+        result.update(equator=equator, general=general, residual=residual)
+        rrmask = self._inputs[5] if len(self._inputs) > 5 else None
+        if rrmask is not None:
+            try:
+                valid = np.isfinite(residual) & (self._inputs[0] > 0) & np.asarray(rrmask)
+                neg = bf.bfu.negative_stats(residual, valid)
+                result["oversub_frac"] = neg["frac_negative"]
+                result["oversub_flux_frac"] = neg["oversub_flux_frac"]
+                result["n_negative"] = neg["n_negative"]
+                result["n_valid"] = neg["n_valid"]
+            except Exception:  # noqa: BLE001
+                pass
+        self.result = result
+        self.applyButton.setEnabled(True)
+        self._set_view_modes(VIEW_MODES, "Residual (background removed)")
+        self._reflect_reductions_from_result()
+        self._update_params_panel()
+        self.statusLabel.setText("Loaded previously applied fit from cache.")
 
     def _set_view_modes(self, modes, default_text):
         """Repopulate the view dropdown with ``modes`` and select ``default_text``
@@ -703,8 +738,6 @@ class BackgroundFittingDialog(QDialog):
             "bgfit_baseline_reduction": self.baselineReductionSpnBx.value() / 100.0,
             "bgfit_equator_reduction": self.equatorReductionSpnBx.value() / 100.0,
             "bgfit_auto_reduce": self.autoReduceChkBx.isChecked(),
-            "bgfit_save_bg": self.saveBgChkBx.isChecked(),
-            "bgfit_save_params": self.saveParamsChkBx.isChecked(),
         }
 
     # ------------------------------------------------------------------ #
@@ -800,7 +833,6 @@ class BackgroundFittingDialog(QDialog):
         self._set_view_modes(VIEW_MODES, "Residual (background removed)")
         self._reflect_reductions_from_result()
         self._update_params_panel()
-        self._maybe_save_outputs()
         self.updateView()
         self._warn_if_no_lobes(result)
 
@@ -915,9 +947,10 @@ class BackgroundFittingDialog(QDialog):
         except Exception:  # noqa: BLE001
             return None
 
-    def _maybe_save_outputs(self):
-        if not (self.saveBgChkBx.isChecked() or self.saveParamsChkBx.isChecked()):
-            return
+    def _save_fit_outputs(self):
+        """Save the fitted backgrounds (tif) and fit parameters (npz) to
+        <output>/qf_results/bg_fit_params/. Called whenever a fit is applied
+        to the parent -- an applied fit is always saved, there is no opt-out."""
         if self.result is None:
             return
         save_dir = self._bgfit_save_dir()
@@ -929,22 +962,20 @@ class BackgroundFittingDialog(QDialog):
         name = os.path.splitext(os.path.basename(
             getattr(qf, "img_name", "") or "image"))[0] or "image"
         try:
-            if self.saveBgChkBx.isChecked():
-                from PIL import Image
-                for key in ("equator", "general", "residual"):
-                    Image.fromarray(self.result[key].astype(np.float32)).save(
-                        os.path.join(save_dir, f"{name}_{key}.tif"))
-            if self.saveParamsChkBx.isChecked():
-                np.savez(
-                    os.path.join(save_dir, f"{name}_bgfit_params.npz"),
-                    equator_params=self.result["equator_params"],
-                    general_params=self.result["general_params"],
-                    comp2=self.result["comp2"],
-                    best_iter=self.result["best_iter"],
-                    fallback=self.result["fallback"],
-                    equator_reduction=self.result.get("equator_reduction", 0.0),
-                    baseline_reduction=self.result.get("baseline_reduction", 0.0),
-                    oversub_frac=self.result.get("oversub_frac", float("nan")))
+            from PIL import Image
+            for key in ("equator", "general", "residual"):
+                Image.fromarray(self.result[key].astype(np.float32)).save(
+                    os.path.join(save_dir, f"{name}_{key}.tif"))
+            np.savez(
+                os.path.join(save_dir, f"{name}_bgfit_params.npz"),
+                equator_params=self.result["equator_params"],
+                general_params=self.result["general_params"],
+                comp2=self.result["comp2"],
+                best_iter=self.result["best_iter"],
+                fallback=self.result["fallback"],
+                equator_reduction=self.result.get("equator_reduction", 0.0),
+                baseline_reduction=self.result.get("baseline_reduction", 0.0),
+                oversub_frac=self.result.get("oversub_frac", float("nan")))
             self.statusLabel.setText(f"{self.statusLabel.text()}  Saved to {save_dir}")
         except Exception as e:  # noqa: BLE001
             QMessageBox.warning(self, "Save error", str(e))
@@ -1306,6 +1337,10 @@ class BackgroundFittingDialog(QDialog):
             result_bg["method"] = "None"
             result_bg["final_params"] = None
             result_bg["loss"] = None
+        # saveResults (writes qf_results/*.tif) lives on the GUI, not on
+        # QuadrantFolder itself -- call it on the parent GUI instance.
+        if parent is not None and hasattr(parent, "saveResults"):
+            parent.saveResults(quad_fold=qf)
         if parent is not None:
             cb = getattr(parent, "bgChoiceIn", None)
             choices = getattr(parent, "allBGChoices", None)
@@ -1334,6 +1369,20 @@ class BackgroundFittingDialog(QDialog):
                         break
                     except Exception:  # noqa: BLE001
                         continue
+        # An applied fit is always saved to disk (fitted backgrounds + params),
+        # no opt-out checkbox.
+        self._save_fit_outputs()
+        # Persist qf.info (incl. bgfit_applied / bgfit_result_params) to the
+        # per-image qf_cache/<name>.info pickle immediately. Applying a fit
+        # only updates the live QuadrantFolder instance in memory; switching
+        # images (or reopening the app) constructs a brand-new QuadrantFolder
+        # that reloads qf.info from disk (QuadrantFolder.loadCache), which
+        # would otherwise silently lose the applied-fit state because nothing
+        # else re-triggers a save until the image is processed again.
+        try:
+            qf.cacheInfo()
+        except Exception:  # noqa: BLE001
+            pass
 
     def closeEvent(self, event):
         # ensure the worker thread is stopped
