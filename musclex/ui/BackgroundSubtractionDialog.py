@@ -180,7 +180,7 @@ class BackgroundSubtractionDialog(QDialog):
 
         method_label_header = QLabel("Method:")
         method_label_header.setStyleSheet(field_label_style)
-        params_label_header = QLabel("Parameters:")
+        params_label_header = QLabel("Arguments:")
         params_label_header.setStyleSheet(field_label_style)
         loss_label_header = QLabel("Loss:")
         loss_label_header.setStyleSheet(field_label_style)
