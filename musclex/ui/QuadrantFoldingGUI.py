@@ -3936,11 +3936,9 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.equatorCenterBeamSpnBx.setValue(int(info["equator_center_beam_width"]))
             if "layer_line_width" in info:
                 self.layerLineWidthSpnBx.setValue(int(info["layer_line_width"]))
-            if "n_peaks" in info:
-                self.maskNPeaksSpnBx.setValue(int(info["n_peaks"]))
-            if "peak_width" in info:
-                self.maskPeakWidthSpnBx.setValue(int(info["peak_width"]))
-                        
+            # n_peaks/peak_width have no QuadrantFoldingGUI widget; they live only
+            # on quadFold.info and are synced directly by BackgroundFittingDialog
+            # (_init_mask_param_sync) when that dialog is opened.
 
         self._sync_metric_and_synthetic_widgets_from_info(info=info)
         self._push_session_bg_eval_settings_to_info(info=info)
