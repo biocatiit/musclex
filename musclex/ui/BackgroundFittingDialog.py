@@ -459,9 +459,19 @@ class BackgroundFittingDialog(QDialog):
         h, w = img.shape
 
         # Masks come from QuadrantFolder.createMask (background masks: 0 = excluded).
+        # rmin/rmax are owned by the parent QF GUI / QuadrantFolder. getRminmax
+        # reads the UI-provided values (fixed_rmin/fixed_rmax) and only computes
+        # defaults (getFirstPeak / getDetectorEdge) once, when they are empty
+        # everywhere -- calculateAvgFold above may have cleared them. We don't
+        # overwrite an existing value here.
+        try:
+            qf.getRminmax()
+        except Exception:  # noqa: BLE001
+            pass
         rmin = int(qf.info.get("rmin", 30))
         rmax = int(qf.info.get("rmax", int(0.9 * min(h, w) / 2)))
-        print(f"Background fitting: rmin={rmin}, rmax={rmax}, img shape={img.shape}")
+        qf.info.setdefault("rmin", rmin)
+        qf.info.setdefault("rmax", rmax)
         try:
             qf.createMask()
             general_mask = np.asarray(qf.imgCache.get("mask")).astype(bool)
