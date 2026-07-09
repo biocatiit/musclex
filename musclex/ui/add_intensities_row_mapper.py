@@ -125,8 +125,10 @@ class SourceFolderRowMapper:
 
         if not folder_path:
             folder_path = getattr(fm, "dir_path", "") or ""
-        if not label and folder_path:
-            label = os.path.basename(str(folder_path).rstrip("/\\")) or str(folder_path)
+        if folder_path:
+            label = str(folder_path)
+        elif not label:
+            label = ""
 
         return label, folder_path or label
 
