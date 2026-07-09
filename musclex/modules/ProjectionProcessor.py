@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import copy
+import os
 import pickle
 from os.path import exists, isfile
 from dataclasses import dataclass, field
@@ -1310,6 +1311,7 @@ class ProjectionProcessor:
         cache_path = fullPath(self.output_dir, "pt_cache")
         createFolder(cache_path)
         cache_file = fullPath(cache_path, self.filename + ".cache")
+        createFolder(os.path.dirname(cache_file))
 
         with open(cache_file, "wb") as f:
             pickle.dump(self.state, f, protocol=pickle.HIGHEST_PROTOCOL)

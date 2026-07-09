@@ -29,12 +29,13 @@ def process_one_image(args):
     Headless image processing function (no Qt dependencies).
 
     Args:
-        args: tuple of (settings, paramInfo, dir_path, filename, spec)
+        args: tuple of (settings, paramInfo, dir_path, filename, spec[, output_dir])
             - settings: dict with processing settings
             - paramInfo: dict with parameter information
             - dir_path: str directory path
             - filename: str display name of the image
             - spec: tuple loader spec like ("tiff", path) or ("h5", path, frame_idx)
+            - output_dir: optional str directory path for cache/results
 
     Returns:
         dict: {
@@ -45,7 +46,8 @@ def process_one_image(args):
     """
     filename = None  # Initialize for error handling
     try:
-        settings, paramInfo, dir_path, filename, spec = args
+        settings, paramInfo, dir_path, filename, spec = args[:5]
+        output_dir = args[5] if len(args) > 5 and args[5] else dir_path
 
         # Create a minimal parent object that only provides statusPrint
         # We don't use EquatorWindowh here because it requires complex initialization
@@ -71,15 +73,15 @@ def process_one_image(args):
         inpaint = settings.get("inpaint", False)
         from musclex.utils.settings_manager import SettingsManager
 
-        settings_manager = SettingsManager(dir_path)
+        settings_manager = SettingsManager(output_dir)
         image_data = ImageData(
             img=img,
-            img_path=dir_path,
+            img_path=output_dir,
             img_name=filename,
             inpaint=inpaint,
             settings_manager=settings_manager,
         )
-        bioImg = EquatorImage(image_data, parent)
+        bioImg = EquatorImage(image_data, parent, output_dir=output_dir)
 
         # Process the image
         bioImg.process(settings, paramInfo)
@@ -89,6 +91,7 @@ def process_one_image(args):
             "filename": filename,
             "info": bioImg.info,
             "image": bioImg.image,
+            "output_dir": output_dir,
             "error": None,
         }
 
