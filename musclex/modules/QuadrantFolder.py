@@ -1327,8 +1327,10 @@ class QuadrantFolder:
             self.imgCache["avg_fold"] = top_left
 
         elif "avg_fold" not in self.imgCache.keys():
-            self.deleteFromDict(self.info, "rmin")
-            self.deleteFromDict(self.info, "rmax")
+            # Do not clear rmin/rmax here: getRminmax() reads the UI values
+            # (fixed_rmin/fixed_rmax) and only computes defaults once, when they
+            # are empty everywhere. Deleting them would force a recompute on
+            # every fold and discard the value the user set in the UI.
             print("Quadrant folding is being processed...")
 
         top_right = rotate_img[
