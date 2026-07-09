@@ -3853,56 +3853,52 @@ class QuadrantFoldingGUI(BaseGUI):
             except (TypeError, ValueError):
                 self.evaluationBaselineSpnBx.setValue(qf_defaults.DEFAULT_EVAL_BASELINE)
 
+        # Restore R-min / R-max regardless of the background-subtraction method:
+        # they belong to the mask/geometry, not to bgsub, so a cache written with
+        # bgsub == "None" must still repopulate these spinboxes.
+        if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
+            self.rminSpnBx.setValue(int(info.get("rmin", self.rminSpnBx.value())))
+            self.rmaxSpnBx.setValue(int(info.get("rmax", self.rmaxSpnBx.value())))
+        else:
+            self.rminSpnBx.setValue(previnfo["rmin"])
+            self.rmaxSpnBx.setValue(previnfo["rmax"])
+
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info["bgsub"]))
-            if info["bgsub"] != "None":
-                self.tophatSpnBx.setValue(
-                    int(info.get("tophat", self.tophatSpnBx.value()))
-                )
-                self.maxPixRange.setValue(
-                    float(info.get("cirmax", self.maxPixRange.value()))
-                )
-                self.minPixRange.setValue(
-                    float(info.get("cirmin", self.minPixRange.value()))
-                )
+            # if info["bgsub"] != "None":
+            self.tophatSpnBx.setValue(
+                int(info.get("tophat", self.tophatSpnBx.value()))
+            )
+            self.maxPixRange.setValue(
+                float(info.get("cirmax", self.maxPixRange.value()))
+            )
+            self.minPixRange.setValue(
+                float(info.get("cirmin", self.minPixRange.value()))
+            )
 
-                self.radialBinSpnBx.setValue(
-                    int(info.get("radial_bin", self.radialBinSpnBx.value()))
-                )
-                self.smoothSpnBx.setValue(
-                    float(info.get("smooth", self.smoothSpnBx.value()))
-                )
-                self.tensionSpnBx.setValue(
-                    float(info.get("tension", self.tensionSpnBx.value()))
-                )
+            self.radialBinSpnBx.setValue(
+                int(info.get("radial_bin", self.radialBinSpnBx.value()))
+            )
+            self.smoothSpnBx.setValue(
+                float(info.get("smooth", self.smoothSpnBx.value()))
+            )
+            self.tensionSpnBx.setValue(
+                float(info.get("tension", self.tensionSpnBx.value()))
+            )
 
-                if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
-                    self.rminSpnBx.setValue(
-                        int(info.get("rmin", self.rminSpnBx.value()))
-                    )
-                else:
-                    self.rminSpnBx.setValue(previnfo["rmin"])
-
-                if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
-                    self.rmaxSpnBx.setValue(
-                        int(info.get("rmax", self.rmaxSpnBx.value()))
-                    )
-                else:
-                    self.rmaxSpnBx.setValue(previnfo["rmax"])
-
-                self.winSizeX.setValue(
-                    int(info.get("win_size_x", self.winSizeX.value()))
-                )
-                self.winSizeY.setValue(
-                    int(info.get("win_size_y", self.winSizeY.value()))
-                )
-                self.winSepX.setValue(int(info.get("win_sep_x", self.winSepX.value())))
-                self.winSepY.setValue(int(info.get("win_sep_y", self.winSepY.value())))
-                self.gaussFWHM.setValue(int(info.get("fwhm", self.gaussFWHM.value())))
-                self.boxcarX.setValue(int(info.get("boxcar_x", self.boxcarX.value())))
-                self.boxcarY.setValue(int(info.get("boxcar_y", self.boxcarY.value())))
-                self.cycle.setValue(int(info.get("cycles", self.cycle.value())))
-                self.degreeCB.setCurrentIndex(1)
+            self.winSizeX.setValue(
+                int(info.get("win_size_x", self.winSizeX.value()))
+            )
+            self.winSizeY.setValue(
+                int(info.get("win_size_y", self.winSizeY.value()))
+            )
+            self.winSepX.setValue(int(info.get("win_sep_x", self.winSepX.value())))
+            self.winSepY.setValue(int(info.get("win_sep_y", self.winSepY.value())))
+            self.gaussFWHM.setValue(int(info.get("fwhm", self.gaussFWHM.value())))
+            self.boxcarX.setValue(int(info.get("boxcar_x", self.boxcarX.value())))
+            self.boxcarY.setValue(int(info.get("boxcar_y", self.boxcarY.value())))
+            self.cycle.setValue(int(info.get("cycles", self.cycle.value())))
+            self.degreeCB.setCurrentIndex(1)
 
             if "optimize" in info:
                 self.optimizeFlag = bool(info["optimize"])
