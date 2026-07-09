@@ -1011,13 +1011,24 @@ class QuadrantFoldingGUI(BaseGUI):
         self.openFittingButtonMain.clicked.connect(
             self.bgSubDialog.openBackgroundFittingDialog
         )
+        self.runFittingApplyButtonMain = QPushButton(
+            "Run Fitting with current setting and apply")
+        self.runFittingApplyButtonMain.setToolTip(
+            "Run the iterative 2D background fit with the current settings, then "
+            "automatically save the fitted background, subtract it and enable "
+            "the subtraction checkbox -- without stepping through the dialog.")
+        self.runFittingApplyButtonMain.clicked.connect(
+            self.bgSubDialog.runBackgroundFittingAndApply
+        )
         self.subtractBgFitChkBxProxy = self._clone_checkbox(self.subtractBgFitChkBx)
         self._bind_proxy_two_way(
             self.subtractBgFitChkBxProxy, self.subtractBgFitChkBx, "toggled", "setChecked"
         )
         parametric_main_layout = QGridLayout()
         parametric_main_layout.addWidget(self.openFittingButtonMain, 0, 0, 1, 4)
-        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 1, 0, 1, 4)
+        parametric_main_layout.addWidget(self.runFittingApplyButtonMain, 1, 0, 1, 4)
+        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 2, 0, 1, 4)
+        # parametric_main_layout.addWidget(self.fitBgEachImageChkBxProxy, 3, 0, 1, 4)
         self.parametricFittingGroupMain.setLayout(parametric_main_layout)
 
         # ===== 5) Non-parametric Background Subtraction (collapsible): Options + the rest of the controls =====
@@ -2177,17 +2188,17 @@ class QuadrantFoldingGUI(BaseGUI):
             )
 
     def _is_fitted_bg_subtracted(self):
-        """True when the fitted background is set to be subtracted and a
-        matching fit is available in the cache."""
-        checked = bool(
-            hasattr(self, "subtractBgFitChkBx")
-            and self.subtractBgFitChkBx is not None
-            and self.subtractBgFitChkBx.isChecked()
-        )
-        if not checked or self.quadFold is None:
+        """True only when the most recent processing actually subtracted the
+        fitted background.
+
+        This reflects the processed result (the ``fitted_bg_subtracted`` flag
+        set by :meth:`QuadrantFolder.subtractFittedBackground`), not merely the
+        state of the "Subtract fitted background" checkbox, so the status label
+        appears only after the subtraction has really happened.
+        """
+        if self.quadFold is None:
             return False
-        bg_fit = self.quadFold.imgCache.get("BgFoldFit", None)
-        return bg_fit is not None and np.asarray(bg_fit).size > 0
+        return bool(self.quadFold.info.get("fitted_bg_subtracted", False))
 
     def _apply_bg_method_summary(
         self,

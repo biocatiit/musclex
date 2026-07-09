@@ -1407,6 +1407,10 @@ class QuadrantFolder:
         is set and a fit of the matching shape is available; a stale fit (fold
         geometry changed since it was computed) is dropped instead of applied.
         """
+        # Reset the outcome flag up front so it only reads True when a fit is
+        # actually removed below (used by the GUI to label the fitted-background
+        # status only after processing has really subtracted it).
+        self.info["fitted_bg_subtracted"] = False
         if not self.info.get("subtract_bg_fit", False):
             return
         bg_fit = self.imgCache.get("BgFoldFit", None)
@@ -1423,6 +1427,7 @@ class QuadrantFolder:
             return
         self.parent.statusPrint("Subtracting Fitted Background...")
         self.imgCache["avg_fold"] = (avg_fold - bg_fit).astype(np.float32)
+        self.info["fitted_bg_subtracted"] = True
         print("Fitted background subtracted from average fold.")
 
     def searchBackground(self):

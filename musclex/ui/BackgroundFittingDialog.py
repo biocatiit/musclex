@@ -47,6 +47,26 @@ COLORMAPS = [
 ]
 
 
+def default_fit_flags(rmax=None):
+    """Default fitting parameters as ``bgfit_*`` flags, used for batch
+    per-image fitting when the fitting dialog has never been opened (so there
+    are no user-set values to read). Mirrors the dialog widget defaults."""
+    return {
+        "bgfit_comp2": qf_defaults.COMP2_OPTIONS[qf_defaults.DEFAULT_COMP2_INDEX],
+        "bgfit_iters": qf_defaults.DEFAULT_FIT_MAX_ITERATIONS,
+        "bgfit_eq_max_nfev": qf_defaults.DEFAULT_EQUATOR_MAX_NFEV,
+        "bgfit_gen_max_nfev": qf_defaults.DEFAULT_GENERAL_MAX_NFEV,
+        "bgfit_fit_size": int(rmax * 0.8) if rmax else 1000,
+        "bgfit_downsample": qf_defaults.DEFAULT_FIT_DOWNSAMPLE,
+        "bgfit_use_step0": True,
+        "bgfit_baseline_reduction": qf_defaults.DEFAULT_BASELINE_REDUCTION / 100.0,
+        "bgfit_equator_reduction": qf_defaults.DEFAULT_EQUATOR_REDUCTION / 100.0,
+        "bgfit_auto_reduce": qf_defaults.DEFAULT_AUTO_REDUCE,
+        "bgfit_save_bg": qf_defaults.DEFAULT_SAVE_FITTED_BACKGROUNDS,
+        "bgfit_save_params": qf_defaults.DEFAULT_SAVE_FIT_PARAMS,
+    }
+
+
 class FitWorker(QObject):
     """Runs the (slow) fit off the UI thread."""
 
@@ -85,6 +105,14 @@ class BackgroundFittingDialog(QDialog):
         self._inputs = None           # (img, gmask, emask, rmin, rmax, rrmask)
         self._thread = None
         self._worker = None
+        # When True, the fitted residual is applied to the parent automatically
+        # once the (headless) fit finishes -- used by the main-panel
+        # "Run Fitting with current settings and apply" one-click button.
+        self._auto_apply = False
+        # Set once the user ticks "Don't show this message again" on the run
+        # confirmation; suppresses it for both the Run button and the one-click
+        # apply button for the rest of the session.
+        self._suppress_run_confirm = False
 
         self._create_widgets()
         self._create_layout()
@@ -658,25 +686,83 @@ class BackgroundFittingDialog(QDialog):
             auto_reduce=self.autoReduceChkBx.isChecked(),
         )
 
+    def fit_flags(self):
+        """Current fitting parameters as plain ``bgfit_*`` flags, so batch
+        processing can rebuild the fit config in the worker process (which has
+        no access to this Qt dialog). ``bgfit_fit_size`` is the fit *radius*
+        (the spinbox value); QuadrantFolder doubles it for FitConfig.fit_size,
+        mirroring :meth:`_build_cfg`."""
+        return {
+            "bgfit_comp2": self.comp2CB.currentText(),
+            "bgfit_iters": self.itersSpnBx.value(),
+            "bgfit_eq_max_nfev": self.eqMaxNfevSpnBx.value(),
+            "bgfit_gen_max_nfev": self.genMaxNfevSpnBx.value(),
+            "bgfit_fit_size": self.fitSizeSpnBx.value(),
+            "bgfit_downsample": self.downsampleSpnBx.value(),
+            "bgfit_use_step0": self.useStep0ChkBx.isChecked(),
+            "bgfit_baseline_reduction": self.baselineReductionSpnBx.value() / 100.0,
+            "bgfit_equator_reduction": self.equatorReductionSpnBx.value() / 100.0,
+            "bgfit_auto_reduce": self.autoReduceChkBx.isChecked(),
+            "bgfit_save_bg": self.saveBgChkBx.isChecked(),
+            "bgfit_save_params": self.saveParamsChkBx.isChecked(),
+        }
+
     # ------------------------------------------------------------------ #
     # run
     # ------------------------------------------------------------------ #
-    def runFit(self):
-        inputs = self._grab_inputs()
-        if inputs is None:
-            return
-
-        box = QMessageBox(self)
+    def _confirm_run_fit(self):
+        """Show the "may take a few minutes" confirmation and return True if the
+        user chose to continue. Once the user ticks "Don't show this message
+        again" the prompt is suppressed for the rest of the session (for both
+        the Run button and the one-click apply button)."""
+        if self._suppress_run_confirm:
+            return True
+        # Parent to the main GUI so the prompt shows correctly even when this
+        # dialog is hidden (one-click "run and apply" flow).
+        box = QMessageBox(self if self.isVisible() else self._parent_gui)
         box.setIcon(QMessageBox.Warning)
         box.setWindowTitle("Run background fit")
         box.setText("The fitting may take a few minutes. Continue or exit?")
         continueBtn = box.addButton("Continue", QMessageBox.AcceptRole)
         box.addButton("Exit", QMessageBox.RejectRole)
         box.setDefaultButton(continueBtn)
+        dontShowChkBx = QCheckBox("Don't show this message again")
+        box.setCheckBox(dontShowChkBx)
         box.exec_()
-        if box.clickedButton() is not continueBtn:
+        if dontShowChkBx.isChecked():
+            self._suppress_run_confirm = True
+        return box.clickedButton() is continueBtn
+
+    def runFit(self):
+        inputs = self._grab_inputs()
+        if inputs is None:
+            return
+        if not self._confirm_run_fit():
             return
 
+        self._auto_apply = False
+        self._start_fit(inputs)
+
+    def runFitAndApply(self):
+        """Run the fit headlessly with the current settings and, once it
+        finishes, apply the fitted residual to the parent automatically (save
+        the fitted background, subtract it and tick the subtraction checkbox).
+
+        Used by the main-panel one-click button so the user does not have to
+        open the dialog, run the fit and apply it by hand.
+        """
+        if self._thread is not None and self._thread.isRunning():
+            return
+        inputs = self._grab_inputs()
+        if inputs is None:
+            return
+        if not self._confirm_run_fit():
+            return
+        self._auto_apply = True
+        self._start_fit(inputs)
+
+    def _start_fit(self, inputs):
+        """Kick off the (slow) fit on a background thread from ``inputs``."""
         self._inputs = inputs
         img, gmask, emask, rmin, rmax, rrmask = inputs
         cfg = self._build_cfg()
@@ -717,6 +803,20 @@ class BackgroundFittingDialog(QDialog):
         self._maybe_save_outputs()
         self.updateView()
         self._warn_if_no_lobes(result)
+
+        # One-click flow: apply the fitted residual to the parent automatically
+        # (save the fitted background, subtract it and tick the subtraction
+        # checkbox) without requiring the user to click Apply. The dialog is
+        # hidden in this flow, so confirm completion with a message box.
+        if self._auto_apply:
+            self._auto_apply = False
+            self._apply_residual_to_parent()
+            QMessageBox.information(
+                self._parent_gui if self._parent_gui is not None else self,
+                "Background fit complete",
+                "Fit complete and subtracted from pattern.\n\n"
+                "Please review and adjust masking in the Iterative 2D "
+                "Background Fitting dialog if needed.")
 
     def _reflect_reductions_from_result(self):
         """Show the reductions actually used by the fit (post auto-reduce) in the
@@ -785,6 +885,7 @@ class BackgroundFittingDialog(QDialog):
                 "applying.")
 
     def _on_failed(self, tb):
+        self._auto_apply = False
         self.runButton.setEnabled(True)
         self.statusLabel.setText("Fit failed (see console).")
         print(tb)
