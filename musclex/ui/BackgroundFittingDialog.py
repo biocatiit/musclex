@@ -1323,11 +1323,33 @@ class BackgroundFittingDialog(QDialog):
             qf.imgCache["BgFold"] = np.array([])
             qf.imgCache["resultBg"] = np.zeros_like(residual, dtype=np.float32)
             qf.info["bgfit_applied"] = True
+            qf.info["subtract_bg_fit"] = True
+            # Persist the (small) reconstruction inputs -- not the full-size
+            # equator/general/residual arrays -- into the per-image info cache
+            # so a later session can rebuild the fitted background for this
+            # image without re-running the fit (see _try_load_cached_fit).
+            qf.info["bgfit_result_params"] = {
+                "equator_params": self.result["equator_params"],
+                "general_params": self.result["general_params"],
+                "comp2": self.result["comp2"],
+                "eq_norm": self.result["eq_norm"],
+                "gen_norm": self.result["gen_norm"],
+                "downsample_factor": self.result["downsample_factor"],
+                "equator_keep_baseline": self.result.get("equator_keep_baseline", False),
+                "equator_reduction": self.result.get("equator_reduction", 0.0),
+                "baseline_reduction": self.result.get("baseline_reduction", 0.0),
+                "best_iter": self.result.get("best_iter"),
+                "fallback": self.result.get("fallback"),
+            }
+            
         except Exception:  # noqa: BLE001
             return
         # The fit replaces the non-parametric background subtraction, so reset
-        # the subtraction method to "None". Driving the combobox keeps info,
-        # the manual proxy and the method summary in sync.
+        # the subtraction method to "None" *before* saving. Besides keeping
+        # info/combobox/summary in sync, this also makes saveResults ->
+        # saveBackground skip writing bg.tif, since BgSubFold/BgFold in the
+        # cache still reflect the old (now-replaced) non-parametric method
+        # and no longer match resultImg.
         qf.info["bgsub"] = "None"
         # The Current Configuration panel reads info["result_bg"]["method"]
         # before falling back to info["bgsub"], so reset it too or the panel
