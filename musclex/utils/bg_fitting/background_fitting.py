@@ -79,16 +79,17 @@ class FitConfig:
     pos_weight: float = 1.0
     equator_keep_baseline: bool = False
 
-    # post-fit safety reductions (guard against oversubtraction). The baseline
-    # reduction is always applied; the equator reduction defaults to none. With
-    # auto_reduce both fractions are tuned upward on top of these fixed values
-    # until the oversubtracted-pixel fraction stops improving (see bfu.auto_reduce).
-    baseline_reduction: float = 0.25
-    equator_reduction: float = 0.0
+    # post-fit safety reductions (guard against oversubtraction). Each scales its
+    # whole reconstructed background by (1 - fraction): the general reduction is
+    # always applied, the equator reduction defaults to none. With auto_reduce
+    # both fractions are tuned upward on top of these fixed values until the
+    # oversubtracted-pixel fraction stops improving (see bfu.auto_reduce).
+    general_reduction: float = 0.05
+    equator_reduction: float = 0.05
     auto_reduce: bool = False
-    reduction_step_baseline: float = 0.005
-    reduction_max_baseline: float = 0.25
-    reduction_min_improve_baseline: float = 0.001
+    reduction_step_general: float = 0.005
+    reduction_max_general: float = 0.25
+    reduction_min_improve_general: float = 0.001
     reduction_step_equator: float = 0.005
     reduction_max_equator: float = 0.25
     reduction_min_improve_equator: float = 0.001
@@ -450,15 +451,15 @@ def reduce_backgrounds(
     comp2,
     ds,
     eq_red,
-    bl_red,
+    gen_red,
     equator_keep_baseline=False,
 ):
     """Reconstruct the reduced equator/general backgrounds and residual.
 
     Rebuilds the full-resolution backgrounds from the fitted parameters with the
-    given equator/baseline reduction *fractions* applied (the equator is scaled
-    by ``1 - eq_red``; the general baseline parameter is cut by ``1 - bl_red``
-    before reconstruction). Returns ``(equator_full, general_full, residual)``.
+    given equator/general reduction *fractions* applied: each whole background is
+    scaled by ``1 - fraction`` (the equator by ``1 - eq_red``, the general by
+    ``1 - gen_red``). Returns ``(equator_full, general_full, residual)``.
 
     This is the same reconstruction the fit driver performs for its chosen
     reductions, factored out so the UI can recompute cheaply when the user edits
@@ -469,11 +470,8 @@ def reduce_backgrounds(
         eq_params, full_shape, ds, eq_norm, equator_keep_baseline
     )
     equator_full = equator_full * (1.0 - float(eq_red))
-    gen_params_red = np.asarray(gen_params, dtype=float).copy()
-    gen_params_red[0] *= 1.0 - float(bl_red)
-    general_full = bfu.reconstruct_general(
-        gen_params_red, full_shape, comp2, ds, gen_norm
-    )
+    general_full = bfu.reconstruct_general(gen_params, full_shape, comp2, ds, gen_norm)
+    general_full = general_full * (1.0 - float(gen_red))
     residual_full = img - equator_full - general_full
     return equator_full, general_full, residual_full
 
@@ -600,17 +598,13 @@ def two_stage_iterative_fit(
         active_comp2 = gen_best["comp2"]
 
         residual = base - equator - general
-        gen_params_red = np.asarray(gen_best["params"], dtype=float).copy()
-        gen_params_red[0] *= 1.0 - cfg.baseline_reduction
-        general_red = bfu.reconstruct_general(
-            gen_params_red,
-            img_fit.shape,
-            gen_best["comp2"],
-            cfg.downsample_factor,
-            gen_best["norm"],
-        )
+        # The fixed general reduction (whole-background scaling, like the
+        # equator) is applied here ONLY to evaluate oversubtraction for
+        # iteration selection -- it does not feed back into the fit trajectory,
+        # and the auto sweep is never applied inside the loop (it is resolved
+        # once after the loop for the final output).
+        general_red = general * (1.0 - float(cfg.general_reduction))
         residual_red = base - equator - general_red
-
         neg = bfu.negative_stats(residual, valid)
         neg_red = bfu.negative_stats(residual_red, valid)
         lobe_ok, lobe_info = bfu.equator_lobes_ok(eq_params, cfg.eq_max_v0_dev)
@@ -646,25 +640,19 @@ def two_stage_iterative_fit(
     gen_norm = best["gen_norm"]
 
     # ---- resolve the post-fit safety reductions (fit-size domain, fast) ----
-    # The final background is the *reduced* version: the general baseline is cut
-    # by cfg.baseline_reduction (always) and the equator by cfg.equator_reduction
-    # (default 0). With cfg.auto_reduce each cut is tuned upward on top of its
-    # fixed fraction until the oversubtracted-pixel fraction stops improving. The
-    # sweep runs on the fit-size crop where `valid` is defined, then the chosen
-    # fractions are applied to the full-resolution reconstruction.
+    # The final background is the *reduced* version: each background is scaled by
+    # (1 - fraction) -- the general by cfg.general_reduction (always) and the
+    # equator by cfg.equator_reduction (default 0). With cfg.auto_reduce each cut
+    # is tuned upward on top of its fixed fraction until the oversubtracted-pixel
+    # fraction stops improving. The sweep runs on the fit-size crop where `valid`
+    # is defined, then the chosen fractions are applied to the full-resolution
+    # reconstruction.
     report("Reduce", 0.95)
     with maybe_quiet(cfg.quiet):
         eq_fit = bfu.reconstruct_equator(
             eq_params, img_fit.shape, ds, eq_norm, cfg.equator_keep_baseline
         )
-
-    def _gen_fit(bl_frac):
-        gp = gen_params.copy()
-        gp[0] *= 1.0 - bl_frac
-        with maybe_quiet(cfg.quiet):
-            return bfu.reconstruct_general(gp, img_fit.shape, comp2, ds, gen_norm)
-
-    gen_fit_full_baseline = _gen_fit(0.0)
+        gen_fit = bfu.reconstruct_general(gen_params, img_fit.shape, comp2, ds, gen_norm)
 
     # equator reduction: fixed fraction, then optional auto sweep on top
     eq_red_fixed = float(cfg.equator_reduction)
@@ -674,7 +662,7 @@ def two_stage_iterative_fit(
 
         def eq_frac(r):
             return bfu.negative_stats(
-                base - eq_fit_fixed * (1.0 - r) - gen_fit_full_baseline, valid
+                base - eq_fit_fixed * (1.0 - r) - gen_fit, valid
             )["frac_negative"]
 
         eq_red_auto, _ = bfu.auto_reduce(
@@ -686,28 +674,29 @@ def two_stage_iterative_fit(
     eq_red = 1.0 - (1.0 - eq_red_fixed) * (1.0 - eq_red_auto)
     eq_fit_final = eq_fit * (1.0 - eq_red)
 
-    # baseline reduction: fixed fraction (always), then optional auto sweep on top
-    bl_red_fixed = float(cfg.baseline_reduction)
-    bl_red_auto = 0.0
+    # general reduction: fixed fraction (always), then optional auto sweep on top
+    gen_red_fixed = float(cfg.general_reduction)
+    gen_fit_fixed = gen_fit * (1.0 - gen_red_fixed)
+    gen_red_auto = 0.0
     if cfg.auto_reduce:
 
-        def bl_frac(r):
-            total = 1.0 - (1.0 - bl_red_fixed) * (1.0 - r)
-            return bfu.negative_stats(base - eq_fit_final - _gen_fit(total), valid)[
-                "frac_negative"
-            ]
+        def gen_frac(r):
+            return bfu.negative_stats(
+                base - eq_fit_final - gen_fit_fixed * (1.0 - r), valid
+            )["frac_negative"]
 
-        bl_red_auto, _ = bfu.auto_reduce(
-            bl_frac,
-            cfg.reduction_max_baseline,
-            cfg.reduction_step_baseline,
-            cfg.reduction_min_improve_baseline,
+        gen_red_auto, _ = bfu.auto_reduce(
+            gen_frac,
+            cfg.reduction_max_general,
+            cfg.reduction_step_general,
+            cfg.reduction_min_improve_general,
         )
-    bl_red = 1.0 - (1.0 - bl_red_fixed) * (1.0 - bl_red_auto)
+    gen_red = 1.0 - (1.0 - gen_red_fixed) * (1.0 - gen_red_auto)
+    gen_fit_final = gen_fit * (1.0 - gen_red)
 
     # oversubtraction of the FINAL (reduced) residual, for reporting. Uses the
     # same rmin..rmax `valid` region as the optimization metrics above.
-    final_neg = bfu.negative_stats(base - eq_fit_final - _gen_fit(bl_red), valid)
+    final_neg = bfu.negative_stats(base - eq_fit_final - gen_fit_final, valid)
 
     # ---- reconstruct the chosen (reduced) backgrounds at FULL resolution ----
     with maybe_quiet(cfg.quiet):
@@ -720,7 +709,7 @@ def two_stage_iterative_fit(
             comp2,
             ds,
             eq_red,
-            bl_red,
+            gen_red,
             cfg.equator_keep_baseline,
         )
 
@@ -744,7 +733,7 @@ def two_stage_iterative_fit(
         "downsample_factor": ds,
         "equator_keep_baseline": cfg.equator_keep_baseline,
         "equator_reduction": eq_red,
-        "baseline_reduction": bl_red,
+        "general_reduction": gen_red,
         "oversub_frac": final_neg["frac_negative"],
         "oversub_flux_frac": final_neg["oversub_flux_frac"],
         "n_negative": final_neg["n_negative"],
