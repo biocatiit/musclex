@@ -705,9 +705,6 @@ class EllipticalSAXSFitter:
         """
         model = getattr(self, "model", "elliptical")
         if model == "elliptical":
-            print("Using elliptical model")
-            # print("Parameters:", params)
-            # self.print_parameters(params)
             I = self.elliptical_intensity(params, return_components=return_components)
             return I
 
