@@ -1144,7 +1144,6 @@ class BackgroundSubtractionDialog(QDialog):
         evaluation_layout = QVBoxLayout(self.evaluationGroup)
 
         common_layout.addWidget(self.rminGroup)
-        common_layout.addWidget(self.imageProcGroup)
         common_layout.addWidget(self.parametricFittingGroup)
         common_layout.addWidget(self.subtractionGroup)
 
@@ -1169,12 +1168,14 @@ class BackgroundSubtractionDialog(QDialog):
         auto_layout = QGridLayout(self.autoGroup)
         self._populate_automated_processing_layout(auto_layout)
 
-        # Combine into subtraction group
+        # Combine into subtraction group. Image Processing is nested here so it
+        # is tucked under the Non-parametric Background Subtraction section.
         subtraction_layout = QGridLayout()
         subtraction_layout.setContentsMargins(8, 8, 8, 8)
-        subtraction_layout.addWidget(modeWidget, 0, 0, 1, 4)
-        subtraction_layout.addWidget(self.manualGroup, 1, 0, 1, 4)
-        subtraction_layout.addWidget(self.autoGroup, 2, 0, 1, 4)
+        subtraction_layout.addWidget(self.imageProcGroup, 0, 0, 1, 4)
+        subtraction_layout.addWidget(modeWidget, 1, 0, 1, 4)
+        subtraction_layout.addWidget(self.manualGroup, 2, 0, 1, 4)
+        subtraction_layout.addWidget(self.autoGroup, 3, 0, 1, 4)
         self.subtractionGroup.setLayout(subtraction_layout)
 
     def _populate_manual_processing_layout(self, layout):
