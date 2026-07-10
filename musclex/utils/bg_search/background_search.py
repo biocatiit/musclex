@@ -44,33 +44,68 @@ def get_projection(
     return projection
 
 
-def find_m3_peak(meridian_half, rmin=10):
-    peaks, properties = find_peaks(meridian_half[rmin:], prominence=1)
+def find_m1_peak(meridian_half, rmin=10):
+    """Estimate the M1 layer-line spacing from meridian peaks.
+
+    Finds the prominent peaks along the meridian projection and uses the median
+    spacing between consecutive peaks as the M1 initial guess. This is more
+    robust than picking a single peak (e.g. M3) when peaks are missing or
+    mis-ranked by prominence, since layer lines are evenly spaced by ~M1.
+    """
+    peaks, _ = find_peaks(meridian_half[rmin:], prominence=1)
     peaks = [p + rmin for p in peaks]
     if len(peaks) < 2:
         return None
-    prominences = properties["prominences"]
-    sorted_indices = np.argsort(prominences)[::-1]
-    top_2nd_peak_index = peaks[sorted_indices[1]]
-    m3 = top_2nd_peak_index
-    return int(m3)
+    spacings = np.diff(sorted(peaks))
+    m1 = np.median(spacings)
+    return int(round(m1))
 
 
 def find_m_peak_auto(img, m=1, rmin=10, intensity=False):
     meridian_half = get_projection(img, gap=2, orientation=1, avg=True, half=True)
-    m3 = find_m3_peak(meridian_half, rmin=rmin)
-    if m3 is None:
+    m1 = find_m1_peak(meridian_half, rmin=rmin)
+    if m1 is None:
         return 0
-    m1 = int(m3 / 3)
+    pos = m1 * m
     if intensity:
-        if m == 3:
-            return meridian_half[m3]
-        else:
-            return meridian_half[m1 * m]
-    if m == 3:
-        return m3
-    else:
-        return m1 * m
+        pos = int(min(pos, len(meridian_half) - 1))
+        return meridian_half[pos]
+    return pos
+
+
+def find_equator_height_auto(meridian_half, rmin=0, smooth_sigma=2, grad_frac=0.05):
+    """Estimate the equatorial band half-height from a meridian profile.
+
+    ``meridian_half`` is the intensity along the meridian (vertical) axis as a
+    function of distance from the equator (index 0 == equator). The equatorial
+    reflection is steep: intensity is high at the equator and falls off rapidly
+    with distance, then flattens into the background tail. This returns the
+    radius at which that steep fall-off flattens out -- i.e. the outer edge of
+    the equatorial band. It locates the steepest point of the (smoothed)
+    profile and walks outward until the slope magnitude drops below
+    ``grad_frac`` of the steepest slope.
+
+    Returns ``None`` when the profile is too short or has no discernible slope.
+    """
+    prof = np.asarray(meridian_half, dtype=np.float64)
+    if prof.size < 3:
+        return None
+    if smooth_sigma and smooth_sigma > 0:
+        prof = gaussian_filter(prof, sigma=smooth_sigma)
+
+    grad = np.abs(np.gradient(prof))
+    if rmin >= grad.size - 1:
+        rmin = 0
+    i_steep = int(np.argmax(grad[rmin:]) + rmin)
+    peak_slope = grad[i_steep]
+    if peak_slope <= 0:
+        return None
+
+    thresh = grad_frac * peak_slope
+    h = i_steep
+    while h < grad.size - 1 and grad[h] > thresh:
+        h += 1
+    return int(h)
 
 
 def find_fwhm(histogram, peak_index=None, rel_height=0.5):

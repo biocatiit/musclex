@@ -4049,11 +4049,20 @@ class QuadrantFoldingGUI(BaseGUI):
         if computed is None:
             return
         amp, sig_x, sig_y = computed
+        # Seed the M1 layer-line spacing and equator half-height from the folded
+        # pattern so the spinboxes reflect the detected values rather than the
+        # static DEFAULT_LAYER_SPACING / DEFAULT_EQUATOR_HEIGHT.
+        m1 = self.quadFold.autoDetectM1()
+        eq_height = self.quadFold.autoDetectEquatorHeight()
         self.uiUpdating = True
         try:
             self.amplitudeSpnBx.setValue(float(amp))
             self.sigmaXSpnBx.setValue(float(sig_x))
             self.sigmaYSpnBx.setValue(float(sig_y))
+            if m1 is not None and m1 > 0:
+                self.m1SpnBx.setValue(int(m1))
+            if eq_height is not None and eq_height > 0:
+                self.equatorMaskHeightSpnBx.setValue(int(eq_height))
         finally:
             self.uiUpdating = False
         self._push_session_bg_eval_settings_to_info()
