@@ -1426,6 +1426,11 @@ class BackgroundFittingDialog(QDialog):
             qf.imgCache["resultBg"] = np.zeros_like(residual, dtype=np.float32)
             qf.info["bgfit_applied"] = True
             qf.info["subtract_bg_fit"] = True
+            # The residual computed above already has the fitted background
+            # removed (imgCache["resultImg"] = residual, just above), so the
+            # outcome flag should reflect that immediately -- not wait for a
+            # subsequent process() run through QuadrantFolder.subtractFittedBackground().
+            qf.info["fitted_bg_subtracted"] = True
             # Persist the (small) reconstruction inputs -- not the full-size
             # equator/general/residual arrays -- into the per-image info cache
             # so a later session can rebuild the fitted background for this
