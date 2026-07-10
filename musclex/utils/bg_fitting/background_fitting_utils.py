@@ -375,9 +375,11 @@ def auto_reduce(frac_fn, max_reduction=0.25, step=0.005, min_improve=0.001):
 
 
 def select_best_iteration(iter_records):
-    """Pick the best iteration: fewest oversubtracted pixels after the baseline
-    cut, among iterations whose equator forms two lobes; tie-break by general
-    fit cost. Falls back to the least-bad iteration if none form two lobes.
+    """Pick the best iteration: fewest oversubtracted pixels after the fixed
+    general reduction, among iterations whose equator forms two lobes; tie-break
+    by general fit cost. Falls back to the least-bad iteration if none form two
+    lobes. The auto reduction (and the final full reduction) are applied to the
+    winner afterwards, not during selection.
 
     Returns (best_record, fallback: bool).
     """

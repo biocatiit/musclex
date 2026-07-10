@@ -1471,8 +1471,9 @@ class QuadrantFolder:
                 fit_size=2 * int(self.info.get("bgfit_fit_size", 1000)),
                 downsample_factor=int(self.info.get("bgfit_downsample", 2)),
                 use_step0=bool(self.info.get("bgfit_use_step0", True)),
-                baseline_reduction=float(
-                    self.info.get("bgfit_baseline_reduction", 0.05)),
+                general_reduction=float(
+                    self.info.get("bgfit_general_reduction",
+                                  self.info.get("bgfit_baseline_reduction", 0.05))),
                 equator_reduction=float(
                     self.info.get("bgfit_equator_reduction", 0.05)),
                 auto_reduce=bool(self.info.get("bgfit_auto_reduce", True)),
@@ -1500,7 +1501,7 @@ class QuadrantFolder:
                 "downsample_factor": result["downsample_factor"],
                 "equator_keep_baseline": result.get("equator_keep_baseline", False),
                 "equator_reduction": result.get("equator_reduction", 0.0),
-                "baseline_reduction": result.get("baseline_reduction", 0.0),
+                "general_reduction": result.get("general_reduction", 0.0),
                 "best_iter": result.get("best_iter"),
                 "fallback": result.get("fallback"),
             }
@@ -1529,7 +1530,8 @@ class QuadrantFolder:
                 params["equator_params"], params["general_params"],
                 params["eq_norm"], params["gen_norm"], params["comp2"],
                 params["downsample_factor"],
-                params["equator_reduction"], params["baseline_reduction"],
+                params["equator_reduction"],
+                params["general_reduction"],     
                 params.get("equator_keep_baseline", False))
             bg_full = equator + general
             self.imgCache["BgFoldFit"] = bg_full[: h // 2, : w // 2].astype(np.float32)
@@ -1578,7 +1580,7 @@ class QuadrantFolder:
                 best_iter=result["best_iter"],
                 fallback=result["fallback"],
                 equator_reduction=result.get("equator_reduction", 0.0),
-                baseline_reduction=result.get("baseline_reduction", 0.0),
+                general_reduction=result.get("general_reduction", 0.0),
                 oversub_frac=result.get("oversub_frac", float("nan")))
         except Exception as e:  # noqa: BLE001
             print(f"Warning: could not save bg fit outputs for "

@@ -58,7 +58,7 @@ def default_fit_flags(rmax=None):
         "bgfit_fit_size": int(rmax * 0.8) if rmax else 1000,
         "bgfit_downsample": qf_defaults.DEFAULT_FIT_DOWNSAMPLE,
         "bgfit_use_step0": True,
-        "bgfit_baseline_reduction": qf_defaults.DEFAULT_BASELINE_REDUCTION / 100.0,
+        "bgfit_general_reduction": qf_defaults.DEFAULT_GENERAL_REDUCTION / 100.0,
         "bgfit_equator_reduction": qf_defaults.DEFAULT_EQUATOR_REDUCTION / 100.0,
         "bgfit_auto_reduce": qf_defaults.DEFAULT_AUTO_REDUCE,
     }
@@ -198,21 +198,21 @@ class BackgroundFittingDialog(QDialog):
             "background (per-sector cone fit)."
         )
 
-        self.baselineReductionSpnBx = QDoubleSpinBox()
-        self.baselineReductionSpnBx.setRange(*qf_defaults.FIT_REDUCTION_RANGE)
-        self.baselineReductionSpnBx.setDecimals(1)
-        self.baselineReductionSpnBx.setSingleStep(1.0)
-        self.baselineReductionSpnBx.setSuffix(" %")
-        self.baselineReductionSpnBx.setValue(qf_defaults.DEFAULT_BASELINE_REDUCTION)
-        self.baselineReductionSpnBx.setKeyboardTracking(False)
-        self.baselineReductionSpnBx.setToolTip(
-            "Cut the general-background baseline by this fraction before "
+        self.generalReductionSpnBx = QDoubleSpinBox()
+        self.generalReductionSpnBx.setRange(*qf_defaults.FIT_REDUCTION_RANGE)
+        self.generalReductionSpnBx.setDecimals(1)
+        self.generalReductionSpnBx.setSingleStep(1.0)
+        self.generalReductionSpnBx.setSuffix(" %")
+        self.generalReductionSpnBx.setValue(qf_defaults.DEFAULT_GENERAL_REDUCTION)
+        self.generalReductionSpnBx.setKeyboardTracking(False)
+        self.generalReductionSpnBx.setToolTip(
+            "Scale the fitted general background down by this fraction before "
             "subtracting (always applied) to guard against oversubtraction.\n"
             "After a fit this shows the reduction actually used (including any "
             "auto-reduce increase); editing it rebuilds the background and "
             "residual with the new value."
         )
-        self.baselineReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
+        self.generalReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
         self.equatorReductionSpnBx = QDoubleSpinBox()
         self.equatorReductionSpnBx.setRange(*qf_defaults.FIT_REDUCTION_RANGE)
@@ -230,7 +230,7 @@ class BackgroundFittingDialog(QDialog):
         )
         self.equatorReductionSpnBx.valueChanged.connect(self._on_reduction_changed)
 
-        self.autoReduceChkBx = QCheckBox("Auto-reduce (equator && baseline)")
+        self.autoReduceChkBx = QCheckBox("Auto-reduce (equator && general)")
         self.autoReduceChkBx.setChecked(qf_defaults.DEFAULT_AUTO_REDUCE)
         self.autoReduceChkBx.setToolTip(
             "Automatically increase both reductions on top of the fixed values "
@@ -408,7 +408,7 @@ class BackgroundFittingDialog(QDialog):
         additional_form.addRow("Fit size (rmax*):", self.fitSizeSpnBx)
         additional_form.addRow("Downsample:", self.downsampleSpnBx)
         additional_form.addRow(self.useStep0ChkBx)
-        additional_form.addRow("Baseline reduction:", self.baselineReductionSpnBx)
+        additional_form.addRow("General reduction:", self.generalReductionSpnBx)
         additional_form.addRow("Equator reduction:", self.equatorReductionSpnBx)
         additional_form.addRow(self.autoReduceChkBx)
         self.additionalSettingsBox.set_content_layout(additional_form)
@@ -664,7 +664,7 @@ class BackgroundFittingDialog(QDialog):
                 params["comp2"],
                 params["downsample_factor"],
                 params["equator_reduction"],
-                params["baseline_reduction"],
+                params["general_reduction"],
                 params.get("equator_keep_baseline", False),
             )
         except Exception:  # noqa: BLE001
@@ -778,7 +778,7 @@ class BackgroundFittingDialog(QDialog):
             fit_size=2 * self.fitSizeSpnBx.value(),
             downsample_factor=self.downsampleSpnBx.value(),
             use_step0=self.useStep0ChkBx.isChecked(),
-            baseline_reduction=self.baselineReductionSpnBx.value() / 100.0,
+            general_reduction=self.generalReductionSpnBx.value() / 100.0,
             equator_reduction=self.equatorReductionSpnBx.value() / 100.0,
             auto_reduce=self.autoReduceChkBx.isChecked(),
         )
@@ -797,7 +797,7 @@ class BackgroundFittingDialog(QDialog):
             "bgfit_fit_size": self.fitSizeSpnBx.value(),
             "bgfit_downsample": self.downsampleSpnBx.value(),
             "bgfit_use_step0": self.useStep0ChkBx.isChecked(),
-            "bgfit_baseline_reduction": self.baselineReductionSpnBx.value() / 100.0,
+            "bgfit_general_reduction": self.generalReductionSpnBx.value() / 100.0,
             "bgfit_equator_reduction": self.equatorReductionSpnBx.value() / 100.0,
             "bgfit_auto_reduce": self.autoReduceChkBx.isChecked(),
         }
@@ -919,10 +919,10 @@ class BackgroundFittingDialog(QDialog):
         if self.result is None:
             return
         eq_red = self.result.get("equator_reduction")
-        bl_red = self.result.get("baseline_reduction")
+        gen_red = self.result.get("general_reduction")
         for box, frac in (
             (self.equatorReductionSpnBx, eq_red),
-            (self.baselineReductionSpnBx, bl_red),
+            (self.generalReductionSpnBx, gen_red),
         ):
             if frac is None:
                 continue
@@ -937,7 +937,7 @@ class BackgroundFittingDialog(QDialog):
             return
         try:
             eq_red = self.equatorReductionSpnBx.value() / 100.0
-            bl_red = self.baselineReductionSpnBx.value() / 100.0
+            gen_red = self.generalReductionSpnBx.value() / 100.0
             equator, general, residual = bf.reduce_backgrounds(
                 self._inputs[0],
                 self.result["equator_params"],
@@ -947,7 +947,7 @@ class BackgroundFittingDialog(QDialog):
                 self.result["comp2"],
                 self.result["downsample_factor"],
                 eq_red,
-                bl_red,
+                gen_red,
                 self.result.get("equator_keep_baseline", False),
             )
         except Exception as e:  # noqa: BLE001
@@ -957,7 +957,7 @@ class BackgroundFittingDialog(QDialog):
         self.result["general"] = general
         self.result["residual"] = residual
         self.result["equator_reduction"] = eq_red
-        self.result["baseline_reduction"] = bl_red
+        self.result["general_reduction"] = gen_red
         # Refresh the reported oversubtraction over the rmin..rmax annulus so the
         # params panel matches the new residual.
         rrmask = self._inputs[5] if len(self._inputs) > 5 else None
@@ -1056,7 +1056,7 @@ class BackgroundFittingDialog(QDialog):
                 best_iter=self.result["best_iter"],
                 fallback=self.result["fallback"],
                 equator_reduction=self.result.get("equator_reduction", 0.0),
-                baseline_reduction=self.result.get("baseline_reduction", 0.0),
+                general_reduction=self.result.get("general_reduction", 0.0),
                 oversub_frac=self.result.get("oversub_frac", float("nan")),
             )
             self.statusLabel.setText(f"{self.statusLabel.text()}  Saved to {save_dir}")
@@ -1132,11 +1132,11 @@ class BackgroundFittingDialog(QDialog):
                 f"({r.get('n_negative')}/{r.get('n_valid')} px)"
             )
         eq_red = r.get("equator_reduction")
-        bl_red = r.get("baseline_reduction")
-        if eq_red is not None and bl_red is not None:
+        gen_red = r.get("general_reduction")
+        if eq_red is not None and gen_red is not None:
             head.append(
                 f"Reductions     : equator {eq_red * 100:.1f}%, "
-                f"baseline {bl_red * 100:.1f}%"
+                f"general {gen_red * 100:.1f}%"
             )
         head.append("")
         try:
@@ -1446,7 +1446,7 @@ class BackgroundFittingDialog(QDialog):
                     "equator_keep_baseline", False
                 ),
                 "equator_reduction": self.result.get("equator_reduction", 0.0),
-                "baseline_reduction": self.result.get("baseline_reduction", 0.0),
+                "general_reduction": self.result.get("general_reduction", 0.0),
                 "best_iter": self.result.get("best_iter"),
                 "fallback": self.result.get("fallback"),
             }
