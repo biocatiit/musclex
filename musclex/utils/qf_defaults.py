@@ -22,7 +22,7 @@ DEFAULT_RMIN_RMAX = -1
 DEFAULT_EQUATOR_HEIGHT = 100
 DEFAULT_EQUATOR_CENTER = 70
 DEFAULT_LAYER_SPACING = 80
-DEFAULT_LAYER_WIDTH = 5
+DEFAULT_LAYER_WIDTH = 8
 # Equatorial Bragg-peak mask (BackgroundFittingDialog Mask section)
 DEFAULT_N_PEAKS = 4
 DEFAULT_PEAK_WIDTH = 30
@@ -117,7 +117,7 @@ BG_METHODS = [
     "Smoothed-BoxCar",
     "Roving Window",
 ]
-OPTIMIZATION_METHODS = BG_METHODS[2:]  # Exclude 'None' from optimization options
+OPTIMIZATION_METHODS = BG_METHODS[:] # Include all methods for optimization
 DEFAULT_OPTIMIZATION_METHODS = ["White-top-hats", "Smoothed-Gaussian"]
 DEFAULT_OPTIMIZATION_STEPS = "100, 50, 25, 10, 5, 3, 1"
 
