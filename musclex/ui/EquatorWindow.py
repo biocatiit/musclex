@@ -265,13 +265,25 @@ class EquatorWindow(QMainWindow):
             f"Processing: {task.filename} ({stats['completed']}/{stats['total']})"
         )
 
+        # Keep the visible/current image state fresh even when batch processing
+        # is launched from a non-image tab. Without this, the first image's
+        # Results tab can keep showing stale values until navigation reloads it.
+        is_current_image = task.job_index == self.file_manager.current
+        has_image_result = task.result and "image" in task.result
+        if is_current_image and has_image_result:
+            self.bioImg.info = task.result["info"]
+            self.bioImg.image = task.result["image"]
+            self.updateParams()
+            self.updateResultsTab()
+
         # Update Image tab preview if visible
         if self.tabWidget.currentIndex() == 0:  # Image tab
             # Guard with 'image' in task.result rather than `not task.error`
             # because str(CancelledError()) == "" which is falsy even on error.
-            if task.result and "image" in task.result:
-                self.bioImg.info = task.result["info"]
-                self.bioImg.image = task.result["image"]
+            if has_image_result:
+                if not is_current_image:
+                    self.bioImg.info = task.result["info"]
+                    self.bioImg.image = task.result["image"]
                 self.updateImageTab()
 
         # Immediately release large image data after UI update to prevent memory accumulation
