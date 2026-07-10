@@ -1075,17 +1075,41 @@ class QuadrantFolder:
         return mask.astype(int)
 
     def _create_equator_mask(self, h, w, fullImg):
-        meridian = get_projection(fullImg, orientation=1, gap=2, offset=200)
-        fwhm_val = find_fwhm(meridian, rel_height=0.5)
-        eq_fwhm = int(fwhm_val) if fwhm_val is not None else 0
-
-        m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info["rmin"])
-        auto_y_height = ((m1_peak * 2) + eq_fwhm) // 2
+        auto_y_height = self.autoDetectEquatorHeight(fullImg)
+        if not auto_y_height or auto_y_height <= 0:
+            # Fall back to the M1 + FWHM heuristic when the steep-edge detector
+            # cannot find a clear equator flank.
+            meridian = get_projection(fullImg, orientation=1, gap=2, offset=200)
+            fwhm_val = find_fwhm(meridian, rel_height=0.5)
+            eq_fwhm = int(fwhm_val) if fwhm_val is not None else 0
+            m1_peak = find_m_peak_auto(fullImg, m=1, rmin=self.info["rmin"])
+            auto_y_height = ((m1_peak * 2) + eq_fwhm) // 2
         auto_y_height = max(30, auto_y_height)
         y_height = int(self.info.get("equator_mask_height", auto_y_height))
         self.info["equator_mask_height"] = y_height
         mask = create_rectangle_mask(h, w, x_length=w, y_height=y_height)
         return mask.astype(int)
+
+    def autoDetectEquatorHeight(self, fullImg=None):
+        """Auto-detect the equatorial band half-height from the folded pattern.
+
+        The equator is steep: its meridian (vertical) intensity profile drops
+        rapidly away from the equator and then flattens. This returns the radius
+        where that steep fall-off ends (see ``find_equator_height_auto``) so the
+        UI can seed the equator-height spinbox from the data instead of leaving
+        it at ``DEFAULT_EQUATOR_HEIGHT``. Returns ``None`` when it cannot be
+        estimated.
+        """
+        if fullImg is None:
+            if "avg_fold" not in self.imgCache:
+                return None
+            fullImg = makeFullImage(self.imgCache["avg_fold"])
+        meridian_center = get_projection(fullImg, orientation=1, gap=2, half=True)
+        rmin = int(self.info.get("rmin", 0) or 0)
+        eq_height = find_equator_height_auto(meridian_center, rmin=rmin)
+        if not eq_height or eq_height <= 0:
+            return None
+        return int(eq_height)
 
     def _create_non_equator_mask(self, h, w, fullImg):
         mask = self._create_equator_mask(h, w, fullImg)
@@ -1212,6 +1236,23 @@ class QuadrantFolder:
             m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
             m1 = 50 if abs(m1 - 50) > 50 else m1
         return m1
+
+    def autoDetectM1(self):
+        """Auto-detect the M1 layer-line spacing from the folded pattern.
+
+        Returns the median spacing between meridian peaks (see
+        ``find_m_peak_auto``) so the UI can seed the M1 spinbox from the data
+        instead of leaving it at ``DEFAULT_LAYER_SPACING``. Returns ``None``
+        when ``avg_fold`` is unavailable or M1 cannot be estimated.
+        """
+        if "avg_fold" not in self.imgCache:
+            return None
+        fullImg = makeFullImage(self.imgCache["avg_fold"])
+        rmin = int(self.info.get("rmin", 30) or 30)
+        m1 = find_m_peak_auto(fullImg, m=1, rmin=rmin)
+        if not m1 or m1 <= 0:
+            return None
+        return int(m1)
 
     def ensureSyntheticGaussianDefaults(self):
         if "avg_fold" not in self.imgCache:
