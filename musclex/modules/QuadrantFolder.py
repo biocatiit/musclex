@@ -556,6 +556,7 @@ class QuadrantFolder:
                 "Please check the input file."
             )
         self.getRminmax()
+        self.fitBackgroundPerImage()
         self.subtractFittedBackground()
         self.createMask()
         self.createArtificialData()
@@ -1397,6 +1398,191 @@ class QuadrantFolder:
 
         self.imgCache["avg_fold"] = result
         self.info["folded"] = True
+
+    def fitBackgroundPerImage(self):
+        """Make ``imgCache['BgFoldFit']`` reflect this image's iterative 2D
+        background fit, so :meth:`subtractFittedBackground` can remove it.
+
+        Two ways this gets populated:
+          1. A fit was already applied for this image in an earlier run
+             (interactive Apply in the fitting dialog, or an earlier batch
+             pass) -- its small reconstruction params are persisted in
+             ``info['bgfit_result_params']`` (unlike ``imgCache``, which is
+             rebuilt from scratch on every image load / reprocess). Rebuild
+             the background from those params instead of re-fitting, so the
+             applied fit stays in effect on *any* reprocessing of this image
+             -- not just the batch run that originally computed it.
+          2. Otherwise, when the ``fit_bg_each_image`` flag is set (folder/
+             batch processing with "Fit background for each image in folder"
+             enabled), run the fit from scratch. This is the same two-stage
+             routine used by the Iterative 2D Background Fitting window;
+             masks are rebuilt from this image's own mask pieces. Failures
+             are logged and skipped so one bad image does not abort the run.
+        """
+        # Reset up front so a failure/no-op below never leaves a stale fitted
+        # background (e.g. from another image) to be subtracted, and so
+        # bgfit_applied always reflects whether BgFoldFit actually has
+        # something in it after this call.
+        self.imgCache["BgFoldFit"] = np.array([])
+        self.info["bgfit_applied"] = False
+        avg_fold = self.imgCache.get("avg_fold")
+        if avg_fold is None:
+            return
+
+        fit_each_image = bool(self.info.get("fit_bg_each_image", False))
+        # fit_bg_each_image means "(re)compute a fresh fit this run" -- e.g.
+        # the user changed mask/fit settings and reprocessed the folder --
+        # so it takes priority over reusing a stale cached fit. Reconstruction
+        # from the cached params is only for ordinary reprocessing (no fresh
+        # fit requested) of an image that already has an applied fit on record.
+        if not fit_each_image:
+            params = self.info.get("bgfit_result_params")
+            if params and self._reconstruct_bgfit_from_cache(avg_fold, params):
+                self.info["bgfit_applied"] = True
+            return
+
+        try:
+            try:
+                from ..utils.bg_fitting import background_fitting as bf
+            except ImportError:
+                from utils.bg_fitting import background_fitting as bf
+
+            img = makeFullImage(avg_fold).astype(float)
+            h, w = img.shape
+            rmin = int(self.info.get("rmin", 30))
+            rmax = int(self.info.get("rmax", int(0.9 * min(h, w) / 2)))
+
+            # General mask (0 = excluded) from this image's own mask pieces.
+            self.createMask()
+            general_mask = np.asarray(self.imgCache.get("mask")).astype(bool)
+            try:
+                rminrmax_mask = np.asarray(
+                    self._create_rminrmax_mask(h, w)).astype(bool)
+            except Exception:  # noqa: BLE001
+                rminrmax_mask = None
+            equator_mask = self._build_bgfit_equator_mask(
+                avg_fold, h, w, rminrmax_mask)
+
+            cfg = bf.FitConfig(
+                comp2=self.info.get("bgfit_comp2", "lorentzian"),
+                iters=int(self.info.get("bgfit_iters", 5)),
+                eq_max_nfev=int(self.info.get("bgfit_eq_max_nfev", 1000)),
+                gen_max_nfev=int(self.info.get("bgfit_gen_max_nfev", 600)),
+                fit_size=2 * int(self.info.get("bgfit_fit_size", 1000)),
+                downsample_factor=int(self.info.get("bgfit_downsample", 2)),
+                use_step0=bool(self.info.get("bgfit_use_step0", True)),
+                baseline_reduction=float(
+                    self.info.get("bgfit_baseline_reduction", 0.05)),
+                equator_reduction=float(
+                    self.info.get("bgfit_equator_reduction", 0.05)),
+                auto_reduce=bool(self.info.get("bgfit_auto_reduce", True)),
+            )
+
+            self.parent.statusPrint("Fitting Background...")
+            result = bf.two_stage_iterative_fit(
+                img, general_mask, equator_mask=equator_mask,
+                rmin=rmin, rmax=rmax, cfg=cfg, rminrmax_mask=rminrmax_mask)
+
+            bg_full = result["equator"] + result["general"]
+            bg_fold = bg_full[: h // 2, : w // 2].astype(np.float32)
+            self.imgCache["BgFoldFit"] = bg_fold
+            self.info["bgfit_applied"] = True
+            # Persist the (small) reconstruction inputs -- not the full-size
+            # equator/general/residual arrays -- so a later reprocess of this
+            # image (batch or single-image) can rebuild the fit via
+            # _reconstruct_bgfit_from_cache instead of re-fitting.
+            self.info["bgfit_result_params"] = {
+                "equator_params": result["equator_params"],
+                "general_params": result["general_params"],
+                "comp2": result["comp2"],
+                "eq_norm": result["eq_norm"],
+                "gen_norm": result["gen_norm"],
+                "downsample_factor": result["downsample_factor"],
+                "equator_keep_baseline": result.get("equator_keep_baseline", False),
+                "equator_reduction": result.get("equator_reduction", 0.0),
+                "baseline_reduction": result.get("baseline_reduction", 0.0),
+                "best_iter": result.get("best_iter"),
+                "fallback": result.get("fallback"),
+            }
+            self._save_bgfit_outputs(result)
+            print(f"Fitted background computed for {self.img_name}.")
+        except Exception as e:  # noqa: BLE001
+            import traceback
+            print(f"Warning: per-image background fit failed for "
+                  f"{self.img_name}: {e}")
+            traceback.print_exc()
+
+    def _reconstruct_bgfit_from_cache(self, avg_fold, params):
+        """Rebuild ``imgCache['BgFoldFit']`` from a previously-applied fit's
+        small reconstruction params (see ``fitBackgroundPerImage`` /
+        ``BackgroundFittingDialog._apply_residual_to_parent``) instead of
+        re-running the (slow) fit. Returns True on success."""
+        try:
+            try:
+                from ..utils.bg_fitting import background_fitting as bf
+            except ImportError:
+                from utils.bg_fitting import background_fitting as bf
+            img = makeFullImage(avg_fold).astype(float)
+            h, w = img.shape
+            equator, general, _ = bf.reduce_backgrounds(
+                img,
+                params["equator_params"], params["general_params"],
+                params["eq_norm"], params["gen_norm"], params["comp2"],
+                params["downsample_factor"],
+                params["equator_reduction"], params["baseline_reduction"],
+                params.get("equator_keep_baseline", False))
+            bg_full = equator + general
+            self.imgCache["BgFoldFit"] = bg_full[: h // 2, : w // 2].astype(np.float32)
+            return True
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: could not reconstruct cached bg fit for "
+                  f"{self.img_name}: {e}")
+            return False
+
+    def _build_bgfit_equator_mask(self, avg_fold, h, w, rminrmax_mask):
+        """Equator-fit mask (rmin..rmax ring minus beam and equatorial Bragg
+        peaks), mirroring the Iterative 2D Background Fitting window. Returns
+        None to fall back to the general mask inside the fitter."""
+        try:
+            full = makeFullImage(avg_fold)
+            eq_ring = (rminrmax_mask if rminrmax_mask is not None
+                       else np.asarray(self._create_rminrmax_mask(h, w)).astype(bool))
+            return (
+                eq_ring
+                & np.asarray(self._create_equator_peaks_mask(h, w, full)).astype(bool)
+                & np.asarray(self._create_non_equator_mask(h, w, full)).astype(bool)
+                & np.asarray(self._create_equator_center_beam_mask(h, w, full)).astype(bool))
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _save_bgfit_outputs(self, result):
+        """Save the fitted backgrounds (tif) and fit parameters (npz) for this
+        image into ``<output>/qf_results/bg_fit_params`` (matching the fitting
+        dialog). Called whenever a fit is computed and applied -- an applied
+        fit is always saved, there is no opt-out flag."""
+        try:
+            save_dir = fullPath(fullPath(self.output_dir, "qf_results"),
+                                "bg_fit_params")
+            createFolder(save_dir)
+            name = os.path.splitext(os.path.basename(
+                self.img_name or "image"))[0] or "image"
+            from PIL import Image
+            for key in ("equator", "general", "residual"):
+                Image.fromarray(result[key].astype(np.float32)).save(
+                    os.path.join(save_dir, f"{name}_{key}.tif"))
+            np.savez(
+                os.path.join(save_dir, f"{name}_bgfit_params.npz"),
+                equator_params=result["equator_params"],
+                general_params=result["general_params"],
+                comp2=result["comp2"],
+                best_iter=result["best_iter"],
+                fallback=result["fallback"],
+                equator_reduction=result.get("equator_reduction", 0.0),
+                baseline_reduction=result.get("baseline_reduction", 0.0),
+                oversub_frac=result.get("oversub_frac", float("nan")))
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: could not save bg fit outputs for "
+                  f"{self.img_name}: {e}")
 
     def subtractFittedBackground(self):
         """Optionally subtract the iterative-fit background from the average fold

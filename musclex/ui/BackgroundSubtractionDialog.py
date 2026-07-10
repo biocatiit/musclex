@@ -945,6 +945,21 @@ class BackgroundSubtractionDialog(QDialog):
             "selected QF background-subtraction method is applied."
         )
 
+        # When checked, the iterative 2D background is fitted (with the current
+        # fitting parameters) and subtracted for every image during folder /
+        # batch processing, instead of reusing a single manually-applied fit.
+        self.fitBgEachImageChkBx = QCheckBox(
+            "Fit background for each image in folder"
+        )
+        self.fitBgEachImageChkBx.setChecked(False)
+        self.fitBgEachImageChkBx.setToolTip(
+            "When checked, 'Process Current Folder' fits the iterative 2D "
+            "background for every image using the current fitting parameters and "
+            "subtracts it from each image. If 'Save fitted backgrounds' / 'Save "
+            "fit parameters' are enabled in the fitting dialog, they are saved "
+            "for every image in the batch."
+        )
+
         # ===== Background Configurations Table =====
         self.addBackgroundConfigButton = QPushButton("Add Background Configuration")
 
@@ -1356,6 +1371,7 @@ class BackgroundSubtractionDialog(QDialog):
         parametric_layout = QGridLayout()
         parametric_layout.addWidget(self.openFittingButton, 0, 0, 1, 4)
         parametric_layout.addWidget(self.subtractBgFitChkBx, 1, 0, 1, 4)
+        parametric_layout.addWidget(self.fitBgEachImageChkBx, 2, 0, 1, 4)
         self.parametricFittingGroup.setLayout(parametric_layout)
 
     def _setup_evaluation_mask_layout(self):

@@ -1031,11 +1031,15 @@ class QuadrantFoldingGUI(BaseGUI):
             "toggled",
             "setChecked",
         )
+        self.fitBgEachImageChkBxProxy = self._clone_checkbox(self.fitBgEachImageChkBx)
+        self._bind_proxy_two_way(
+            self.fitBgEachImageChkBxProxy, self.fitBgEachImageChkBx, "toggled", "setChecked"
+        )
         parametric_main_layout = QGridLayout()
         parametric_main_layout.addWidget(self.openFittingButtonMain, 0, 0, 1, 4)
         parametric_main_layout.addWidget(self.runFittingApplyButtonMain, 1, 0, 1, 4)
         parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 2, 0, 1, 4)
-        # parametric_main_layout.addWidget(self.fitBgEachImageChkBxProxy, 3, 0, 1, 4)
+        parametric_main_layout.addWidget(self.fitBgEachImageChkBxProxy, 3, 0, 1, 4)
         self.parametricFittingGroupMain.setLayout(parametric_main_layout)
 
         # ===== 5) Non-parametric Background Subtraction (collapsible): Options + the rest of the controls =====
@@ -1914,6 +1918,7 @@ class QuadrantFoldingGUI(BaseGUI):
             "processFolderWithSelections",
             "openFittingButton",
             "subtractBgFitChkBx",
+            "fitBgEachImageChkBx",
         ]:
             setattr(self, attr, getattr(self.bgSubDialog, attr))
 
@@ -1929,6 +1934,12 @@ class QuadrantFoldingGUI(BaseGUI):
         if hasattr(self, "subtractBgFitChkBx"):
             self.subtractBgFitChkBx.toggled.connect(
                 lambda _checked: self._update_bg_method_summary()
+            )
+        if hasattr(self, "fitBgEachImageChkBx"):
+            # Enabling per-image fitting makes a fitted background available, so
+            # reveal the "Background (Fit)" Show option for reviewing results.
+            self.fitBgEachImageChkBx.toggled.connect(
+                lambda checked: self.markBgFittingOpened() if checked else None
             )
 
     def openBackgroundSubtractionDialog(self):
@@ -6063,6 +6074,27 @@ class QuadrantFoldingGUI(BaseGUI):
             and self.subtractBgFitChkBx is not None
             and self.subtractBgFitChkBx.isChecked()
         )
+        # Per-image iterative-fit background subtraction during folder/batch
+        # processing. Only acts in batch (the checkbox says "for each image in
+        # folder"); the fit parameters are carried into the worker as bgfit_*
+        # flags so the worker can rebuild the fit config without the Qt dialog.
+        fit_bg_each_image = bool(
+            hasattr(self, "fitBgEachImageChkBx")
+            and self.fitBgEachImageChkBx is not None
+            and self.fitBgEachImageChkBx.isChecked()
+            and self.batchProcessing
+        )
+        flags["fit_bg_each_image"] = fit_bg_each_image
+        if fit_bg_each_image:
+            from .BackgroundFittingDialog import default_fit_flags
+            dlg = getattr(self.bgSubDialog, "_backgroundFittingDialog", None)
+            rmax = self.quadFold.info.get("rmax") if self.quadFold else None
+            flags.update(dlg.fit_flags() if dlg is not None
+                         else default_fit_flags(rmax))
+            # Fitting per image implies subtracting it, and requires the full
+            # pipeline (the fast-path reload skips the fit).
+            flags["subtract_bg_fit"] = True
+            flags["no_fast_path"] = True
         flags["save_metrics_to_csv"] = bool(
             hasattr(self, "saveMetricsToCsvChkBx")
             and self.saveMetricsToCsvChkBx is not None
@@ -6725,6 +6757,12 @@ class QuadrantFoldingGUI(BaseGUI):
             text += f"\n  - Saved Configurations Loaded : {len(self._background_configurations)}"
         if not optimize_each_image and len(resolved_manual_assignments) > 0:
             text += f"\n  - Manual Assignments : {len(resolved_manual_assignments)} image(s)"
+        if (
+            hasattr(self, "fitBgEachImageChkBx")
+            and self.fitBgEachImageChkBx is not None
+            and self.fitBgEachImageChkBx.isChecked()
+        ):
+            text += "\n  - Fit Background For Each Image : Enabled"
 
         text += (
             "\n\nAre you sure you want to process "
