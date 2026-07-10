@@ -1396,9 +1396,9 @@ def optimize(method, **kwargs):
     timeout_minutes = kwargs.get("optimize_timeout", DEFAULT_OPTIMIZE_TIMEOUT)
     timeout_seconds = float(timeout_minutes) * 60.0 if timeout_minutes else 0.0
     start_time = time.time()
-    log(f">_ Optimizing with method: {method}. Initial parameters: {initial_params}. Parameter bounds: {method_bounds[method]}")
     initial_params = list(method_params[method].values())
     bounds = list(method_bounds[method].values())
+    log(f">_ Optimizing with method: {method}. Initial parameters: {initial_params}. Parameter bounds: {method_bounds[method]}")
 
     cur_params = initial_params.copy()
     all_results = []
