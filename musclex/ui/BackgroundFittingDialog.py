@@ -688,6 +688,7 @@ class BackgroundFittingDialog(QDialog):
         self.applyButton.setEnabled(True)
         self._set_view_modes(VIEW_MODES, "Residual (background removed)")
         self._reflect_reductions_from_result()
+        self._reflect_comp2_from_result()
         self._update_params_panel()
         self.statusLabel.setText("Loaded previously applied fit from cache.")
 
@@ -894,6 +895,7 @@ class BackgroundFittingDialog(QDialog):
         # fitted background.
         self._set_view_modes(VIEW_MODES, "Residual (background removed)")
         self._reflect_reductions_from_result()
+        self._reflect_comp2_from_result()
         self._update_params_panel()
         self.updateView()
         self._warn_if_no_lobes(result)
@@ -929,6 +931,20 @@ class BackgroundFittingDialog(QDialog):
             box.blockSignals(True)
             box.setValue(float(frac) * 100.0)
             box.blockSignals(False)
+
+    def _reflect_comp2_from_result(self):
+        """When 'auto' comp2 was selected, resolve the combo box (and thus the
+        config the next fit/batch reads) to the actual best kernel picked by the
+        fit. No-op unless 'auto' is selected and the result names a real kernel."""
+        if self.result is None or self.comp2CB.currentText() != "auto":
+            return
+        best = self.result.get("comp2")
+        idx = self.comp2CB.findText(best) if best else -1
+        if idx < 0:
+            return
+        self.comp2CB.blockSignals(True)
+        self.comp2CB.setCurrentIndex(idx)
+        self.comp2CB.blockSignals(False)
 
     def _on_reduction_changed(self, _value=0.0):
         """Rebuild the reduced backgrounds/residual from the fitted parameters
