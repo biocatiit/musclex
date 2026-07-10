@@ -1408,141 +1408,82 @@ class BackgroundFittingDialog(QDialog):
         self.accept()
 
     def _apply_residual_to_parent(self):
-        """Replace the parent's displayed result with the fitted residual."""
+        """Apply the fitted background by persisting the fit and reprocessing
+        the image with non-parametric method "None".
+
+        Rather than hand-populating every cache / CSV / panel here, we persist
+        the (small) fit reconstruction params, switch the parent's background
+        method to "None" plus fitted-background subtraction, and rerun the
+        normal QuadrantFolder pipeline. On that reprocess:
+          * fitBackgroundPerImage() rebuilds imgCache["BgFoldFit"] from the
+            persisted params (reconstruction path -- no re-fit),
+          * subtractFittedBackground() removes it from the average fold,
+          * generateResultImage() / evaluateResult() / cacheInfo() regenerate
+            the result images and the per-image disk cache,
+        and processImage()'s result handler refreshes summary.csv, the saved
+        tifs, the result tabs and the Current Configuration panel.
+        """
         if self.result is None:
             return
         parent = self._parent_gui if self._parent_gui is not None else self.parent()
         qf = self._get_quadfold()
-        if qf is None or not getattr(qf, "imgCache", None):
+        if qf is None:
             return
-        residual = self.result["residual"]
-        bg_full = self.result["equator"] + self.result["general"]
-        h, w = bg_full.shape
-        # Quadrant-shaped background (top-left), matching avg_fold so QF can
-        # subtract it before its own background removal (imgCache["BgFoldFit"]).
-        bg_fold = bg_full[: h // 2, : w // 2].astype(np.float32)
-        try:
-            qf.imgCache["resultImg"] = residual.astype(np.float32)
-            # Only populate the fitted-background cache so the fit is shown in
-            # the "Background (Fit)" view; the "Background (Non-param)" view keeps
-            # showing the non-parametric background (imgCache["BgFold"]).
-            qf.imgCache["BgFoldFit"] = bg_fold
-            # generateResultImage() is not re-run here, so refresh the
-            # display-ready fitted background (imgCache["resultBgFit"]) directly,
-            # mirroring the transform in QuadrantFolder.generateResultImage().
-            # Without this the "Background (Fit)" view keeps showing the zero
-            # array stored while BgFoldFit was still empty.
-            bgfit_full = makeFullImage(np.asarray(bg_fold).copy())
-            qf.imgCache["resultBgFit"] = qf._applyTransformations(bgfit_full)
-            # The fit replaces the non-parametric subtraction, so clear the
-            # non-parametric background: empty the raw array and blank the
-            # display array (zeros, not empty, so the "Background (Non-param)"
-            # view still renders without hitting .min() on an empty array).
-            qf.imgCache["BgFold"] = np.array([])
-            qf.imgCache["resultBg"] = np.zeros_like(residual, dtype=np.float32)
-            qf.info["bgfit_applied"] = True
-            qf.info["subtract_bg_fit"] = True
-            # The residual computed above already has the fitted background
-            # removed (imgCache["resultImg"] = residual, just above), so the
-            # outcome flag should reflect that immediately -- not wait for a
-            # subsequent process() run through QuadrantFolder.subtractFittedBackground().
-            qf.info["fitted_bg_subtracted"] = True
-            # Persist the (small) reconstruction inputs -- not the full-size
-            # equator/general/residual arrays -- into the per-image info cache
-            # so a later session can rebuild the fitted background for this
-            # image without re-running the fit (see _try_load_cached_fit).
-            qf.info["bgfit_result_params"] = {
-                "equator_params": self.result["equator_params"],
-                "general_params": self.result["general_params"],
-                "comp2": self.result["comp2"],
-                "eq_norm": self.result["eq_norm"],
-                "gen_norm": self.result["gen_norm"],
-                "downsample_factor": self.result["downsample_factor"],
-                "equator_keep_baseline": self.result.get(
-                    "equator_keep_baseline", False
-                ),
-                "equator_reduction": self.result.get("equator_reduction", 0.0),
-                "general_reduction": self.result.get("general_reduction", 0.0),
-                "best_iter": self.result.get("best_iter"),
-                "fallback": self.result.get("fallback"),
-            }
-
-        except Exception:  # noqa: BLE001
-            return
+        # Persist the (small) reconstruction inputs -- not the full-size
+        # equator/general/residual arrays -- into the per-image info cache so
+        # fitBackgroundPerImage() can rebuild the fitted background on the
+        # reprocess below (and on any later reprocess of this image) without
+        # re-running the fit (see QuadrantFolder._reconstruct_bgfit_from_cache).
+        qf.info["bgfit_result_params"] = {
+            "equator_params": self.result["equator_params"],
+            "general_params": self.result["general_params"],
+            "comp2": self.result["comp2"],
+            "eq_norm": self.result["eq_norm"],
+            "gen_norm": self.result["gen_norm"],
+            "downsample_factor": self.result["downsample_factor"],
+            "equator_keep_baseline": self.result.get("equator_keep_baseline", False),
+            "equator_reduction": self.result.get("equator_reduction", 0.0),
+            "general_reduction": self.result.get("general_reduction", 0.0),
+            "best_iter": self.result.get("best_iter"),
+            "fallback": self.result.get("fallback"),
+        }
+        qf.info["bgfit_applied"] = True
         # The fit replaces the non-parametric background subtraction, so reset
-        # the subtraction method to "None" *before* saving. Besides keeping
-        # info/combobox/summary in sync, this also makes saveResults ->
-        # saveBackground skip writing bg.tif, since BgSubFold/BgFold in the
-        # cache still reflect the old (now-replaced) non-parametric method
-        # and no longer match resultImg.
+        # the method to "None" and drop any sticky previous method/params -- or
+        # the reprocess would silently revert to the old method (see
+        # QuadrantFolder._apply_existing_or_default_bg's "sticky last result").
         qf.info["bgsub"] = "None"
-        # The Current Configuration panel reads info["result_bg"]["method"]
-        # before falling back to info["bgsub"], so reset it too or the panel
-        # keeps showing the stale non-parametric method.
         result_bg = qf.info.get("result_bg")
         if isinstance(result_bg, dict):
             result_bg["method"] = "None"
             result_bg["final_params"] = None
             result_bg["loss"] = None
-        # saveResults (writes qf_results/*.tif) lives on the GUI, not on
-        # QuadrantFolder itself -- call it on the parent GUI instance.
-        if parent is not None and hasattr(parent, "saveResults"):
-            parent.saveResults(quad_fold=qf)
-        if parent is not None:
-            cb = getattr(parent, "bgChoiceIn", None)
-            choices = getattr(parent, "allBGChoices", None)
-            if cb is not None and choices is not None and "None" in choices:
-                cb.setCurrentIndex(choices.index("None"))
-            # Refresh the Current Configuration panel explicitly: setCurrentIndex
-            # only fires bgChoiceInChanged when the value actually changes, so
-            # this covers the case where "None" was already selected.
+        # An applied fit is always saved to disk (fitted backgrounds + params),
+        # no opt-out checkbox. The reconstruction path taken on reprocess does
+        # not re-save these outputs, so write them here.
+        self._save_fit_outputs()
+        if parent is None:
+            return
+        # Drive the parent widgets so getFlags() feeds bgsub="None" and
+        # subtract_bg_fit=True into the reprocess. Neither signal reprocesses
+        # on its own (they only refresh widget visibility / the summary), so
+        # this doesn't trigger a premature run.
+        cb = getattr(parent, "bgChoiceIn", None)
+        choices = getattr(parent, "allBGChoices", None)
+        if cb is not None and choices is not None and "None" in choices:
+            cb.setCurrentIndex(choices.index("None"))
+        chk = getattr(parent, "subtractBgFitChkBx", None)
+        if chk is not None and not chk.isChecked():
+            chk.setChecked(True)
+        # Reprocess with non-parametric method "None". The normal pipeline plus
+        # processImage()'s result handler take care of the caches, disk cache,
+        # summary.csv, saved tifs, result tabs and Current Configuration panel.
+        if hasattr(parent, "processImage"):
+            parent.processImage()
+        else:
             summarize = getattr(parent, "_update_bg_method_summary", None)
             if callable(summarize):
                 summarize()
-        # A fit has now been applied and a matching background is in the cache,
-        # so turn on subtraction of the fitted background automatically. The
-        # toggled signal keeps the main-panel proxy and summary in sync.
-        if parent is not None:
-            chk = getattr(parent, "subtractBgFitChkBx", None)
-            if chk is not None and not chk.isChecked():
-                chk.setChecked(True)
-        # Redraw the parent's result tab from the updated cache.
-        if parent is not None:
-            for meth in ("refreshResultTab", "refreshAllTabs"):
-                fn = getattr(parent, meth, None)
-                if callable(fn):
-                    try:
-                        fn()
-                        break
-                    except Exception:  # noqa: BLE001
-                        continue
-        # An applied fit is always saved to disk (fitted backgrounds + params),
-        # no opt-out checkbox.
-        self._save_fit_outputs()
-        # Persist qf.info (incl. bgfit_applied / bgfit_result_params) to the
-        # per-image qf_cache/<name>.info pickle immediately. Applying a fit
-        # only updates the live QuadrantFolder instance in memory; switching
-        # images (or reopening the app) constructs a brand-new QuadrantFolder
-        # that reloads qf.info from disk (QuadrantFolder.loadCache), which
-        # would otherwise silently lose the applied-fit state because nothing
-        # else re-triggers a save until the image is processed again.
-        try:
-            qf.cacheInfo()
-        except Exception:  # noqa: BLE001
-            pass
-        # Refresh this image's row in qf_results/summary.csv immediately.
-        # writeNewData() only otherwise runs at the end of the normal
-        # process() pipeline (single-image or batch), so without this an
-        # interactive Apply would leave the CSV showing stale
-        # pre-fit values (e.g. fitted_bg_removed=False) until the image is
-        # reprocessed.
-        if parent is not None:
-            csv_manager = getattr(parent, "csvManager", None)
-            if csv_manager is not None:
-                try:
-                    csv_manager.writeNewData(qf)
-                except Exception as e:  # noqa: BLE001
-                    print(f"Failed to refresh summary.csv after applying fit: {e}")
 
     def closeEvent(self, event):
         # ensure the worker thread is stopped
