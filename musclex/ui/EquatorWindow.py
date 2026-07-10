@@ -3961,20 +3961,34 @@ class EquatorWindow(QMainWindow):
             self.progressBar.setVisible(False)
 
     def onProcessingFinished(self, finishedImg):
-        # Temporarily switch context to the finished image to update outputs
+        # Temporarily switch context to the finished image to update outputs.
+        # Keep it when it belongs to the visible file; otherwise restore the
+        # previous UI target so background/batch work does not switch context.
         prevBio = self.bioImg
+        prev_filename = getattr(prevBio, "filename", None)
+        finished_filename = getattr(finishedImg, "filename", None)
+        is_current_image = (
+            prev_filename is not None
+            and finished_filename is not None
+            and prev_filename == finished_filename
+        )
+
         self.bioImg = finishedImg
         self.updateParams()
         self.csvManager.writeNewData(finishedImg)
         self.csvManager.writeNewData2(finishedImg)
         self.resetUI()
+        if is_current_image:
+            self.updateResultsTab()
         self.refreshStatusbar()
         QApplication.restoreOverrideCursor()
         self.tabWidget.tabBar().setEnabled(True)
         self.tabWidget.tabBar().setToolTip("")
         self.currentTask = None
-        # Restore previous reference so batch refitting continues to target the UI's current file
-        self.bioImg = prevBio
+        if not is_current_image:
+            # Restore previous reference so batch/refit work continues to target
+            # the UI's current file instead of a completed background image.
+            self.bioImg = prevBio
         if self.first:
             self.init_logging()
             self.first = False
