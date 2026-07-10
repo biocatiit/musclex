@@ -765,17 +765,6 @@ def evaluate_loss(
         metric_weights=metric_weights,
     )
 
-    print("Evaluation Metrics (raw):")
-    for key, value in raw_metrics.items():
-        print(f"{key}: {value:.4f}")
-
-    print("Evaluation Metrics (normalized):")
-    for key, value in normalized_metrics.items():
-        print(f"{key}: {value:.4f}")
-
-    print("Equator Metrics (raw):")
-    for key, value in raw_equator_metrics.items():
-        print(f"{key}: {value:.4f}")
 
     if return_details:
         return {
@@ -1258,8 +1247,6 @@ def applyAverageBGSub(fold, mask=None):
         mask = np.asarray(mask)
         valid = mask > 0
         if valid.shape != fold.shape:
-            print(f"mask shape: {mask.shape}, fold shape: {fold.shape}")
-            print(f"resizing mask to fold shape")
             valid = (
                 cv2.resize(
                     mask.astype(np.float32),
@@ -1269,11 +1256,8 @@ def applyAverageBGSub(fold, mask=None):
                 > 0
             )
         if np.any(valid):
-            print(f"number of non-zero pixels in valid: {np.sum(valid)}")
             mean_val = np.mean(fold[valid])
-            print(f"mean value: {mean_val}")
         else:
-            print(f"no non-zero pixels in valid")
             mean_val = np.mean(fold)
     else:
         mean_val = np.mean(fold)
@@ -1407,19 +1391,14 @@ def optimize(method, **kwargs):
 
     steps = kwargs.get("steps", parse_optimization_steps(DEFAULT_OPTIMIZATION_STEPS))
     early_stop = kwargs.get("early_stop", DEFAULT_EARLY_STOP)
-    print(f"Optimization parameters: steps={steps}, early_stop={early_stop}")
     max_iterations = kwargs.get("max_iterations", DEFAULT_MAX_ITERATIONS)
     refine_params = kwargs.get("refine_params", -1)
     timeout_minutes = kwargs.get("optimize_timeout", DEFAULT_OPTIMIZE_TIMEOUT)
     timeout_seconds = float(timeout_minutes) * 60.0 if timeout_minutes else 0.0
     start_time = time.time()
-
-    log(f">_ Optimizing with method: {method}")
-
+    log(f">_ Optimizing with method: {method}. Initial parameters: {initial_params}. Parameter bounds: {method_bounds[method]}")
     initial_params = list(method_params[method].values())
     bounds = list(method_bounds[method].values())
-    log(f">_ Initial parameters: {initial_params}")
-    log(f">_ Parameter bounds: {method_bounds[method]}")
 
     cur_params = initial_params.copy()
     all_results = []
@@ -1484,7 +1463,6 @@ def optimize(method, **kwargs):
     # --- Main optimization loop ---
     for param_idx in param_order:
         iter = 0
-        log(f"Optimizing parameter {param_idx+1}/{len(cur_params)}")
         best_loss = np.inf
         best_value = cur_params[param_idx]
         step_idx = 0
@@ -1502,9 +1480,6 @@ def optimize(method, **kwargs):
             ]
             candidates = sorted(set(candidates))  # Remove duplicates
             improved = False
-            log(
-                f"Iteration #{iter}. Testing candidates: {candidates} with step size {step}"
-            )
             for v in candidates:
                 test_params = cur_params.copy()
                 test_params[param_idx] = v
@@ -1514,11 +1489,7 @@ def optimize(method, **kwargs):
                     loss, result = evaluate_candidate(test_params, use_timeout=True)
                     history[tuple(test_params)] = loss
                     all_results.extend(result)
-                log(f"  Param {param_idx} = {v}, Loss = {loss:.6f}")
                 if timeout_seconds > 0 and time.time() - start_time >= timeout_seconds:
-                    log(
-                        f"Optimization timeout reached after {timeout_seconds/60:.1f} min. Using current best."
-                    )
                     done = True
                     if loss < best_loss:
                         best_loss = loss
@@ -1526,29 +1497,20 @@ def optimize(method, **kwargs):
                     break
                 if loss < best_loss:
                     if best_loss - loss < early_stop:
-                        log(
-                            f"  Early stopping: improvement {best_loss - loss:.6f} is less than threshold {early_stop}. Stopping optimization for this parameter."
-                        )
                         done = True
                     best_loss = loss
                     best_value = v
                     improved = True
-                    if done:
-                        log(f"  Best params: {best_value} Loss: {loss:.6f}")
             if improved:
                 step_idx = 0  # Reset step size if improved
             else:
                 step_idx += 1  # Reduce step size if no improvement
             iter += 1
             if iter >= max_iterations:
-                log(
-                    f"Reached maximum iterations ({max_iterations}) for parameter {param_idx+1}. Stopping optimization for this parameter."
-                )
                 done = True
             if done:
                 break
         cur_params[param_idx] = best_value
-        # log(f"Best value for param {param_idx+1}: {best_value}, Loss: {best_loss:.6f}")
 
     best_params = cur_params.copy()
     # --- Final refinement: grid search with last three step sizes ---

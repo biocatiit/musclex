@@ -707,7 +707,7 @@ class EllipticalSAXSFitter:
         if model == "elliptical":
             print("Using elliptical model")
             # print("Parameters:", params)
-            self.print_parameters(params)
+            # self.print_parameters(params)
             I = self.elliptical_intensity(params, return_components=return_components)
             return I
 
@@ -1607,7 +1607,7 @@ if __name__ == "__main__":
     # Fit with 1 peak (equatorial streak only) - same as before
     result = fitter.fit(n_peaks=1, model="elliptical")
     fitted_params = result.x
-    fitter.print_parameters()
+    # fitter.print_parameters()
 
     print("\nGenerating plots...")
     fitter.plot_results()
