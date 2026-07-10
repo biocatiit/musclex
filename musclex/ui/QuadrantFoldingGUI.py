@@ -1047,23 +1047,26 @@ class QuadrantFoldingGUI(BaseGUI):
             "Non-parametric Background Subtraction", start_expanded=False
         )
         subtraction_main_layout = QGridLayout()
-        subtraction_main_layout.addWidget(self.bgOptionsLabel, 0, 0, 1, 2)
-        subtraction_main_layout.addWidget(self.bgOptionsCB, 0, 2, 1, 2)
-        subtraction_main_layout.addWidget(self.applyResultBGButton, 1, 0, 1, 2)
-        subtraction_main_layout.addWidget(self.openBGSettingsButton, 1, 2, 1, 2)
-        subtraction_main_layout.addWidget(self.manualSettingsContainer, 2, 0, 1, 4)
-        subtraction_main_layout.addWidget(self.manualSettingsOutContainer, 3, 0, 1, 4)
-        subtraction_main_layout.addWidget(self.transitionSettingsContainer, 4, 0, 1, 4)
-        subtraction_main_layout.addWidget(self.applyBGButtonProxy, 5, 0, 1, 4)
+        # Image Processing is nested here so it is tucked under the
+        # Non-parametric Background Subtraction section.
+        subtraction_main_layout.addWidget(self.imageProcGroupMain, 0, 0, 1, 4)
+        subtraction_main_layout.addWidget(self.bgOptionsLabel, 1, 0, 1, 2)
+        subtraction_main_layout.addWidget(self.bgOptionsCB, 1, 2, 1, 2)
+        subtraction_main_layout.addWidget(self.applyResultBGButton, 2, 0, 1, 2)
+        subtraction_main_layout.addWidget(self.openBGSettingsButton, 2, 2, 1, 2)
+        subtraction_main_layout.addWidget(self.manualSettingsContainer, 3, 0, 1, 4)
+        subtraction_main_layout.addWidget(self.manualSettingsOutContainer, 4, 0, 1, 4)
+        subtraction_main_layout.addWidget(self.transitionSettingsContainer, 5, 0, 1, 4)
+        subtraction_main_layout.addWidget(self.applyBGButtonProxy, 6, 0, 1, 4)
         self.subtractionGroupMain.setLayout(subtraction_main_layout)
 
-        # ===== Assemble: Show -> R-min/R-max -> Image Processing ->
-        #                 Parametric Background Fitting -> Non-parametric Subtraction =====
+        # ===== Assemble: Show -> R-min/R-max ->
+        #                 Parametric Background Fitting -> Non-parametric Subtraction
+        #                 (Image Processing is nested inside Non-parametric Subtraction) =====
         self.bgSummaryLayout.addWidget(show_section, 0, 0, 1, 4)
         self.bgSummaryLayout.addWidget(self.rminGroupMain, 1, 0, 1, 4)
-        self.bgSummaryLayout.addWidget(self.imageProcGroupMain, 2, 0, 1, 4)
-        self.bgSummaryLayout.addWidget(self.parametricFittingGroupMain, 3, 0, 1, 4)
-        self.bgSummaryLayout.addWidget(self.subtractionGroupMain, 4, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.parametricFittingGroupMain, 2, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(self.subtractionGroupMain, 3, 0, 1, 4)
 
         # ===== 6) Current Configuration =====
         current_section, current_layout = _make_section("Current Configuration")
@@ -1086,7 +1089,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         current_layout.addWidget(current_summary_widget, 1, 0, 1, 4)
 
-        self.bgSummaryLayout.addWidget(current_section, 5, 0, 1, 4)
+        self.bgSummaryLayout.addWidget(current_section, 4, 0, 1, 4)
 
         self.resProcGrpBx.setLayout(self.bgSummaryLayout)
 
