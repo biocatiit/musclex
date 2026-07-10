@@ -67,6 +67,7 @@ class QF_CSVManager:
             "backgroundConfigName",
             "parameters",
             "downsampled",
+            "fitted_bg_removed",
             "loss",
             "bgSum",
             "symmetry",  # , 'hash', 'comment'
@@ -170,6 +171,7 @@ class QF_CSVManager:
             )
             data["parameters"] = quadFold.info["result_bg"].get("final_params", "-")
             data["downsampled"] = quadFold.info.get("downsample", "-")
+            data["fitted_bg_removed"] = bool(quadFold.info.get("fitted_bg_subtracted", False))
             data["loss"] = quadFold.info["result_bg"].get("loss", "-")
             data["bgSum"] = quadFold.info["result_bg"].get("intensity", "-")
             data["symmetry"] = quadFold.info["result_bg"].get("symmetry", "-")

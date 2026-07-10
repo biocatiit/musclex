@@ -1509,6 +1509,19 @@ class BackgroundFittingDialog(QDialog):
             qf.cacheInfo()
         except Exception:  # noqa: BLE001
             pass
+        # Refresh this image's row in qf_results/summary.csv immediately.
+        # writeNewData() only otherwise runs at the end of the normal
+        # process() pipeline (single-image or batch), so without this an
+        # interactive Apply would leave the CSV showing stale
+        # pre-fit values (e.g. fitted_bg_removed=False) until the image is
+        # reprocessed.
+        if parent is not None:
+            csv_manager = getattr(parent, "csvManager", None)
+            if csv_manager is not None:
+                try:
+                    csv_manager.writeNewData(qf)
+                except Exception as e:  # noqa: BLE001
+                    print(f"Failed to refresh summary.csv after applying fit: {e}")
 
     def closeEvent(self, event):
         # ensure the worker thread is stopped
