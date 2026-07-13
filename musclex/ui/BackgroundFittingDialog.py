@@ -402,7 +402,7 @@ class BackgroundFittingDialog(QDialog):
             "Additional Settings", start_expanded=False
         )
         additional_form = QFormLayout()
-        additional_form.addRow("Max iterations:", self.itersSpnBx)
+        additional_form.addRow("Number of rounds:", self.itersSpnBx)
         additional_form.addRow("Equator max fit iters:", self.eqMaxNfevSpnBx)
         additional_form.addRow("General max fit iters:", self.genMaxNfevSpnBx)
         additional_form.addRow("Fit size (rmax*):", self.fitSizeSpnBx)
