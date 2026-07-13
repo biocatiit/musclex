@@ -153,9 +153,9 @@ class DDFWindow(QMainWindow):
         self.generateButton.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         for i, row in enumerate(open(self.current_file)):
-            if (i / 100) % 3 == 0:
+            if (i // 100) % 3 == 0:
                 self.statusText.setText(reading)
-            elif (i / 100) % 3 == 1:
+            elif (i // 100) % 3 == 1:
                 self.statusText.setText(reading + " .")
             else:
                 self.statusText.setText(reading + " . .")
@@ -195,12 +195,12 @@ class DDFWindow(QMainWindow):
                 del c
 
         self.colChkBxs = []
-        self.freqSpnBx.setRange(1, self.data.shape[0] - 1)
+        self.freqSpnBx.setRange(1, max(1, self.data.shape[0] - 1))
         if self.data is not None:
             cols = list(self.data.columns)
             cols.remove("Sample")
             for i, col_name in enumerate(cols):
-                r = i / 3
+                r = i // 3
                 c = i % 3
                 col_cb = QCheckBox(col_name)
                 self.colChkBxs.append(col_cb)
@@ -226,7 +226,7 @@ class DDFWindow(QMainWindow):
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
             return
-        genData = self.data.groupby(self.data.index / self.freqSpnBx.value()).mean()
+        genData = self.data.groupby(self.data.index // self.freqSpnBx.value()).mean()
         genData = genData[selected_cols]
         dir_path, _ = os.path.split(str(self.inputField.text()))
         output = getSaveFile(dir_path, "CSV (*.csv);; Excel (*.xlsx);; HTML (*.html)")
