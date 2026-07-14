@@ -309,7 +309,14 @@ class QuadrantFolder:
         cache_file = fullPath(
             fullPath(self.output_dir, "qf_cache"), self.img_name + ".info"
         )
-        createFolder(fullPath(self.output_dir, "qf_cache"))
+        # Multi-folder batches use relative image names (for example,
+        # ``experiment_1/image.tif``) so that equal basenames from different
+        # folders do not overwrite one another.  After such a batch, switching
+        # images or reprocessing from the alignment dialog keeps that relative
+        # name.  Creating only qf_cache therefore leaves the intermediate
+        # directory missing and open() fails.  Create the parent of the actual
+        # cache file, which is also correct for ordinary basename-only images.
+        createFolder(os.path.dirname(cache_file))
         self.info["program_version"] = self.version
         self.info["cache_format_version"] = CACHE_FORMAT_VERSION
 
