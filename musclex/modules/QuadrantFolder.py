@@ -562,6 +562,7 @@ class QuadrantFolder:
         # ==========================================
         # Slow path: full pipeline
         # ==========================================
+        self._invalidate_slow_path_image_caches()
         self.transformImage()
         self.calculateAvgFold()
         if self.imgCache["avg_fold"].max() <= 0:
@@ -612,6 +613,51 @@ class QuadrantFolder:
                 traceback.print_exc()
         self.parent.statusPrint("")
         return True
+
+    def _invalidate_slow_path_image_caches(self):
+        """Discard every image derived from a previous fold.
+
+        Reaching the slow path means geometry or another processing input no
+        longer matches the persisted result.  ``calculateAvgFold`` replaces
+        ``avg_fold``, so all masks, downsampled folds, background products and
+        final images derived from the prior fold must be replaced as well.
+        """
+        derived_keys = (
+            "avg_fold",
+            "avg_fold_with_syn",
+            "_avg_fold",
+            "_avg_fold_with_syn",
+            "_center",
+            "_rmin",
+            "_rmax",
+            "mask",
+            "equator_mask",
+            "synthetic_data",
+            "synthetic_mask",
+            "BgFold",
+            "BgFold_in",
+            "BgFold_out",
+            "BgFold_syn",
+            "BgFold_syn_in",
+            "BgFold_syn_out",
+            "BgSubFold",
+            "BgSubFold_in",
+            "BgSubFold_out",
+            "BgSubFold_syn",
+            "BgSubFold_syn_in",
+            "BgSubFold_syn_out",
+            "resultImg",
+            "resultBg",
+            "resultFolded",
+            "folded",
+        )
+        for key in derived_keys:
+            self.imgCache.pop(key, None)
+
+        # These are derived from fold geometry. Fixed user values are reapplied
+        # by getRminmax(), so clearing the resolved values is safe.
+        self.info.pop("rmin", None)
+        self.info.pop("rmax", None)
 
     def _tryFastLoad(self):
         """
