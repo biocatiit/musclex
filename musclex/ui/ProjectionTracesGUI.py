@@ -2823,8 +2823,10 @@ class ProjectionTracesGUI(BaseGUI):
         # Refresh box tabs (needed when quadrant folded state changes)
         self.addBoxTabs()
 
-        # Reprocess image with new settings
-        self.processImage()
+        # Reprocess image with new settings. Calibration/geometry edits change
+        # the coordinate frame used by every projection, so cached per-box
+        # histograms/fits must be discarded even when an image cache exists.
+        self.processImage(force_reprocess=True)
 
         # Update image display
         self.updateImage()
@@ -2965,13 +2967,14 @@ class ProjectionTracesGUI(BaseGUI):
         self.projProc.cache = None
         self.refit = refit
 
-    def processImage(self, use_cache: bool = False):
+    def processImage(self, use_cache: bool = False, force_reprocess: bool = False):
         """
         Process Image by applying settings and calling process() of ProjectionProcessor.
         Then, write data and update UI.
 
         Args:
             use_cache: If True, use cached computation results (rotation still applied)
+            force_reprocess: If True, discard cached per-box processing results first
         """
         if self.projProc is None:
             return
@@ -2980,6 +2983,10 @@ class ProjectionTracesGUI(BaseGUI):
         try:
             # Apply current settings to processor state
             self.applySettings()
+            if force_reprocess:
+                for box in self.projProc.boxes.values():
+                    box.clear_results(from_stage="hist")
+                use_cache = False
             # Process with cache flag - rotation always applied, computation conditionally skipped
             self.projProc.process(use_existing_cache=use_cache)
 
