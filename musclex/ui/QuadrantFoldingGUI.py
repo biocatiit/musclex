@@ -282,6 +282,7 @@ class FolderImageWorker(BaseProcessWorker):
         os.makedirs(bg_dir, exist_ok=True)
 
         result_path = os.path.join(bg_dir, f"{filename}.bg.tif")
+        os.makedirs(os.path.dirname(result_path), exist_ok=True)
         result_img = result_img.astype("float32")
         fabio.tifimage.tifimage(data=result_img).write(result_path)
 
@@ -5779,6 +5780,10 @@ class QuadrantFoldingGUI(BaseGUI):
         try:
             suffix = "_folded_compressed.tif" if compress else "_folded.tif"
             out_file = base + suffix
+            # Multi-folder batches retain a relative folder in img_name to
+            # avoid basename collisions.  Ensure that folder exists when the
+            # image is revisited after the batch (for example via alignment).
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
             if compress:
                 Image.fromarray(img).save(out_file, compression="tiff_lzw")
             else:
@@ -5831,8 +5836,8 @@ class QuadrantFoldingGUI(BaseGUI):
             bg_path = fullPath(out, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
 
-            # create bg folder
-            createFolder(bg_path)
+            # filename may contain a relative folder in a multi-folder batch.
+            createFolder(os.path.dirname(result_path))
             resultImg = resultImg.astype("float32")
             fabio.tifimage.tifimage(data=resultImg).write(result_path)
 

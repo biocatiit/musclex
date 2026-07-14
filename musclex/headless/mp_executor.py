@@ -293,6 +293,7 @@ def _save_qf_result_image(quadFold, output_dir, compress_folded):
 
     suffix = "_folded_compressed.tif" if compress_folded else "_folded.tif"
     out_file = base + suffix
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
     if compress_folded:
         Image.fromarray(img).save(out_file, compression="tiff_lzw")
     else:
@@ -332,6 +333,7 @@ def _save_qf_background(quadFold, dir_path):
     os.makedirs(bg_dir, exist_ok=True)
 
     result_path = os.path.join(bg_dir, f"{quadFold.img_name}.bg.tif")
+    os.makedirs(os.path.dirname(result_path), exist_ok=True)
     result_img = result_img.astype("float32")
     fabio.tifimage.tifimage(data=result_img).write(result_path)
     return float(np.sum(result_img))

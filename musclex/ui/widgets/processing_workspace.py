@@ -1927,6 +1927,15 @@ class ProcessingWorkspace(QWidget):
         # Create ImageData with workspace settings (center, rotation, blank, mask)
         image_data = self.create_image_data(img, filename)
 
+        # Navigation changes the active image immediately.  Do not wait for the
+        # downstream processor to finish before updating this state: dialogs
+        # such as CalibrationSettings use _current_image_data as their target.
+        # Waiting meant that selecting a row in the non-modal QF alignment
+        # dialog and then opening calibration could edit the *previous* image
+        # while the newly selected image was processing.
+        self._current_filename = filename
+        self._current_image_data = image_data
+
         # Sync quadrant folded state (PT-specific, no-op if checkbox doesn't exist)
         self._sync_qf_from_image_data(image_data)
 

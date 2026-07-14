@@ -330,6 +330,7 @@ class QuadrantFoldingh:
                 img = self.quadFold.imgCache["resultImg"]
 
                 img = img.astype("float32")
+                os.makedirs(os.path.dirname(result_file), exist_ok=True)
                 if (
                     "compressed" in self.quadFold.info
                     and not self.quadFold.info["compressed"]
@@ -369,8 +370,8 @@ class QuadrantFoldingh:
         bg_path = fullPath(self.output_dir, os.path.join("qf_results", "bg"))
         result_path = fullPath(bg_path, filename + ".bg.tif")
 
-        # create bg folder
-        createFolder(bg_path)
+        # filename may contain a relative folder in a multi-folder batch.
+        createFolder(os.path.dirname(result_path))
         resultImg = resultImg.astype("float32")
         # imsave(result_path, resultImg)
         fabio.tifimage.tifimage(data=resultImg).write(result_path)
