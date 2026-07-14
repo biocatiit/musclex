@@ -151,9 +151,9 @@ class QFAlignmentDialog(QDialog):
         hint = QLabel(
             "Tips: Click a row to navigate to that image in the QF main window. "
             "Right-click for Set Global Base / Ignore. "
-            "Enable 'Run symmetry test on detection' to also compute the sum of "
-            "per-pixel std-deviation across the 4 quadrants (lower is more "
-            "symmetric). After changing the global base or finishing detection, "
+            "Detection also computes the sum of per-pixel std-deviation across "
+            "the 4 quadrants by default (lower is more symmetric). After "
+            "changing the global base or finishing detection, "
             "the QF main window will automatically reprocess with the updated "
             "settings."
         )
