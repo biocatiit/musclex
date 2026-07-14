@@ -1469,6 +1469,16 @@ class BackgroundFittingDialog(QDialog):
             result_bg["method"] = "None"
             result_bg["final_params"] = None
             result_bg["loss"] = None
+        # Force the reprocess below down the slow path. The fit-related flags
+        # (subtract_bg_fit / bgfit_applied / bgfit_result_params) are
+        # deliberately excluded from the processing fingerprint, so applying a
+        # fit does NOT invalidate the fast-path on its own. Without dropping the
+        # cached fingerprint, processImage() would reload the stale _folded.tif
+        # and never run fitBackgroundPerImage()/subtractFittedBackground() -- the
+        # fit would appear to have no effect until an unrelated change (e.g.
+        # switching the method) happened to change the fingerprint. updateInfo()
+        # never restores this key, so popping it here makes _tryFastLoad() bail.
+        qf.info.pop("processing_fingerprint", None)
         # An applied fit is always saved to disk (fitted backgrounds + params),
         # no opt-out checkbox. The reconstruction path taken on reprocess does
         # not re-save these outputs, so write them here.

@@ -1658,6 +1658,29 @@ class QuadrantFolder:
         self.parent.statusPrint("Subtracting Fitted Background...")
         self.imgCache["avg_fold"] = (avg_fold - bg_fit).astype(np.float32)
         self.info["fitted_bg_subtracted"] = True
+        # avg_fold just changed, so every background-subtraction result derived
+        # from the pre-fit avg_fold is now stale. getRminmax() is what normally
+        # clears BgSubFold, but it early-returns once rmin/rmax are known (i.e.
+        # on every reprocess after the first). Without clearing here,
+        # applyBackgroundSubtraction() would find BgSubFold still cached and
+        # no-op, so generateResultImage() would rebuild resultImg from the
+        # un-subtracted fold and the applied fit would appear to have no effect.
+        for key in (
+            "BgSubFold",
+            "BgFold",
+            "BgSubFold_in",
+            "BgFold_in",
+            "BgSubFold_out",
+            "BgFold_out",
+            "BgSubFold_syn",
+            "BgFold_syn",
+            "BgSubFold_syn_in",
+            "BgFold_syn_in",
+            "BgSubFold_syn_out",
+            "BgFold_syn_out",
+            "resultImg",
+        ):
+            self.deleteFromDict(self.imgCache, key)
         print("Fitted background subtracted from average fold.")
 
     def searchBackground(self):
