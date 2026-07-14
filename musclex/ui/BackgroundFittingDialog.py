@@ -287,6 +287,10 @@ class BackgroundFittingDialog(QDialog):
         self.runButton.setStyleSheet(
             "QPushButton { color: #ededed; background-color: #af6207; }"
         )
+        # Don't let Enter (e.g. committing a spinbox edit) fire Run Fit: in a
+        # QDialog push buttons are auto-default, so Return activates them.
+        self.runButton.setAutoDefault(False)
+        self.runButton.setDefault(False)
         self.runButton.clicked.connect(self.runFit)
 
         self.progressBar = QProgressBar()
@@ -334,7 +338,7 @@ class BackgroundFittingDialog(QDialog):
         self.clipMinSpnBx.setRange(-1e9, 1e9)
         self.clipMinSpnBx.setDecimals(2)
         self.clipMinSpnBx.setValue(0.0)
-        self.clipMinSpnBx.setKeyboardTracking(True)
+        self.clipMinSpnBx.setKeyboardTracking(False)
         self.clipMinSpnBx.setEnabled(False)
         self.clipMinSpnBx.setToolTip("Minimum (color-clip / y-limit).")
         self.clipMinSpnBx.valueChanged.connect(self._on_clip_value_changed)
@@ -343,7 +347,7 @@ class BackgroundFittingDialog(QDialog):
         self.clipMaxSpnBx.setRange(-1e9, 1e9)
         self.clipMaxSpnBx.setDecimals(2)
         self.clipMaxSpnBx.setValue(1.0)
-        self.clipMaxSpnBx.setKeyboardTracking(True)
+        self.clipMaxSpnBx.setKeyboardTracking(False)
         self.clipMaxSpnBx.setEnabled(False)
         self.clipMaxSpnBx.setToolTip("Maximum (color-clip / y-limit).")
         self.clipMaxSpnBx.valueChanged.connect(self._on_clip_value_changed)
@@ -366,9 +370,13 @@ class BackgroundFittingDialog(QDialog):
         self.canvas.mpl_connect("motion_notify_event", self._on_canvas_motion)
 
         self.applyButton = QPushButton("Apply (use residual) && Close")
+        self.applyButton.setAutoDefault(False)
+        self.applyButton.setDefault(False)
         self.applyButton.clicked.connect(self.applyAndClose)
         self.applyButton.setEnabled(False)
         self.closeButton = QPushButton("Close")
+        self.closeButton.setAutoDefault(False)
+        self.closeButton.setDefault(False)
         self.closeButton.clicked.connect(self.reject)
 
     def _create_layout(self):
@@ -818,9 +826,12 @@ class BackgroundFittingDialog(QDialog):
         box = QMessageBox(self if self.isVisible() else self._parent_gui)
         box.setIcon(QMessageBox.Warning)
         box.setWindowTitle("Run background fit")
-        box.setText("The fitting may take a few minutes. Continue or exit?")
+        box.setText("The fitting may take a few minutes. Continue or cancel?")
         continueBtn = box.addButton("Continue", QMessageBox.AcceptRole)
-        box.addButton("Exit", QMessageBox.RejectRole)
+        cancelBtn = box.addButton("Cancel", QMessageBox.RejectRole)
+        cancelBtn.setStyleSheet(
+            "QPushButton { color: #ffffff; background-color: #c0392b; }"
+        )
         box.setDefaultButton(continueBtn)
         dontShowChkBx = QCheckBox("Don't show this message again")
         box.setCheckBox(dontShowChkBx)
