@@ -7063,6 +7063,21 @@ class QuadrantFoldingGUI(BaseGUI):
                     widget.setValue(loaded[k])
                 finally:
                     widget.blockSignals(False)
+                # Some widgets (e.g. rminSpnBx/rmaxSpnBx) are the
+                # "authoritative" instance owned by a popup dialog and
+                # mirrored on the main panel via a two-way-bound proxy
+                # (see _bind_proxy_two_way). That binding listens on
+                # valueChanged, which blockSignals just suppressed, so
+                # the visible main-panel proxy would otherwise keep
+                # showing its old value (e.g. the -1 "unset" default)
+                # even though the authoritative widget loaded correctly.
+                proxy = getattr(self, w + "Proxy", None)
+                if proxy is not None:
+                    proxy.blockSignals(True)
+                    try:
+                        proxy.setValue(loaded[k])
+                    finally:
+                        proxy.blockSignals(False)
 
             for k, w, xform in _QF_COMBO_TEXT_BINDINGS:
                 if k not in loaded:
@@ -7102,6 +7117,17 @@ class QuadrantFoldingGUI(BaseGUI):
                     widget.setChecked(bool(loaded[k]))
                 finally:
                     widget.blockSignals(False)
+                # See the spinbox loop above: keep any main-panel proxy
+                # (e.g. smoothImageChkbxProxy) in sync since its two-way
+                # binding listens on "toggled", which blockSignals just
+                # suppressed.
+                proxy = getattr(self, w + "Proxy", None)
+                if proxy is not None:
+                    proxy.blockSignals(True)
+                    try:
+                        proxy.setChecked(bool(loaded[k]))
+                    finally:
+                        proxy.blockSignals(False)
 
             # Special keys ----------------------------------------------------
 
