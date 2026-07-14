@@ -57,6 +57,9 @@ def find_m1_peak(meridian_half, rmin=10):
     if len(peaks) < 2:
         return None
     spacings = np.diff(sorted(peaks))
+    spacings = spacings[spacings >= 20]
+    if len(spacings) == 0:
+        return None
     m1 = np.median(spacings)
     return int(round(m1))
 
