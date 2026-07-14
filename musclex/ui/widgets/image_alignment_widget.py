@@ -55,7 +55,7 @@ class ImageAlignmentWidget(QWidget):
     worker_dir_path : str
         Directory path passed to subprocess workers (``str(fm.dir_path)``
         for Single, ``""`` for Multiple).
-    enable_symmetry_test : bool, default False
+    enable_symmetry_test : bool, default True
         When True, an additional "Symmetry std threshold" checkbox + spinbox is
         rendered, a ``FOLD_STD`` column is expected in the table, and batch
         detection will additionally compute the sum-of-std symmetry score for
@@ -82,7 +82,7 @@ class ImageAlignmentWidget(QWidget):
         col_map,
         headers,
         worker_dir_path="",
-        enable_symmetry_test=False,
+        enable_symmetry_test=True,
         detection_button_position="top",
         settings_resolver=None,
         parent=None,
