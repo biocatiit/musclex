@@ -152,31 +152,32 @@ class DDFWindow(QMainWindow):
         reading = "Please wait. Input file is being read ."
         self.generateButton.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        for i, row in enumerate(open(self.current_file)):
-            if (i / 100) % 3 == 0:
-                self.statusText.setText(reading)
-            elif (i / 100) % 3 == 1:
-                self.statusText.setText(reading + " .")
-            else:
-                self.statusText.setText(reading + " . .")
-            QApplication.processEvents()
+        with open(self.current_file) as data_file:
+            for i, row in enumerate(data_file):
+                if (i / 100) % 3 == 0:
+                    self.statusText.setText(reading)
+                elif (i / 100) % 3 == 1:
+                    self.statusText.setText(reading + " .")
+                else:
+                    self.statusText.setText(reading + " . .")
+                QApplication.processEvents()
 
-            if "Sample" in row and "Stim" in row:
+                if "Sample" in row and "Stim" in row:
+                    r = row.rstrip("\n")
+                    r = r.rstrip("\r")
+                    cols = r.split("\t")
+                    self.data = pd.DataFrame(columns=cols)
+                    continue
+
+                if self.data is None:
+                    continue
+
                 r = row.rstrip("\n")
                 r = r.rstrip("\r")
-                cols = r.split("\t")
-                self.data = pd.DataFrame(columns=cols)
-                continue
-
-            if self.data is None:
-                continue
-
-            r = row.rstrip("\n")
-            r = r.rstrip("\r")
-            line = r.split("\t")
-            line = list(map(float, line))[: len(cols)]
-            d = dict(zip(cols, line))
-            self.data = self.data.append(d, ignore_index=True)
+                line = r.split("\t")
+                line = list(map(float, line))[: len(cols)]
+                d = dict(zip(cols, line))
+                self.data = self.data.append(d, ignore_index=True)
 
         QApplication.restoreOverrideCursor()
         self.generateButton.setEnabled(True)
@@ -195,8 +196,9 @@ class DDFWindow(QMainWindow):
                 del c
 
         self.colChkBxs = []
-        self.freqSpnBx.setRange(1, self.data.shape[0] - 1)
         if self.data is not None:
+            max_freq = max(self.data.shape[0] - 1, 1)
+            self.freqSpnBx.setRange(1, max_freq)
             cols = list(self.data.columns)
             cols.remove("Sample")
             for i, col_name in enumerate(cols):
@@ -206,6 +208,8 @@ class DDFWindow(QMainWindow):
                 self.colChkBxs.append(col_cb)
                 self.columnGrid.addWidget(col_cb, r, c, 1, 1)
                 self.columnGrid.setAlignment(col_cb, Qt.AlignCenter)
+        else:
+            self.freqSpnBx.setRange(1, 1)
         self.resize(700, 50)
 
     def generateFile(self):
