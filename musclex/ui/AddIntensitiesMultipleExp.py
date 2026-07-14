@@ -298,6 +298,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
             col_map=col_map,
             headers=headers,
             worker_dir_path="",
+            enable_symmetry_test=True,
         )
         # Column sizing
         header = self.panel.table.horizontalHeader()

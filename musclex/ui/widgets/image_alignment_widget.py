@@ -59,7 +59,7 @@ class ImageAlignmentWidget(QWidget):
         When True, an additional "Symmetry std threshold" checkbox + spinbox is
         rendered, a ``FOLD_STD`` column is expected in the table, and batch
         detection will additionally compute the sum-of-std symmetry score for
-        each image. Off by default so existing AISE callers are not affected.
+        each image.
     detection_button_position : {"top", "bottom_after_thresholds"}, default "top"
         Where to render the "Detect Centers && Rotations" button inside the
         detection group. "top" preserves the original AISE layout. The QF
@@ -118,7 +118,7 @@ class ImageAlignmentWidget(QWidget):
         # rows automatically once detection finishes; the threshold itself is
         # auto-populated to the 80th-percentile of all fold_std_sum scores in
         # ``_compute_fold_std_percentile_threshold`` when the batch completes.
-        self._symmetry_enabled = False
+        self._symmetry_enabled = bool(enable_symmetry_test)
         self._symmetry_thresh_enabled = True
         self._symmetry_threshold = 0.0
         self._fold_std_percentile_threshold: float = None
@@ -259,7 +259,7 @@ class ImageAlignmentWidget(QWidget):
             sym_row = QHBoxLayout()
             sym_row.setSpacing(6)
             self._symmetry_enable_chk = QCheckBox("Run symmetry test on detection")
-            self._symmetry_enable_chk.setChecked(False)
+            self._symmetry_enable_chk.setChecked(self._symmetry_enabled)
             self._symmetry_enable_chk.setToolTip(
                 "When checked, batch detection additionally computes the sum of "
                 "per-pixel standard deviation across the 4 quadrants (after "
@@ -275,7 +275,7 @@ class ImageAlignmentWidget(QWidget):
             # symmetry test has populated values — the master toggle below
             # still gates the *Enabled* state until the test is turned on.
             self._symmetry_thresh_chk.setChecked(True)
-            self._symmetry_thresh_chk.setEnabled(False)
+            self._symmetry_thresh_chk.setEnabled(self._symmetry_enabled)
             self._symmetry_thresh_chk.setToolTip(
                 "Highlight images whose fold-symmetry std-sum exceeds this threshold.\n"
                 "The default is automatically set to the 80th percentile of all "
@@ -289,7 +289,9 @@ class ImageAlignmentWidget(QWidget):
             self._symmetry_thresh_spin.setDecimals(2)
             self._symmetry_thresh_spin.setSingleStep(100.0)
             self._symmetry_thresh_spin.setValue(self._symmetry_threshold)
-            self._symmetry_thresh_spin.setEnabled(False)
+            self._symmetry_thresh_spin.setEnabled(
+                self._symmetry_enabled and self._symmetry_thresh_enabled
+            )
             self._symmetry_thresh_spin.setFixedWidth(140)
             sym_row.addWidget(self._symmetry_thresh_spin)
             sym_row.addStretch()
@@ -302,7 +304,7 @@ class ImageAlignmentWidget(QWidget):
                 "Symmetry norm threshold (default: 80th pct):"
             )
             self._norm_thresh_chk.setChecked(True)
-            self._norm_thresh_chk.setEnabled(False)
+            self._norm_thresh_chk.setEnabled(self._symmetry_enabled)
             self._norm_thresh_chk.setToolTip(
                 "Highlight images whose normalised fold-symmetry score "
                 "(fold_std_sum / Σ I_fg) exceeds this threshold.\n"
@@ -317,7 +319,9 @@ class ImageAlignmentWidget(QWidget):
             self._norm_thresh_spin.setDecimals(4)
             self._norm_thresh_spin.setSingleStep(0.01)
             self._norm_thresh_spin.setValue(self._norm_threshold)
-            self._norm_thresh_spin.setEnabled(False)
+            self._norm_thresh_spin.setEnabled(
+                self._symmetry_enabled and self._norm_thresh_enabled
+            )
             self._norm_thresh_spin.setFixedWidth(140)
             norm_row.addWidget(self._norm_thresh_spin)
             norm_row.addStretch()
