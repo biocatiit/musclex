@@ -181,9 +181,6 @@ class ProcessingState:
     detector: Optional[str] = None
     orientation_model: Optional[object] = None  # Not serialized, rebuilt at runtime
     lambda_sdd: Optional[float] = None
-    processed_center: Optional[Tuple[float, float]] = None
-    processed_rotation: Optional[float] = None
-    processed_quadrant_folded: Optional[bool] = None
 
     # === Special: Main Peak Information ===
     main_peak_info: Dict = field(default_factory=dict)
@@ -437,63 +434,6 @@ class ProjectionProcessor:
             print(f"Image rotated by {self.rotation}° around center {self.center}")
         # ================================================================
 
-    def _current_geometry_signature(self):
-        center = self.center
-        return {
-            "center": (float(center[0]), float(center[1])),
-            "rotation": float(self.rotation or 0.0),
-            "quadrant_folded": bool(self._image_data.quadrant_folded),
-        }
-
-    @staticmethod
-    def _same_geometry(a, b, tol=1e-6):
-        if not a or not b:
-            return False
-        try:
-            return (
-                abs(a["center"][0] - b["center"][0]) <= tol
-                and abs(a["center"][1] - b["center"][1]) <= tol
-                and abs(a["rotation"] - b["rotation"]) <= tol
-                and a["quadrant_folded"] == b["quadrant_folded"]
-            )
-        except (KeyError, TypeError, IndexError):
-            return False
-
-    def _stored_geometry_signature(self):
-        center = getattr(self.state, "processed_center", None)
-        rotation = getattr(self.state, "processed_rotation", None)
-        quadrant_folded = getattr(self.state, "processed_quadrant_folded", None)
-        if center is None or rotation is None or quadrant_folded is None:
-            return None
-        return {
-            "center": (float(center[0]), float(center[1])),
-            "rotation": float(rotation),
-            "quadrant_folded": bool(quadrant_folded),
-        }
-
-    def _invalidate_geometry_dependent_results_if_needed(self):
-        current = self._current_geometry_signature()
-        stored = self._stored_geometry_signature()
-        if self._same_geometry(current, stored):
-            return False
-
-        for box in self.boxes.values():
-            box.clear_results(from_stage="hist")
-
-        for original in self.state.original_boxes.values():
-            if isinstance(original, dict):
-                original["center"] = current["center"]
-                original["rotation"] = current["rotation"]
-
-        self.state.processed_center = current["center"]
-        self.state.processed_rotation = current["rotation"]
-        self.state.processed_quadrant_folded = current["quadrant_folded"]
-        print(
-            "ProjectionProcessor geometry changed; clearing cached PT results "
-            f"for center={current['center']}, rotation={current['rotation']}"
-        )
-        return True
-
     def _compute(self):
         """
         Stage 2: Main computation pipeline (can be skipped when using cache).
@@ -530,13 +470,11 @@ class ProjectionProcessor:
         :param use_existing_cache: If True, skip expensive computation and use cached results
                                    (preprocessing like rotation is still applied)
         """
-        geometry_invalidated = self._invalidate_geometry_dependent_results_if_needed()
-
         # Stage 1: Preprocessing (always run)
         self._preprocess()
 
         # Stage 2: Main computation (skip if using cache)
-        if use_existing_cache and not geometry_invalidated:
+        if use_existing_cache:
             print(
                 "Using cached computation results: skipping expensive processing pipeline"
             )
