@@ -640,6 +640,14 @@ class ImageData:
 
     # ==================== Fingerprint for Cache Validation ====================
 
+    def _fingerprint_settings_path(self) -> Path:
+        """Return the settings path that actually supplies blank/mask files."""
+        if self._settings_manager is not None:
+            settings_path = getattr(self._settings_manager, "settings_path", None)
+            if settings_path is not None:
+                return Path(settings_path)
+        return self.img_path / "settings"
+
     def get_fingerprint(self) -> Dict[str, Any]:
         """
         Generate fingerprint of all factors affecting processing results.
@@ -652,7 +660,7 @@ class ImageData:
         Returns dict that can be compared for cache invalidation.
         """
         fingerprint = {}
-        settings_dir = self.img_path / "settings"
+        settings_dir = self._fingerprint_settings_path()
 
         # 1. Track config files (mtime + size)
         config_files = [
