@@ -180,7 +180,7 @@ class ManualCalibrationDialog(QDialog):
         self.calibrationGroup = QGroupBox("Calibration Parameters")
         calibrationLayout = QGridLayout(self.calibrationGroup)
 
-        calibrationLayout.addWidget(QLabel("Silver Behenate d-spacing:"), 0, 0)
+        calibrationLayout.addWidget(QLabel("Calibrant ring d-spacing:"), 0, 0)
         self.silverBehenateSpinBox = QDoubleSpinBox()
         self.silverBehenateSpinBox.setDecimals(5)
         self.silverBehenateSpinBox.setRange(0.0, 100.0)

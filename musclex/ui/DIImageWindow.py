@@ -1145,7 +1145,7 @@ class DIImageWindow(QMainWindow):
             if "type" in self.calSettings:
                 if self.calSettings["type"] == "img":
                     text += (
-                        "\n  - Silver Behenate : "
+                        "\n  - Calibrant ring d-spacing : "
                         + str(self.calSettings["silverB"])
                         + " nm"
                     )

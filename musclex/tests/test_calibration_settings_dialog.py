@@ -128,6 +128,7 @@ def test_calibration_image_syncs_scale_and_inferred_sdd(qapp, tmp_path):
     assert dialog.calSettings["scale"] == pytest.approx(500.0)
     assert dialog.sddSpnBx.value() == pytest.approx(1000.0)
     assert "500" in dialog.scaleComputedLabel.text()
+    assert "calibrant ring d-spacing" in dialog.scaleComputedLabel.text()
     assert "1000" in dialog.sddComputedLabel.text()
 
 

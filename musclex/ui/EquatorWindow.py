@@ -1428,7 +1428,9 @@ class EquatorWindow(QMainWindow):
             if "type" in calSettings:
                 if calSettings["type"] == "img":
                     text += (
-                        "\n  - Silver Behenate : " + str(calSettings["silverB"]) + " nm"
+                        "\n  - Calibrant ring d-spacing : "
+                        + str(calSettings["silverB"])
+                        + " nm"
                     )
                     text += "\n  - Sdd : " + str(calSettings["radius"]) + " pixels"
                 else:
@@ -2386,7 +2388,9 @@ class EquatorWindow(QMainWindow):
             if "type" in calSettings:
                 if calSettings["type"] == "img":
                     text += (
-                        "\n  - Silver Behenate : " + str(calSettings["silverB"]) + " nm"
+                        "\n  - Calibrant ring d-spacing : "
+                        + str(calSettings["silverB"])
+                        + " nm"
                     )
                     text += "\n  - Sdd : " + str(calSettings["radius"]) + " pixels"
                 else:
