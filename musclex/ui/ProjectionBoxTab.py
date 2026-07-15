@@ -447,6 +447,16 @@ class ProjectionBoxTab(QWidget):
         self.resultTable2.setColumnWidth(3, 75)
         self.resultTable2.setFixedHeight(100)
 
+        self.rejectChkBx = QCheckBox("Reject this image")
+        self.rejectChkBx.setChecked(
+            bool(
+                self.parent.projProc is not None and self.parent.projProc.state.rejected
+            )
+        )
+        self.rejectChkBx.setToolTip(
+            "Mark this image as rejected. 'rejected' will be written to the reject column in CSV"
+        )
+
         # Add widgets to CollapsibleRightPanel content area (scrollable)
         self.right_panel.add_widget(self.displayOptionsGroup)
         self.right_panel.add_widget(self.settingGroup)
@@ -454,6 +464,7 @@ class ProjectionBoxTab(QWidget):
         self.right_panel.add_widget(self.resultTable1)
         self.right_panel.add_widget(QLabel("<h3>Centroid Peak Information</h3>"))
         self.right_panel.add_widget(self.resultTable2)
+        self.right_panel.add_bottom_widget(self.rejectChkBx)
 
         # Note: Navigation controls (prev/next) are shared across all tabs.
         # The parent GUI moves the shared navControls into this right_panel's
@@ -505,6 +516,7 @@ class ProjectionBoxTab(QWidget):
         self.endHull.valueChanged.connect(self.hullRangeChanged)
         self.editMainPeakButton.clicked.connect(self.editMainPeak)
         self.refitButton.clicked.connect(self.refit)
+        self.rejectChkBx.stateChanged.connect(self.onRejectChanged)
 
         # TEMP: disable table click events (to avoid hooking itemChanged handlers on click)
         # self.resultTable1.itemClicked.connect(self.handleTable1Event)
@@ -525,6 +537,10 @@ class ProjectionBoxTab(QWidget):
         # self.graphFigure1.canvas.mpl_connect('button_press_event', self.on_press)
         # self.graphFigure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
         # self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
+
+    def onRejectChanged(self):
+        """Update the shared image-level rejection state from this fit tab."""
+        self.parent.setImageRejected(self.rejectChkBx.isChecked())
 
     def editMainPeak(self):
         """
