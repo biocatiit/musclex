@@ -1036,9 +1036,9 @@ class QuadrantFoldingGUI(BaseGUI):
             self.fitBgEachImageChkBxProxy, self.fitBgEachImageChkBx, "toggled", "setChecked"
         )
         parametric_main_layout = QGridLayout()
-        parametric_main_layout.addWidget(self.openFittingButtonMain, 0, 0, 1, 4)
-        parametric_main_layout.addWidget(self.runFittingApplyButtonMain, 2, 0, 1, 4)
-        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 1, 0, 1, 4)
+        parametric_main_layout.addWidget(self.openFittingButtonMain, 1, 0, 1, 4)
+        parametric_main_layout.addWidget(self.runFittingApplyButtonMain, 0, 0, 1, 4)
+        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 2, 0, 1, 4)
         parametric_main_layout.addWidget(self.fitBgEachImageChkBxProxy, 3, 0, 1, 4)
         self.parametricFittingGroupMain.setLayout(parametric_main_layout)
 
