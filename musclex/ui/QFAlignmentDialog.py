@@ -42,6 +42,42 @@ from musclex.utils.settings_manager import SettingsManager
 logger = logging.getLogger(__name__)
 
 
+def _persist_pending_batch_geometry(workspace, row_mapper, settings_resolver):
+    """Persist pending Apply-to-All geometry in every loaded source folder.
+
+    Multi-folder QF processing intentionally keeps Apply Center/Rotation -> All
+    as a lazy, workspace-level override.  Batch processing materializes that
+    override as each image is submitted, but alignment detection reads each
+    source folder directly.  Flush the pending values here so both workflows
+    observe the same manual geometry.
+
+    Settings managers are saved once per source folder, even when that folder
+    contains many images.
+    """
+    batch_center, batch_rotation = workspace.get_batch_all_geometry()
+    if batch_center is None and batch_rotation is None:
+        return
+
+    center_managers = set()
+    rotation_managers = set()
+    for row in range(row_mapper.row_count()):
+        name = row_mapper.name_for_row(row)
+        if name is None:
+            continue
+        manager, key = settings_resolver(row, name)
+        if batch_center is not None:
+            manager.set_center(key, batch_center, "propagated_batch_folder")
+            center_managers.add(manager)
+        if batch_rotation is not None:
+            manager.set_rotation(key, batch_rotation, "propagated_batch_folder")
+            rotation_managers.add(manager)
+
+    for manager in center_managers:
+        manager.save_center()
+    for manager in rotation_managers:
+        manager.save_rotation()
+
+
 class QFAlignmentDialog(QDialog):
     """
     @class QFAlignmentDialog
@@ -137,6 +173,7 @@ class QFAlignmentDialog(QDialog):
             enable_symmetry_test=True,
             detection_button_position="bottom_after_thresholds",
             settings_resolver=self._settings_for_alignment_row,
+            detection_preflight=self._prepare_source_geometry_for_detection,
             parent=self,
         )
         # Use the default context menu (Set Center/Rotation, Set Global Base, Ignore).
@@ -219,6 +256,8 @@ class QFAlignmentDialog(QDialog):
             logger.info("QFAlignmentDialog: file_manager is empty, skipping table init")
             return
 
+        self._prepare_source_geometry_for_detection(refresh_table=False)
+
         worker_dir = str(fm.dir_path) if fm.dir_path else ""
         self.panel.set_worker_dir_path(worker_dir)
         self.panel.set_img_sizes(getattr(fm, "image_sizes", {}) or {})
@@ -235,6 +274,16 @@ class QFAlignmentDialog(QDialog):
 
         # Highlight the row corresponding to the QF main window's current image.
         self._sync_selection_from_navigator()
+
+    def _prepare_source_geometry_for_detection(self, refresh_table=True):
+        """Make lazy batch-wide geometry visible to source-folder detection."""
+        _persist_pending_batch_geometry(
+            self.workspace,
+            self._row_mapper,
+            self._settings_for_alignment_row,
+        )
+        if refresh_table and hasattr(self, "panel"):
+            self.panel.refresh_all_rows()
 
     def refresh_after_refinement(self, rerun_symmetry=True):
         """Refresh table data after QF refines center/rotation in the main window."""
