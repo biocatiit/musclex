@@ -585,9 +585,9 @@ class CalibrationSettings(QDialog):
 
         scale = self._current_scale()
         if scale is None:
-            scale_text = "scale = silverB * radius: unavailable"
+            scale_text = "scale = calibrant ring d-spacing * radius: unavailable"
         else:
-            scale_text = f"scale = silverB * radius: {scale:.8g}"
+            scale_text = f"scale = calibrant ring d-spacing * radius: {scale:.8g}"
 
         inferred_sdd = self._inferred_sdd_from_scale(scale)
         if inferred_sdd is None:
@@ -624,7 +624,8 @@ class CalibrationSettings(QDialog):
         Set the tool tips.
         """
         self.manualCal.setToolTip(
-            "Calibrate the image manually by clicking at least 5 points for circle fitting, and setting appropriate Silver Behenate."
+            "Calibrate the image manually by clicking at least 5 points for "
+            "circle fitting, and setting the appropriate calibrant ring d-spacing."
             "\n The accuracy of fitting function will depend on number of points."
         )
 
