@@ -65,8 +65,13 @@ class ImageAlignmentWidget(QWidget):
         detection group. "top" preserves the original AISE layout. The QF
         dialog uses ``"bottom_after_thresholds"`` so the button sits below
         every checkbox / threshold control.
+    settings_resolver : callable | None
+        Optional row-specific settings lookup returning ``(manager, key)``.
     parent : QWidget | None
         Optional parent widget.
+    detection_preflight : callable | None
+        Optional callback invoked immediately before detection snapshots the
+        manual center and rotation for each worker.
     """
 
     # --- Signals emitted by the widget ------------------------------------
@@ -86,12 +91,14 @@ class ImageAlignmentWidget(QWidget):
         detection_button_position="top",
         settings_resolver=None,
         parent=None,
+        detection_preflight=None,
     ):
         super().__init__(parent)
         self.workspace = workspace
         self._row_mapper = row_mapper
         self._worker_dir_path = worker_dir_path
         self._settings_resolver = settings_resolver
+        self._detection_preflight = detection_preflight
         self._enable_symmetry_test = bool(enable_symmetry_test)
         if detection_button_position not in ("top", "bottom_after_thresholds"):
             detection_button_position = "top"
@@ -1003,6 +1010,13 @@ class ImageAlignmentWidget(QWidget):
         """Submit all images to the process pool for center/rotation calculation."""
         if self._in_batch:
             return
+
+        # Give embedding workflows a chance to flush pending settings before
+        # worker arguments are snapshotted below.  QF uses this to materialize
+        # Apply Center/Rotation -> All values into each selected source folder.
+        if self._detection_preflight is not None:
+            self._detection_preflight()
+
         n = self._row_mapper.row_count()
         if n == 0:
             return
