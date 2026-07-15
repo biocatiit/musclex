@@ -1841,6 +1841,9 @@ class ProjectionTracesGUI(BaseGUI):
             # Was on a box tab, but that box no longer exists -> select first box tab
             self.tabWidget.setCurrentIndex(1)
 
+        if self.projProc is not None:
+            self._syncRejectCheckboxes(self.projProc.state.rejected)
+
         # Store pending parameter editors to reopen AFTER processImage() completes.
         # At this point fit_results don't exist yet for the new image, so we defer
         # reopening until processing is done.
@@ -3031,10 +3034,8 @@ class ProjectionTracesGUI(BaseGUI):
         csv_manager.writeNewData(self.projProc)
         self.exportHistograms()
 
-        # Restore reject checkbox state from cache
-        self.rejectChkBx.blockSignals(True)
-        self.rejectChkBx.setChecked(self.projProc.state.rejected)
-        self.rejectChkBx.blockSignals(False)
+        # Restore image-level reject state in the image and fit tabs.
+        self._syncRejectCheckboxes(self.projProc.state.rejected)
 
         # Restore comments from cache
         self._restoreCommentsDisplay()
@@ -3179,10 +3180,8 @@ class ProjectionTracesGUI(BaseGUI):
         csv_manager.writeNewData(self.projProc)
         self.exportHistograms()
 
-        # Restore reject checkbox state from cache
-        self.rejectChkBx.blockSignals(True)
-        self.rejectChkBx.setChecked(self.projProc.state.rejected)
-        self.rejectChkBx.blockSignals(False)
+        # Restore image-level reject state in the image and fit tabs.
+        self._syncRejectCheckboxes(self.projProc.state.rejected)
 
         # Restore comments from cache
         self._restoreCommentsDisplay()
@@ -3210,17 +3209,33 @@ class ProjectionTracesGUI(BaseGUI):
         Triggered when reject checkbox state changes.
         Save reject state to cache and update CSV.
         """
-        if self.projProc is not None:
-            # Update ProcessingState
-            self.projProc.state.rejected = self.rejectChkBx.isChecked()
+        self.setImageRejected(self.rejectChkBx.isChecked())
 
-            # Save to cache
-            self.projProc.cacheInfo()
+    def _syncRejectCheckboxes(self, rejected):
+        """Show the same image-level reject state on every PT tab."""
+        checkboxes = [self.rejectChkBx]
+        for index in range(1, self.tabWidget.count()):
+            tab = self.tabWidget.widget(index)
+            if isinstance(tab, ProjectionBoxTab):
+                checkboxes.append(tab.rejectChkBx)
 
-            # Update CSV
-            csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
-            if csv_manager is not None:
-                csv_manager.writeNewData(self.projProc)
+        for checkbox in checkboxes:
+            previous = checkbox.blockSignals(True)
+            checkbox.setChecked(bool(rejected))
+            checkbox.blockSignals(previous)
+
+    def setImageRejected(self, rejected):
+        """Persist and synchronize the current image's rejection state."""
+        if self.projProc is None:
+            return
+
+        self.projProc.state.rejected = bool(rejected)
+        self._syncRejectCheckboxes(self.projProc.state.rejected)
+        self.projProc.cacheInfo()
+
+        csv_manager = self._get_batch_csv_manager_for_proc(self.projProc)
+        if csv_manager is not None:
+            csv_manager.writeNewData(self.projProc)
 
     def onEditComments(self):
         """Switch comments to edit mode."""
