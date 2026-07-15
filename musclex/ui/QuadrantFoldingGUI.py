@@ -972,7 +972,7 @@ class QuadrantFoldingGUI(BaseGUI):
         show_layout.addWidget(self.resultDisplayModeCB, 0, 2, 1, 2)
 
         # ===== 2) R-min/R-max (collapsible, mirrors the dialog section) =====
-        self.rminGroupMain = CollapsibleGroupBox("R-min/R-max", start_expanded=False)
+        self.rminGroupMain = CollapsibleGroupBox("R-min/R-max Settings", start_expanded=False)
         self._create_rmin_rmax_proxy()
         rmin_main_layout = QGridLayout()
         rmin_main_layout.addWidget(self.rminLabelProxy, 2, 0, 1, 1)
@@ -1014,7 +1014,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.bgSubDialog.openBackgroundFittingDialog
         )
         self.runFittingApplyButtonMain = QPushButton(
-            "Run Fitting with current setting and apply"
+            "Run Fitting with Default Settings and Apply"
         )
         self.runFittingApplyButtonMain.setToolTip(
             "Run the iterative 2D background fit with the current settings, then "
@@ -1037,8 +1037,8 @@ class QuadrantFoldingGUI(BaseGUI):
         )
         parametric_main_layout = QGridLayout()
         parametric_main_layout.addWidget(self.openFittingButtonMain, 0, 0, 1, 4)
-        parametric_main_layout.addWidget(self.runFittingApplyButtonMain, 1, 0, 1, 4)
-        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 2, 0, 1, 4)
+        parametric_main_layout.addWidget(self.runFittingApplyButtonMain, 2, 0, 1, 4)
+        parametric_main_layout.addWidget(self.subtractBgFitChkBxProxy, 1, 0, 1, 4)
         parametric_main_layout.addWidget(self.fitBgEachImageChkBxProxy, 3, 0, 1, 4)
         self.parametricFittingGroupMain.setLayout(parametric_main_layout)
 
