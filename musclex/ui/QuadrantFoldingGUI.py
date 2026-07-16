@@ -1227,10 +1227,12 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.showRminChkBx = QCheckBox("Show R-min")
         self.showRminChkBx.setToolTip("Draw the R-min circle on the folded image")
-        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min")
+        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min/R-max")
+        self.fixedRadiusRangeChkBx.setChecked(True)
         self.fixedRadiusRangeChkBx.setToolTip(
-            "When enabled, the current R-min is reused for every image you process.\n"
-            "When disabled, R-min is recomputed per image."
+            "When enabled, the current R-min and R-max are reused for every image "
+            "you process.\n"
+            "When disabled, R-min and R-max are recomputed per image."
         )
 
         self.cycleOutLabel = QLabel("Number of Cycles : ")
@@ -3900,8 +3902,15 @@ class QuadrantFoldingGUI(BaseGUI):
             self.rminSpnBx.setValue(int(info.get("rmin", self.rminSpnBx.value())))
             self.rmaxSpnBx.setValue(int(info.get("rmax", self.rmaxSpnBx.value())))
         else:
-            self.rminSpnBx.setValue(previnfo["rmin"])
-            self.rmaxSpnBx.setValue(previnfo["rmax"])
+            # Persist R-min/R-max: reuse the previous image's values, but fall
+            # back to this image's cache / the current spinbox when the previous
+            # info doesn't carry them yet (e.g. it wasn't processed).
+            self.rminSpnBx.setValue(
+                int(previnfo.get("rmin", info.get("rmin", self.rminSpnBx.value())))
+            )
+            self.rmaxSpnBx.setValue(
+                int(previnfo.get("rmax", info.get("rmax", self.rmaxSpnBx.value())))
+            )
 
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info["bgsub"]))

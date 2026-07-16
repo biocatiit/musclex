@@ -291,7 +291,8 @@ class BackgroundSubtractionDialog(QDialog):
         self.rmaxLabel = QLabel("R-max")
 
         self.showRminRmaxChkBx = QCheckBox("Show R-min/max")
-        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min/max")
+        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min/R-max")
+        self.fixedRadiusRangeChkBx.setChecked(True)
 
     def _create_image_processing_widgets(self):
         """Create image processing settings widgets."""
