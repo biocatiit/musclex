@@ -4597,12 +4597,25 @@ class QuadrantFoldingGUI(BaseGUI):
             except Exception:
                 img = self.quadFold.imgCache["resultImg"]
 
+            # The selected display mode's image may not exist for this image
+            # (e.g. "Background (Fit)" before any fit has been run/cached),
+            # which leaves img as None. Show an empty array in that case rather
+            # than substituting another image, so the viewer renders blank
+            # instead of crashing on img.min().
+            if img is None:
+                img = np.empty((0, 0))
+
             ## Update Widgets
+            has_data = getattr(img, "size", 0) > 0
             self.resultminIntLabel.setText(
-                "Min intensity (" + str(round(img.min(), 2)) + ") : "
+                "Min intensity ("
+                + (str(round(img.min(), 2)) if has_data else "-")
+                + ") : "
             )
             self.resultmaxIntLabel.setText(
-                "Max intensity (" + str(round(img.max(), 2)) + ") : "
+                "Max intensity ("
+                + (str(round(img.max(), 2)) if has_data else "-")
+                + ") : "
             )
             # Range is already set to allow any value at spinbox creation
             self.rminSpnBx.setValue(self.quadFold.info["rmin"])
