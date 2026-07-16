@@ -26,11 +26,11 @@ See [Examples](#examples) for more details and the [Use cases](#use-cases) secti
 | Use case | Approach |
 |---|---|
 | I want to reveal equatorial structure near the beam. | [Manual Setting \| One Method](#manual-setting--one-method) with **2D Convexhull**, or [parametric background fitting](Quadrant-Folding--Background-Fitting.md) which is significantly more time consuming but provides a smoother background. |
+| I want to normalize measured intensities across a series of frames using the background level. | [Manual Setting \| One Method](#manual-setting--one-method) with fixed **R-min**/**R-max** applied uniformly to every frame; read the integrated background sum from the summary csv. The method may be set manually (e.g. 2D Convex Hull) or be the one chosen after [Automated Processing](#automated-processing). |
 | I need a clean background across the whole pattern, including both equatorial and high-angle meridional features relatively fast (e.g. for visualization). | [Manual Setting \| Transition](#manual-setting--transition): **2D Convexhull** for the inner radii, **White-top-hats** or **Smoothed-Gaussian** for the outer radii, blended at the **Transition Radius** |
 | I need a clean background across the whole pattern, including both equatorial and high-angle meridional features. I want a smooth analytic background and I can wait to parametric fitting. | [Parametric (iterative 2D) background fitting](Quadrant-Folding--Background-Fitting.md), optionally followed by a non-parametric method on the residual (**Subtract fitted before non-parametric**). |
 | I'm working at high angle, where meridional layer lines dominate. | **White-top-hats** or **Smoothed-Gaussian**, applied manually or via [Automated Processing](#automated-processing). |
-| I want to normalize measured intensities across a series of frames using the background level. | [Manual Setting \| One Method](#manual-setting--one-method) with fixed **R-min**/**R-max** applied uniformly to every frame; read the integrated background sum from the summary csv. The method can be the one chosen after [Automated Processing](#automated-processing). |
-| I don't know which method or parameters suit this dataset. | [Automated Processing](#automated-processing) — click **Apply Default Optimization** for a good starting point, then refine in [Optimization Settings](Quadrant-Folding--Optimization-Settings.md). |
+| I don't know which method or parameters suit this dataset. | [Automated Processing](#automated-processing) — click **Apply Default Optimization** for a good starting point, then refine in [Optimization Settings](Quadrant-Folding--Optimization-Settings.md). For [parametric fitting](Quadrant-Folding--Background-Fitting.md), set the general component's **Component 2** to `auto` so the fit tries all available kernels and keeps the best one. |
 | I need to batch-process a folder with visually different images (e.g. mixed muscle types). | Automated Processing: build a few [saved configurations](Quadrant-Folding--Optimization-Settings.md#step-3-batch-processing) and let **Choose best configuration for images automatically** pick per image. |
 | I need to reproduce a GUI-tuned result from the command line / a script. | [Headless mode](#headless-mode) with the saved `qfsettings.json`. |
 <!-- | Automated results look good on most images but poor on a few outliers. | Enable **Automatically create new configurations for outlier images** in [Optimization Settings — batch processing](Quadrant-Folding--Optimization-Settings.md#step-3-batch-processing), or assign configurations manually. | -->
@@ -40,15 +40,16 @@ See [Examples](#examples) for more details and the [Use cases](#use-cases) secti
 
 Background subtraction is configured in the **Results** tab:
 
+<img src="../../images/QF/background_sub_panel.png" alt="img" width="200"> 
+
 **Background Subtraction** panel (collapsible section on the right) — quick access to mode, method parameters, apply buttons, and current configuration summary.
 
 ## Non-parametric Subtraction Processing Options
 
 
-<img src="../../images/QF/background_sub_non_param.png" alt="img" width="400">
+Under **Non-parametric Background Subtraction**, use the **Options** dropdown in the Results tab to choose how background is applied.
 
-
-Under **Non-parametric Background Subtraction**, use the **Options** dropdown in the Results tab to choose how background is applied:
+<img src="../../images/QF/background_sub_non_param.png" alt="img" width="200">
 
 | Option | Description |
 |--------|-------------|
@@ -85,7 +86,7 @@ Set the transition radius just outside the M3 meridional peak when possible.
 **Advanced Configuration** opens the **Background Subtraction Settings** dialog, where the optimization target, evaluation masks, metric weights, saved configurations, and batch behavior are tuned. See [Optimization Settings](Quadrant-Folding--Optimization-Settings.md) for the full walkthrough and parameter reference.
 
 
-<img src="../../images/QF/bg_sub_automated.png" alt="img" width="400">  
+<img src="../../images/QF/bg_sub_automated.png" alt="img" width="200">  
 
 
 ### Subtraction methods and parameters
@@ -111,7 +112,7 @@ Parametric fitting models the diffuse background as an explicit 2D function and 
 
 Fitting runs in the **Iterative 2D Background Fitting** window, opened from the **Parametric Background Fitting** panel in the Results tab (or from the Background Subtraction Settings dialog). It operates on the quadrant-folded image; on apply, the residual (image minus fitted background) replaces the current result.
 
-<img src="../../images/QF/bg_sub_param_fit.png" alt="img" width="400">
+<img src="../../images/QF/bg_sub_param_fit.png" alt="img" width="200">
 
 
 See [Background Fitting](Quadrant-Folding--Background-Fitting.md) for the model, the fitting procedure, mask parameters, and the full settings reference.
