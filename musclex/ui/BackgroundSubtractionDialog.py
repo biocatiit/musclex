@@ -312,7 +312,7 @@ class BackgroundSubtractionDialog(QDialog):
     def _create_evaluation_mask_widgets(self):
         """Create evaluation mask settings widgets."""
 
-        self.equatorMaskHeightLabel = QLabel("Equator Band Width : ")
+        self.equatorMaskHeightLabel = QLabel("Equator band height : ")
         self.equatorMaskHeightSpnBx = self._create_spinbox(
             min_val=qf_defaults.EQUATOR_HEIGHT_RANGE[0],
             max_val=qf_defaults.EQUATOR_HEIGHT_RANGE[1],
