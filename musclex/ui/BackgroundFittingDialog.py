@@ -707,9 +707,8 @@ class BackgroundFittingDialog(QDialog):
         # Same image (e.g. a settings-change reprocess rather than a Next/Prev
         # navigation): keep the current preview/fit instead of wiping an
         # in-memory result the user may still be working on.
-        if (
-            self._inputs is not None
-            and self._current_image_path() == getattr(self, "_last_synced_image", None)
+        if self._inputs is not None and self._current_image_path() == getattr(
+            self, "_last_synced_image", None
         ):
             return
 
