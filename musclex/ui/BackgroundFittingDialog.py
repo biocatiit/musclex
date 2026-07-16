@@ -398,19 +398,19 @@ class BackgroundFittingDialog(QDialog):
         # before running a fit.
         self.maskParamsBox = CollapsibleGroupBox("Mask Parameters", start_expanded=True)
         mask_form = QFormLayout()
-        mask_form.addRow("Equator Band Width:", self.maskEquatorHeightSpnBx)
-        mask_form.addRow("Beam Center Radius:", self.maskEquatorCenterSpnBx)
-        mask_form.addRow("Layer line spacing (M1):", self.maskM1SpnBx)
-        mask_form.addRow("Layer line width:", self.maskLayerWidthSpnBx)
-        mask_form.addRow("R-max:", self.maskRmaxSpnBx)
+        mask_form.addRow("Equator Band Width, px:", self.maskEquatorHeightSpnBx)
+        mask_form.addRow("Beam Center Radius, px:", self.maskEquatorCenterSpnBx)
+        mask_form.addRow("Layer line spacing (M1), px:", self.maskM1SpnBx)
+        mask_form.addRow("Layer line width, px:", self.maskLayerWidthSpnBx)
+        mask_form.addRow("R-max, px:", self.maskRmaxSpnBx)
         mask_form.addRow("Number of equator peaks:", self.maskNPeaksSpnBx)
-        mask_form.addRow("Equator peak width:", self.maskPeakWidthSpnBx)
+        mask_form.addRow("Equator peak width, px:", self.maskPeakWidthSpnBx)
         self.maskParamsBox.set_content_layout(mask_form)
         form.addRow(self.maskParamsBox)
 
         # Advanced knobs tucked into a collapsible section (collapsed by default).
         self.additionalSettingsBox = CollapsibleGroupBox(
-            "Additional Settings", start_expanded=False
+            "Advanced Settings", start_expanded=False
         )
         additional_form = QFormLayout()
         additional_form.addRow("Number of rounds:", self.itersSpnBx)
