@@ -4968,6 +4968,12 @@ class QuadrantFoldingGUI(BaseGUI):
         self.saveResults(full_process=ran_slow_path)
         print("Single processing complete")
 
+        # Now that avg_fold / masks exist for the (current) image, re-sync the
+        # reused iterative background fitting dialog so it doesn't keep showing
+        # the previous image's fit (loads this image's cached fit if present,
+        # otherwise falls back to the mask-only preview / General mask).
+        self._refresh_background_fitting_dialog()
+
         if self._restoreOptimizeCheckboxAfterProcess:
             self._restoreOptimizeCheckboxAfterProcess = False
             self.optimizeFlag = False
@@ -7418,6 +7424,19 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # Process the image
         self.processImage()
+
+    def _refresh_background_fitting_dialog(self):
+        """Re-sync the (reused) iterative 2D background fitting dialog to the
+        current image after navigation, if it has been opened this session."""
+        if not hasattr(self, "bgSubDialog"):
+            return
+        dlg = getattr(self.bgSubDialog, "_backgroundFittingDialog", None)
+        if dlg is None or not hasattr(dlg, "refreshForCurrentImage"):
+            return
+        try:
+            dlg.refreshForCurrentImage()
+        except Exception:
+            pass
 
     def _update_ui_for_image(self):
         """
