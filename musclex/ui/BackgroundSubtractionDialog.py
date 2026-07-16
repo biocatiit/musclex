@@ -949,9 +949,7 @@ class BackgroundSubtractionDialog(QDialog):
         # When checked, the iterative 2D background is fitted (with the current
         # fitting parameters) and subtracted for every image during folder /
         # batch processing, instead of reusing a single manually-applied fit.
-        self.fitBgEachImageChkBx = QCheckBox(
-            "Fit background for each image in folder"
-        )
+        self.fitBgEachImageChkBx = QCheckBox("Fit background for each image in folder")
         self.fitBgEachImageChkBx.setChecked(False)
         self.fitBgEachImageChkBx.setToolTip(
             "When checked, 'Process Current Folder' fits the iterative 2D "

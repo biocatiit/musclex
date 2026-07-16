@@ -1497,12 +1497,12 @@ class QuadrantFolder:
             self.createMask()
             general_mask = np.asarray(self.imgCache.get("mask")).astype(bool)
             try:
-                rminrmax_mask = np.asarray(
-                    self._create_rminrmax_mask(h, w)).astype(bool)
-            except Exception:  # noqa: BLE001
+                rminrmax_mask = np.asarray(self._create_rminrmax_mask(h, w)).astype(
+                    bool
+                )
+            except Exception:
                 rminrmax_mask = None
-            equator_mask = self._build_bgfit_equator_mask(
-                avg_fold, h, w, rminrmax_mask)
+            equator_mask = self._build_bgfit_equator_mask(avg_fold, h, w, rminrmax_mask)
 
             cfg = bf.FitConfig(
                 comp2=self.info.get("bgfit_comp2", "lorentzian"),
@@ -1513,17 +1513,25 @@ class QuadrantFolder:
                 downsample_factor=int(self.info.get("bgfit_downsample", 2)),
                 use_step0=bool(self.info.get("bgfit_use_step0", True)),
                 general_reduction=float(
-                    self.info.get("bgfit_general_reduction",
-                                  self.info.get("bgfit_baseline_reduction", 0.05))),
-                equator_reduction=float(
-                    self.info.get("bgfit_equator_reduction", 0.05)),
+                    self.info.get(
+                        "bgfit_general_reduction",
+                        self.info.get("bgfit_baseline_reduction", 0.05),
+                    )
+                ),
+                equator_reduction=float(self.info.get("bgfit_equator_reduction", 0.05)),
                 auto_reduce=bool(self.info.get("bgfit_auto_reduce", True)),
             )
 
             self.parent.statusPrint("Fitting Background...")
             result = bf.two_stage_iterative_fit(
-                img, general_mask, equator_mask=equator_mask,
-                rmin=rmin, rmax=rmax, cfg=cfg, rminrmax_mask=rminrmax_mask)
+                img,
+                general_mask,
+                equator_mask=equator_mask,
+                rmin=rmin,
+                rmax=rmax,
+                cfg=cfg,
+                rminrmax_mask=rminrmax_mask,
+            )
 
             bg_full = result["equator"] + result["general"]
             bg_fold = bg_full[: h // 2, : w // 2].astype(np.float32)
@@ -1550,8 +1558,10 @@ class QuadrantFolder:
             print(f"Fitted background computed for {self.img_name}.")
         except Exception as e:  # noqa: BLE001
             import traceback
-            print(f"Warning: per-image background fit failed for "
-                  f"{self.img_name}: {e}")
+
+            print(
+                f"Warning: per-image background fit failed for " f"{self.img_name}: {e}"
+            )
             traceback.print_exc()
 
     def _reconstruct_bgfit_from_cache(self, avg_fold, params):
@@ -1568,18 +1578,24 @@ class QuadrantFolder:
             h, w = img.shape
             equator, general, _ = bf.reduce_backgrounds(
                 img,
-                params["equator_params"], params["general_params"],
-                params["eq_norm"], params["gen_norm"], params["comp2"],
+                params["equator_params"],
+                params["general_params"],
+                params["eq_norm"],
+                params["gen_norm"],
+                params["comp2"],
                 params["downsample_factor"],
                 params["equator_reduction"],
-                params["general_reduction"],     
-                params.get("equator_keep_baseline", False))
+                params["general_reduction"],
+                params.get("equator_keep_baseline", False),
+            )
             bg_full = equator + general
             self.imgCache["BgFoldFit"] = bg_full[: h // 2, : w // 2].astype(np.float32)
             return True
         except Exception as e:  # noqa: BLE001
-            print(f"Warning: could not reconstruct cached bg fit for "
-                  f"{self.img_name}: {e}")
+            print(
+                f"Warning: could not reconstruct cached bg fit for "
+                f"{self.img_name}: {e}"
+            )
             return False
 
     def _build_bgfit_equator_mask(self, avg_fold, h, w, rminrmax_mask):
@@ -1588,13 +1604,19 @@ class QuadrantFolder:
         None to fall back to the general mask inside the fitter."""
         try:
             full = makeFullImage(avg_fold)
-            eq_ring = (rminrmax_mask if rminrmax_mask is not None
-                       else np.asarray(self._create_rminrmax_mask(h, w)).astype(bool))
+            eq_ring = (
+                rminrmax_mask
+                if rminrmax_mask is not None
+                else np.asarray(self._create_rminrmax_mask(h, w)).astype(bool)
+            )
             return (
                 eq_ring
                 & np.asarray(self._create_equator_peaks_mask(h, w, full)).astype(bool)
                 & np.asarray(self._create_non_equator_mask(h, w, full)).astype(bool)
-                & np.asarray(self._create_equator_center_beam_mask(h, w, full)).astype(bool))
+                & np.asarray(self._create_equator_center_beam_mask(h, w, full)).astype(
+                    bool
+                )
+            )
         except Exception:  # noqa: BLE001
             return None
 
@@ -1604,15 +1626,20 @@ class QuadrantFolder:
         dialog). Called whenever a fit is computed and applied -- an applied
         fit is always saved, there is no opt-out flag."""
         try:
-            save_dir = fullPath(fullPath(self.output_dir, "qf_results"),
-                                "bg_fit_params")
+            save_dir = fullPath(
+                fullPath(self.output_dir, "qf_results"), "bg_fit_params"
+            )
             createFolder(save_dir)
-            name = os.path.splitext(os.path.basename(
-                self.img_name or "image"))[0] or "image"
+            name = (
+                os.path.splitext(os.path.basename(self.img_name or "image"))[0]
+                or "image"
+            )
             from PIL import Image
+
             for key in ("equator", "general", "residual"):
                 Image.fromarray(result[key].astype(np.float32)).save(
-                    os.path.join(save_dir, f"{name}_{key}.tif"))
+                    os.path.join(save_dir, f"{name}_{key}.tif")
+                )
             np.savez(
                 os.path.join(save_dir, f"{name}_bgfit_params.npz"),
                 equator_params=result["equator_params"],
@@ -1622,10 +1649,12 @@ class QuadrantFolder:
                 fallback=result["fallback"],
                 equator_reduction=result.get("equator_reduction", 0.0),
                 general_reduction=result.get("general_reduction", 0.0),
-                oversub_frac=result.get("oversub_frac", float("nan")))
+                oversub_frac=result.get("oversub_frac", float("nan")),
+            )
         except Exception as e:  # noqa: BLE001
-            print(f"Warning: could not save bg fit outputs for "
-                  f"{self.img_name}: {e}")
+            print(
+                f"Warning: could not save bg fit outputs for " f"{self.img_name}: {e}"
+            )
 
     def subtractFittedBackground(self):
         """Optionally subtract the iterative-fit background from the average fold

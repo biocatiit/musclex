@@ -972,7 +972,9 @@ class QuadrantFoldingGUI(BaseGUI):
         show_layout.addWidget(self.resultDisplayModeCB, 0, 2, 1, 2)
 
         # ===== 2) R-min/R-max (collapsible, mirrors the dialog section) =====
-        self.rminGroupMain = CollapsibleGroupBox("R-min/R-max Settings", start_expanded=False)
+        self.rminGroupMain = CollapsibleGroupBox(
+            "R-min/R-max Settings", start_expanded=False
+        )
         self._create_rmin_rmax_proxy()
         rmin_main_layout = QGridLayout()
         rmin_main_layout.addWidget(self.rminLabelProxy, 2, 0, 1, 1)
@@ -1033,7 +1035,10 @@ class QuadrantFoldingGUI(BaseGUI):
         )
         self.fitBgEachImageChkBxProxy = self._clone_checkbox(self.fitBgEachImageChkBx)
         self._bind_proxy_two_way(
-            self.fitBgEachImageChkBxProxy, self.fitBgEachImageChkBx, "toggled", "setChecked"
+            self.fitBgEachImageChkBxProxy,
+            self.fitBgEachImageChkBx,
+            "toggled",
+            "setChecked",
         )
         parametric_main_layout = QGridLayout()
         parametric_main_layout.addWidget(self.openFittingButtonMain, 1, 0, 1, 4)
@@ -6183,10 +6188,12 @@ class QuadrantFoldingGUI(BaseGUI):
         flags["fit_bg_each_image"] = fit_bg_each_image
         if fit_bg_each_image:
             from .BackgroundFittingDialog import default_fit_flags
+
             dlg = getattr(self.bgSubDialog, "_backgroundFittingDialog", None)
             rmax = self.quadFold.info.get("rmax") if self.quadFold else None
-            flags.update(dlg.fit_flags() if dlg is not None
-                         else default_fit_flags(rmax))
+            flags.update(
+                dlg.fit_flags() if dlg is not None else default_fit_flags(rmax)
+            )
             # Fitting per image implies subtracting it, and requires the full
             # pipeline (the fast-path reload skips the fit).
             flags["subtract_bg_fit"] = True
