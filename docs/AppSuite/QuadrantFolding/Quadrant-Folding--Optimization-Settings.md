@@ -34,10 +34,10 @@ The dialog itself is organized in three steps, described below.
       - **Manual**: Select **Subtraction Method** and method-specific parameters (same methods as in the Results panel).
       - **Automated**: Multi-select **BG Subtraction Methods**, set **Step Sizes** (comma-separated schedule, e.g. `100, 50, 25, 10, 5, 3, 1`), **Max Iterations** per parameter, and **Early Stop Loss Threshold**.
 - **Evaluation Masks** — Adjust the evaluation masks to restrict scoring to physically meaningful regions:
-  - **Equator Band Width** and **Beam Center Radius** — mask the equator and central beam.
+  - **Equator band height** and **Beam Center Radius** — mask the equator and central beam.
   - **Layer line spacing** and **Layer line width** — mask Bragg layer lines so they do not dominate the loss.
 
-  .. warning:: Automatic detection of **Equator Band Width**, **Beam Center Radius**, **Layer line spacing**, and **Layer line width** doesn't always work correctly for all datasets. Set these values manually in **Evaluation Masks** for each dataset.
+  .. warning:: Automatic detection of **Equator band height**, **Beam Center Radius**, **Layer line spacing**, and **Layer line width** doesn't always work correctly for all datasets. Set these values manually in **Evaluation Masks** for each dataset.
 
   To view the evaluation masks, click **Show** in the Results tab to inspect **Evaluation Mask**.
 

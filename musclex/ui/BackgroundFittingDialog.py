@@ -369,7 +369,7 @@ class BackgroundFittingDialog(QDialog):
         self.coordLabel.setStyleSheet("font-family: Monospace; font-size: 11px;")
         self.canvas.mpl_connect("motion_notify_event", self._on_canvas_motion)
 
-        self.applyButton = QPushButton("Apply (use residual) && Close")
+        self.applyButton = QPushButton("Apply && Close")
         self.applyButton.setAutoDefault(False)
         self.applyButton.setDefault(False)
         self.applyButton.clicked.connect(self.applyAndClose)
@@ -396,14 +396,14 @@ class BackgroundFittingDialog(QDialog):
         # settings) in their own collapsible box, placed above the advanced
         # settings so the masking can be inspected/adjusted (via the mask views)
         # before running a fit.
-        self.maskParamsBox = CollapsibleGroupBox("Mask Parameters", start_expanded=True)
+        self.maskParamsBox = CollapsibleGroupBox("Mask parameters", start_expanded=True)
         mask_form = QFormLayout()
-        mask_form.addRow("Equator Band Width, px:", self.maskEquatorHeightSpnBx)
+        mask_form.addRow("Equator band height, px:", self.maskEquatorHeightSpnBx)
         mask_form.addRow("Beam Center Radius, px:", self.maskEquatorCenterSpnBx)
         mask_form.addRow("Layer line spacing (M1), px:", self.maskM1SpnBx)
         mask_form.addRow("Layer line width, px:", self.maskLayerWidthSpnBx)
         mask_form.addRow("R-max, px:", self.maskRmaxSpnBx)
-        mask_form.addRow("Number of equator peaks:", self.maskNPeaksSpnBx)
+        mask_form.addRow("Number of Equator peaks:", self.maskNPeaksSpnBx)
         mask_form.addRow("Equator peak width, px:", self.maskPeakWidthSpnBx)
         self.maskParamsBox.set_content_layout(mask_form)
         form.addRow(self.maskParamsBox)
@@ -639,7 +639,7 @@ class BackgroundFittingDialog(QDialog):
 
     def _init_mask_preview(self):
         """Build the fit masks when the dialog opens so the user can inspect and
-        adjust the masking (via the Mask Parameters) before running a fit. On
+        adjust the masking (via the Mask parameters) before running a fit. On
         success the view dropdown is enabled with the mask overlays only, unless
         the image's cache already has an applied fit, in which case it is
         rebuilt and shown instead (see _try_load_cached_fit)."""
