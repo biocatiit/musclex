@@ -37,9 +37,9 @@ The fit uses a general mask and an equator mask, built from the same evaluation-
 - **Rmax** — outer radius of the rmin..rmax annulus used for the masks and for every oversubtraction measurement.
 - **Equator peaks** and **Equator peak width** — number and width of equatorial Bragg peaks detected and removed from the equator fit (local to this window). Set **Equator peaks** to 0 to mask none.
 
-## Additional settings
+## Advanced Settings
 
-Under **Additional Settings** (collapsed by default):
+Under **Advanced Settings** (collapsed by default):
 
 - **Number of rounds** — equator/general alternating rounds.
 - **Equator max fit iters** / **General max fit iters** — least-squares evaluation limits per stage.
