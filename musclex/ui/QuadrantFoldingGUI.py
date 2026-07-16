@@ -3073,6 +3073,57 @@ class QuadrantFoldingGUI(BaseGUI):
             self._bgFittingOpened = True
             self._updateResultDisplayModeItems()
 
+    # Show mode -> the imgCache key whose image it displays. A mode is only
+    # selectable when that image exists for the current result. On the fast
+    # (cache) path only "resultImg" is reloaded, so everything but "Subtracted"
+    # is greyed out until a full reprocess regenerates the intermediates.
+    _RESULT_MODE_CACHE_KEYS = {
+        "Subtracted": "resultImg",
+        "Folded": "resultFolded",
+        "Background (Fit)": "resultBgFit",
+        "Background (Non-param)": "resultBg",
+        "Evaluation Mask": "avg_fold",
+        "Synthetic Signal": "avg_fold",
+        "Synthetic Mask": "avg_fold",
+    }
+
+    def _result_mode_available(self, mode):
+        """True when the image backing this Show mode exists for the current
+        result. Unknown modes are treated as available (not gated)."""
+        qf = getattr(self, "quadFold", None)
+        cache = getattr(qf, "imgCache", None) if qf is not None else None
+        if not isinstance(cache, dict):
+            return True
+        key = self._RESULT_MODE_CACHE_KEYS.get(mode)
+        if key is None:
+            return True
+        val = cache.get(key, None)
+        if val is None:
+            return False
+        try:
+            return np.asarray(val).size > 0
+        except Exception:
+            return True
+
+    def _syncResultDisplayModeAvailability(self):
+        """Enable only the Show modes whose backing image exists for the current
+        result (e.g. after a fast-path cache load only "Subtracted" is usable),
+        and fall back to "Subtracted" if the current selection is unavailable."""
+        if not hasattr(self, "resultDisplayModeCB"):
+            return
+        model = self.resultDisplayModeCB.model()
+        for row in range(self.resultDisplayModeCB.count()):
+            mode = self.resultDisplayModeCB.itemText(row)
+            item = model.item(row) if hasattr(model, "item") else None
+            if item is not None:
+                item.setEnabled(self._result_mode_available(mode))
+        if not self._result_mode_available(self.resultDisplayModeCB.currentText()):
+            idx = self.resultDisplayModeCB.findText("Subtracted")
+            if idx >= 0 and idx != self.resultDisplayModeCB.currentIndex():
+                self.resultDisplayModeCB.blockSignals(True)
+                self.resultDisplayModeCB.setCurrentIndex(idx)
+                self.resultDisplayModeCB.blockSignals(False)
+
     def _is_mask_preview_visible(self):
         if not hasattr(self, "resultDisplayModeCB"):
             return False
@@ -4508,6 +4559,11 @@ class QuadrantFoldingGUI(BaseGUI):
             if img is None:
                 self.uiUpdating = False
                 return
+
+            # Grey out Show modes whose image wasn't regenerated for this result
+            # (e.g. a fast-path cache load only has "Subtracted"), and drop back
+            # to "Subtracted" if the current pick is one of them.
+            self._syncResultDisplayModeAvailability()
 
             display_mode = "Subtracted"
             if hasattr(self, "resultDisplayModeCB"):
