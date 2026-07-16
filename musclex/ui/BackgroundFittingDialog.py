@@ -38,6 +38,16 @@ VIEW_MODES = [
 # inspect and adjust the masking before running the fit.
 MASK_VIEW_MODES = ["General mask", "Equator mask"]
 
+# Mask parameters that persist across images for the whole session: the parent
+# source spinbox attribute -> the QuadrantFolder.info key it drives. rmax is
+# intentionally excluded -- it has its own R-min/R-max per-image persistence.
+MASK_PARAM_INFO_KEYS = {
+    "equatorMaskHeightSpnBx": "equator_mask_height",
+    "equatorCenterBeamSpnBx": "equator_center_beam_width",
+    "m1SpnBx": "m1",
+    "layerLineWidthSpnBx": "layer_line_width",
+}
+
 # Colormap options for the image views: display name -> matplotlib cmap.
 COLORMAPS = [
     ("Viridis", "viridis"),
@@ -106,6 +116,13 @@ class BackgroundFittingDialog(QDialog):
         self._parent_gui = parent
         self.result = None  # last fit result dict
         self._inputs = None  # (img, gmask, emask, rmin, rmax, rrmask)
+        # Full path of the image the current preview/fit belongs to; used to
+        # distinguish a real navigation from a same-image reprocess.
+        self._last_synced_image = None
+        # Mask parameters the user has tuned, remembered for the whole session
+        # (keyed by QuadrantFolder.info key) so they carry over to the next
+        # image instead of resetting to that image's cached/default values.
+        self._persisted_mask_params = {}
         self._thread = None
         self._worker = None
         # When True, the fitted residual is applied to the parent automatically
@@ -604,8 +621,15 @@ class BackgroundFittingDialog(QDialog):
                 local.setValue(src.value())
                 local.blockSignals(False)
                 src.valueChanged.connect(
-                    lambda _v, l=local, s=src: self._on_source_mask_changed(l, s)
+                    lambda _v, l=local, s=src, n=src_name: self._on_source_mask_changed(
+                        l, s, n
+                    )
                 )
+                # Seed the session store so the very first navigation already
+                # carries these values over.
+                info_key = MASK_PARAM_INFO_KEYS.get(src_name)
+                if info_key is not None:
+                    self._persisted_mask_params[info_key] = src.value()
             local.valueChanged.connect(
                 lambda _v, l=local, n=src_name: self._on_local_mask_changed(l, n)
             )
@@ -625,6 +649,8 @@ class BackgroundFittingDialog(QDialog):
                 spn.setValue(int(info.get(key, default)))
                 spn.blockSignals(False)
                 info[key] = spn.value()
+            # Seed the session store from the current value (info or default).
+            self._persisted_mask_params[key] = spn.value()
             spn.valueChanged.connect(
                 lambda _v, s=spn, k=key: self._on_peak_mask_changed(s, k)
             )
@@ -635,6 +661,8 @@ class BackgroundFittingDialog(QDialog):
         qf = self._get_quadfold()
         if qf is not None and getattr(qf, "info", None) is not None:
             qf.info[key] = spn.value()
+        # Remember the user's choice for the rest of the session.
+        self._persisted_mask_params[key] = spn.value()
         self._recompute_masks()
 
     def _init_mask_preview(self):
@@ -647,9 +675,114 @@ class BackgroundFittingDialog(QDialog):
         if inputs is None:
             return
         self._inputs = inputs
+        # Remember which image this preview/fit belongs to so
+        # refreshForCurrentImage can tell a real navigation from a same-image
+        # reprocess.
+        self._last_synced_image = self._current_image_path()
         self.viewModeCB.setEnabled(True)
         self._try_load_cached_fit()
         self.updateView()
+
+    def refreshForCurrentImage(self):
+        """Re-sync the dialog to the parent GUI's *current* image.
+
+        This drops that stale *fit result* and rebuilds the mask preview for
+        the new image -- reloading a previously applied fit from the new
+        image's cache when one exists, or
+        falling back to the mask-only preview otherwise.
+
+        Input settings persist across images in the same session: the fitting
+        parameters (comp2, iterations, nfev, fit size, downsample, reductions,
+        auto-reduce, ...) are left untouched, while the mask parameters
+        (equator height, beam center, layer-line spacing/width, equator peak
+        count/width) are actively re-applied to the new image via
+        _apply_persisted_mask_params so its cached/default values don't reset
+        them. Only when the new image has a cached fit do the reductions/comp2
+        get reflected from that cached result.
+        """
+        # Don't disturb a fit that is currently running.
+        if self._thread is not None and self._thread.isRunning():
+            return
+
+        # Same image (e.g. a settings-change reprocess rather than a Next/Prev
+        # navigation): keep the current preview/fit instead of wiping an
+        # in-memory result the user may still be working on.
+        if (
+            self._inputs is not None
+            and self._current_image_path() == getattr(self, "_last_synced_image", None)
+        ):
+            return
+
+        # Drop any fit result / inputs carried over from the previous image.
+        self.result = None
+        self._inputs = None
+        self._auto_apply = False
+
+        # Reset the result-derived display to its pre-fit state;
+        # _try_load_cached_fit (via _init_mask_preview below) re-populates it if
+        # the new image already has an applied fit in its cache.
+        self.runButton.setEnabled(True)
+        self.applyButton.setEnabled(False)
+        self.progressBar.setValue(0)
+        self._set_view_modes(MASK_VIEW_MODES, MASK_VIEW_MODES[0])
+        self.viewModeCB.setEnabled(False)
+        self._update_params_panel()
+        self.statusLabel.setText("Ready.")
+
+        # Clear the canvas up front (inputs are None now) so the previous
+        # image's fit is removed even if the new image's masks can't be built.
+        self.updateView()
+
+        # Carry the session-tuned mask parameters onto this image before the
+        # masks are (re)built, so they persist across images.
+        self._apply_persisted_mask_params()
+
+        # Rebuild masks / reload cache for the new image. On success this
+        # re-grabs inputs, restores a cached fit if one exists, and redraws
+        # (mask-only, General mask by default, when there is no cache).
+        self._init_mask_preview()
+
+    def _apply_persisted_mask_params(self):
+        """Push the session-remembered mask parameters onto the current image so
+        navigating to it doesn't reset them to that image's cached/default
+        values. Writes qf.info (which the mask builders read) and mirrors the
+        values into the parent and local spinboxes for display, all with
+        signals blocked to avoid recompute / reprocess loops."""
+        if not self._persisted_mask_params:
+            return
+        qf = self._get_quadfold()
+        info = getattr(qf, "info", None) if qf is not None else None
+
+        self._mask_sync_guard = True
+        try:
+            # Parent-synced params (equator height, beam center, m1, layer width).
+            for local, src_name in self._mask_param_pairs:
+                info_key = MASK_PARAM_INFO_KEYS.get(src_name)
+                if info_key is None or info_key not in self._persisted_mask_params:
+                    continue
+                val = self._persisted_mask_params[info_key]
+                src = self._source_mask_spinbox(src_name)
+                if src is not None:
+                    src.blockSignals(True)
+                    src.setValue(val)
+                    src.blockSignals(False)
+                local.blockSignals(True)
+                local.setValue(val)
+                local.blockSignals(False)
+                if isinstance(info, dict):
+                    info[info_key] = val
+            # Equatorial Bragg-peak params (info-only, no parent widget).
+            for spn, key, _default in self._peak_mask_pairs:
+                if key not in self._persisted_mask_params:
+                    continue
+                val = self._persisted_mask_params[key]
+                spn.blockSignals(True)
+                spn.setValue(val)
+                spn.blockSignals(False)
+                if isinstance(info, dict):
+                    info[key] = val
+        finally:
+            self._mask_sync_guard = False
 
     def _try_load_cached_fit(self):
         """If the current image's cache already has a fit that was applied
@@ -731,9 +864,13 @@ class BackgroundFittingDialog(QDialog):
                 src.setValue(local.value())
         finally:
             self._mask_sync_guard = False
+        # Remember the user's choice for the rest of the session.
+        info_key = MASK_PARAM_INFO_KEYS.get(src_name)
+        if info_key is not None:
+            self._persisted_mask_params[info_key] = local.value()
         self._recompute_masks()
 
-    def _on_source_mask_changed(self, local, src):
+    def _on_source_mask_changed(self, local, src, src_name=None):
         """A Background Subtraction mask control changed elsewhere: mirror it
         here and rebuild our masks."""
         if self._mask_sync_guard:
@@ -744,6 +881,14 @@ class BackgroundFittingDialog(QDialog):
                 local.setValue(src.value())
         finally:
             self._mask_sync_guard = False
+        # Only genuine user edits update the session store. Skip the
+        # programmatic reset the parent GUI does while loading a new image
+        # (uiUpdating is True then), otherwise the per-image cached value would
+        # overwrite the value we want to persist.
+        parent_updating = bool(getattr(self._parent_gui, "uiUpdating", False))
+        info_key = MASK_PARAM_INFO_KEYS.get(src_name)
+        if info_key is not None and not parent_updating:
+            self._persisted_mask_params[info_key] = src.value()
         self._recompute_masks()
 
     def _recompute_masks(self):
@@ -1235,6 +1380,11 @@ class BackgroundFittingDialog(QDialog):
         self._display_data = None
         self.coordLabel.setText("")
         if self._inputs is None:
+            # No image/masks available (e.g. right after switching to an image
+            # that has not been processed yet). Blank the canvas so a previous
+            # image's fit isn't left on screen.
+            self.figure.clear()
+            self.canvas.draw_idle()
             return
         img, general_mask, equator_mask = (
             self._inputs[0],
