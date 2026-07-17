@@ -1569,6 +1569,45 @@ class BackgroundFittingDialog(QDialog):
         self._apply_residual_to_parent()
         self.accept()
 
+    def _clear_background_configurations(self, qf, parent):
+        """Remove all saved background configurations when a fit is applied.
+
+        The fitted background is now the sole background, so any saved
+        (auto-optimization) configurations must not be re-selected on the
+        reprocess. Clears them in memory (the table + list the Background
+        Subtraction dialog owns, which feeds getFlags()), persists the empty
+        list to the optimization cache so they stay cleared across image
+        navigation and sessions, unticks "choose configurations automatically",
+        and drops the mirrored values from qf.info so the immediate reprocess
+        sees no configurations.
+        """
+        # In-memory + on-disk clear via the Background Subtraction dialog.
+        bg_dialog = getattr(parent, "bgSubDialog", None) if parent is not None else None
+        if bg_dialog is not None:
+            clear = getattr(bg_dialog, "_clear_background_configurations_table", None)
+            if callable(clear):
+                clear()
+            save = getattr(bg_dialog, "_save_background_configurations_to_cache", None)
+            if callable(save):
+                save()
+
+        # Untick "choose configurations automatically" so the auto-select path
+        # stays off even if configurations are added again later this session.
+        auto_chk = (
+            getattr(parent, "chooseConfigurationsAutoChkBx", None)
+            if parent is not None
+            else None
+        )
+        if auto_chk is not None and auto_chk.isChecked():
+            auto_chk.setChecked(False)
+
+        # Drop the mirrored values from info so the immediate reprocess (whose
+        # flags are rebuilt from the now-cleared widgets anyway) can't reuse a
+        # stale list.
+        if qf is not None and getattr(qf, "info", None) is not None:
+            qf.info["background_configurations"] = []
+            qf.info["choose_configurations_auto"] = False
+
     def _apply_residual_to_parent(self):
         """Apply the fitted background by persisting the fit and reprocessing
         the image with non-parametric method "None".
@@ -1620,6 +1659,15 @@ class BackgroundFittingDialog(QDialog):
             result_bg["method"] = "None"
             result_bg["final_params"] = None
             result_bg["loss"] = None
+        # Setting the method to "None" is not enough on its own: with the method
+        # cleared, QuadrantFolder._select_background_configuration's
+        # "reuse_saved_default_optimization" branch re-evaluates any saved
+        # background configurations and re-picks the best-loss one (e.g. White
+        # top hats) on the reprocess, overwriting bgsub/result_bg back to that
+        # method AND subtracting it on top of the already-subtracted fitted
+        # background. Clear the saved configurations so the fit is the sole
+        # background.
+        self._clear_background_configurations(qf, parent)
         # Force the reprocess below down the slow path. The fit-related flags
         # (subtract_bg_fit / bgfit_applied / bgfit_result_params) are
         # deliberately excluded from the processing fingerprint, so applying a
