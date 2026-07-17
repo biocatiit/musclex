@@ -313,28 +313,28 @@ class BackgroundSubtractionDialog(QDialog):
     def _create_evaluation_mask_widgets(self):
         """Create evaluation mask settings widgets."""
 
-        self.equatorMaskHeightLabel = QLabel("Equator band height : ")
+        self.equatorMaskHeightLabel = QLabel("Equator band height, px : ")
         self.equatorMaskHeightSpnBx = self._create_spinbox(
             min_val=qf_defaults.EQUATOR_HEIGHT_RANGE[0],
             max_val=qf_defaults.EQUATOR_HEIGHT_RANGE[1],
             value=qf_defaults.DEFAULT_EQUATOR_HEIGHT,
         )
 
-        self.equatorCenterBeamLabel = QLabel("Beam Center Radius : ")
+        self.equatorCenterBeamLabel = QLabel("Beam Center Radius, px : ")
         self.equatorCenterBeamSpnBx = self._create_spinbox(
             min_val=qf_defaults.EQUATOR_CENTER_RANGE[0],
             max_val=qf_defaults.EQUATOR_CENTER_RANGE[1],
             value=qf_defaults.DEFAULT_EQUATOR_CENTER,
         )
 
-        self.m1Label = QLabel("Layer line spacing (M1) : ")
+        self.m1Label = QLabel("Layer line spacing (M1), px : ")
         self.m1SpnBx = self._create_spinbox(
             min_val=qf_defaults.LAYER_LINE_RANGE[0],
             max_val=qf_defaults.LAYER_LINE_RANGE[1],
             value=qf_defaults.DEFAULT_LAYER_SPACING,
         )
 
-        self.layerLineWidthLabel = QLabel("Layer line width : ")
+        self.layerLineWidthLabel = QLabel("Layer line width, px : ")
         self.layerLineWidthSpnBx = self._create_spinbox(
             min_val=qf_defaults.LAYER_LINE_RANGE[0],
             max_val=qf_defaults.LAYER_LINE_RANGE[1],
