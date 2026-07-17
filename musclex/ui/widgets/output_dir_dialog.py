@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
-from typing import Optional
+from typing import Dict, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QCheckBox,
     QPushButton,
     QFileDialog,
     QMessageBox,
@@ -92,6 +93,16 @@ class OutputDirDialog(QDialog):
         row.addWidget(browse_btn)
         layout.addLayout(row)
 
+        self.persist_checkbox = QCheckBox(
+            "Persist this output directory for future sessions"
+        )
+        self.persist_checkbox.setChecked(False)
+        self.persist_checkbox.setToolTip(
+            "When unchecked, use this output directory only until MuscleX closes"
+        )
+        self.persist_checkbox.setVisible(input_dir is not None)
+        layout.addWidget(self.persist_checkbox)
+
         # Reset link (left) + OK / Cancel (right). The link is only useful when
         # there is an input_dir to reset to and that dir is itself writable;
         # otherwise the OK validator would just reject it again.
@@ -118,6 +129,11 @@ class OutputDirDialog(QDialog):
         layout.addLayout(btn_row)
 
         self.chosen_output: Optional[str] = None
+
+    @property
+    def persist_choice(self) -> bool:
+        """Whether the selected directory should survive application restarts."""
+        return self._input_dir is not None and self.persist_checkbox.isChecked()
 
     def _reset_to_input(self):
         """Set the output path back to the input directory."""
@@ -167,6 +183,31 @@ class OutputDirDialog(QDialog):
 # ---- convenience helpers used by GUI integration points ----
 
 _store = AssociationStore()
+_session_associations: Dict[str, str] = {}
+
+
+def _lookup_association(input_dir: str) -> Optional[str]:
+    """Return the session choice first, then any persisted choice."""
+    key = os.path.realpath(input_dir)
+    output = _session_associations.get(key)
+    if output is not None:
+        if os.path.isdir(output):
+            return output
+        del _session_associations[key]
+    return _store.lookup(input_dir)
+
+
+def _set_association(input_dir: str, output_dir: str, persist: bool) -> None:
+    """Use an association for this session and optionally persist it."""
+    key = os.path.realpath(input_dir)
+    output = os.path.realpath(output_dir)
+    _session_associations[key] = output
+    if persist:
+        _persist_association(input_dir, output)
+    else:
+        # An unchecked checkbox means this choice must not survive restart,
+        # including when a different association was persisted previously.
+        _store.remove(input_dir)
 
 
 def _persist_association(input_dir: str, output_dir: str) -> None:
@@ -189,13 +230,13 @@ def resolve_output_directory(input_dir: str, parent=None) -> Optional[DirectoryC
 
     Returns a :class:`DirectoryContext`, or ``None`` if the user cancels.
 
-    If a stored association exists and is writable, it is used silently.
+    If a session or stored association exists and is writable, it is used silently.
     If no association exists and the input directory is writable, it is
     used directly (co-located) without showing a dialog.  The dialog
     only appears when the input directory is not writable or a stored
     association has become invalid.
     """
-    stored = _store.lookup(input_dir)
+    stored = _lookup_association(input_dir)
 
     if stored is not None:
         if _is_writable(stored):
@@ -216,7 +257,7 @@ def resolve_output_directory(input_dir: str, parent=None) -> Optional[DirectoryC
         return None
 
     output_dir = dlg.chosen_output
-    _persist_association(input_dir, output_dir)
+    _set_association(input_dir, output_dir, dlg.persist_choice)
     return DirectoryContext(input_dir=input_dir, output_dir=output_dir)
 
 
@@ -241,10 +282,10 @@ def resolve_output_directory_headless(
         if not _is_writable(out):
             print(f"Error: output directory is not writable: {out}")
             return None
-        _persist_association(input_dir, out)
+        _set_association(input_dir, out, persist=True)
         return DirectoryContext(input_dir=input_dir, output_dir=out)
 
-    stored = _store.lookup(input_dir)
+    stored = _lookup_association(input_dir)
     if stored and _is_writable(stored):
         return DirectoryContext(input_dir=input_dir, output_dir=stored)
 

@@ -1880,10 +1880,11 @@ class ProcessingWorkspace(QWidget):
         """Let the user pick a new output directory for the current input.
 
         Opens the OutputDirDialog pre-filled with the current output path.
-        On success, updates dir_context, association store, settings dir,
-        and emits outputDirChanged so GUIs can reset CSV managers etc.
+        On success, updates dir_context, the session association (and the
+        persistent store when requested), settings dir, and emits
+        outputDirChanged so GUIs can reset CSV managers etc.
         """
-        from .output_dir_dialog import OutputDirDialog, _persist_association
+        from .output_dir_dialog import OutputDirDialog, _set_association
         from PySide6.QtWidgets import QDialog, QMessageBox
 
         if not self.dir_context:
@@ -1902,7 +1903,7 @@ class ProcessingWorkspace(QWidget):
         from ...utils.directory_context import DirectoryContext
 
         new_output = dlg.chosen_output
-        _persist_association(input_dir, new_output)
+        _set_association(input_dir, new_output, dlg.persist_choice)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
         self.navigator.file_manager.output_dir = new_output
         self.set_settings_dir(new_output)
