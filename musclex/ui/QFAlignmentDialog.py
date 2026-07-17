@@ -42,6 +42,18 @@ from musclex.utils.settings_manager import SettingsManager
 logger = logging.getLogger(__name__)
 
 
+def _reload_cached_settings_managers(settings_manager_cache):
+    """Reload source-folder settings that may have changed elsewhere.
+
+    The QF workspace and alignment dialog can own different ``SettingsManager``
+    instances for the same source folder.  Refinement and propagation save via
+    the workspace instance, so the dialog must refresh its cached instances
+    before displaying or snapshotting manual geometry for detection.
+    """
+    for manager in settings_manager_cache.values():
+        manager.load()
+
+
 def _persist_pending_batch_geometry(workspace, row_mapper, settings_resolver):
     """Persist pending Apply-to-All geometry in every loaded source folder.
 
@@ -145,7 +157,7 @@ class QFAlignmentDialog(QDialog):
         headers = [
             "Folder",
             "Frame",
-            "Original\nCenter",
+            "Current Applied\nCenter",
             "Center\nMode",
             "Dist\nfrom Base",
             "Auto\nCenter",
@@ -277,6 +289,7 @@ class QFAlignmentDialog(QDialog):
 
     def _prepare_source_geometry_for_detection(self, refresh_table=True):
         """Make lazy batch-wide geometry visible to source-folder detection."""
+        _reload_cached_settings_managers(self._settings_manager_cache)
         _persist_pending_batch_geometry(
             self.workspace,
             self._row_mapper,

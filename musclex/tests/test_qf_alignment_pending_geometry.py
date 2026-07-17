@@ -1,6 +1,11 @@
 from types import SimpleNamespace
 
-from musclex.ui.QFAlignmentDialog import _persist_pending_batch_geometry
+from musclex.ui.QFAlignmentDialog import (
+    _persist_pending_batch_geometry,
+    _reload_cached_settings_managers,
+)
+from musclex.ui.widgets.image_alignment_table import axial_angle_difference
+from musclex.ui.widgets.image_alignment_widget import manual_or_auto
 from musclex.utils.settings_manager import SettingsManager
 
 
@@ -70,3 +75,40 @@ def test_no_pending_geometry_leaves_source_settings_unchanged(tmp_path):
     reloaded = SettingsManager(str(source_dir))
     assert reloaded.get_center("image.tif") == (4.0, 6.0)
     assert reloaded.get_rotation("image.tif") is None
+
+
+def test_cached_source_geometry_is_reloaded_before_detection(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    cached = SettingsManager(str(source_dir))
+    cached.set_center("image.tif", (1.0, 2.0), "original")
+    cached.set_rotation("image.tif", 12.0, "original")
+    cached.save_center()
+    cached.save_rotation()
+
+    updated = SettingsManager(str(source_dir))
+    updated.set_center("image.tif", (10.0, 20.0), "refined")
+    updated.set_rotation("image.tif", 0.0, "refined")
+    updated.save_center()
+    updated.save_rotation()
+
+    # The dialog-owned manager still has the values with which it was created.
+    assert cached.get_center("image.tif") == (1.0, 2.0)
+    assert cached.get_rotation("image.tif") == 12.0
+
+    _reload_cached_settings_managers({str(source_dir): cached})
+
+    assert cached.get_center("image.tif") == (10.0, 20.0)
+    assert cached.get_rotation("image.tif") == 0.0
+
+
+def test_zero_degree_manual_rotation_is_not_replaced_by_auto_rotation():
+    assert manual_or_auto(0.0, 17.5) == 0.0
+    assert manual_or_auto(None, 17.5) == 17.5
+
+
+def test_rotation_difference_uses_axial_wraparound():
+    assert axial_angle_difference(179.0, -1.0) == 0.0
+    assert axial_angle_difference(1.0, 179.0) == 2.0
+    assert axial_angle_difference(179.0, 1.0) == -2.0
