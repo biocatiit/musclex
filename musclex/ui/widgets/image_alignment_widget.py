@@ -39,6 +39,11 @@ from musclex.ui.widgets.image_alignment_table import ColKey, ImageAlignmentTable
 from musclex.utils.task_manager import ProcessingTaskManager
 
 
+def manual_or_auto(manual_value, auto_value):
+    """Prefer a present manual value without treating numeric zero as absent."""
+    return manual_value if manual_value is not None else auto_value
+
+
 class ImageAlignmentWidget(QWidget):
     """Composite widget: alignment table + detection controls + multiprocessing.
 
@@ -606,7 +611,7 @@ class ImageAlignmentWidget(QWidget):
             sm, key = self._settings_for_row(row, name)
         else:
             sm, key = self._default_settings_manager(), name
-        return sm.get_rotation(key) or sm.get_auto_rotation(key)
+        return manual_or_auto(sm.get_rotation(key), sm.get_auto_rotation(key))
 
     def _get_base_center(self, row=None):
         """Return the effective center of the global base image, or None."""
@@ -626,7 +631,9 @@ class ImageAlignmentWidget(QWidget):
         base_image = sm.get_global_base().get("base_image") or self._base_image_filename
         if not base_image:
             return None
-        return sm.get_rotation(base_image) or sm.get_auto_rotation(base_image)
+        return manual_or_auto(
+            sm.get_rotation(base_image), sm.get_auto_rotation(base_image)
+        )
 
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""

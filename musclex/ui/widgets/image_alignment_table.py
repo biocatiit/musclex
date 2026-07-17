@@ -14,6 +14,11 @@ from PySide6.QtWidgets import (
 )
 
 
+def axial_angle_difference(angle, reference):
+    """Return the shortest signed difference between 180-degree-periodic angles."""
+    return (angle - reference + 90.0) % 180.0 - 90.0
+
+
 class _ElideMiddleDelegate(QStyledItemDelegate):
     """Item delegate that elides cell text in the middle when it overflows.
 
@@ -154,7 +159,10 @@ class ImageAlignmentTable(QTableWidget):
         """Fill auto-vs-effective rotation difference; highlight if over threshold."""
         c = self._col[ColKey.AUTO_ROT_DIFF]
         if auto_rotation is not None and effective_rotation is not None:
-            diff = auto_rotation - effective_rotation
+            # Diffraction orientation is axial: angles separated by 180 degrees
+            # describe the same orientation.  Report the shortest signed error
+            # so equivalent values near the wrap boundary are not highlighted.
+            diff = axial_angle_difference(auto_rotation, effective_rotation)
             item = QTableWidgetItem(f"{diff:.2f}°")
             if rot_thresh_enabled and abs(diff) > rot_thresh:
                 item.setBackground(QBrush(QColor(255, 100, 100)))
