@@ -213,7 +213,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
         from PySide6.QtWidgets import QDialog, QMessageBox
         from musclex.ui.widgets.output_dir_dialog import (
             OutputDirDialog,
-            _persist_association,
+            _set_association,
         )
         from musclex.utils.directory_context import DirectoryContext
 
@@ -241,7 +241,7 @@ class AddIntensitiesMultipleExp(QMainWindow):
 
         new_output = dlg.chosen_output
         if input_dir:
-            _persist_association(input_dir, new_output)
+            _set_association(input_dir, new_output, dlg.persist_choice)
         common_parent = input_dir or self._parent_dir or ""
         self.dir_context = DirectoryContext(
             input_dir=common_parent, output_dir=new_output

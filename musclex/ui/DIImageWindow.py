@@ -260,7 +260,7 @@ class DIImageWindow(QMainWindow):
     def _change_output_directory(self):
         """Let the user pick a new output directory."""
         from PySide6.QtWidgets import QDialog, QMessageBox
-        from .widgets.output_dir_dialog import OutputDirDialog, _persist_association
+        from .widgets.output_dir_dialog import OutputDirDialog, _set_association
         from ..utils.directory_context import DirectoryContext
 
         if not hasattr(self, "dir_context") or not self.dir_context:
@@ -277,7 +277,7 @@ class DIImageWindow(QMainWindow):
             return
 
         new_output = dlg.chosen_output
-        _persist_association(input_dir, new_output)
+        _set_association(input_dir, new_output, dlg.persist_choice)
         self.dir_context = DirectoryContext(input_dir=input_dir, output_dir=new_output)
         self.csvManager = DI_CSVManager(new_output)
 
