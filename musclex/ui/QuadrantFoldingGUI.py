@@ -5027,7 +5027,11 @@ class QuadrantFoldingGUI(BaseGUI):
             self._singleWorker = None
         # self._force_no_fast_path_on_process = False
 
+        optimization_completed = False
         if self._OptimizationRunning:
+            # Only a genuine completion counts; a user-requested stop shouldn't
+            # pop the "done" dialog.
+            optimization_completed = not self._stopOptimizationRequested
             self._set_optimization_button_running(False)
             if getattr(self, "_addDefaultOptimizationConfig", False):
                 print(
@@ -5040,6 +5044,13 @@ class QuadrantFoldingGUI(BaseGUI):
             self._stopOptimizationRequested = False
             self.stop_process = False
             self.processImage()
+
+        if optimization_completed:
+            QMessageBox.information(
+                self,
+                "Optimization Complete",
+                "Background optimization has finished.",
+            )
 
     def _set_optimization_button_running(self, running: bool):
         format_running = "QPushButton { color: #7a1f1f; background-color: #f8d7da; }"
