@@ -15,7 +15,7 @@ In principle, background should be removed consistently across the entire folded
 
 To obtain plausible background removal over the full pattern with the non-parametric methods, use **Manual Setting | Transition**, which fits an inner method at small radii and an outer method at large radii, then merges the two estimates at a **Transition Radius**. As an alternative, [parametric (iterative 2D) background fitting](Quadrant-Folding--Background-Fitting.md) models the equatorial streak and the general background as explicit 2D functions and subtracts them, optionally before a non-parametric method runs on the residual.
 
-The integrated intensity of the estimated background image can be used to normalize the measured intensities of diffraction features in a series of images. To do this, select "Manual setting | One method" and set Rmin and Rmax to values that exclude unwanted portions of the pattern, then apply it uniformly to every frame in a sequence. The summary csv file will contain the integrated background sum between rmin and rmax for each frame.
+The integrated intensity of the estimated background image can be used to normalize measured diffraction-feature intensities across a series. Select **Manual Setting | One Method**, set R-min and R-max to exclude unwanted regions, and apply the same method and parameters to every frame. `summary.csv` records the integrated background sum between R-min and R-max for each frame.
 
 
 
@@ -77,6 +77,110 @@ Set the method and parameters to use for the background subtraction.
 
 Set the transition radius just outside the M3 meridional peak when possible.
 
+## Automated Processing
+**Apply Default Optimization** runs this search with default methods on the current image and can add a **Default Optimization** entry to the configuration table to be applied to subsequent images.
+**Advanced Configuration** adjusts the optimization target and lets you add reusable configurations to the configuration table.
+
+## Recommended workflow using Automated Processing
+
+### Step 0: Apply Default Optimization
+
+Click **Apply Default Optimization** to search **White-top-hats** and **Smoothed-Gaussian** using the default loss weights. QF selects the best method and parameters and can add a **Default Optimization** entry to the configuration table. Review the result and a representative next image before processing the folder or selected batch. If the result is unsatisfactory, tune the search in **Advanced Configuration**.
+
+The **Background Subtraction Settings** dialog is organized in three steps:
+
+### Step 1: Adjust image settings and process
+
+- **R-min/R-max** — Define the radial range used for masking and fitting. R-min excludes the backstop; R-max limits the outer edge of the pattern. Use **Manual R-min/max** to set values on the image, **Show R-min/max** to overlay circles, and **Persist R-min/max** to reuse values when switching images.
+- **Image Processing** — **Downsample** (1, 2, or 4) speeds optimization and smooths the background; **Smooth Image** optionally smooths the folded image before subtraction using an edge-preserving smoothing algorithm (OpenCV's guided filter). By default, the image is downsampled by 2 and the background is smoothed.
+- **Subtraction** — In the dialog, choose **Manual** or **Automated** processing mode:
+  - **Manual**: Select **Subtraction Method** and method-specific parameters (same methods as in the Results panel). 
+  - **Automated**: Multi-select **BG Subtraction Methods**, set **Step Sizes** (comma-separated schedule, e.g. `100, 50, 25, 10, 5, 3, 1`), **Max Iterations** per parameter, and **Early Stop Loss Threshold**.
+- **Evaluation Masks** - Adjust the evaluation masks to restrict scoring to physically meaningful regions:
+  - **Equator Height** and **Equator Center Radius** — mask the equator and central beam.
+  - **Layer line spacing** and **Layer line width** — mask Bragg layer lines so they do not dominate the loss.
+
+:::{warning}
+Automatic detection of **Equator Height**, **Equator Center Radius**, **Layer line spacing**, and **Layer line width** is not implemented yet. Set these values manually in **Evaluation Masks** for each dataset.
+:::
+
+To view the evaluation masks, click **Show** in the Results tab to inspect **Subtracted**, **Background**, **Folded**, **Evaluation Mask**, **Synthetic Signal**, or **Synthetic Mask**.
+- **Metric Settings** - Adjust the relative importance of each metric and the normalization means. The weights should roughly add up to 1. The weights may depend on the dataset and are the most important settings to adjust to get the best results. Leave the default values for the first run and adjust after reviewing the results. The normalization means are hidden by default; double-click the metric table header to show/hide means. Usually, they don't need to be adjusted.
+![-](../../images/QF/metric_setting.png)
+
+- **Additional Settings** - 
+  - **Evaluation Baseline** sets the near-zero threshold; **Persist evaluation baseline** keeps it when changing images. **Evaluation Baseline** allows to adjust the near-zero threshold for the calculation of **Fraction of Non Near-Zero Baseline Pixels**. This is the threshold below which pixels are considered to be part of the background. Change this value if the noise level doesn't match the calculated value.
+  - **Synthetic** amplitude and sigmas (and **Sampling Frequency**) define the reference pattern used in MSE and oversubtraction metrics.
+
+![-](../../images/QF/additional_setting.png)
+
+
+- Click **Apply Selected Subtraction Settings** (dialog or Results panel) to run on the current image. During automated optimization the button becomes **Stop Optimization** which will stop the optimization and return the previous best performing method and parameters. This is useful when you want to tune the settings and rerun the optimization.
+
+### Step 2: Review results
+
+After processing, the **Results** section shows **Loss** and a table of metrics:
+
+| Metric | Meaning | Purpose |
+|--------|---------|---------|
+| **Normalized MSE of Synthetic Signal** | Normalized mean squared error between the subtracted image and a synthetic meridional reference, inside the evaluation mask. | Measures preservation of the synthetic signal. Lower is better. |
+| **Fraction of Synthetic Oversubtraction** | Share of masked pixels where subtraction went below the synthetic reference. | Measure the amount of synthetic signal that is removed. Lower is better. High when the synthetic signal is removed significantly. |
+| **Fraction of Non Near-Zero Baseline Pixels** | Share of masked pixels still above the evaluation baseline after subtraction. | Measure the amount of background that is not removed. Lower is better. High when the background is not removed significantly. |
+| **Fraction of Negative Connected Pixels** | Share of connected negative regions (oversubtraction artifacts). | Measure the amount of oversubtraction artifacts. Lower is better. High when the oversubtraction artifacts are significant. |
+| **Smoothness Metric** | Penalty for roughness in the estimated background. | Measure the smoothness of the estimated background. High when the background is rough. |
+
+**Compound loss** is a weighted sum of normalized metrics. Adjust **Metric Settings** (weights and normalization means; double-click the metric table header to show/hide means). 
+
+- **Save result metrics to csv** - Save the result metrics to a csv file. This is useful for further analysis. This will save the result metrics to a csv file in the `qf_results/bg` folder with name `background_metrics.csv`.
+
+![-](../../images/QF/results_table_2.png)
+
+### Step 3: Batch processing
+
+1. When satisfied with settings on a representative image, click **Add Background Configuration** to save the selected method and parameters under a configuration name. Loss is also added for information. Configurations are stored in `qf_cache/background_cache.json` for the folder.
+2. Repeat for other parameter sets if needed (e.g. different muscle types).
+3. Under **Folder Processing**:
+   - **Choose best configuration for images automatically** — For each image in the folder, evaluate all saved configurations and apply the one with lowest loss (typical for heterogeneous datasets). This is the recommended option for most datasets.
+   - **Optimize each image** — Run the full configured optimization independently for every image instead of selecting from saved configurations. This is slower but useful when images vary too much for a small configuration set.
+   - **Manually assign configurations to images** — Open the assignment dialog to map specific configuration names to filenames (disabled while auto-select is on). This is useful for datasets with a clear separation between different types of images.
+4. Click **Process Current Folder** in the dialog for the current folder, or use the navigator's **Process Batch Folder(s)** after selecting multiple folders.
+
+The **Current Configuration** summary in both the dialog and Results panel shows the active method, parameters, and loss after each run.
+
+## Subtraction methods and parameters
+
+Six methods are available (plus **None**). Visible parameters depend on the selected method.
+
+### Circularly-symmetric
+
+- **Pixel Range** (min–max %): lowest-intensity pixels averaged per radial bin (e.g. 0–25% = lowest quarter).
+- **Radial Bin** (pixels)
+- **Smoothing factor** (spline smoothing)
+
+### 2D Convexhull
+
+- **Step Degree** (angular bin size for radial histograms)
+- **R-min** (and **R-max** when set)
+
+### Roving Window
+
+- **Window Size** (X, Y) and **Window Separation** (X, Y)
+- **Pixel Range** (%)
+- **Smoothing factor** and **Tension factor**
+
+### White-top-hats
+
+- **Top-hat Disk Size**
+
+### Smoothed-Gaussian
+
+- **Gaussian FWHM**
+- **Number of Cycles**
+
+### Smoothed-BoxCar
+
+- **Box Car Size** (X, Y)
+- **Number of Cycles**
 <img src="../../images/QF/bg_sub_transition.png" alt="img" width="800">
 
 ### Automated Processing

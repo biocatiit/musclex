@@ -4,13 +4,15 @@ When an image is selected, the program immediately processes it automatically. T
 
 ## Prerequisites
 
-Before the pipeline runs, two things are resolved:
+Before the pipeline runs, the input image and processing geometry are resolved:
 
 **Empty cell subtraction and masking** — if configured, the blank image is subtracted and invalid pixels are marked with a sentinel value of −1 by `ImageData`. This happens before any QF-specific processing. See [Common Settings — Empty Cell Image and Mask](../Common-Settings.md#empty-cell-image-and-mask).
 
 **Diffraction center and rotation angle** — resolved from user input, calibration, cached settings, or automatic detection, and always resolved even on a cached reload. See [Center and rotation](#center-and-rotation) below.
 
-**Caching** — if the image has already been processed with the same settings, the program reloads the saved result from disk instead of reprocessing. To force reprocessing, delete the `qf_cache` folder in the output directory before opening the image, or click **Process Current Folder** which reprocesses all images with the current settings.
+**Calibration geometry** — optional intensity corrections use the sample-to-detector distance and detector pixel size from Calibration Settings. QF converts this geometry to SDD in pixels. If it cannot resolve a positive value, the requested corrections are skipped and the uncorrected image continues through the pipeline.
+
+**Caching** — if the image has already been processed with the same settings, the program reloads the saved result from disk instead of reprocessing. Center, rotation, calibration geometry, and intensity-correction choices participate in cache handling, so changing them invalidates dependent results. To force reprocessing, delete the `qf_cache` folder in the output directory before opening the image, or use the folder/batch processing control.
 
 ## Center and rotation
 
@@ -39,7 +41,16 @@ Refine Center runs up to three stages in sequence, each refining the previous re
 
 ## Processing pipeline
 
-### 1. Transform image
+### 1. Apply intensity corrections (optional)
+
+When **Solid Angle** or **Polarization** is enabled, QF constructs a multiplicative correction from the calibrated SDD in pixels and each pixel's radius and azimuth about the diffraction center. The correction is applied to the original image before it is centered, rotated, or folded.
+
+- **Solid Angle** divides by the flat-detector relative solid angle, proportional to `cos(2θ)³`.
+- **Polarization** divides by the Thomson-scattering polarization factor for the selected **Unpolarized**, **Horizontal**, or **Vertical** incident-beam model.
+
+The correction status records which operations were applied and the SDD used. If calibration geometry is unavailable, QF records a skipped status and passes the original intensities to the next step unchanged.
+
+### 2. Transform image
 
 The diffraction center is generally not at the pixel center of the image. If folding were done directly, the four quadrants would have unequal sizes and the folded image would be cropped.
 
@@ -49,7 +60,7 @@ To fix this, the program applies a single composite affine transform that transl
 
 ![-](../../images/QF/centerize3.png)
 
-### 2. Calculate average quadrant fold
+### 3. Calculate average quadrant fold
 
 The transformed image is split into four quadrants about the (now-centered) diffraction center. Each quadrant is flipped to the same orientation as the top-left quadrant.
 
@@ -59,7 +70,7 @@ The four quadrants are then averaged pixel by pixel. Pixels with intensity ≤ �
 
 ![-](../../images/QF/avg_fold2.png)
 
-### 3. Calculate R-min and R-max
+### 4. Calculate R-min and R-max
 
 R-min and R-max define the radial range used for background subtraction.
 
@@ -81,6 +92,7 @@ This mask is used by the background optimizer to evaluate subtraction quality on
 
 For GUI workflow (manual, transition, and automated modes), saved configurations, and batch processing, see [Background Subtraction](Quadrant-Folding--Background-Subtraction.md).
 
+### 6. Create synthetic data
 ### 5. Create synthetic data (used for Background Subtraction)
 
 A grid of 2D Gaussian blobs is generated and added to `avg_fold` to produce `avg_fold_with_syn`. The grid spacing and blob dimensions are derived from the I<sub>1,0</sub> and M1 peak positions detected in the pattern. Three density presets are available (sparse / medium / dense).
@@ -160,15 +172,12 @@ There are three modes for background subtraction: **Manual Setting**, **Transiti
 #### Manual Setting
 In this mode, the user can select one background subtraction method and set the parameters for the background subtraction manually.
 #### Transition
+In this mode, the user can select one background subtraction method for the inner radii and another background subtraction method for the outer radii, and set the parameters for the two methods. The two background images are then merged at the **transition radius** and **transition delta** as described in [section 10](#10-merge-images-transition-mode-only).
 In this mode, the user can select one background subtraction method for the inner radii and another background subtraction method for the outer radii, and set the parameters for the two methods. The two background images are then merged at the **transition radius** and **transition delta**, as described in [Section 9. Merge images](#9-merge-images-transition-mode-only). Typically, this approach is applied for 2D Convex Hull on the inner radii, which handles the equatorial background well, and another method for the outer radii, since 2D Convex Hull produces artifacts at high angles. 
 #### Automated Processing
 In this mode, the program will search for the best parameters for the background subtraction using the automated processing. The search for the optimal method is performed using a compound **loss** built from metrics that reflect pattern features: NMSE of synthetic signal, oversubtraction of synthetic signal, baseline residuals, connected negative pixels, and background smoothness. Automated processing also includes the "Advanced Configuration" feature, which allows the user to set the parameters for the optimization target and create background configurations to be reused for subsequent images. Saved **configurations** let you apply the best parameter set per image when processing a folder. See [Background Subtraction (GUI)](Quadrant-Folding--Background-Subtraction.md) for the full interactive workflow.
 
 Generally speaking, the “White Top-Hat” and the “Smoothed-Gaussian” algorithms work well at large radii from the center and, at low radii, some other algorithm will work better than others, depending on the type of muscle generating the X-ray pattern.
-
-#### Parametric (iterative 2D) fitting
-
-Independent of the three non-parametric modes above, the background can be modeled parametrically as the sum of an **equator component** (an elliptical model of the equatorial streak) and a **general component** (`exponential + component #2 + constant baseline`). The two are fit by alternating block-coordinate descent — the equator is fit to the image minus the current general background, then the general background to the image minus the current equator — with an optional projection-based seed and oversubtraction-penalized general fit. The residual replaces the folded image, optionally before a non-parametric method runs on top of it. See [Background Fitting](Quadrant-Folding--Background-Fitting.md) for the model, controls, and workflow.
 
 ### 9. Merge images (transition mode only)
 
@@ -180,13 +189,13 @@ The two **background images** are then linearly blended into a single merged bac
 
 The guideline is to set the transition radius just outside the M3 meridional peak.
 
-### 10. Generate result image
+### 11. Generate result image
 
 The background-subtracted quarter-image `BgSubFold` is expanded to a full 2D pattern by tiling the quarter and its three flipped copies (horizontal flip → top-right, vertical flip → bottom-left, both flips → bottom-right). The resulting full image is then post-processed: NaN values are zeroed; if **Rotate 90** is enabled the image is rotated 90°; if an ROI is set, the image is cropped symmetrically about the center.
 
 ![-](../../images/QF/result.png)
 
-### 11. Evaluate result
+### 12. Evaluate result
 
 Several quality metrics are computed and written to `summary.csv`:
 
