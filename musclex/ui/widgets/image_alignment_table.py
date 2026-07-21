@@ -117,19 +117,14 @@ class ImageAlignmentTable(QTableWidget):
         else:
             self.setItem(row, c, QTableWidgetItem(""))
 
-    def fill_auto_manual_dist(
-        self, row, auto_center, effective_center, dist_thresh_enabled, dist_thresh
-    ):
-        """Fill auto-vs-effective center distance; highlight if over threshold."""
+    def fill_auto_manual_dist(self, row, auto_center, effective_center):
+        """Fill auto-vs-effective center distance as diagnostic information."""
         c = self._col[ColKey.AUTO_MANUAL_DIST]
         if auto_center is not None and effective_center is not None:
             dx = auto_center[0] - effective_center[0]
             dy = auto_center[1] - effective_center[1]
             dist = math.hypot(dx, dy)
             item = QTableWidgetItem(f"{dist:.2f}")
-            if dist_thresh_enabled and dist > dist_thresh:
-                item.setBackground(QBrush(QColor(255, 100, 100)))
-                item.setForeground(QBrush(QColor(255, 255, 255)))
             self.setItem(row, c, item)
         else:
             self.setItem(row, c, QTableWidgetItem(""))
@@ -172,7 +167,14 @@ class ImageAlignmentTable(QTableWidget):
             self.setItem(row, c, QTableWidgetItem(""))
 
     def fill_distance_deviation(
-        self, row, effective_center, effective_rotation, base_center, base_rotation
+        self,
+        row,
+        effective_center,
+        effective_rotation,
+        base_center,
+        base_rotation,
+        dist_thresh_enabled=False,
+        dist_thresh=0.0,
     ):
         """Fill center-distance and rotation-diff relative to the global base."""
         c_dist = self._col[ColKey.CENTER_DIST]
@@ -183,7 +185,11 @@ class ImageAlignmentTable(QTableWidget):
                 dx = effective_center[0] - base_center[0]
                 dy = effective_center[1] - base_center[1]
                 dist = math.hypot(dx, dy)
-                self.setItem(row, c_dist, QTableWidgetItem(f"{dist:.2f}"))
+                item = QTableWidgetItem(f"{dist:.2f}")
+                if dist_thresh_enabled and dist > dist_thresh:
+                    item.setBackground(QBrush(QColor(255, 100, 100)))
+                    item.setForeground(QBrush(QColor(255, 255, 255)))
+                self.setItem(row, c_dist, item)
             else:
                 self.setItem(row, c_dist, QTableWidgetItem(""))
         else:
@@ -316,7 +322,7 @@ class ImageAlignmentTable(QTableWidget):
         """
         _red_bg = QBrush(QColor(255, 100, 100))
         _red_fg = QBrush(QColor(255, 255, 255))
-        c_dist = self._col[ColKey.AUTO_MANUAL_DIST]
+        c_dist = self._col[ColKey.CENTER_DIST]
         c_rot = self._col[ColKey.AUTO_ROT_DIFF]
         c_diff = self._col[ColKey.IMAGE_DIFF]
         c_sym = self._col.get(ColKey.FOLD_STD)

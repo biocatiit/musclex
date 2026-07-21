@@ -1,10 +1,22 @@
+import os
 from types import SimpleNamespace
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QApplication
 
 from musclex.ui.QFAlignmentDialog import (
     _persist_pending_batch_geometry,
     _reload_cached_settings_managers,
 )
-from musclex.ui.widgets.image_alignment_table import axial_angle_difference
+from musclex.ui.widgets.image_alignment_table import (
+    ColKey,
+    ImageAlignmentTable,
+    axial_angle_difference,
+)
 from musclex.ui.widgets.image_alignment_widget import manual_or_auto
 from musclex.utils.settings_manager import SettingsManager
 
@@ -18,6 +30,14 @@ class _RowMapper:
 
     def name_for_row(self, row):
         return self._names[row]
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    return app
 
 
 def test_pending_batch_geometry_is_saved_to_each_source_folder(tmp_path):
@@ -112,3 +132,79 @@ def test_rotation_difference_uses_axial_wraparound():
     assert axial_angle_difference(179.0, -1.0) == 0.0
     assert axial_angle_difference(1.0, 179.0) == 2.0
     assert axial_angle_difference(179.0, 1.0) == -2.0
+
+
+def test_center_threshold_uses_applied_center_distance_from_applied_base(qapp):
+    table = ImageAlignmentTable(
+        {
+            ColKey.CENTER_DIST: 0,
+            ColKey.AUTO_MANUAL_DIST: 1,
+            ColKey.ROTATION_DIFF: 2,
+            ColKey.AUTO_ROT_DIFF: 3,
+            ColKey.IMAGE_DIFF: 4,
+        },
+        [
+            "Dist from Base",
+            "Auto-to-Applied",
+            "Rotation from Base",
+            "Auto Rotation",
+            "Image Diff",
+        ],
+    )
+    table.setRowCount(1)
+
+    # A large correction remains visible for diagnosis, but is not itself a
+    # reason to mark the corrected image as misaligned.
+    table.fill_auto_manual_dist(0, (10.0, 10.0), (20.0, 20.0))
+    correction_item = table.item(0, table.col(ColKey.AUTO_MANUAL_DIST))
+    assert correction_item.text() == "14.14"
+    assert correction_item.data(Qt.BackgroundRole) is None
+
+    # The applied image and applied base centers agree, so residual center
+    # misalignment is zero even though the raw auto center was far away.
+    table.fill_distance_deviation(
+        0,
+        effective_center=(20.0, 20.0),
+        effective_rotation=None,
+        base_center=(20.0, 20.0),
+        base_rotation=None,
+        dist_thresh_enabled=True,
+        dist_thresh=5.0,
+    )
+    center_dist_item = table.item(0, table.col(ColKey.CENTER_DIST))
+    assert center_dist_item.text() == "0.00"
+    assert center_dist_item.data(Qt.BackgroundRole) is None
+    table.apply_threshold_highlighting(
+        dist_enabled=True,
+        dist_thresh=5.0,
+        rot_enabled=False,
+        rot_thresh=0.0,
+        diff_enabled=False,
+        diff_thresh=0.0,
+    )
+    assert center_dist_item.data(Qt.BackgroundRole) is None
+    assert correction_item.data(Qt.BackgroundRole) is None
+
+    # Residual distance between the applied centers still triggers the limit,
+    # including when highlighting is reapplied after a threshold UI change.
+    table.fill_distance_deviation(
+        0,
+        effective_center=(30.0, 20.0),
+        effective_rotation=None,
+        base_center=(20.0, 20.0),
+        base_rotation=None,
+        dist_thresh_enabled=False,
+        dist_thresh=5.0,
+    )
+    center_dist_item = table.item(0, table.col(ColKey.CENTER_DIST))
+    assert center_dist_item.text() == "10.00"
+    assert center_dist_item.data(Qt.BackgroundRole) is None
+    table.apply_threshold_highlighting(
+        dist_enabled=True,
+        dist_thresh=5.0,
+        rot_enabled=False,
+        rot_thresh=0.0,
+        diff_enabled=False,
+        diff_thresh=0.0,
+    )
+    assert center_dist_item.background().color() == QColor(255, 100, 100)
