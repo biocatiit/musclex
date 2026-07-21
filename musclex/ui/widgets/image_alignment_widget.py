@@ -77,6 +77,8 @@ class ImageAlignmentWidget(QWidget):
     detection_preflight : callable | None
         Optional callback invoked immediately before detection snapshots the
         manual center and rotation for each worker.
+    detection_snapshot_mode : bool, default False
+        Keep displayed manual geometry fixed until a detection run starts.
     """
 
     # --- Signals emitted by the widget ------------------------------------
@@ -97,6 +99,7 @@ class ImageAlignmentWidget(QWidget):
         settings_resolver=None,
         parent=None,
         detection_preflight=None,
+        detection_snapshot_mode=False,
     ):
         super().__init__(parent)
         self.workspace = workspace
@@ -104,6 +107,8 @@ class ImageAlignmentWidget(QWidget):
         self._worker_dir_path = worker_dir_path
         self._settings_resolver = settings_resolver
         self._detection_preflight = detection_preflight
+        self._detection_snapshot_mode = bool(detection_snapshot_mode)
+        self._manual_geometry_snapshot = {}
         self._enable_symmetry_test = bool(enable_symmetry_test)
         if detection_button_position not in ("top", "bottom_after_thresholds"):
             detection_button_position = "top"
@@ -151,6 +156,8 @@ class ImageAlignmentWidget(QWidget):
         self.diffTaskManager = ProcessingTaskManager()
         self.diffExecutor = None
         self._diff_pairs_in_flight: set = set()
+        self._diff_generation = 0
+        self._suspend_diff_updates = False
 
         # --- Table (created here, placed by parent) -----------------------
         self.table = ImageAlignmentTable(col_map, headers, parent=None)
@@ -413,6 +420,30 @@ class ImageAlignmentWidget(QWidget):
         """Refresh data columns for all existing rows."""
         self._update_table_data()
 
+    def capture_geometry_snapshot(self, refresh=False):
+        """Capture manual geometry used by the table and the next detection."""
+        snapshot = {}
+        for row in range(self._row_mapper.row_count()):
+            name = self._row_mapper.name_for_row(row)
+            if name is None:
+                continue
+            sm, key = self._settings_for_row(row, name)
+            snapshot[row] = (sm.get_center(key), sm.get_rotation(key))
+        self._manual_geometry_snapshot = snapshot
+        if refresh:
+            if self._detection_snapshot_mode:
+                self._invalidate_diff_jobs()
+                self._suspend_diff_updates = True
+            try:
+                self.init_table()
+            finally:
+                self._suspend_diff_updates = False
+
+    def _manual_geometry_for_row(self, row, sm, key):
+        if self._detection_snapshot_mode and row in self._manual_geometry_snapshot:
+            return self._manual_geometry_snapshot[row]
+        return sm.get_center(key), sm.get_rotation(key)
+
     def run_detection_with_symmetry(self):
         """Start a detection pass with the symmetry test enabled.
 
@@ -507,7 +538,7 @@ class ImageAlignmentWidget(QWidget):
             return
         sm, key = self._settings_for_row(row, name)
 
-        manual_c = sm.get_center(key)
+        manual_c, manual_r = self._manual_geometry_for_row(row, sm, key)
         if manual_c is not None:
             self.table.fill_center(row, manual_c, "Manual")
         else:
@@ -520,7 +551,6 @@ class ImageAlignmentWidget(QWidget):
         effective_center = self._get_effective_center(name, row)
         self.table.fill_auto_manual_dist(row, auto_center, effective_center)
 
-        manual_r = sm.get_rotation(key)
         if manual_r is not None:
             self.table.fill_rotation(row, manual_r, "Manual")
         else:
@@ -585,7 +615,8 @@ class ImageAlignmentWidget(QWidget):
         new_geom = (effective_center, effective_rotation)
         if self._row_geometry_cache.get(row) != new_geom:
             self._row_geometry_cache[row] = new_geom
-            self._trigger_diff_for_row(row)
+            if not self._suspend_diff_updates:
+                self._trigger_diff_for_row(row)
 
     def _update_table_data(self):
         """Refresh center/rotation data columns for all existing rows."""
@@ -600,7 +631,8 @@ class ImageAlignmentWidget(QWidget):
             sm, key = self._settings_for_row(row, name)
         else:
             sm, key = self._default_settings_manager(), name
-        return sm.get_center(key) or sm.get_auto_center(key)
+        manual_center, _manual_rotation = self._manual_geometry_for_row(row, sm, key)
+        return manual_center or sm.get_auto_center(key)
 
     def _get_effective_rotation(self, name, row=None):
         """Return rotation angle — manual if present, else auto, else None."""
@@ -608,7 +640,8 @@ class ImageAlignmentWidget(QWidget):
             sm, key = self._settings_for_row(row, name)
         else:
             sm, key = self._default_settings_manager(), name
-        return manual_or_auto(sm.get_rotation(key), sm.get_auto_rotation(key))
+        _manual_center, manual_rotation = self._manual_geometry_for_row(row, sm, key)
+        return manual_or_auto(manual_rotation, sm.get_auto_rotation(key))
 
     def _get_base_center(self, row=None):
         """Return the effective center of the global base image, or None."""
@@ -618,7 +651,17 @@ class ImageAlignmentWidget(QWidget):
         base_image = sm.get_global_base().get("base_image") or self._base_image_filename
         if not base_image:
             return None
-        return sm.get_center(base_image) or sm.get_auto_center(base_image)
+        manual_center = sm.get_center(base_image)
+        if self._detection_snapshot_mode:
+            for base_row in range(self._row_mapper.row_count()):
+                base_name = self._row_mapper.name_for_row(base_row)
+                base_sm, base_key = self._settings_for_row(base_row, base_name)
+                if base_sm is sm and base_key == base_image:
+                    manual_center, _rotation = self._manual_geometry_snapshot.get(
+                        base_row, (manual_center, None)
+                    )
+                    break
+        return manual_center or sm.get_auto_center(base_image)
 
     def _get_base_rotation(self, row=None):
         """Return the effective rotation of the global base image, or None."""
@@ -628,9 +671,17 @@ class ImageAlignmentWidget(QWidget):
         base_image = sm.get_global_base().get("base_image") or self._base_image_filename
         if not base_image:
             return None
-        return manual_or_auto(
-            sm.get_rotation(base_image), sm.get_auto_rotation(base_image)
-        )
+        manual_rotation = sm.get_rotation(base_image)
+        if self._detection_snapshot_mode:
+            for base_row in range(self._row_mapper.row_count()):
+                base_name = self._row_mapper.name_for_row(base_row)
+                base_sm, base_key = self._settings_for_row(base_row, base_name)
+                if base_sm is sm and base_key == base_image:
+                    _center, manual_rotation = self._manual_geometry_snapshot.get(
+                        base_row, (None, manual_rotation)
+                    )
+                    break
+        return manual_or_auto(manual_rotation, sm.get_auto_rotation(base_image))
 
     def _compute_most_common_size(self):
         """Count image sizes and cache the most frequent one."""
@@ -1016,8 +1067,7 @@ class ImageAlignmentWidget(QWidget):
             return
 
         # Give embedding workflows a chance to flush pending settings before
-        # worker arguments are snapshotted below.  QF uses this to materialize
-        # Apply Center/Rotation -> All values into each selected source folder.
+        # worker arguments are snapshotted below.
         if self._detection_preflight is not None:
             self._detection_preflight()
 
@@ -1033,6 +1083,11 @@ class ImageAlignmentWidget(QWidget):
             self._init_process_executor()
         if self.processExecutor is None:
             return
+
+        if self._detection_snapshot_mode:
+            # Publish all pending manual geometry at the explicit detection
+            # boundary. Later edits are intentionally deferred to the next run.
+            self.capture_geometry_snapshot(refresh=True)
 
         self._in_batch = True
         self.stop_process = False
@@ -1067,8 +1122,7 @@ class ImageAlignmentWidget(QWidget):
                 else None
             )
             sm, key = self._settings_for_row(row, img_name)
-            manual_center = sm.get_center(key)
-            manual_rotation = sm.get_rotation(key)
+            manual_center, manual_rotation = self._manual_geometry_for_row(row, sm, key)
             if self._batch_do_symmetry:
                 job_args = (
                     self._worker_dir_path,
@@ -1226,6 +1280,12 @@ class ImageAlignmentWidget(QWidget):
                 f" avg {stats['avg_time']:.2f}s/image"
             )
         self.statusLabel.setText(msg)
+        if self._detection_snapshot_mode:
+            # Recalculate cross-row values after the last progressive result,
+            # especially deviations from a base whose auto geometry changed.
+            self._invalidate_diff_jobs()
+            self._row_geometry_cache = {}
+            self.refresh_all_rows()
         print(msg)
         self.detectionFinished.emit()
 
@@ -1276,6 +1336,15 @@ class ImageAlignmentWidget(QWidget):
                 continue
             self._diff_pairs_in_flight.add((idx_a, idx_b))
             self._submit_diff_pair(idx_a, idx_b)
+
+    def _invalidate_diff_jobs(self):
+        """Discard stale pairwise-difference work before a new snapshot."""
+        self._diff_generation += 1
+        self._diff_pairs_in_flight.clear()
+        self.diffTaskManager.clear()
+        if self.diffExecutor is not None:
+            self.diffExecutor.shutdown(wait=False, cancel_futures=True)
+            self.diffExecutor = None
 
     def _submit_diff_pair(self, idx_a, idx_b):
         """Build args and submit a single (idx_a, idx_b) diff job."""
@@ -1340,14 +1409,17 @@ class ImageAlignmentWidget(QWidget):
         )
         future = self.diffExecutor.submit(_compute_image_diff, job_args)
         self.diffTaskManager.submit_task(name_b, idx_b, future)
+        generation = self._diff_generation
         future.add_done_callback(
-            lambda f, a=idx_a, b=idx_b: QTimer.singleShot(
-                0, self, lambda: self._on_diff_result(f, a, b)
+            lambda f, a=idx_a, b=idx_b, g=generation: QTimer.singleShot(
+                0, self, lambda: self._on_diff_result(f, a, b, g)
             )
         )
 
-    def _on_diff_result(self, future, idx_a, idx_b):
+    def _on_diff_result(self, future, idx_a, idx_b, generation):
         """Handle a completed diff future in the main thread."""
+        if generation != self._diff_generation:
+            return
         self._diff_pairs_in_flight.discard((idx_a, idx_b))
         try:
             try:

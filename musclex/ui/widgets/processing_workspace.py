@@ -204,8 +204,7 @@ class ProcessingWorkspace(QWidget):
         # Orientation model and mode rotation state
         self._orientation_model = 0  # Default: Max Intensity
         self._mode_rotation = None  # Cached mode rotation value
-        self._batch_all_center = None
-        self._batch_all_rotation = None
+        self._geometry_settings_resolver = None
         self._refinement_progress = None
         self._refinement_worker = None
         self._refinement_initial_center = None
@@ -671,7 +670,6 @@ class ProcessingWorkspace(QWidget):
                 "calibration_refinement_center_rotation",
             )
         self.needsReprocess.emit()
-        self._refresh_alignment_after_refinement()
         if self._refinement_save_rotation:
             center_detail = (
                 f"Center refined from x={old_center[0]:.2f}, y={old_center[1]:.2f} px "
@@ -712,7 +710,6 @@ class ProcessingWorkspace(QWidget):
             "calibration_refinement_rotation",
         )
         self.needsReprocess.emit()
-        self._refresh_alignment_after_refinement()
         QMessageBox.information(
             self.window(),
             "Rotation Refined",
@@ -744,19 +741,6 @@ class ProcessingWorkspace(QWidget):
         self._refinement_initial_center = None
         self._refinement_initial_rotation = None
         self._refinement_save_rotation = False
-
-    def _refresh_alignment_after_refinement(self):
-        """Notify an open parent alignment dialog that geometry has changed."""
-        parent = self.window()
-        dialog = getattr(parent, "_alignment_dialog", None)
-        if dialog is None:
-            return
-        try:
-            dialog.refresh_after_refinement(rerun_symmetry=True)
-        except RuntimeError:
-            parent._alignment_dialog = None
-        except Exception as exc:
-            print(f"Warning: failed to refresh alignment after refinement: {exc}")
 
     # ==================== Tool Completion Handlers ====================
 
@@ -795,8 +779,9 @@ class ProcessingWorkspace(QWidget):
             print(f"  Transformed center to original coordinates: {center}")
 
         # 2. Save to settings (now in original coordinates)
-        self.settings_manager.set_center(self._current_filename, center, source)
-        self.settings_manager.save_center()
+        manager, key = self.resolve_geometry_settings(self._current_filename)
+        manager.set_center(key, center, source)
+        manager.save_center()
         self._after_center_save()
 
         # 3. Update ImageData
@@ -840,8 +825,9 @@ class ProcessingWorkspace(QWidget):
         new_rotation = current_rotation + angle
 
         # 1. Save to settings
-        self.settings_manager.set_rotation(self._current_filename, new_rotation, source)
-        self.settings_manager.save_rotation()
+        manager, key = self.resolve_geometry_settings(self._current_filename)
+        manager.set_rotation(key, new_rotation, source)
+        manager.save_rotation()
         self._after_rotation_save()
 
         # 2. Update ImageData
@@ -894,10 +880,9 @@ class ProcessingWorkspace(QWidget):
             print(f"  Transformed center to original coordinates: {center}")
 
         # 1. Save center settings
-        self.settings_manager.set_center(
-            self._current_filename, center, "center_rotate"
-        )
-        self.settings_manager.save_center()
+        manager, key = self.resolve_geometry_settings(self._current_filename)
+        manager.set_center(key, center, "center_rotate")
+        manager.save_center()
         self._after_center_save()
 
         # 2. Update center in ImageData
@@ -938,9 +923,6 @@ class ProcessingWorkspace(QWidget):
             )
             return
 
-        if scope == "all":
-            self._batch_all_center = tuple(center)
-
         self.apply_center_to_batch(center, scope)
 
         QMessageBox.information(
@@ -952,9 +934,6 @@ class ProcessingWorkspace(QWidget):
     def _on_restore_auto_center(self, scope: str):
         """Handle Restore Auto Center."""
         from PySide6.QtWidgets import QMessageBox
-
-        if scope == "all":
-            self._batch_all_center = None
 
         self.restore_auto_center_for_batch(scope)
 
@@ -981,9 +960,6 @@ class ProcessingWorkspace(QWidget):
             )
             return
 
-        if scope == "all":
-            self._batch_all_rotation = rotation
-
         self.apply_rotation_to_batch(rotation, scope)
 
         QMessageBox.information(
@@ -995,9 +971,6 @@ class ProcessingWorkspace(QWidget):
     def _on_restore_auto_rotation(self, scope: str):
         """Handle Restore Auto Rotation."""
         from PySide6.QtWidgets import QMessageBox
-
-        if scope == "all":
-            self._batch_all_rotation = None
 
         self.restore_auto_rotation_for_batch(scope)
 
@@ -1050,11 +1023,13 @@ class ProcessingWorkspace(QWidget):
             center: (x, y) center coordinates, or None to remove manual center
             source: Description of where this center came from (e.g., "calibration", "SetCentDialog")
         """
+        manager, key = self.resolve_geometry_settings(filename)
         if center is None:
-            self.settings_manager.clear_center(filename)
+            manager.clear_center(key)
         else:
-            self.settings_manager.set_center(filename, center, source)
-        self.save_settings()
+            manager.set_center(key, center, source)
+        manager.save_center()
+        self._after_center_save()
 
         # Update ImageData if it's the current image
         if self._current_image_data and self._current_filename == filename:
@@ -1076,9 +1051,10 @@ class ProcessingWorkspace(QWidget):
         Note: rotation_increment is treated as a delta to add to the current rotation,
               because rotations are performed on the already-transformed (displayed) image.
         """
+        manager, key = self.resolve_geometry_settings(filename)
         if rotation_increment is None:
             # Remove manual rotation setting
-            self.settings_manager.clear_rotation(filename)
+            manager.clear_rotation(key)
         else:
             # Get current rotation from ImageData
             current_rotation = 0.0
@@ -1087,16 +1063,17 @@ class ProcessingWorkspace(QWidget):
 
             # Calculate new absolute rotation
             new_rotation = current_rotation + rotation_increment
-            self.settings_manager.set_rotation(filename, new_rotation, source)
+            manager.set_rotation(key, new_rotation, source)
 
-        self.save_settings()
+        manager.save_rotation()
+        self._after_rotation_save()
 
         # Update ImageData if it's the current image
         if self._current_image_data and self._current_filename == filename:
             if rotation_increment is None:
                 self._current_image_data.update_manual_rotation(None)
             else:
-                new_rotation = self.settings_manager.get_rotation(filename)
+                new_rotation = manager.get_rotation(key)
                 self._current_image_data.update_manual_rotation(new_rotation)
             self.update_display(self._current_image_data)
 
@@ -1109,11 +1086,13 @@ class ProcessingWorkspace(QWidget):
         Refinement returns the final rotation angle, unlike SetAngleDialog which
         returns an increment relative to the current displayed image.
         """
+        manager, key = self.resolve_geometry_settings(filename)
         if rotation is None:
-            self.settings_manager.clear_rotation(filename)
+            manager.clear_rotation(key)
         else:
-            self.settings_manager.set_rotation(filename, rotation, source)
-        self.save_settings()
+            manager.set_rotation(key, rotation, source)
+        manager.save_rotation()
+        self._after_rotation_save()
 
         if self._current_image_data and self._current_filename == filename:
             self._current_image_data.update_manual_rotation(rotation)
@@ -1132,20 +1111,30 @@ class ProcessingWorkspace(QWidget):
             Tuple of (manual_center, manual_rotation)
             Both can be None if not manually set
         """
-        center = self.settings_manager.get_center(filename)
-        rotation = self.settings_manager.get_rotation(filename)
+        manager, key = self.resolve_geometry_settings(filename)
+        center = manager.get_center(key)
+        rotation = manager.get_rotation(key)
         return center, rotation
 
-    def get_batch_all_geometry(
-        self,
-    ) -> Tuple[Optional[Tuple[float, float]], Optional[float]]:
-        """Return geometry captured from Apply Center/Rotation -> all images."""
-        return self._batch_all_center, self._batch_all_rotation
+    def set_geometry_settings_resolver(self, resolver):
+        """Set an optional ``(index, filename) -> (manager, key)`` resolver."""
+        self._geometry_settings_resolver = resolver
 
-    def clear_batch_all_geometry(self):
-        """Clear batch-wide geometry captured from Apply Center/Rotation."""
-        self._batch_all_center = None
-        self._batch_all_rotation = None
+    def resolve_geometry_settings(self, filename: str, index: int = None):
+        """Return the authoritative settings manager and key for an image."""
+        if index is None and self._file_manager is not None:
+            current = self._file_manager.current
+            if (
+                current is not None
+                and 0 <= current < len(self._file_manager.names)
+                and self._file_manager.names[current] == filename
+            ):
+                index = current
+        if self._geometry_settings_resolver is not None:
+            resolved = self._geometry_settings_resolver(index, filename)
+            if resolved is not None:
+                return resolved
+        return self.settings_manager, filename
 
     def save_settings(self):
         """Save all settings to JSON files."""
@@ -1160,8 +1149,14 @@ class ProcessingWorkspace(QWidget):
             return
 
         total_files = len(self._file_manager.names)
-        auto_center_count = total_files - len(self._center_settings)
-        auto_rotation_count = total_files - len(self._rotation_settings)
+        manual_center_count = 0
+        manual_rotation_count = 0
+        for index, filename in enumerate(self._file_manager.names):
+            manager, key = self.resolve_geometry_settings(filename, index)
+            manual_center_count += manager.get_center(key) is not None
+            manual_rotation_count += manager.get_rotation(key) is not None
+        auto_center_count = total_files - manual_center_count
+        auto_rotation_count = total_files - manual_rotation_count
 
         self._center_widget.update_mode_display(auto_center_count, total_files)
         self._rotation_widget.update_mode_display(auto_rotation_count, total_files)
@@ -1176,11 +1171,7 @@ class ProcessingWorkspace(QWidget):
         if total_files is None:
             self._update_mode_statistics_internal()
         else:
-            auto_center_count = total_files - len(self._center_settings)
-            auto_rotation_count = total_files - len(self._rotation_settings)
-
-            self._center_widget.update_mode_display(auto_center_count, total_files)
-            self._rotation_widget.update_mode_display(auto_rotation_count, total_files)
+            self._update_mode_statistics_internal()
 
     def set_orientation_model(self, orientation_model: int):
         """
@@ -1203,8 +1194,9 @@ class ProcessingWorkspace(QWidget):
             self._current_image_data.update_manual_rotation(None)
 
             # Remove from settings
-            self.settings_manager.clear_rotation(self._current_filename)
-            self.settings_manager.save_rotation()
+            manager, key = self.resolve_geometry_settings(self._current_filename)
+            manager.clear_rotation(key)
+            manager.save_rotation()
             self._after_rotation_save()
 
             # Update UI
@@ -1355,13 +1347,17 @@ class ProcessingWorkspace(QWidget):
             print(f"Warning: Unknown scope '{scope}'")
             return
 
+        indices = list(indices)
+        changed_managers = set()
         # Apply manual center to selected images
         for idx in indices:
             filename = file_list[idx]
-            self.settings_manager.set_center(filename, center, "propagated")
+            manager, key = self.resolve_geometry_settings(filename, idx)
+            manager.set_center(key, center, "propagated")
+            changed_managers.add(manager)
 
-        # Save settings
-        self.settings_manager.save_center()
+        for manager in changed_managers:
+            manager.save_center()
         self._after_center_save()
 
         # Update statistics display
@@ -1403,9 +1399,13 @@ class ProcessingWorkspace(QWidget):
             print(f"Warning: Unknown scope '{scope}'")
             return
 
+        indices = list(indices)
+        changed_managers = set()
         # Remove manual settings for selected images
         for idx in indices:
-            self.settings_manager.clear_center(file_list[idx])
+            manager, key = self.resolve_geometry_settings(file_list[idx], idx)
+            manager.clear_center(key)
+            changed_managers.add(manager)
 
         # If current image is in scope, update ImageData and UI
         if current_idx in indices:
@@ -1416,7 +1416,8 @@ class ProcessingWorkspace(QWidget):
             self.needsReprocess.emit()
 
         # Save settings
-        self.settings_manager.save_center()
+        for manager in changed_managers:
+            manager.save_center()
         self._after_center_save()
 
         # Update statistics display
@@ -1450,12 +1451,16 @@ class ProcessingWorkspace(QWidget):
             print(f"Warning: Unknown scope '{scope}'")
             return
 
+        indices = list(indices)
+        changed_managers = set()
         # Apply manual rotation to selected images
         for idx in indices:
-            self.settings_manager.set_rotation(file_list[idx], rotation, "propagated")
+            manager, key = self.resolve_geometry_settings(file_list[idx], idx)
+            manager.set_rotation(key, rotation, "propagated")
+            changed_managers.add(manager)
 
-        # Save settings
-        self.settings_manager.save_rotation()
+        for manager in changed_managers:
+            manager.save_rotation()
         self._after_rotation_save()
 
         # Update statistics display
@@ -1497,9 +1502,13 @@ class ProcessingWorkspace(QWidget):
             print(f"Warning: Unknown scope '{scope}'")
             return
 
+        indices = list(indices)
+        changed_managers = set()
         # Remove manual settings for selected images
         for idx in indices:
-            self.settings_manager.clear_rotation(file_list[idx])
+            manager, key = self.resolve_geometry_settings(file_list[idx], idx)
+            manager.clear_rotation(key)
+            changed_managers.add(manager)
 
         # If current image is in scope, update ImageData and UI
         if current_idx in indices:
@@ -1510,7 +1519,8 @@ class ProcessingWorkspace(QWidget):
             self.needsReprocess.emit()
 
         # Save settings
-        self.settings_manager.save_rotation()
+        for manager in changed_managers:
+            manager.save_rotation()
         self._after_rotation_save()
 
         # Update statistics display
@@ -1560,14 +1570,15 @@ class ProcessingWorkspace(QWidget):
         # Update center widget
         # NOTE: update_current_center removed - GUI will update with transformed coords after processImage()
         # Only update mode indicator here
-        if self._current_filename in self._center_settings:
+        manager, key = self.resolve_geometry_settings(self._current_filename)
+        if manager.get_center(key) is not None:
             self._center_widget.update_mode_indicator(is_manual=True)
         else:
             self._center_widget.update_mode_indicator(is_manual=False)
 
         # Update rotation widget
-        if self._current_filename in self._rotation_settings:
-            rotation = self._rotation_settings[self._current_filename]["rotation"]
+        rotation = manager.get_rotation(key)
+        if rotation is not None:
             self._rotation_widget.update_rotation_display(rotation)
             self._rotation_widget.update_mode_indicator(is_manual=True)
         else:
@@ -1978,9 +1989,10 @@ class ProcessingWorkspace(QWidget):
         from PySide6.QtCore import QTimer, Qt
 
         # Check center status
-        has_manual_center = filename in self._center_settings
+        manager, key = self.resolve_geometry_settings(filename)
+        center_data = manager.get_center_data(key)
+        has_manual_center = center_data is not None
         if has_manual_center:
-            center_data = self._center_settings[filename]
             center = center_data.get("center", None)
             center_source = center_data.get("source", "unknown")
             if center:
@@ -1991,9 +2003,9 @@ class ProcessingWorkspace(QWidget):
             center_text = "No manual center set, will use auto-detected center"
 
         # Check rotation status
-        has_manual_rotation = filename in self._rotation_settings
+        rotation_data = manager.get_rotation_data(key)
+        has_manual_rotation = rotation_data is not None
         if has_manual_rotation:
-            rotation_data = self._rotation_settings[filename]
             rotation = rotation_data.get("rotation", None)
             rotation_source = rotation_data.get("source", "unknown")
             if rotation is not None:
