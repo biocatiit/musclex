@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import logging
-import os
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -37,57 +36,8 @@ from PySide6.QtWidgets import (
 from musclex.ui.add_intensities_row_mapper import SourceFolderRowMapper
 from musclex.ui.widgets.image_alignment_table import ColKey
 from musclex.ui.widgets.image_alignment_widget import ImageAlignmentWidget
-from musclex.utils.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
-
-
-def _reload_cached_settings_managers(settings_manager_cache):
-    """Reload source-folder settings that may have changed elsewhere.
-
-    The QF workspace and alignment dialog can own different ``SettingsManager``
-    instances for the same source folder.  Refinement and propagation save via
-    the workspace instance, so the dialog must refresh its cached instances
-    before displaying or snapshotting manual geometry for detection.
-    """
-    for manager in settings_manager_cache.values():
-        manager.load()
-
-
-def _persist_pending_batch_geometry(workspace, row_mapper, settings_resolver):
-    """Persist pending Apply-to-All geometry in every loaded source folder.
-
-    Multi-folder QF processing intentionally keeps Apply Center/Rotation -> All
-    as a lazy, workspace-level override.  Batch processing materializes that
-    override as each image is submitted, but alignment detection reads each
-    source folder directly.  Flush the pending values here so both workflows
-    observe the same manual geometry.
-
-    Settings managers are saved once per source folder, even when that folder
-    contains many images.
-    """
-    batch_center, batch_rotation = workspace.get_batch_all_geometry()
-    if batch_center is None and batch_rotation is None:
-        return
-
-    center_managers = set()
-    rotation_managers = set()
-    for row in range(row_mapper.row_count()):
-        name = row_mapper.name_for_row(row)
-        if name is None:
-            continue
-        manager, key = settings_resolver(row, name)
-        if batch_center is not None:
-            manager.set_center(key, batch_center, "propagated_batch_folder")
-            center_managers.add(manager)
-        if batch_rotation is not None:
-            manager.set_rotation(key, batch_rotation, "propagated_batch_folder")
-            rotation_managers.add(manager)
-
-    for manager in center_managers:
-        manager.save_center()
-    for manager in rotation_managers:
-        manager.save_rotation()
 
 
 class QFAlignmentDialog(QDialog):
@@ -117,7 +67,6 @@ class QFAlignmentDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowMinMaxButtonsHint)
 
         self.workspace = workspace
-        self._settings_manager_cache = {}
         self._loaded_batch_sources = None
         self._load_selected_batch_sources_if_needed()
         # row == file_manager index (QF does not group images)
@@ -157,11 +106,11 @@ class QFAlignmentDialog(QDialog):
         headers = [
             "Folder",
             "Frame",
-            "Current Applied\nCenter",
+            "Current\nCenter",
             "Center\nMode",
             "Dist\nfrom Base",
             "Auto\nCenter",
-            "Auto-to-Applied\nDifference",
+            "Auto-to-Current\nDifference",
             "Rotation",
             "Rotation\nMode",
             "Rot Diff\nfrom Base",
@@ -185,7 +134,7 @@ class QFAlignmentDialog(QDialog):
             enable_symmetry_test=True,
             detection_button_position="bottom_after_thresholds",
             settings_resolver=self._settings_for_alignment_row,
-            detection_preflight=self._prepare_source_geometry_for_detection,
+            detection_snapshot_mode=True,
             parent=self,
         )
         # Use the default context menu (Set Center/Rotation, Set Global Base, Ignore).
@@ -268,8 +217,6 @@ class QFAlignmentDialog(QDialog):
             logger.info("QFAlignmentDialog: file_manager is empty, skipping table init")
             return
 
-        self._prepare_source_geometry_for_detection(refresh_table=False)
-
         worker_dir = str(fm.dir_path) if fm.dir_path else ""
         self.panel.set_worker_dir_path(worker_dir)
         self.panel.set_img_sizes(getattr(fm, "image_sizes", {}) or {})
@@ -282,27 +229,11 @@ class QFAlignmentDialog(QDialog):
 
         # Sync global base and populate rows.
         self.panel.on_global_base_changed()
+        self.panel.capture_geometry_snapshot()
         self.panel.init_table()
 
         # Highlight the row corresponding to the QF main window's current image.
         self._sync_selection_from_navigator()
-
-    def _prepare_source_geometry_for_detection(self, refresh_table=True):
-        """Make lazy batch-wide geometry visible to source-folder detection."""
-        _reload_cached_settings_managers(self._settings_manager_cache)
-        _persist_pending_batch_geometry(
-            self.workspace,
-            self._row_mapper,
-            self._settings_for_alignment_row,
-        )
-        if refresh_table and hasattr(self, "panel"):
-            self.panel.refresh_all_rows()
-
-    def refresh_after_refinement(self, rerun_symmetry=True):
-        """Refresh table data after QF refines center/rotation in the main window."""
-        self._initialize_panel()
-        if rerun_symmetry:
-            self.panel.run_detection_with_symmetry()
 
     def _on_row_selected(self, row: int):
         """
@@ -343,11 +274,6 @@ class QFAlignmentDialog(QDialog):
             return
         self.panel.select_row(row)
 
-        # The QF main window may have just changed center/rotation; refresh that row.
-        name = self._row_mapper.name_for_row(row)
-        if name is not None:
-            self.panel.update_row(row, name)
-
     def _on_folder_reloaded(self, *_args):
         """
         @description Rebuild the table when QF loads a new folder while this dialog is open.
@@ -376,39 +302,13 @@ class QFAlignmentDialog(QDialog):
         try:
             fm.load_from_sources(folders)
             self._loaded_batch_sources = source_key
-            self._settings_manager_cache.clear()
         except Exception as exc:
             logger.warning("Failed to load QF batch folders for alignment: %s", exc)
 
     def _settings_for_alignment_row(self, row, name):
-        """Return the source folder SettingsManager and basename key for a row."""
-        fm = self.workspace.navigator.file_manager
-        if fm is None:
-            return self.workspace.settings_manager, name
-
+        """Return the same authoritative geometry target used by QF editing."""
         fm_idx = self._row_mapper.fm_index_for_row(row)
-        if fm_idx is None or fm_idx >= len(fm.specs):
-            return self.workspace.settings_manager, name
-
-        spec = fm.specs[fm_idx]
-        source_dir = None
-        key = os.path.basename(str(name))
-
-        if isinstance(spec, tuple) and len(spec) >= 3 and spec[0] == "h5":
-            source_dir = os.path.dirname(str(spec[1]))
-        elif isinstance(spec, tuple) and len(spec) >= 2:
-            source_path = str(spec[1])
-            source_dir = os.path.dirname(source_path)
-            key = os.path.basename(source_path)
-
-        if not source_dir:
-            return self.workspace.settings_manager, name
-
-        manager = self._settings_manager_cache.get(source_dir)
-        if manager is None:
-            manager = SettingsManager(source_dir)
-            self._settings_manager_cache[source_dir] = manager
-        return manager, key
+        return self.workspace.resolve_geometry_settings(name, fm_idx)
 
     def _on_request_set_center_rotation(self, row: int):
         """
@@ -427,8 +327,8 @@ class QFAlignmentDialog(QDialog):
             "Set Center && Rotation",
             "Please use the tools in the QF main window "
             "(Set Center, Set Rotation, or Center+Rotation) to adjust the "
-            "selected image. Changes will be reflected in this table "
-            "automatically.",
+            "selected image. Changes are saved immediately and will be "
+            "reflected in this table the next time Start Detection is clicked.",
         )
         # Proactively notify QF in case settings were already altered.
         self.alignmentChanged.emit()

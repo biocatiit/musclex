@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import sys
+import os
 import json
 import traceback
 import csv
@@ -524,6 +525,10 @@ class QuadrantFoldingGUI(BaseGUI):
             coord_transform_func=self.getOrigCoordsCenter,
             get_display_center_func=self._get_display_center,
         )
+        self._geometry_settings_manager_cache = {}
+        self.workspace.set_geometry_settings_resolver(
+            self._resolve_qf_geometry_settings
+        )
         self.imageTabLayout.addWidget(self.workspace, 1)
 
         # Expose navigator as standard attribute for BaseGUI
@@ -669,6 +674,33 @@ class QuadrantFoldingGUI(BaseGUI):
     # ------------------------------------------------------------------
     # Alignment / image-difference detection dialog (Tools -> Detect Image Alignment...)
     # ------------------------------------------------------------------
+
+    def _resolve_qf_geometry_settings(self, index, filename):
+        """Resolve QF geometry to the output manager or selected source folder."""
+        if not getattr(self, "selected_batch_folders", None):
+            return self.workspace.settings_manager, filename
+
+        fm = self.file_manager
+        if fm is None or index is None or index < 0 or index >= len(fm.specs):
+            return self.workspace.settings_manager, filename
+
+        spec = fm.specs[index]
+        if not isinstance(spec, tuple) or len(spec) < 2:
+            return self.workspace.settings_manager, filename
+
+        source_path = str(spec[1])
+        source_dir = os.path.dirname(source_path)
+        key = os.path.basename(source_path)
+        if len(spec) >= 3 and spec[0] == "h5":
+            key = os.path.basename(str(filename))
+        if not source_dir:
+            return self.workspace.settings_manager, filename
+
+        manager = self._geometry_settings_manager_cache.get(source_dir)
+        if manager is None:
+            manager = SettingsManager(source_dir)
+            self._geometry_settings_manager_cache[source_dir] = manager
+        return manager, key
 
     def _open_alignment_dialog(self):
         """
@@ -5269,53 +5301,13 @@ class QuadrantFoldingGUI(BaseGUI):
         manual_center, manual_rotation = (None, None)
         if self.workspace is not None:
             try:
-                manual_center, manual_rotation = self.workspace.get_manual_settings(
-                    filename
+                geometry_manager, geometry_key = (
+                    self.workspace.resolve_geometry_settings(filename, job_index)
                 )
+                manual_center = geometry_manager.get_center(geometry_key)
+                manual_rotation = geometry_manager.get_rotation(geometry_key)
             except Exception:
                 manual_center, manual_rotation = (None, None)
-
-        if self.selected_batch_folders and self.workspace is not None:
-            folder_settings = None
-            try:
-                folder_settings = SettingsManager(source_dir)
-                source_center = folder_settings.get_center(save_name)
-                source_rotation = folder_settings.get_rotation(save_name)
-                if source_center is not None:
-                    manual_center = source_center
-                if source_rotation is not None:
-                    manual_rotation = source_rotation
-            except Exception as e:
-                print(f"Warning: failed to read batch geometry for {save_name}: {e}")
-
-            try:
-                batch_center, batch_rotation = self.workspace.get_batch_all_geometry()
-            except Exception:
-                batch_center, batch_rotation = (None, None)
-
-            if batch_center is not None:
-                manual_center = batch_center
-            if batch_rotation is not None:
-                manual_rotation = batch_rotation
-
-            if batch_center is not None or batch_rotation is not None:
-                try:
-                    if folder_settings is None:
-                        folder_settings = SettingsManager(source_dir)
-                    if batch_center is not None:
-                        folder_settings.set_center(
-                            save_name, batch_center, "propagated_batch_folder"
-                        )
-                        folder_settings.save_center()
-                    if batch_rotation is not None:
-                        folder_settings.set_rotation(
-                            save_name, batch_rotation, "propagated_batch_folder"
-                        )
-                        folder_settings.save_rotation()
-                except Exception as e:
-                    print(
-                        f"Warning: failed to save batch geometry for {save_name}: {e}"
-                    )
 
         blank_mask_config = {
             "apply_blank": False,
@@ -7482,6 +7474,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.selected_batch_folders = []
+        self._geometry_settings_manager_cache.clear()
         self.navControls.reset_process_folder_text()
         self.navControls.reset_batch_folder_button_text()
 
@@ -7727,6 +7720,7 @@ class QuadrantFoldingGUI(BaseGUI):
         ]
 
         skipped = len(selected_folders) - len(valid)
+        self._geometry_settings_manager_cache.clear()
         self.selected_batch_folders = valid
 
         count = len(self.selected_batch_folders)
