@@ -27,14 +27,14 @@ Several configuration settings and image-processing algorithms are shared across
 (calibration-settings)=
 ## Calibration Settings
 
-A calibration image is a shot of a membrane sample that gives a ring in the diffraction pattern at a known spacing in inverse nm. By fitting this ring to a circle, MuscleX can refine the diffraction center and use the fitted radius to convert spacings from pixels to nm.
+A calibration image is a diffraction pattern from a calibrant with a ring at a known d-spacing. By fitting this ring to a circle, MuscleX can refine the diffraction center and use the fitted radius to convert distances in pixels to reciprocal-space values. The same dialog also accepts calibration geometry directly and can reuse a previously saved `calibration.info` file.
 
 (calibration-implementation)=
 ### Implementation Details
 
 The calibration circle is fitted numerically to a set of user-selected or automatically detected points on the calibrant ring. The fitting minimises the residuals between the selected points and a geometric circle model. When advanced optimisation is enabled, a **Differential Evolution** global search is used to escape local minima, followed by **MAD-based outlier rejection** (Median Absolute Deviation statistics) to discard poorly placed points, and a **multi-start** refinement to select the best result from several initial guesses.
 
-The fitted circle radius, together with the known d-spacing of the calibrant ring and the wavelength λ, determines the sample-to-detector distance (SDD). From SDD, λ, and the pixel size, MuscleX computes d<sub>10</sub> using Bragg's law:
+The fitted radius and **Calibrant ring d-spacing** determine the calibration scale. When wavelength λ and pixel size are available, MuscleX can infer the sample-to-detector distance (SDD). Parameter-based calibration uses λ, SDD, and pixel size directly. The dialog displays the computed scale and inferred SDD beneath the parameter fields. From this geometry, MuscleX computes d<sub>10</sub> using Bragg's law:
 
 ```{figure} ../images/d10.png
 :name: fig-d10
@@ -47,7 +47,7 @@ d<sub>10</sub> formula relating wavelength, sample-to-detector distance, S<sub>1
 
 #### Set by Calibration Image
 
-1. **Select a calibration image** using the calibration panel in the processing workspace.
+1. Open **Set Center by Calibration**, check **Enable Setting by Calibration Image**, and use **Browse** to select a calibration image.
 2. **Inspect the fitted circle** — the center and radius are overlaid on the image if the ring is found automatically (see {numref}`fig-calibration`).
 
 ```{figure} ../images/calibration.png
@@ -56,7 +56,7 @@ d<sub>10</sub> formula relating wavelength, sample-to-detector distance, S<sub>1
 Calibration dialog showing the automatically fitted circle overlaid on a calibrant ring image.
 ```
 
-3. **If the fit is wrong or missing**, click **Set manual calibration by point selections** to open the Manual Calibration Dialog (see {numref}`fig-manual-cali`).
+3. **If the fit is wrong or missing**, click **Set calibration by point selections** to open the Manual Calibration Dialog (see {numref}`fig-manual-cali`).
 
 ```{figure} ../images/manual_cali.png
 :name: fig-manual-cali
@@ -66,6 +66,16 @@ Manual Calibration Dialog showing the main image (left) and zoom view (right) fo
 
 4. **Select points on the ring** using the two-step process: click once on the main image for the approximate location, then click in the zoom view for the precise location. Select at least 5 points, ideally 8–12 spread evenly around the ring.
 5. **Enter the calibrant ring d-spacing** and click **Done**, then **OK**. The image is reprocessed with the new calibration.
+
+When an image is loaded, MuscleX first checks FabIO detector/header metadata and then compares the image shape with detectors in the pyFAI registry. If a detector is identified, its pixel size is filled automatically. Header pixel-size fields are used as a fallback. The detected source is saved with the calibration so it can be reviewed when the calibration is reused.
+
+#### Load a Saved Calibration
+
+1. Click **Load Calibration File** and select a saved `calibration.info` file.
+2. MuscleX restores its image- or parameter-based calibration values, detector metadata, pixel-size source, and calibrated center.
+3. Review the restored values and click **OK**. If the original calibration image is missing, the saved numeric values are still loaded and a warning is shown.
+
+Use this workflow to apply an established calibration without repeating the ring selection. The imported calibration remains separate from a reusable application settings JSON file.
 
 ```{eval_rst}
 .. note::
@@ -83,18 +93,22 @@ Manual Calibration Dialog showing the main image (left) and zoom view (right) fo
 
 #### Set by Parameters
 
-1. **Enter the calibration parameters manually**: wavelength λ, sample-to-detector distance SDD, and pixel size. These are used directly to calculate d<sub>10</sub> (see {numref}`fig-d10`), bypassing automatic ring fitting.
+1. Check **Enable Setting by Parameters**.
+2. Enter either **Lambda** (nm) or **Beam Energy** (keV). The two values remain synchronized using the standard energy–wavelength conversion.
+3. Enter **Sdd** (mm) and **Pixel Size** (mm), or use an automatically detected detector pixel size. These values are used directly to calculate the reciprocal-space scale (see {numref}`fig-d10`), bypassing ring fitting.
+4. Review the computed scale and SDD readouts, then click **OK**.
 
-#### Fixed Center
+Pixel size now begins as **Unknown** instead of assuming a detector value. If it cannot be identified from the detector or image header, MuscleX asks for it when you accept a parameter calibration. Cancelling that prompt leaves the Calibration Settings dialog open without saving incomplete geometry.
 
-1. **Check the Fixed Center option** to pin the beam center to a user-supplied coordinate, independently of the calibration image.
-2. **Enter the x and y coordinates** of the beam center. The image reprocesses when these values change.
-3. **Leave the box checked** to carry the fixed center forward when navigating to the next image or processing the folder.
+#### Calibrated Center
+
+The **Calibrated Center (Original Coords)** fields show the center that will be returned to the calling application. They are populated by the fitted calibration circle or by a loaded calibration. For parameter calibration, review or edit the original-image X and Y coordinates before accepting. If the input is already quadrant-folded, the center is fixed at the geometric center and these fields are read-only.
 
 #### Manually Select Detector
 
-1. **Choose a detector** from the drop-down list to improve MuscleX results for your specific hardware. The list is provided by pyFAI's detector registry.
-2. **Leave unset** to let MuscleX select the detector automatically from the image dimensions. If the selected detector does not match the image, the program falls back to the default.
+1. Normally, leave **Manually Select Detector** unchecked so MuscleX can use FabIO metadata and pyFAI shape matching.
+2. Check it to override automatic detection, then choose a detector from the sorted pyFAI registry. The list also includes `MAR_165_2x2` for 2×2-binned MAR 165 images.
+3. Editing Pixel Size manually clears the manual detector association so the saved calibration does not claim detector-derived geometry that no longer matches the entered value.
 
 ---
 
@@ -201,11 +215,16 @@ Set Center By Perpendiculars. Pairs of opposite peaks define horizontal and vert
 Set Rotation Angle tool. The interactive line is dragged to align with the equatorial axis.
 ```
 
-#### Fix Center
+#### Refine Center and Rotation
 
-1. **Check the Fix Center checkbox**.
-2. **Enter the x and y coordinates** of the beam center (before rotation). The image reprocesses immediately.
-3. **Leave the box checked** to apply the fixed center to subsequent images in the folder.
+Use refinement after an automatic or manually estimated center and rotation are already close:
+
+1. Click **Refine Center**. The refinement runs registration, gradient, and local-search stages and may take a few minutes.
+2. In the confirmation dialog, enable **Also refine rotation** if both refined values should be saved. Otherwise, only the refined center is applied.
+3. Click **Refine Rotation** to search for a better angle while keeping the current center fixed.
+4. Review the old and new values in the result message. Accepted results are stored as manual center/rotation settings and the current image is reprocessed.
+
+Refinement quality depends on a useful starting estimate and a pattern with sufficient symmetry. It is intended to improve an existing solution, not replace initial center and orientation detection.
 
 #### Double Zoom
 
@@ -234,14 +253,16 @@ Double Zoom panel (top right). The 20×20 pixel region around the cursor is show
 .. note:: **New in version 1.27.0**: Granular restore controls for center and rotation independently.
 ```
 
-1. **Click Restore Auto Center** to return to automatic center detection. Choose whether to apply to the **current image only** or **all subsequent images**.
-2. **Click Restore Auto Rotation** to return to automatic rotation detection.
-3. **Click Apply Current Settings** to propagate a manually set center or rotation to all subsequent images in the folder.
+1. **Click Restore Auto Center** to remove manual center values. Choose the current image, subsequent images, previous images, or all images.
+2. **Click Restore Auto Rotation** to remove manual rotation values using the same scope choices.
+3. Use **Apply Center** or **Apply Rotation** to copy the current value to subsequent, previous, or all images. In QF, selecting multiple batch folders extends the **all images** scope across that selected batch.
 
 #### Center and Rotation Management
 
 - **Configuration Fingerprinting**: When center or rotation settings change, the result cache is automatically invalidated to keep results consistent.
 - **Manual Settings Preservation**: Manual center and rotation values are preserved during cache operations.
+- **Per-folder Persistence**: Manual geometry is written immediately to the authoritative settings area for each source folder, including previous/subsequent/all propagation across a selected QF batch.
+- **Alignment Snapshots**: QF alignment detection captures the saved geometry once at the start of a detection pass. Edits made while the dialog remains open appear in the table the next time detection starts, keeping each pass internally consistent.
 
 ---
 

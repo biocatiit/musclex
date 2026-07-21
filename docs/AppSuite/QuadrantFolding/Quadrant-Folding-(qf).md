@@ -1,18 +1,21 @@
 # Introduction
 
-The equator and the meridian of a fiber diffraction pattern divides a pattern into four quadrants. Because of Friedel’s Law each of the 4 quadrants will contain the same information.  If you add the four quadrants together you effectively have 4 times the signal improving the signal to noise by factor of 2 (square root of 4).  You can regenerate a full diffraction pattern by simply rotating the summed quadrant. 
+The equator and meridian divide a fiber diffraction pattern into four quadrants. Under Friedel symmetry, each quadrant contains equivalent information. Mapping the four quadrants into one orientation and averaging them improves the signal-to-noise ratio; the averaged quadrant can then be mirrored to regenerate a full diffraction pattern.
 
-It usually better to analyze this “quadrant folded” image than the original image because of the improved signal to noise will make the data easier to fit as well as allow better estimates of the backgrounds. Quadrant Folding is a program for generating such a quadrant-folded image. Other advantages of quadrant folding is that it can compensate for detector imperfections by substituting data from the unaffected quadrants for the affected area.  This is particularly useful for data collected using pixel array detectors which have substantial gaps between the detector elements. 
+Quadrant Folding (QF) aligns each pattern around its center and rotation angle before averaging. The resulting image is generally easier to fit and gives more stable background estimates. Folding can also reduce the effect of detector gaps or local defects because valid pixels from unaffected quadrants contribute where another quadrant is masked. This is particularly useful for segmented detectors such as PILATUS.
 
-The program also can estimate and remove the diffuse background scattering from an image using a number of different algorithms, alone or in combination. It includes all the background subtraction routines from the CCP13 suite (https://github.com/scattering-central/CCP13) plus one based on a two dimensional convex hull and another on white top hat filtering. It is possible to merge different background estimates to apply one algorithm at low scattering angles and a different one at high scattering angles. The GUI allows to perform parametric fitting of the equatorial and general background. It can also search automatically for the arguments of non-parametric background subtraction methods using a quantitative loss metric, save named configurations, and apply the best configuration per image when processing a folder. See [Background Subtraction](Quadrant-Folding--Background-Subtraction.md).
+QF supports interactive processing of one folder and ordered processing of selected folders. Its alignment dialog compares applied and automatically detected geometry, image differences, and fold-symmetry scores across all loaded images. Center and rotation can be set manually, derived from calibration, propagated across the batch, or refined from an existing estimate. Saved `calibration.info` files can be imported to reuse detector geometry and reciprocal-space calibration.
 
-Once set up, the program can process an entire directory of images without user intervention.
+Optional solid-angle and polarization corrections can be applied before quadrant averaging when calibration provides sample-to-detector distance and pixel size. QF can then leave the folded average unchanged or estimate and remove diffuse background using one method, a radial transition between two methods, or automated parameter selection. It includes methods from the [CCP13 suite](https://github.com/scattering-central/CCP13), two-dimensional convex hull, and white top-hat filtering. Named background configurations can be reused or selected per image during batch processing.
 
 ![-](../../images/QF/image_tab.png)
 
-### More Details
-* [How it works](Quadrant-Folding--How-it-works.md)
-* [How to use](Quadrant-Folding--How-to-use.md)
+## More Details
+
+- [How to use](Quadrant-Folding--How-to-use.md)
+- [How it works](Quadrant-Folding--How-it-works.md)
+- [Background Subtraction](Quadrant-Folding--Background-Subtraction.md)
+- [Common Settings](../Common-Settings.md) — calibration, center/rotation tools, refinement, empty-cell subtraction, and masking
 * [Background Subtraction](Quadrant-Folding--Background-Subtraction.md)
 * [Optimization Settings (Advanced Configuration)](Quadrant-Folding--Optimization-Settings.md)
 * [Background Fitting (Parametric, Iterative 2D)](Quadrant-Folding--Background-Fitting.md)

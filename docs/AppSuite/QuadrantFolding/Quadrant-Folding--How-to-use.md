@@ -1,21 +1,21 @@
 # How to use
 
-This page walks through the recommended workflow for processing a folder of images with Quadrant Folding (QF), then describes the secondary features and the headless mode.
+This page walks through the recommended workflow for processing one folder or a selected batch of folders with Quadrant Folding (QF), then describes secondary features and headless mode.
 
 ## Workflow at a glance
 
-1. [Open an image (or folder)](#step-1-open-an-image-or-folder)
+1. [Open an image or choose batch folders](#step-1-open-an-image-or-choose-batch-folders)
 2. [Choose an output directory](#step-2-choose-an-output-directory)
 3. [Set center and rotation on a reference image](#step-3-set-center-and-rotation-on-a-reference-image)
-4. [Detect alignment across the folder](#step-4-detect-alignment-across-the-folder)
+4. [Detect alignment across the loaded images](#step-4-detect-alignment-across-the-loaded-images)
 5. [Fix individual misaligned images](#step-5-fix-individual-misaligned-images)
 6. [Inspect the result and switch display modes](#step-6-inspect-the-result-and-switch-display-modes)
 7. [Configure background subtraction (optional)](#step-7-configure-background-subtraction-optional)
-8. [Process the whole folder and collect output files](#step-8-process-the-whole-folder-and-collect-output-files)
+8. [Process the folder or batch and collect output files](#step-8-process-the-folder-or-batch-and-collect-output-files)
 
 ---
 
-## Step 1 — Open an image or folder
+## Step 1 — Open an image or choose batch folders
 
 Use **File > Select an Image...** (`Ctrl+I`) and pick any TIF/CBF/HDF5 file. QF loads the file, discovers all sibling images in that directory, and immediately processes the selected image with the default settings.
 
@@ -25,14 +25,25 @@ Once a folder is loaded, use the navigation arrows on the bottom strip to move t
 - **<<<** / **>>>** — previous / next HDF5 file (only for HDF5 input)
 - **Process Current Folder** — reprocess every image in the folder with the current settings
 - **Process Current H5 File** / **Process All H5 Files** — same for HDF5 frames
+- **Choose Batch Folders** — select and order multiple source folders for navigation, alignment review, and batch processing
 
 Already-processed images are reloaded from the cache rather than reprocessed, so navigation is fast. To force reprocessing, click **Process Current Folder** or delete the `qf_cache` folder under the output directory.
+
+### Select multiple folders
+
+1. Click **Choose Batch Folders** in the navigation area.
+2. Use **Choose Root Folder** if the folder tree should start somewhere else, then check each folder to include. Folders without supported images are skipped when the dialog is accepted.
+3. Review **Selected order** and use the up/down buttons to set the processing order.
+4. Click **OK**. The button reports the selected folder count, the navigator immediately loads their images, and **Process Current Folder** changes to **Process Batch Folder(s)**.
+
+The alignment table includes all images from the selection and identifies their source in its **Folder** column. Choosing no folders restores the original single-folder image list and controls.
 
 ## Step 2 — Choose an output directory
 
 By default QF writes `qf_results/`, `qf_cache/`, and CSV files into the **same folder as the input images**. If the input directory is read-only, or you want to keep input and output separate, use **File > Change Output Directory...** before processing.
 
 The output directory applies to:
+
 - `qf_results/<name>_folded.tif` — the folded image
 - `qf_results/bg/<name>.bg.tif` — the estimated background (when subtraction is on)
 - `summary.csv`, `summary2.csv`, `failedcases.txt` — batch summaries
@@ -40,19 +51,21 @@ The output directory applies to:
 
 ## Step 3 — Set center and rotation on a reference image
 
-Pick a clean, well-aligned frame as your reference. The right-hand panel **Set Center** and **Set Rotation Angle** groups contain everything needed.
+Pick a clean, well-aligned frame as your reference. The right-hand **Set Center** and **Set Rotation Angle** panels contain everything needed.
 
 ### Center tools
 
 | Button | When to use |
 |---|---|
-| **Quick Center and Rotation Angle** | Auto-detect both center and rotation from the diffraction pattern. Good first attempt. |
-| **Set Center by Chords** | Click 3 points on a strong ring; the center is fitted from the perpendicular bisectors of the chords. |
+| **Quick Center and Rotation Angle** | Click opposite reflection peaks; their midpoint sets the center and their connecting line sets the rotation. |
+| **Set Center by Chords** | Select points along a strong ring; the center is fitted from the perpendicular bisectors of the resulting chords. |
 | **Set Center by Perpendiculars** | Draw two perpendicular lines through pairs of symmetric reflections. |
-| **Set Center by Calibration** | Use a calibrant ring to derive both center and pixel-to-nm scale. |
+| **Set Center by Calibration** | Use a calibrant ring or saved `calibration.info` to derive the center and reciprocal-space scale. |
 | **Set Center Manually** | Click a single pixel to use as the center. Fast but least accurate. |
 | **Refine Center** | Refine the current center automatically by maximizing fold symmetry. See [Refine center and rotation](#refine-center-and-rotation). |
 | **Apply Center** | Copy the current center to a chosen scope (all subsequent / all previous / all images). |
+| **Refine Center** | Improve the current estimate with registration, gradient, and local-search refinement; optionally save its refined rotation too. |
+| **Apply Center** | Copy the current center to subsequent, previous, or all images. |
 | **Restore Auto Center** | Discard the manual center and revert to auto-detection. |
 
 ### Rotation tools
@@ -64,38 +77,54 @@ Pick a clean, well-aligned frame as your reference. The right-hand panel **Set C
 | **Set Angle Manually** | Type the angle in degrees. |
 | **Refine Rotation** | Refine the current angle automatically with the center fixed. See [Refine center and rotation](#refine-center-and-rotation). |
 | **Apply Rotation** | Copy the current angle to a chosen scope (all subsequent / all previous / all images). |
+| **Refine Rotation** | Refine the current angle while keeping the current center fixed. |
+| **Apply Rotation** | Copy the current angle to a chosen scope. |
 | **Restore Auto Rotation** | Revert to auto-detected angle. |
 
 For full details on all shared tools (Double Zoom, fingerprinting, calibration dialog), see [Common Settings — Diffraction Center and Rotation](../Common-Settings.md#diffraction-center-and-rotation).
 
-Once the reference image looks right, use **Apply Center** and **Apply Rotation** (scope = whole folder) to propagate the values to every image.
+Refinement starts from the current geometry, so first obtain a reasonable automatic, calibrated, or manual estimate. **Refine Center** may take a few minutes; select **Also refine rotation** only when both returned values should replace the current settings. A successful refinement shows the old and new values, stores the accepted result as manual geometry, and reprocesses the image once.
 
-### Refine center and rotation
+Once the reference image looks right, use **Apply Center** and **Apply Rotation** with **Apply to all images** to propagate the values. If batch folders are selected, this scope applies across the selected batch and each source folder receives its own saved manual geometry.
 
-**Refine Center** and **Refine Rotation** improve an existing center and angle automatically rather than setting them from scratch, so run them after a first estimate. Both search for the geometry that makes the four quadrants most symmetric and save the result as a manual value, from which **Apply Center** / **Apply Rotation** can propagate it across the folder.
+### Optional intensity corrections
 
-**Refine Center** opens a dialog that allows to select to refine the rotation together with the angle, which is useful when a calibration image is not available. This procedure takes a few minutes; however, it runs in the background and is expected to be performed once per data (more times, if the beam shifts mid-experiment). **Refine Rotation** refines the angle only, with the center held fixed. This is useful when a calibration image is available, so the center can be accurately determined from that.
+The **Image Processing** panel can apply geometry-dependent intensity corrections before QF transforms and averages the quadrants:
 
-For how the fold-symmetry objective and the three stages work, see [How it works — Refinement](Quadrant-Folding--How-it-works.md#refinement).
+- **Solid Angle** corrects the variation in solid angle across a flat detector.
+- **Polarization** applies the selected **Unpolarized**, **Horizontal**, or **Vertical** incident-beam model.
 
-## Step 4 — Detect alignment across the folder
+Both corrections require a positive sample-to-detector distance and pixel size from Calibration Settings. If this geometry is unavailable, QF leaves the image unchanged and reports that the requested correction was skipped. Changing either correction invalidates dependent cached results and reprocesses with the new setting.
+
+## Step 4 — Detect alignment across the loaded images
 
 After propagating, most images will be correctly aligned, but some may have shifted center or rotation and need individual correction. Open **Tools > Detect Image Alignment...** (`Ctrl+D`) to identify outliers.
 
 ![-](../../images/QF/detect_alignment.png)
+After propagating, most images will be correctly aligned, but some may have shifted center or rotation and need individual correction. Open **Tools > Detect Image Alignment...** (`Ctrl+D`) or click **Detect Image Alignment...** in the right panel.
 
 The dialog shows one row per image with columns for:
 
-- **Original Center** and **Auto Center** (with the distance between them)
-- **Rotation** and **Auto Rotation** (with the difference)
-- **Center Mode** / **Rotation Mode** — whether the values were set manually or auto-detected
-- **Dist from Base** / **Rot Diff from Base** — how far each image is from the chosen *base* image
+- **Folder** and **Frame** — source location and image name
+- **Current Center** and **Center Mode** — center captured from the saved manual/automatic geometry at the start of the current detection snapshot
+- **Dist from Base** — distance between the current center and the center of the selected base image
+- **Auto Center** and **Auto-to-Current Difference** — automatic estimate and its distance from the current center
+- **Rotation** and **Rotation Mode** — applied angle and its source
+- **Rot Diff from Base**, **Auto Rotation**, and **Auto Rot Difference** — axial angle differences, where orientations 180° apart are treated as equivalent
 - **Size** and **Image Difference** — pixel-difference between this image and the base
-- **Fold Std (sum)** and **Fold Std (norm)** — fold-symmetry scores when **Run symmetry test on detection** is enabled (lower = more symmetric)
+- **Fold Std (sum)** and **Fold Std (norm)** — raw and exposure-normalized fold-symmetry scores (lower = more symmetric)
 
-Click **Run Detection** to populate the columns. Sort by any column to surface outliers — for example, sort by **Auto Center Difference** to find images where the auto-detected center disagrees with the manually-applied one, or by **Fold Std (norm)** to find images that fold poorly. The values for **Fold Std (sum)** and **Fold Std (norm)** above the specified threshold (outliers) will be highlighted red.
+**Run symmetry test on detection** is enabled by default. Click **Detect Centers & Rotations** to capture a coherent snapshot of the latest saved geometry, refresh the table, and recompute automatic geometry, image differences, and symmetry results for every loaded image. Capturing one snapshot at the start prevents center or rotation edits made during a long detection pass from mixing old and new geometry in the same result set.
 
-The dialog is **non-modal**: leave it open and switch between it and the main window freely. Changes you make in the main window update the table automatically.
+Checked thresholds highlight rows whose values exceed the selected limit:
+
+- **Center Diff from Base threshold** and **Auto-Rot Diff threshold** use the entered pixel/degree limits.
+- **Image diff threshold**, **Symmetry std threshold**, and **Symmetry norm threshold** default to the 80th percentile after detection.
+- Uncheck an individual threshold to disable only that highlighting rule.
+
+Sort any column to surface outliers. For example, sort **Auto-to-Current Difference** to find automatic centers that disagree with the captured geometry, or **Fold Std (norm)** to compare symmetry across different exposures and image sizes.
+
+The dialog is **non-modal**: leave it open and switch between it and the main window freely. Center and rotation changes made in the main window are saved immediately, but the table deliberately continues to show its current snapshot. Click **Detect Centers & Rotations** again to capture those changes and refresh the comparisons.
 
 ## Step 5 — Fix individual misaligned images
 
@@ -103,7 +132,7 @@ For each outlier in the alignment table:
 
 1. **Click the row** — the main window navigates to that image.
 2. **Adjust center / rotation** using the Step 3 tools on the main window.
-3. The table row updates as soon as you change the values.
+3. Click **Detect Centers & Rotations** again. The table captures the saved correction and recomputes its alignment and symmetry diagnostics.
 
 Right-clicking a row offers:
 
@@ -152,7 +181,7 @@ When a single method does not work well across all radii, use two non-parametric
 - **Transition radius** — where the two backgrounds are blended (typical guideline: just outside the M3 meridional peak).
 - **Transition delta** — width of the linear blend region.
 
-See [How it works — Step 9](Quadrant-Folding--How-it-works.md#9-merge-images-transition-mode-only) for the algorithmic detail.
+See [How it works — Merge images](Quadrant-Folding--How-it-works.md#10-merge-images-transition-mode-only) for the algorithmic detail.
 
 ### Automated (optimized) subtraction
 
@@ -167,9 +196,9 @@ The automated approach uses the **Advanced Configuration** (Background Subtracti
 The parametric method models the diffuse background as an explicit 2D function — an equatorial-streak component plus a general background component — and subtracts it, rather than estimating it numerically. Expand the **Parametric Background Fitting** panel and open the **Iterative 2D Background Fitting Dialog**. Use it when the the background should be removed on the whole pattern or when a smooth analytic background is preferable. It can be **combined** with a non-parametric method: after applying a parametric fit, enable **Subtract fitted before non-parametric** so a non-parametric method runs on top of the fitted residual. See [Background Fitting](Quadrant-Folding--Background-Fitting.md) for the full model and settings reference.
 
 
-## Step 8 — Process the whole folder and collect output files
+## Step 8 — Process the folder or batch and collect output files
 
-When the settings look right on representative images, click **Process Current Folder** (either the navigation button or the one inside the Background Subtraction dialog). QF writes the following under the output directory:
+When the settings look right on representative images, click **Process Current Folder** or, for a multi-folder selection, **Process Batch Folder(s)**. The same processing and background settings are used for the selected images, while manual center/rotation values and CSV managers remain associated with their source/output folders so results from different folders are not combined into one summary accidentally.
 
 ### `qf_results/`
 
@@ -190,7 +219,24 @@ Written when a background-subtraction method other than `None` is active.
 | `background_sum.csv` | `Name`, `Sum` per image. `Sum` equals `bgSum` in `summary.csv`. In batch/headless mode this file is aggregated after all images finish; in interactive mode it is updated incrementally. |
 | `background_metrics.csv` | Per-image raw and normalized evaluation metrics with their weights and running means. Written only when **Save result metrics to csv** is enabled. |
 
-For the meaning of `loss`, `bgSum`, and `symmetry`, see [How it works — Step 11](Quadrant-Folding--How-it-works.md#11-evaluate-result).
+For the meaning of `loss`, `bgSum`, and `symmetry`, see [How it works — Evaluate result](Quadrant-Folding--How-it-works.md#12-evaluate-result).
+
+---
+
+## Methods Reference
+
+These six methods are available in the Background Subtraction dialog. The algorithms are described in detail in [How it works — Search and apply background subtraction](Quadrant-Folding--How-it-works.md#9-search-and-apply-background-subtraction). Here is the parameter cheat-sheet:
+
+| Method | Key parameters |
+|---|---|
+| **Circularly-symmetric** | Pixel range %, radial bin size, smoothing factor |
+| **2D Convexhull** | R-min, angle bin (default 1°) |
+| **Roving Window** | R-min, window size (X/Y), pixel range %, smoothing, tension |
+| **White-top-hats** | Top-hat disk size |
+| **Smoothed-Gaussian** | R-min, number of cycles, Gaussian FWHM |
+| **Smoothed-BoxCar** | R-min, number of cycles, box car size (X/Y) |
+
+In **Transition** mode each method has a separate outer-parameter set (suffix `_out` in the JSON).
 
 ---
 
@@ -202,7 +248,8 @@ Right-click on any quadrant in the Original Image tab and choose **Ignore This Q
 
 ### Save and load settings
 
-- **File > Save Current Settings** (`Ctrl+S`) — write current parameters to `qfsettings.json`. Per-image state (center, rotation, ROI per image) is **not** included.
+- QF automatically stores per-image center and rotation in each folder's manual settings and stores accepted calibration separately in `calibration.info`.
+- **File > Save Current Settings** (`Ctrl+S`) — write reusable processing settings to `qfsettings.json`, including background processing, optional intensity corrections, output compression, and ROI size only when **Persist ROI size** is enabled. Per-image center/rotation, calibration geometry, transient ROI, and runtime batch assignments are deliberately excluded.
 - **File > Load Settings...** (`Ctrl+Shift+S`) — load a settings file and reprocess.
 
 ### Fold Image checkbox
@@ -293,6 +340,12 @@ Adds the optional background block. Each `// ====` zone below is used only when 
     "// ==== BACKGROUND: image prep (only when subtracting) ====": "",
     "downsample": 2,
     "smooth_image": true,
+    "apply_solid_angle_correction": false,
+    "apply_polarization_correction": false,
+    "polarization_correction_mode": "Unpolarized",
+
+    "bg_options": 1,
+    "bgsub": "Circularly-symmetric",
     "fixed_rmin": 100,
     "fixed_rmax": 900,
 
@@ -309,9 +362,8 @@ Adds the optional background block. Each `// ====` zone below is used only when 
 
     "// ==== BACKGROUND: Transition mode outer region (only when bg_options=1) ====": "Keys ending in _out are the outer-radius counterparts.",
     "bgsub_out": "None",
-    "deg2": 1,
-    "smooth2": 1,
-    "tension2": 1,
+    "smooth_out": 1,
+    "tension_out": 1,
     "win_size_x_out": 11, "win_size_y_out": 11,
     "fwhm_out": 20,
     "boxcar_x_out": 20, "boxcar_y_out": 15,
@@ -333,6 +385,7 @@ Adds the optional background block. Each `// ====` zone below is used only when 
 
     "// ==== BACKGROUND: optimizer tuning (only when optimize=true) ====": "",
     "methods": ["Smoothed-Gaussian", "White-top-hats"],
+    "steps": [100, 50, 25, 10, 5, 3, 1],
     "max_iterations": 30,
     "early_stop": 0.005,
 
@@ -348,6 +401,10 @@ Adds the optional background block. Each `// ====` zone below is used only when 
 }
 ```
 
+Intensity corrections also need calibration geometry. In GUI and normal headless use, QF reads `sdd`, `pixel_size`, detector metadata, and beam energy from the folder's `calibration.info`; these calibration-owned values are intentionally not copied into `qfsettings.json`. Older or custom headless integrations may supply equivalent calibration metadata through their calibration cache.
+
 - `bg_options`: `0` = single method, `1` = Transition (uses `bgsub_out` outside `transition_radius`).
 - `optimize`: when true, ignores `bgsub` and runs the automated optimizer over `methods`.
+- `apply_solid_angle_correction` and `apply_polarization_correction`: request corrections before quadrant averaging; both are skipped if SDD in pixels cannot be resolved.
+- `polarization_correction_mode`: `Unpolarized`, `Horizontal`, or `Vertical`.
 - `mask_thres` is no longer user-configurable; invalid pixels are detected at the value −1 set by the empty-cell-and-mask preprocessing stage.
