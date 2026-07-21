@@ -161,7 +161,7 @@ class QFAlignmentDialog(QDialog):
             "Center\nMode",
             "Dist\nfrom Base",
             "Auto\nCenter",
-            "Auto Center\nDifference",
+            "Auto-to-Applied\nDifference",
             "Rotation",
             "Rotation\nMode",
             "Rot Diff\nfrom Base",

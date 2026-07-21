@@ -203,10 +203,11 @@ class ImageAlignmentWidget(QWidget):
         # Distance threshold
         dist_row = QHBoxLayout()
         dist_row.setSpacing(6)
-        self._dist_thresh_chk = QCheckBox("Auto Diff threshold:")
+        self._dist_thresh_chk = QCheckBox("Center Diff from Base threshold:")
         self._dist_thresh_chk.setChecked(True)
         self._dist_thresh_chk.setToolTip(
-            "Highlight images whose center deviates from the base by more than the threshold.\n"
+            "Highlight images whose current applied center deviates from the current "
+            "applied base center by more than the threshold.\n"
             "Uncheck to disable this highlighting."
         )
         dist_row.addWidget(self._dist_thresh_chk)
@@ -517,13 +518,7 @@ class ImageAlignmentWidget(QWidget):
         self.table.fill_auto_center(row, auto_center)
 
         effective_center = self._get_effective_center(name, row)
-        self.table.fill_auto_manual_dist(
-            row,
-            auto_center,
-            effective_center,
-            self._dist_threshold_enabled,
-            self._dist_threshold,
-        )
+        self.table.fill_auto_manual_dist(row, auto_center, effective_center)
 
         manual_r = sm.get_rotation(key)
         if manual_r is not None:
@@ -550,6 +545,8 @@ class ImageAlignmentWidget(QWidget):
             effective_rotation,
             self._get_base_center(row),
             self._get_base_rotation(row),
+            self._dist_threshold_enabled,
+            self._dist_threshold,
         )
 
         self.table.fill_size(row, self._img_sizes.get(name, ""), self._most_common_size)
