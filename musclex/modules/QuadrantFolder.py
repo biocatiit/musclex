@@ -1120,7 +1120,8 @@ class QuadrantFolder:
     def _create_equator_peaks_mask(self, h, w, fullImg):
 
         equator = get_projection(fullImg, gap=2, orientation=0, half=True)  # right half
-        equator = equator[: self.info["rmax"]]
+        rmax = int(self.info.get("rmax", len(equator)) or len(equator))
+        equator = equator[: min(rmax, len(equator))]
 
         # Number of equatorial Bragg peaks to mask and the width of each masked
         # peak are user inputs (BackgroundFittingDialog "Mask Parameters").
