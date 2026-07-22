@@ -12,7 +12,7 @@ Headless (no file I/O, no matplotlib) support code for
 Most of this is ported from the bg-optimization research scripts
 (``evaluate_models.py`` and ``fit_two_stage_iterative.py``); the masks and
 1D projections used elsewhere in the GUI come from musclex itself
-(``QuadrantFolder.createMask`` / ``utils.background_search``).
+(``QuadrantFolder.createMask`` / ``utils.bg_search.background_search``).
 """
 
 from __future__ import annotations
