@@ -1238,6 +1238,8 @@ class QuadrantFolder:
         if m1 <= 0:
             m1 = find_m_peak_auto(fullImg, m=1, rmin=30)
             m1 = 50 if abs(m1 - 50) > 50 else m1
+        if m1 <= 0:
+            m1 = int(getattr(qf_defaults, "DEFAULT_LAYER_SPACING", 50))
         return m1
 
     def autoDetectM1(self):
