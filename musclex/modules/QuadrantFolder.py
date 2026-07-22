@@ -1129,6 +1129,8 @@ class QuadrantFolder:
         # so they are persisted by cacheInfo() and reloaded on the next session.
         n_peaks = int(self.info.get("n_peaks", qf_defaults.DEFAULT_N_PEAKS))
         peak_width = int(self.info.get("peak_width", qf_defaults.DEFAULT_PEAK_WIDTH))
+        n_peaks = int(np.clip(n_peaks, *qf_defaults.N_PEAKS_RANGE))
+        peak_width = int(np.clip(peak_width, *qf_defaults.PEAK_WIDTH_RANGE))
         self.info["n_peaks"] = n_peaks
         self.info["peak_width"] = peak_width
 
