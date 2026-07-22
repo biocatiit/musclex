@@ -22,6 +22,12 @@ from ..utils.bg_search.background_search import get_projection, makeFullImage
 from ..utils import qf_defaults
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 
+# Documentation page for this dialog, opened by the info button in the header.
+DOC_URL = (
+    "https://musclex.readthedocs.io/en/latest/AppSuite/QuadrantFolding/"
+    "Quadrant-Folding--Background-Fitting.html"
+)
+
 # View modes for the visualization dropdown.
 VIEW_MODES = [
     "Original",
@@ -300,6 +306,44 @@ class BackgroundFittingDialog(QDialog):
             "Bragg peak.",
         )
 
+        # Green documentation panel at the top of the dialog, mirroring the one
+        # in the Background Subtraction settings.
+        self.documentationPanel = QFrame()
+        self.documentationPanel.setObjectName("documentationPanel")
+        self.documentationPanel.setStyleSheet(
+            "#documentationPanel { background: #F1F8E9; "
+            "border: 1px solid #C8E6C9; border-radius: 4px; }"
+        )
+        self.documentationLabel = QLabel(
+            "<span style='color:#2e7d32;'>"
+            "For information on how to use these settings and interpret the "
+            "results, please review: "
+            "<a href='{0}'>Background Fitting documentation</a>."
+            "</span>".format(DOC_URL)
+        )
+        self.documentationLabel.setWordWrap(True)
+        self.documentationLabel.setTextFormat(Qt.RichText)
+        self.documentationLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.documentationLabel.setOpenExternalLinks(True)
+
+        # Small blue info icon on the documentation panel that opens the
+        # documentation page for this dialog in the user's browser.
+        self.helpButton = QToolButton()
+        self.helpButton.setText("ⓘ")  # circled Latin small letter i
+        self.helpButton.setCursor(Qt.PointingHandCursor)
+        self.helpButton.setAutoRaise(True)
+        self.helpButton.setToolTip("Open the background fitting documentation")
+        self.helpButton.setStyleSheet(
+            "QToolButton { color: #1e88e5; border: none; font-size: 18px; }"
+            "QToolButton:hover { color: #1565c0; }"
+        )
+        self.helpButton.clicked.connect(self._open_documentation)
+
+        doc_layout = QHBoxLayout(self.documentationPanel)
+        doc_layout.setContentsMargins(8, 6, 8, 6)
+        doc_layout.addWidget(self.documentationLabel, 1)
+        doc_layout.addWidget(self.helpButton, 0, Qt.AlignTop | Qt.AlignRight)
+
         self.runButton = QPushButton("Run Fit")
         self.runButton.setStyleSheet(
             "QPushButton { color: #ededed; background-color: #af6207; }"
@@ -397,7 +441,11 @@ class BackgroundFittingDialog(QDialog):
         self.closeButton.clicked.connect(self.reject)
 
     def _create_layout(self):
-        main = QHBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.addWidget(self.documentationPanel)
+
+        main = QHBoxLayout()
+        outer.addLayout(main, 1)
 
         # --- left control column ---
         controls = QGroupBox("Fitting")
@@ -486,6 +534,10 @@ class BackgroundFittingDialog(QDialog):
     # ------------------------------------------------------------------ #
     # inputs from the parent QF GUI
     # ------------------------------------------------------------------ #
+    def _open_documentation(self):
+        """Open the background fitting documentation page in the browser."""
+        QDesktopServices.openUrl(QUrl(DOC_URL))
+
     def _get_quadfold(self):
         parent = self._parent_gui if self._parent_gui is not None else self.parent()
         return getattr(parent, "quadFold", None) if parent is not None else None

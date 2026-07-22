@@ -822,6 +822,34 @@ class QuadrantFoldingGUI(BaseGUI):
             "Background Subtraction", start_expanded=False
         )
         self.resProcGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+        # Small blue (i) icon next to the "Background Subtraction" title that
+        # opens the documentation page in the browser.
+        self.bgSubHelpButton = QToolButton(self.resProcGrpBx)
+        self.bgSubHelpButton.setText("ⓘ")  # circled Latin small letter i
+        self.bgSubHelpButton.setCursor(Qt.PointingHandCursor)
+        self.bgSubHelpButton.setAutoRaise(True)
+        self.bgSubHelpButton.setToolTip(
+            "Open the Background Subtraction documentation"
+        )
+        self.bgSubHelpButton.setStyleSheet(
+            "QToolButton { color: #1e88e5; border: none; font-size: 16px; "
+            "font-weight: bold; }"
+            "QToolButton:hover { color: #1565c0; }"
+        )
+        self.bgSubHelpButton.clicked.connect(
+            lambda: QDesktopServices.openUrl(
+                QUrl(
+                    "https://musclex.readthedocs.io/en/latest/AppSuite/"
+                    "QuadrantFolding/Quadrant-Folding--Background-Subtraction.html"
+                )
+            )
+        )
+        self.bgSubHelpButton.adjustSize()
+        # Let the collapsible box own the icon's placement in its title area so
+        # it stays aligned (and on top) as the box collapses/expands.
+        self.resProcGrpBx.set_title_widget(self.bgSubHelpButton)
+
         self._init_background_subtraction_dialog()
 
         # ===== ROI Settings =====
