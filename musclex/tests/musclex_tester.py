@@ -370,6 +370,95 @@ class MuscleXGlobalTester(unittest.TestCase):
             f"{label} headless summary does not match GUI summary at {gui_results}.",
         )
 
+    def _report_divergent_background_metrics(self, dataset_dir, baseline_dir, label):
+        """
+        Diagnostic printed when a QF summary.csv comparison fails (typically a
+        ``loss`` mismatch): diff the per-image ``background_metrics.csv``
+        (freshly generated vs committed baseline) column-by-column and print
+        exactly which metrics diverged. This localizes a loss change to
+        specific metrics -- e.g. a synthetic-only shift (MSE /
+        Share_Neg_Synthetic) vs a mask metric (Share_Non_Baseline /
+        Smoothness) -- without a manual rerun.
+
+        Requires ``save_metrics_to_csv: true`` in the dataset's
+        qfsettings.json (so the generated file exists) and a committed
+        baseline ``background_metrics.csv`` under
+        ``<baseline_dir>/qf_results/bg/``. No-ops with a printed note when
+        either file is absent, so it never masks the underlying summary
+        failure.
+        """
+        gen = os.path.join(dataset_dir, "qf_results", "bg", "background_metrics.csv")
+        base = os.path.join(baseline_dir, "qf_results", "bg", "background_metrics.csv")
+        if not os.path.exists(gen):
+            print(
+                f"[background_metrics] {label}: no generated file at {gen} "
+                f"(set save_metrics_to_csv=true in qfsettings.json to enable "
+                f"this diagnostic)."
+            )
+            return
+        if not os.path.exists(base):
+            print(
+                f"[background_metrics] {label}: no baseline file at {base} "
+                f"(commit a baseline background_metrics.csv to enable metric "
+                f"diffing)."
+            )
+            return
+
+        dg = pd.read_csv(gen)
+        db = pd.read_csv(base)
+        if "ImageName" not in dg.columns or "ImageName" not in db.columns:
+            print(
+                f"[background_metrics] {label}: no ImageName column to align "
+                f"on; skipping metric diff."
+            )
+            return
+        dg = dg.set_index("ImageName")
+        db = db.set_index("ImageName")
+
+        # Non-metric / non-numeric columns carry no signal for a loss diff.
+        ignore_cols = {"Method", "BgParameters"}
+        numeric_cols = [
+            c
+            for c in dg.columns
+            if c in db.columns
+            and c not in ignore_cols
+            and pd.api.types.is_numeric_dtype(dg[c])
+            and pd.api.types.is_numeric_dtype(db[c])
+        ]
+
+        print(
+            f"\033[3;33m[background_metrics] {label}: diffing per-image metrics "
+            f"(generated vs baseline)\033[0;3140m"
+        )
+        any_diff = False
+        for img in dg.index:
+            if img not in db.index:
+                any_diff = True
+                print(f"  {img}: present in generated but missing from baseline")
+                continue
+            diffs = []
+            for c in numeric_cols:
+                gv, bv = dg.loc[img, c], db.loc[img, c]
+                gvf = 0.0 if pd.isna(gv) else float(gv)
+                bvf = 0.0 if pd.isna(bv) else float(bv)
+                if not np.isclose(gvf, bvf, rtol=rtol, atol=atol):
+                    diffs.append((c, gvf, bvf))
+            if diffs:
+                any_diff = True
+                print(f"  {img}: {len(diffs)} metric(s) differ")
+                for c, gv, bv in diffs:
+                    print(
+                        f"      {c:34s} generated={gv:.6f}  "
+                        f"baseline={bv:.6f}  Δ={gv - bv:+.6f}"
+                    )
+            else:
+                print(f"  {img}: all metrics within tolerance")
+        if not any_diff:
+            print(
+                "  (summary.csv differed but every background metric is within "
+                "tolerance -- check the ignored/non-metric columns)"
+            )
+
     def testHeadlessMarQuadrantFolder(self):
         mar_dir = os.path.join(self.currdir, "testImages", "MARimages")
         for filename in os.listdir(mar_dir):
@@ -411,6 +500,11 @@ class MuscleXGlobalTester(unittest.TestCase):
                 "File generated for testing: {p1}\nReference file: {p2}\n".format(
                     p1=generated_results, p2=release_results
                 )
+            )
+            self._report_divergent_background_metrics(
+                mar_dir,
+                os.path.join(self.currdir, "testResults", "MARimages"),
+                "QuadrantFolder MAR",
             )
         else:
             print(
@@ -470,6 +564,11 @@ class MuscleXGlobalTester(unittest.TestCase):
                     p1=generated_results, p2=release_results
                 )
             )
+            self._report_divergent_background_metrics(
+                eiger_dir,
+                os.path.join(self.currdir, "testResults", "EIGERimages"),
+                "QuadrantFolder EIGER",
+            )
         else:
             print(
                 f"Testing QuadrantFolder on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m"
@@ -527,6 +626,11 @@ class MuscleXGlobalTester(unittest.TestCase):
                 "File generated for testing: {p1}\nReference file: {p2}\n".format(
                     p1=generated_results, p2=release_results
                 )
+            )
+            self._report_divergent_background_metrics(
+                pilatus_dir,
+                os.path.join(self.currdir, "testResults", "PILATUSimages"),
+                "QuadrantFolder PILATUS",
             )
         else:
             print(
