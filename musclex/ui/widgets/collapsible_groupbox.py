@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QWidget, QToolButton, QSizePolicy
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtCore import Qt, Signal
 
 
@@ -120,9 +121,41 @@ class CollapsibleGroupBox(QGroupBox):
             3, 0
         )  # Position at left of title, aligned with title baseline
 
+        # Optional widget (e.g. a help button) shown in the title area, just to
+        # the right of the title text. Set via set_title_widget().
+        self.title_widget = None
+
         # Content widget and layout will be set by user
         self.content_widget = None
         self.content_layout = None
+
+    def set_title_widget(self, widget):
+        """Show an extra widget in the title area, to the right of the title.
+
+        The widget becomes a child of the group box and is kept next to the
+        title (and on top) as the box is resized or collapsed/expanded.
+
+        Args:
+            widget: QWidget to display next to the title (e.g. a help button).
+        """
+        self.title_widget = widget
+        if widget is not None:
+            widget.setParent(self)
+            widget.show()
+            self._position_title_widget()
+
+    def _position_title_widget(self):
+        """Place the optional title widget just past the (bold) title text.
+
+        The toggle arrow sits at x=3 and the title has 22px of left padding, so
+        the widget starts after ``22 + title_width``."""
+        if self.title_widget is None:
+            return
+        title_font = QFont(self.font())
+        title_font.setBold(True)
+        title_w = QFontMetrics(title_font).horizontalAdvance(self.title())
+        self.title_widget.move(22 + title_w + 6, -5)
+        self.title_widget.raise_()
 
     def setLayout(self, layout):
         """
@@ -218,6 +251,9 @@ class CollapsibleGroupBox(QGroupBox):
             self.content_widget.setMaximumHeight(0)
             self.content_widget.setVisible(False)
 
+        # The stylesheet swap shifts the title, so realign the title widget.
+        self._position_title_widget()
+
         # Emit signal
         self.toggled.emit(expanded)
 
@@ -235,3 +271,4 @@ class CollapsibleGroupBox(QGroupBox):
         super().resizeEvent(event)
         # Keep button at left of title, aligned with title baseline
         self.toggle_button.move(3, 0)
+        self._position_title_widget()

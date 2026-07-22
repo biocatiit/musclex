@@ -238,8 +238,8 @@ class BackgroundSubtractionDialog(QDialog):
             "<span style='color:#2e7d32;'>"
             "For information on how to use these settings and interpret the metrics, "
             "please review: "
-            "<a href='https://musclex.readthedocs.io/en/latest/AppSuite/QuadrantFolding/Quadrant-Folding--Background-Subtraction.html'>"
-            "Background Subtraction documentation"
+            "<a href='https://musclex.readthedocs.io/en/latest/AppSuite/QuadrantFolding/Quadrant-Folding--Optimization-Settings.html'>"
+            "Background Optimization documentation"
             "</a>."
             "</span>"
         )
@@ -247,6 +247,24 @@ class BackgroundSubtractionDialog(QDialog):
         self.documentationLabel.setTextFormat(Qt.RichText)
         self.documentationLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
         self.documentationLabel.setOpenExternalLinks(True)
+
+        # Small blue info icon that opens the documentation page in the browser.
+        self._doc_url = (
+            "https://musclex.readthedocs.io/en/latest/AppSuite/QuadrantFolding/"
+            "Quadrant-Folding--Optimization-Settings.html"
+        )
+        self.documentationHelpButton = QToolButton()
+        self.documentationHelpButton.setText("ⓘ")  # circled Latin small letter i
+        self.documentationHelpButton.setCursor(Qt.PointingHandCursor)
+        self.documentationHelpButton.setAutoRaise(True)
+        self.documentationHelpButton.setToolTip("Open the documentation")
+        self.documentationHelpButton.setStyleSheet(
+            "QToolButton { color: #1e88e5; border: none; font-size: 18px; }"
+            "QToolButton:hover { color: #1565c0; }"
+        )
+        self.documentationHelpButton.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(self._doc_url))
+        )
 
     def _create_processing_mode_widgets(self):
         """Create processing mode selection and background choice widgets."""
@@ -1087,9 +1105,12 @@ class BackgroundSubtractionDialog(QDialog):
 
     def _setup_documentation_layout(self, parent_layout):
         """Setup the documentation panel layout."""
-        doc_layout = QVBoxLayout(self.documentationPanel)
+        doc_layout = QHBoxLayout(self.documentationPanel)
         doc_layout.setContentsMargins(10, 8, 10, 8)
-        doc_layout.addWidget(self.documentationLabel)
+        doc_layout.addWidget(self.documentationLabel, 1)
+        doc_layout.addWidget(
+            self.documentationHelpButton, 0, Qt.AlignTop | Qt.AlignRight
+        )
         parent_layout.addWidget(self.documentationPanel)
 
     def _create_main_container_layout(self):
