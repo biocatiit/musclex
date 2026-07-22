@@ -110,6 +110,13 @@ QF_SPECIAL_KEYS = frozenset(
         "synthetic_sigma_x",
         "synthetic_sigma_y",
         "evaluation_baseline",
+        # Equatorial Bragg-peak evaluation-mask params. No QuadrantFoldingGUI
+        # widget -- they live only on quadFold.info and are synced by
+        # BackgroundFittingDialog (_init_mask_param_sync). Persisted user
+        # settings, so classified 'special' (round-tripped, CSV-exported) like
+        # the synthetic_* keys above, not 'skip'.
+        "n_peaks",
+        "peak_width",
     }
 )
 
