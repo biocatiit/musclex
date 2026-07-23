@@ -887,9 +887,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgSubHelpButton.setText("ⓘ")  # circled Latin small letter i
         self.bgSubHelpButton.setCursor(Qt.PointingHandCursor)
         self.bgSubHelpButton.setAutoRaise(True)
-        self.bgSubHelpButton.setToolTip(
-            "Open the Background Subtraction documentation"
-        )
+        self.bgSubHelpButton.setToolTip("Open the Background Subtraction documentation")
         self.bgSubHelpButton.setStyleSheet(
             "QToolButton { color: #1e88e5; border: none; font-size: 16px; "
             "font-weight: bold; }"

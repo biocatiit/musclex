@@ -33,6 +33,8 @@ import glob
 import filecmp
 import collections.abc
 import shutil
+from dataclasses import asdict
+
 import h5py
 from pyFAI import detector_factory
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
@@ -43,14 +45,14 @@ try:
     from ..modules.EquatorImage import EquatorImage
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..modules.DiffractionCentroids import DiffractionCentroids
-    from ..modules.ProjectionProcessor import ProjectionProcessor
+    from ..modules.ProjectionProcessor import ProcessingBox, ProjectionProcessor
     from ..modules.ScanningDiffraction import ScanningDiffraction
     from ..csv_manager.DI_CSVManager import DI_CSVManager
 except:  # for coverage
     from musclex.modules.EquatorImage import EquatorImage
     from musclex.modules.QuadrantFolder import QuadrantFolder
     from musclex.modules.DiffractionCentroids import DiffractionCentroids
-    from musclex.modules.ProjectionProcessor import ProjectionProcessor
+    from musclex.modules.ProjectionProcessor import ProcessingBox, ProjectionProcessor
     from musclex.modules.ScanningDiffraction import ScanningDiffraction
     from musclex.csv_manager.DI_CSVManager import DI_CSVManager
 
@@ -113,15 +115,27 @@ def module_test(
             from musclex.utils.image_data import ImageData
 
             img = fabio.open(fullPath(inputpath, filename)).data
-            image_data = ImageData(img=img, img_path=inputpath, img_name=filename)
+            image_data = ImageData(
+                img=img,
+                img_path=inputpath,
+                img_name=filename,
+                orientation_model=settings.get("orientation_model", 0),
+            )
             test_object = EquatorImage(image_data, None)
             test_name = "EQUATOR IMAGE"
         elif mode == "qf":
             import fabio
             from musclex.utils.file_manager import fullPath
+            from musclex.utils.image_data import ImageData
 
             img = fabio.open(fullPath(inputpath, filename)).data
-            test_object = QuadrantFolder(img, inputpath, filename, None)
+            image_data = ImageData(
+                img=img,
+                img_path=inputpath,
+                img_name=filename,
+                orientation_model=settings.get("orientation_model", 0),
+            )
+            test_object = QuadrantFolder(image_data, None)
             test_name = "QUADRANT FOLDER"
         elif mode == "dc":
             test_object = DiffractionCentroids(
@@ -129,7 +143,27 @@ def module_test(
             )
             test_name = "DIFFRACTION CENTROIDS"
         elif mode == "pt":
-            test_object = ProjectionProcessor(inputpath, filename)
+            import fabio
+            from musclex.utils.file_manager import fullPath
+            from musclex.utils.image_data import ImageData
+
+            img = fabio.open(fullPath(inputpath, filename)).data
+            image_data = ImageData(
+                img=img,
+                img_path=inputpath,
+                img_name=filename,
+                orientation_model=settings.get("orientation_model", 0),
+            )
+            test_object = ProjectionProcessor(image_data)
+            for name, coordinates in settings.get("boxes", {}).items():
+                peaks = list(settings.get("peaks", {}).get(name, []))
+                test_object.boxes[name] = ProcessingBox(
+                    name=name,
+                    coordinates=coordinates,
+                    type=settings.get("types", {}).get(name, "h"),
+                    bgsub=settings.get("bgsubs", {}).get(name, 0),
+                    peaks=peaks + [-peak for peak in peaks],
+                )
             test_name = "PROJECTION TRACES"
         elif mode == "di":
             test_object = ScanningDiffraction(inputpath, filename)
@@ -140,9 +174,25 @@ def module_test(
         print(
             "\n\033[3;33m---- Processing file {f} ----\033[0;3140m\n".format(f=filename)
         )
-        test_object.process(settings.copy())
-        print(test_object.info.keys())
-        res = flatten(test_object.info)
+        if mode == "qf":
+            from musclex.utils.qf_defaults import build_default_flags
+
+            process_settings = build_default_flags()
+            process_settings.update(
+                {"rotate": False, "fold_image": True, "bg_options": 0}
+            )
+            process_settings.update(settings)
+            test_object.process(process_settings)
+            result_state = test_object.info
+        elif mode == "pt":
+            test_object.process(no_cache=settings.get("no_cache", False))
+            result_state = asdict(test_object.state)
+        else:
+            test_object.process(settings.copy())
+            result_state = test_object.info
+
+        print(result_state.keys())
+        res = flatten(result_state)
         results = {}
         for key in res:
             if isinstance(res[key], float):

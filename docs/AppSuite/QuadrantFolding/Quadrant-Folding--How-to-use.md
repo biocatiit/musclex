@@ -62,8 +62,6 @@ Pick a clean, well-aligned frame as your reference. The right-hand **Set Center*
 | **Set Center by Perpendiculars** | Draw two perpendicular lines through pairs of symmetric reflections. |
 | **Set Center by Calibration** | Use a calibrant ring or saved `calibration.info` to derive the center and reciprocal-space scale. |
 | **Set Center Manually** | Click a single pixel to use as the center. Fast but least accurate. |
-| **Refine Center** | Refine the current center automatically by maximizing fold symmetry. See [Refine center and rotation](#refine-center-and-rotation). |
-| **Apply Center** | Copy the current center to a chosen scope (all subsequent / all previous / all images). |
 | **Refine Center** | Improve the current estimate with registration, gradient, and local-search refinement; optionally save its refined rotation too. |
 | **Apply Center** | Copy the current center to subsequent, previous, or all images. |
 | **Restore Auto Center** | Discard the manual center and revert to auto-detection. |
@@ -75,8 +73,6 @@ Pick a clean, well-aligned frame as your reference. The right-hand **Set Center*
 | **Set Auto Orientation** | Open a dialog to pick the rotation-detection algorithm and whether to use **Mode Orientation** (use the most common angle across the folder). |
 | **Set Angle Interactively** | Click two points to define the meridional axis. |
 | **Set Angle Manually** | Type the angle in degrees. |
-| **Refine Rotation** | Refine the current angle automatically with the center fixed. See [Refine center and rotation](#refine-center-and-rotation). |
-| **Apply Rotation** | Copy the current angle to a chosen scope (all subsequent / all previous / all images). |
 | **Refine Rotation** | Refine the current angle while keeping the current center fixed. |
 | **Apply Rotation** | Copy the current angle to a chosen scope. |
 | **Restore Auto Rotation** | Revert to auto-detected angle. |
@@ -98,9 +94,8 @@ Both corrections require a positive sample-to-detector distance and pixel size f
 
 ## Step 4 — Detect alignment across the loaded images
 
-After propagating, most images will be correctly aligned, but some may have shifted center or rotation and need individual correction. Open **Tools > Detect Image Alignment...** (`Ctrl+D`) to identify outliers.
-
 ![-](../../images/QF/detect_alignment.png)
+
 After propagating, most images will be correctly aligned, but some may have shifted center or rotation and need individual correction. Open **Tools > Detect Image Alignment...** (`Ctrl+D`) or click **Detect Image Alignment...** in the right panel.
 
 The dialog shows one row per image with columns for:
@@ -193,7 +188,7 @@ The automated approach uses the **Advanced Configuration** (Background Subtracti
 
 ### Parametric (iterative 2D) fitting
 
-The parametric method models the diffuse background as an explicit 2D function — an equatorial-streak component plus a general background component — and subtracts it, rather than estimating it numerically. Expand the **Parametric Background Fitting** panel and open the **Iterative 2D Background Fitting Dialog**. Use it when the the background should be removed on the whole pattern or when a smooth analytic background is preferable. It can be **combined** with a non-parametric method: after applying a parametric fit, enable **Subtract fitted before non-parametric** so a non-parametric method runs on top of the fitted residual. See [Background Fitting](Quadrant-Folding--Background-Fitting.md) for the full model and settings reference.
+The parametric method models the diffuse background as an explicit 2D function — an equatorial-streak component plus a general background component — and subtracts it, rather than estimating it numerically. Expand the **Parametric Background Fitting** panel and open the **Iterative 2D Background Fitting Dialog**. Use it when the background should be removed from the whole pattern or when a smooth analytic background is preferable. It can be **combined** with a non-parametric method: after applying a parametric fit, enable **Subtract fitted before non-parametric** so a non-parametric method runs on top of the fitted residual. See [Background Fitting](Quadrant-Folding--Background-Fitting.md) for the full model and settings reference.
 
 
 ## Step 8 — Process the folder or batch and collect output files
@@ -225,7 +220,7 @@ For the meaning of `loss`, `bgSum`, and `symmetry`, see [How it works — Evalua
 
 ## Methods Reference
 
-These six methods are available in the Background Subtraction dialog. The algorithms are described in detail in [How it works — Search and apply background subtraction](Quadrant-Folding--How-it-works.md#9-search-and-apply-background-subtraction). Here is the parameter cheat-sheet:
+These six methods are available in the Background Subtraction dialog. The algorithms are described in detail in [How it works — Search and apply background subtraction](Quadrant-Folding--How-it-works.md#9-search-and-apply-background-subtraction-optional). Here is the parameter cheat-sheet:
 
 | Method | Key parameters |
 |---|---|
@@ -344,8 +339,6 @@ Adds the optional background block. Each `// ====` zone below is used only when 
     "apply_polarization_correction": false,
     "polarization_correction_mode": "Unpolarized",
 
-    "bg_options": 1,
-    "bgsub": "Circularly-symmetric",
     "fixed_rmin": 100,
     "fixed_rmax": 900,
 
@@ -397,7 +390,7 @@ Adds the optional background block. Each `// ====` zone below is used only when 
 
     "// ==== OUTPUT (always applied) ====": "",
     "save_metrics_to_csv": false,
-    "compressed": true,
+    "compressed": true
 }
 ```
 

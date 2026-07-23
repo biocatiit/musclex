@@ -119,7 +119,7 @@ BG_METHODS = [
     "Smoothed-BoxCar",
     "Roving Window",
 ]
-OPTIMIZATION_METHODS = BG_METHODS[:] # Include all methods for optimization
+OPTIMIZATION_METHODS = BG_METHODS[:]  # Include all methods for optimization
 DEFAULT_OPTIMIZATION_METHODS = ["White-top-hats", "Smoothed-Gaussian"]
 DEFAULT_OPTIMIZATION_STEPS = "100, 50, 25, 10, 5, 3, 1"
 
