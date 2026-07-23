@@ -16,6 +16,5 @@ Optional solid-angle and polarization corrections can be applied before quadrant
 - [How it works](Quadrant-Folding--How-it-works.md)
 - [Background Subtraction](Quadrant-Folding--Background-Subtraction.md)
 - [Common Settings](../Common-Settings.md) — calibration, center/rotation tools, refinement, empty-cell subtraction, and masking
-* [Background Subtraction](Quadrant-Folding--Background-Subtraction.md)
-* [Optimization Settings (Advanced Configuration)](Quadrant-Folding--Optimization-Settings.md)
-* [Background Fitting (Parametric, Iterative 2D)](Quadrant-Folding--Background-Fitting.md)
+- [Optimization Settings (Advanced Configuration)](Quadrant-Folding--Optimization-Settings.md)
+- [Background Fitting (Parametric, Iterative 2D)](Quadrant-Folding--Background-Fitting.md)

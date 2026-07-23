@@ -16,7 +16,7 @@ Before the pipeline runs, the input image and processing geometry are resolved:
 
 ## Center and rotation
 
-Every run needs a diffraction center — the beam position, where the scattering vector is zero — and a rotation angle that brings the equatorial axis onto the horizontal axis the pipeline assumes. These can come from the user or be detected automatically; the resolved values drive the [transform step](#1-transform-image) and the on-screen overlays.
+Every run needs a diffraction center — the beam position, where the scattering vector is zero — and a rotation angle that brings the equatorial axis onto the horizontal axis the pipeline assumes. These can come from the user or be detected automatically; the resolved values drive the [transform step](#2-transform-image) and the on-screen overlays.
 
 ### Where the values come from
 
@@ -37,7 +37,7 @@ The center is found by converting the image to 8-bit, Gaussian-smoothing it, thr
 
 **Refine Center** and **Refine Rotation** improve an existing center and angle rather than finding them from scratch, by maximizing the symmetry between the four quadrants. Both minimize a **fold-symmetry loss**: the image is centered, rotated, and folded, and the loss is the summed per-pixel standard deviation across the overlapping quadrants divided by the total foreground signal (foreground separated from background by Otsu thresholding), which makes it dimensionless and exposure-independent. A lower loss means the quadrants agree more closely.
 
-Refine Center runs up to three stages in sequence, each refining the previous result: ECC image **registration** of opposite quadrants, **gradient** minimization of the loss, then a coarse-to-fine local **search** over center and angle. Refine Rotation runs the angle-only search with the center held fixed. Masked pixels (beam stop, dead regions) are excluded so they do not bias the score. For the button-level workflow, see [How to use — Refine center and rotation](Quadrant-Folding--How-to-use.md#refine-center-and-rotation).
+Refine Center runs up to three stages in sequence, each refining the previous result: ECC image **registration** of opposite quadrants, **gradient** minimization of the loss, then a coarse-to-fine local **search** over center and angle. Refine Rotation runs the angle-only search with the center held fixed. Masked pixels (beam stop, dead regions) are excluded so they do not bias the score. For the button-level workflow, see [How to use — Step 3](Quadrant-Folding--How-to-use.md#step-3-set-center-and-rotation-on-a-reference-image).
 
 ## Processing pipeline
 
@@ -78,7 +78,7 @@ A 1D azimuthal integration histogram is computed from `avg_fold` using pyFAI. Th
 
 ![-](../../images/QF/rmin.png)
 
-### 4. Create analysis mask (used for Background Subtraction)
+### 5. Create analysis mask (used for Background Subtraction)
 
 A composite mask is built from five components, combined by element-wise multiplication:
 
@@ -92,22 +92,21 @@ This mask is used by the background optimizer to evaluate subtraction quality on
 
 For GUI workflow (manual, transition, and automated modes), saved configurations, and batch processing, see [Background Subtraction](Quadrant-Folding--Background-Subtraction.md).
 
-### 6. Create synthetic data
-### 5. Create synthetic data (used for Background Subtraction)
+### 6. Create synthetic data (used for Background Subtraction)
 
 A grid of 2D Gaussian blobs is generated and added to `avg_fold` to produce `avg_fold_with_syn`. The grid spacing and blob dimensions are derived from the I<sub>1,0</sub> and M1 peak positions detected in the pattern. Three density presets are available (sparse / medium / dense).
 
 This synthetic data gives the background optimizer a known signal to protect: a good background subtraction should preserve the synthetic peaks while removing diffuse background.
 
-### 6. Smooth fold (optional; used for Background Subtraction)
+### 7. Smooth fold (optional; used for Background Subtraction)
 
 If **Smooth Image** is enabled, a guided filter (radius = 7, ε = 1) is applied to `avg_fold` before background search. This reduces pixel-level noise without blurring diffraction features. The smoothing only affects the resulting background, since the smooth estimated background is subtracted from the original average fold `avg_fold`.
 
-### 7. Downsample (optional; used for Background Subtraction)
+### 8. Downsample (optional; used for Background Subtraction)
 
 If a downsample factor > 1 is set, `avg_fold` is resized with area interpolation before the background search. R-min, R-max, and the center coordinates are scaled accordingly. The full-resolution fold is used for the final subtraction; downsampling only speeds up the optimizer and makes the resulting background smoother.
 
-### 8. Search and apply background subtraction (optional)
+### 9. Search and apply background subtraction (optional)
 
 The program selects a background subtraction method (either the one chosen by the user, or the best-scoring method found by the background optimizer) and applies it to `avg_fold` to produce `BgSubFold`. By default, no background subtraction is selected. 
 
@@ -172,14 +171,13 @@ There are three modes for background subtraction: **Manual Setting**, **Transiti
 #### Manual Setting
 In this mode, the user can select one background subtraction method and set the parameters for the background subtraction manually.
 #### Transition
-In this mode, the user can select one background subtraction method for the inner radii and another background subtraction method for the outer radii, and set the parameters for the two methods. The two background images are then merged at the **transition radius** and **transition delta** as described in [section 10](#10-merge-images-transition-mode-only).
-In this mode, the user can select one background subtraction method for the inner radii and another background subtraction method for the outer radii, and set the parameters for the two methods. The two background images are then merged at the **transition radius** and **transition delta**, as described in [Section 9. Merge images](#9-merge-images-transition-mode-only). Typically, this approach is applied for 2D Convex Hull on the inner radii, which handles the equatorial background well, and another method for the outer radii, since 2D Convex Hull produces artifacts at high angles. 
+In this mode, the user can select one background subtraction method for the inner radii and another background subtraction method for the outer radii, and set the parameters for the two methods. The two background images are then merged at the **transition radius** and **transition delta**, as described in [Section 10. Merge images](#10-merge-images-transition-mode-only). Typically, this approach is applied for 2D Convex Hull on the inner radii, which handles the equatorial background well, and another method for the outer radii, since 2D Convex Hull produces artifacts at high angles.
 #### Automated Processing
 In this mode, the program will search for the best parameters for the background subtraction using the automated processing. The search for the optimal method is performed using a compound **loss** built from metrics that reflect pattern features: NMSE of synthetic signal, oversubtraction of synthetic signal, baseline residuals, connected negative pixels, and background smoothness. Automated processing also includes the "Advanced Configuration" feature, which allows the user to set the parameters for the optimization target and create background configurations to be reused for subsequent images. Saved **configurations** let you apply the best parameter set per image when processing a folder. See [Background Subtraction (GUI)](Quadrant-Folding--Background-Subtraction.md) for the full interactive workflow.
 
 Generally speaking, the “White Top-Hat” and the “Smoothed-Gaussian” algorithms work well at large radii from the center and, at low radii, some other algorithm will work better than others, depending on the type of muscle generating the X-ray pattern.
 
-### 9. Merge images (transition mode only)
+### 10. Merge images (transition mode only)
 
 If **Transition** mode is active, a second background subtraction method is applied to `avg_fold` independently (the outer method), producing a second background image (`BgFold_out`) alongside the inner one (`BgFold_in`).
 
@@ -201,5 +199,4 @@ Several quality metrics are computed and written to `summary.csv`:
 
 - **symmetry** — normalized fold-symmetry score (`fold_std_norm`) computed on the pre-transform image by `_compute_fold_symmetry`. Lower means the four quadrants are more consistent.
 - **bgSum** (stored internally as `intensity`) — `np.sum` of the estimated background image. Used for batch consistency checks and normalization.
-- **loss** — weighted combination of five metrics used to evaluation background subtraction quality: MSE between the result image and the synthetic-data ground truth (under the analysis mask), share of negative pixels around synthetic peaks, share of result pixels below the radial baseline, share of pixels in connected negative regions, and a smoothness penalty (sum of vertical gradients). Each metric is normalized by its running mean before being weighted. Lower loss is better. 
-
+- **loss** — weighted combination of five metrics used to evaluate background subtraction quality: MSE between the result image and the synthetic-data ground truth (under the analysis mask), share of negative pixels around synthetic peaks, share of result pixels below the radial baseline, share of pixels in connected negative regions, and a smoothness penalty (sum of vertical gradients). Each metric is normalized by its running mean before being weighted. Lower loss is better.
