@@ -1,4 +1,4 @@
-# Background Fitting (Parametric, Iterative 2D)
+# Parametric Background Fitting
 
 Parametric fitting models the diffuse background as an explicit 2D function and subtracts it, in contrast to the non-parametric methods (White-top-hats, 2D Convex Hull, etc.) documented on [Background Subtraction](Quadrant-Folding--Background-Subtraction.md), which estimate the background numerically. It targets the two structures that dominate a folded muscle pattern: the anisotropic **equatorial streak** near the beam and the broad, near-isotropic **general background**. Use it when you need to subtract the background on the whole pattern or when a smooth analytic background that does not follow the peaks is preferable.
 
