@@ -2586,6 +2586,83 @@ class QuadrantFolder:
 
         print("Done.")
 
+    def getSubtractedBackgroundImage(self):
+        """Return the total subtracted background as a full, transformed image.
+
+        This is ``resultBg + resultBgFit``: the non-parametric background plus
+        the parametric (fitted) background, both already run through
+        ``_applyTransformations`` (rotate/ROI-crop/scale) exactly like
+        ``resultImg``. It is the single source of truth for the background
+        intensity, so ``background_sum.csv`` (written by the various
+        ``saveBackground``/``_save_qf_background`` helpers) and the ``bgSum``
+        column of ``summary.csv`` (``result_bg['intensity']``, see the
+        evaluation step) report the same value.
+
+        Returns ``None`` when the result images are unavailable (e.g. the
+        fast-path where only ``resultImg`` was reloaded and the background
+        intermediates were never reconstructed).
+        """
+        bg = self.imgCache.get("resultBg", None)
+        if bg is None:
+            return None
+        bg_fit = self.imgCache.get("resultBgFit", None)
+        if bg_fit is not None and np.asarray(bg_fit).shape == np.asarray(bg).shape:
+            return bg + bg_fit
+        return bg
+
+    def getBackgroundSum(self):
+        """Return the canonical total background intensity, or ``None``.
+
+        This is ``info['result_bg']['intensity']`` -- the exact value written
+        to the ``bgSum`` column of ``summary.csv`` -- so ``background_sum.csv``
+        agrees with it by construction. It is the parametric + non-parametric
+        background (``resultBg + resultBgFit``) summed over the ``[rmin, rmax]``
+        annulus only (see :meth:`evaluateResult` /
+        :meth:`_backgroundAnnulusSum`); pixels outside that band are not the
+        region the fit targets, so they are excluded. Being cached in ``info``,
+        it is also available on the **fast-path** (where the background image
+        arrays were not reconstructed). Note it therefore does *not* equal
+        ``np.sum(getSubtractedBackgroundImage())``, which sums the full image.
+        Returns ``None`` when no numeric intensity is cached (matching the
+        ``'-'`` summary.csv shows in that case).
+        """
+        val = self.info.get("result_bg", {}).get("intensity", None)
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    def _backgroundAnnulusSum(self, bg):
+        """Sum ``bg`` over the ``[rmin, rmax]`` annulus about the image centre.
+
+        ``bg`` is a full (already transformed) background image, so its centre
+        is its geometric middle -- robust to the rotate/ROI-crop that
+        ``_applyTransformations`` may have applied (the ROI crop stays centred).
+        ``rmin``/``rmax`` are the same radii the fit and evaluation use, in the
+        full-image pixel units of ``get_radial_average_rmax``.
+
+        Returns a non-negative float: a subtracted background represents removed
+        intensity, so its reported total is clamped at 0 rather than going
+        negative if over-subtraction leaves a net-negative annulus.
+        """
+        if bg is None:
+            return 0.0
+        h, w = bg.shape[:2]
+        cy, cx = h / 2.0, w / 2.0
+        yy, xx = np.ogrid[:h, :w]
+        dists = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+
+        rmin = self.info.get("rmin", None)
+        rmax = self.info.get("rmax", None)
+        rmin = 0.0 if rmin is None else float(rmin)
+        # No rmax -> include everything out to the corners rather than an
+        # arbitrary small default (the old code's rmax=100 would have zeroed
+        # out most of a real detector).
+        rmax = float(max(h, w)) if rmax is None else float(rmax)
+
+        mask = (dists >= rmin) & (dists <= rmax)
+        return max(0.0, float(np.sum(bg[mask])))
+
     def _applyTransformations(self, result):
         if "rotate" in self.info and self.info["rotate"]:
             result = np.rot90(result)
@@ -2679,7 +2756,12 @@ class QuadrantFolder:
         self.info["result_bg"]["metric_weights"] = eval_result.get(
             "metric_weights", None
         )
-        self.info["result_bg"]["intensity"] = np.sum(bg)
+        # Total subtracted background = non-parametric (resultBg) + parametric
+        # fit (resultBgFit), already summed into ``bg`` above. Report it over
+        # the [rmin, rmax] annulus only -- the region the fit/subtraction
+        # actually targets. Pixels outside it (beam stop, corners) are not
+        # meaningful background and would otherwise dominate the total.
+        self.info["result_bg"]["intensity"] = self._backgroundAnnulusSum(bg)
 
         # Fold-symmetry score (normalised). Computed from the *original*
         # pre-transform image so the score reflects what folding actually saw;
