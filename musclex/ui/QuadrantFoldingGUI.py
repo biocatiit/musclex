@@ -96,7 +96,6 @@ from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
 from .widgets import ProcessingWorkspace, BatchFolderSelectionDialog
 from .base_gui import BaseGUI
 from ..utils.bg_search.background_search import (
-    makeFullImage,
     get_projection,
     find_i0_i1_peaks_auto,
     find_m_peak_auto,
@@ -254,27 +253,28 @@ class FolderImageWorker(BaseProcessWorker):
             return ""
 
     def _save_background(self, filename):
-        """Save background image and update shared dictionary."""
+        """Save background image and update shared dictionary.
+
+        The recorded intensity is the total subtracted background
+        (non-parametric + parametric fit), taken from the same value as
+        summary.csv's bgSum, so it is recorded on every run. On the slow-path
+        the background image tif is (re)written; on the fast-path the previous
+        tif is left in place and only the cached sum is recorded.
+        """
         info = self.quadFold.info
-        result = self.quadFold.imgCache.get("BgSubFold")
-
-        if result is None:
-            return
-
-        avg_fold = self.quadFold.imgCache.get("avg_fold")
-        if avg_fold is None:
-            return
-
-        background = avg_fold - result
-        result_img = makeFullImage(background)
-
-        if info.get("rotate"):
-            result_img = np.rot90(result_img)
 
         method = info.get("bgsub", "None")
-        if method and method != "None":
+        if not method or method == "None":
+            return
+
+        total_inten = self.quadFold.getBackgroundSum()
+        if total_inten is None:
+            return
+
+        result_img = self.quadFold.getSubtractedBackgroundImage()
+        if result_img is not None:
             self._write_background_file(filename, result_img)
-            self._update_background_dict(filename, result_img)
+        self._update_background_dict(filename, total_inten)
 
     def _write_background_file(self, filename, result_img):
         """Write background file to disk."""
@@ -287,11 +287,11 @@ class FolderImageWorker(BaseProcessWorker):
         result_img = result_img.astype("float32")
         fabio.tifimage.tifimage(data=result_img).write(result_path)
 
-    def _update_background_dict(self, filename, result_img):
+    def _update_background_dict(self, filename, total_inten):
         """Thread-safe update of shared background dictionary."""
         if self.bgDict is not None:
             with self.lock:
-                self.bgDict[filename] = np.sum(result_img)
+                self.bgDict[filename] = total_inten
 
 
 class _BatchImageDataProxy:
@@ -5670,31 +5670,34 @@ class QuadrantFoldingGUI(BaseGUI):
         except Exception as e:
             print(f"Failed to sort summary CSV: {e}")
 
-        # out = (
-        #     self.workspace.dir_context.output_dir
-        #     if self.workspace.dir_context
-        #     else self.filePath
-        # )
+        # Merge this batch's sums into any existing background_sum.csv rather
+        # than truncating it, so images processed in earlier runs (and still
+        # present in summary.csv) keep their rows here too. Row set / values
+        # then track summary.csv, which upserts per image via writeNewData.
         try:
-            # os.makedirs(join(out, "qf_results"), exist_ok=True)
-            # os.makedirs(join(out, "qf_results", "bg"), exist_ok=True)
-            # with open(
-            #     join(out, "qf_results", "bg", "background_sum.csv"), "w", newline=""
-            # ) as csvfile:
-            #     writer = csv.writer(csvfile)
-            #     writer.writerow(["Name", "Sum"])
-            #     for name, total in self.bgAsyncDict.items():
-            #         writer.writerow([name, total])
             for out, bg_values in self.bgAsyncDict.items():
                 bg_dir = join(out, "qf_results", "bg")
                 os.makedirs(bg_dir, exist_ok=True)
+                csv_path = join(bg_dir, "background_sum.csv")
 
-                with open(
-                    join(bg_dir, "background_sum.csv"), "w", newline=""
-                ) as csvfile:
+                merged = {}
+                if exists(csv_path):
+                    try:
+                        existing = pd.read_csv(csv_path)
+                        for _, row in existing.iterrows():
+                            merged[str(row["Name"])] = row["Sum"]
+                    except Exception as read_exc:
+                        print(
+                            f"Could not read existing background_sum.csv "
+                            f"({csv_path}): {read_exc}; rewriting from this batch."
+                        )
+                # This batch's freshly-computed values win over stale rows.
+                merged.update(bg_values)
+
+                with open(csv_path, "w", newline="") as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow(["Name", "Sum"])
-                    for name, total in bg_values.items():
+                    for name, total in merged.items():
                         writer.writerow([name, total])
         except Exception as e:
             print(f"Failed to write aggregated background_sum.csv: {e}")
@@ -5738,13 +5741,12 @@ class QuadrantFoldingGUI(BaseGUI):
         Both variants are full-size copies of resultImg and are eligible
         for fast-path reload next session.
 
-        :param full_process: True if the slow-path ran (process() did
-            the full pipeline). When False (fast-path), bg.tif from a
-            previous session is still on disk and BgSubFold / avg_fold
-            weren't reconstructed, so saveBackground is skipped. The
-            result tif is also still on disk (that's how we got here),
-            but we re-emit it anyway to honor any newly-requested
-            variant change.
+        :param full_process: True if the slow-path ran (process() did the
+            full pipeline); False on the fast-path. Retained for callers and
+            logging -- saveBackground() now runs on both paths (it records the
+            cached background sum and only skips the bg.tif rewrite when the
+            background arrays weren't reconstructed), so the result tif and the
+            background_sum.csv row are both emitted regardless.
         """
         qf = quad_fold if quad_fold is not None else self.quadFold
         if qf is None:
@@ -5785,88 +5787,66 @@ class QuadrantFoldingGUI(BaseGUI):
 
                 self.saveErrors[qf.img_name] = traceback.format_exc()
 
-        if full_process:
-            self.saveBackground(quad_fold=qf)
+        self.saveBackground(quad_fold=qf)
 
     def saveBackground(self, quad_fold=None):
         """
-        Save the background in the bg folder.
+        Save the background in the bg folder and record its total intensity.
 
-        Skipped when the upstream process() took the fast-path: in that
-        case the BG-sub intermediates (BgSubFold, avg_fold) were never
-        reconstructed -- only resultImg was reloaded from
-        _folded.tif. The previous session's bg.tif is still on disk
-        so nothing is lost. Same defensive pattern as
-        FolderImageWorker._save_background.
+        Written on every run so background_sum.csv tracks summary.csv. The
+        recorded ``Sum`` is the total subtracted background (non-parametric +
+        parametric fit), taken from the same value as summary.csv's bgSum. On
+        the slow-path the ``.bg.tif`` image is (re)written; on the fast-path
+        the BG-sub intermediates (BgSubFold, avg_fold) were never reconstructed
+        -- only resultImg was reloaded from _folded.tif -- so the previous
+        session's bg.tif is left in place and only the cached sum is recorded.
         """
         qf = quad_fold if quad_fold is not None else self.quadFold
         if qf is None:
             return
 
-        result = qf.imgCache.get("BgSubFold", None)
-        avg_fold = qf.imgCache.get("avg_fold", None)
-        if result is None or avg_fold is None:
-            return
         info = qf.info
-        background = avg_fold - result
-        resultImg = makeFullImage(background)
-
-        if "rotate" in info and info["rotate"]:
-            resultImg = np.rot90(resultImg)
-
         method = info["bgsub"]
         print(method)
-        if method != "None":
-            filename = qf.img_name
-            out = (
-                self.workspace.dir_context.output_dir
-                if self.workspace.dir_context
-                else self.filePath
-            )
-            bg_path = fullPath(out, os.path.join("qf_results", "bg"))
-            result_path = fullPath(bg_path, filename + ".bg.tif")
+        if not method or method == "None":
+            return
 
+        total_inten = qf.getBackgroundSum()
+        if total_inten is None:
+            return
+
+        filename = qf.img_name
+        out = (
+            self.workspace.dir_context.output_dir
+            if self.workspace.dir_context
+            else self.filePath
+        )
+        bg_path = fullPath(out, os.path.join("qf_results", "bg"))
+
+        # Slow-path only: (re)write the background image tif.
+        resultImg = qf.getSubtractedBackgroundImage()
+        if resultImg is not None:
+            result_path = fullPath(bg_path, filename + ".bg.tif")
             # filename may contain a relative folder in a multi-folder batch.
             createFolder(os.path.dirname(result_path))
-            resultImg = resultImg.astype("float32")
-            fabio.tifimage.tifimage(data=resultImg).write(result_path)
+            fabio.tifimage.tifimage(data=resultImg.astype("float32")).write(result_path)
+        else:
+            createFolder(bg_path)
 
-            total_inten = np.sum(resultImg)
-            csv_path = join(bg_path, "background_sum.csv")
-            if self.csv_bg is None:
-                # create csv file to save total intensity for background
-                if exists(csv_path):
-                    self.csv_bg = pd.read_csv(csv_path)
-                else:
-                    self.csv_bg = pd.DataFrame(columns=["Name", "Sum"])
-                self.csv_bg = self.csv_bg.set_index("Name")
+        csv_path = join(bg_path, "background_sum.csv")
+        if self.csv_bg is None:
+            # create csv file to save total intensity for background
+            if exists(csv_path):
+                self.csv_bg = pd.read_csv(csv_path)
+            else:
+                self.csv_bg = pd.DataFrame(columns=["Name", "Sum"])
+            self.csv_bg = self.csv_bg.set_index("Name")
 
-            if filename in self.csv_bg.index:
-                self.csv_bg = self.csv_bg.drop(index=filename)
+        if filename in self.csv_bg.index:
+            self.csv_bg = self.csv_bg.drop(index=filename)
 
-            # TEMPORARY!! ONLY COUNT WHAT'S BETWEEN THE RMIN AND RMAX FOR RESULT IMAGE
-            ###########################################################################
-            csv_yc, csv_xc = background.shape
-
-            csv_h, csv_w = resultImg.shape
-            csv_y, csv_x = np.ogrid[:csv_h, :csv_w]
-
-            csv_dists = np.sqrt((csv_x - csv_xc) ** 2 + (csv_y - csv_yc) ** 2)
-
-            if "rmin" not in qf.info or qf.info["rmin"] is None:
-                print("Setting Rmin to default: 0")
-                qf.info["rmin"] = 0
-
-            if "rmax" not in qf.info or qf.info["rmax"] is None:
-                print("Setting Rmax to default: 100")
-                qf.info["rmax"] = 100
-
-            csv_mask = (csv_dists >= qf.info["rmin"]) & (csv_dists <= qf.info["rmax"])
-
-            csv_total = np.sum(resultImg[csv_mask])
-
-            self.csv_bg.loc[filename] = pd.Series({"Sum": total_inten})
-            self.csv_bg.to_csv(csv_path)
+        self.csv_bg.loc[filename] = pd.Series({"Sum": total_inten})
+        self.csv_bg.to_csv(csv_path)
 
     def _upsert_background_metrics_csv(
         self, quad_fold=None, flags=None, output_dir=None

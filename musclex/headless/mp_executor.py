@@ -303,37 +303,31 @@ def _save_qf_result_image(quadFold, output_dir, compress_folded):
 def _save_qf_background(quadFold, dir_path):
     """Mirror FolderImageWorker._save_background() for the worker process.
 
-    Returns ``np.sum(result_img)`` so the main process can append a single
-    aggregated background_sum.csv after the batch finishes. Returns ``None``
-    when the slow-path didn't run (fast-path) or when bgsub is disabled.
+    Returns the total background intensity so the main process can append it
+    to the aggregated background_sum.csv after the batch finishes. The value
+    is ``info['result_bg']['intensity']`` -- the same number written to the
+    ``bgSum`` column of summary.csv -- so the two files agree and the row is
+    recorded on both the slow-path and the fast-path. On the slow-path the
+    ``<name>.bg.tif`` image is (re)written too; on the fast-path the previous
+    session's tif is left in place (the background arrays weren't rebuilt).
+    Returns ``None`` only when bgsub is disabled or no intensity is cached.
     """
-    import numpy as np
     import fabio
 
     info = quadFold.info
-    result = quadFold.imgCache.get("BgSubFold")
-    avg_fold = quadFold.imgCache.get("avg_fold")
-
-    if result is None or avg_fold is None:
-        return None
 
     method = info.get("bgsub", "None")
     if not method or method == "None":
         return None
 
-    from musclex.utils.bg_search.background_search import makeFullImage
+    result_img = quadFold.getSubtractedBackgroundImage()
+    if result_img is not None:
+        bg_dir = os.path.join(dir_path, "qf_results", "bg")
+        os.makedirs(bg_dir, exist_ok=True)
 
-    background = avg_fold - result
-    result_img = makeFullImage(background)
+        result_path = os.path.join(bg_dir, f"{quadFold.img_name}.bg.tif")
+        os.makedirs(os.path.dirname(result_path), exist_ok=True)
+        result_img = result_img.astype("float32")
+        fabio.tifimage.tifimage(data=result_img).write(result_path)
 
-    if info.get("rotate"):
-        result_img = np.rot90(result_img)
-
-    bg_dir = os.path.join(dir_path, "qf_results", "bg")
-    os.makedirs(bg_dir, exist_ok=True)
-
-    result_path = os.path.join(bg_dir, f"{quadFold.img_name}.bg.tif")
-    os.makedirs(os.path.dirname(result_path), exist_ok=True)
-    result_img = result_img.astype("float32")
-    fabio.tifimage.tifimage(data=result_img).write(result_path)
-    return float(np.sum(result_img))
+    return quadFold.getBackgroundSum()

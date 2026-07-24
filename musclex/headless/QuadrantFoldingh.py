@@ -38,7 +38,6 @@ from musclex import __version__
 
 try:
     from ..utils.file_manager import *
-    from ..utils.bg_search.background_search import makeFullImage
     from ..utils.image_processor import *
     from ..utils.qf_defaults import build_default_flags
     from ..utils.qf_settings_bindings import qf_setting_keys
@@ -46,7 +45,6 @@ try:
     from ..csv_manager.QF_CSVManager import QF_CSVManager
 except:  # for coverage
     from utils.file_manager import *
-    from utils.bg_search.background_search import makeFullImage
     from utils.image_processor import *
     from utils.qf_defaults import build_default_flags
     from utils.qf_settings_bindings import qf_setting_keys
@@ -341,42 +339,45 @@ class QuadrantFoldingh:
                     result_file += "_folded_compressed.tif"
                     tif_img = Image.fromarray(img)
                     tif_img.save(result_file, compression="tiff_lzw")
-                # bg.tif from a previous session is still on disk on the
-                # fast-path, and BgSubFold / avg_fold weren't reconstructed
-                # so saveBackground is skipped.
-                if full_process:
-                    self.saveBackground()
+                # Written on every run so background_sum.csv tracks summary.csv.
+                # On the fast-path the background arrays weren't reconstructed,
+                # so saveBackground leaves the previous bg.tif in place and just
+                # re-records the cached sum.
+                self.saveBackground()
                 self._upsert_background_metrics_csv(flags=flags)
 
     def saveBackground(self):
         """
-        Save the background image in bg folder
-        """
-        info = self.quadFold.info
-        result = self.quadFold.imgCache["BgSubFold"]
-        # avg_fold lives in imgCache, not info (matches QuadrantFoldingGUI.saveBackground).
-        avg_fold = self.quadFold.imgCache.get("avg_fold", None)
-        if avg_fold is None:
-            # On the fast-path BgSubFold / avg_fold are not reconstructed; bg.tif
-            # from a previous session is still on disk so nothing to save here.
-            return
-        background = avg_fold - result
-        resultImg = makeFullImage(background)
+        Save the background image in bg folder and record its total intensity.
 
-        if "rotate" in info and info["rotate"]:
-            resultImg = np.rot90(resultImg)
+        The recorded ``Sum`` is the total subtracted background (non-parametric
+        + parametric fit), taken from the same value as the ``bgSum`` column of
+        summary.csv, so the two files agree and a row is written on every run.
+        On the slow-path the ``.bg.tif`` image is (re)written; on the fast-path
+        the background arrays weren't reconstructed, so the previous bg.tif is
+        left in place and only the cached sum is re-recorded.
+        """
+        method = self.quadFold.info.get("bgsub", "None")
+        if not method or method == "None":
+            return
+
+        total_inten = self.quadFold.getBackgroundSum()
+        if total_inten is None:
+            return
 
         filename = self.imgList[self.currentFileNumber]
         bg_path = fullPath(self.output_dir, os.path.join("qf_results", "bg"))
-        result_path = fullPath(bg_path, filename + ".bg.tif")
 
-        # filename may contain a relative folder in a multi-folder batch.
-        createFolder(os.path.dirname(result_path))
-        resultImg = resultImg.astype("float32")
-        # imsave(result_path, resultImg)
-        fabio.tifimage.tifimage(data=resultImg).write(result_path)
+        # Slow-path only: (re)write the background image tif.
+        resultImg = self.quadFold.getSubtractedBackgroundImage()
+        if resultImg is not None:
+            result_path = fullPath(bg_path, filename + ".bg.tif")
+            # filename may contain a relative folder in a multi-folder batch.
+            createFolder(os.path.dirname(result_path))
+            fabio.tifimage.tifimage(data=resultImg.astype("float32")).write(result_path)
+        else:
+            createFolder(bg_path)
 
-        total_inten = np.sum(resultImg)
         csv_path = join(bg_path, "background_sum.csv")
         if self.csv_bg is None:
             # create csv file to save total intensity for background
