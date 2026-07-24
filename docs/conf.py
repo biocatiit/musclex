@@ -16,7 +16,9 @@ release = "2.0.0"
 extensions = ["sphinx.ext.mathjax", "myst_parser", "sphinx_copybutton"]
 
 myst_enable_extensions = [
-    "tables",  # Enables GitHub-style pipe tables
+    # NOTE: do not add unrecognised names here (e.g. "tables" -- pipe tables are
+    # always on). MyST rejects the *whole* list if any entry is invalid, which
+    # silently disables html_image, colon_fence, etc. while the build still passes.
     "colon_fence",  # ::: fenced blocks (useful for admonitions)
     "deflist",  # Definition lists
     "fieldlist",  # Field lists (like function args)
