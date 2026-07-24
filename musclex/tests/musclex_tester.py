@@ -300,7 +300,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         label,
         gui_subdir="qf_results_gui",
         gui_filename="summary.csv",
-        ignore_cols=(5,),
+        ignore_cols=(9,),
         rtol_override=None,
         atol_override=None,
     ):
@@ -318,7 +318,7 @@ class MuscleXGlobalTester(unittest.TestCase):
 
         ``gui_subdir`` / ``gui_filename`` / ``ignore_cols`` allow per-module
         overrides:
-          - QF uses qf_results_gui/summary.csv with ignore_columns=[5]
+          - QF uses qf_results_gui/summary.csv with ignore_columns=[9]
             (the parameters column, which serializes a dict and can
             differ in dict ordering across runs).
           - EQ uses eq_results_gui/summary.csv with no ignored columns.
@@ -486,7 +486,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         pass_test = compare_csv_files(
             generated_results,
             release_results,
-            ignore_columns=[5],
+            ignore_columns=[9],
             sort_key=sort_key,
             rtol=rtol,
             atol=atol,
@@ -549,7 +549,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         pass_test = compare_csv_files(
             generated_results,
             release_results,
-            ignore_columns=[5],
+            ignore_columns=[9],
             sort_key=sort_key,
             rtol=rtol,
             atol=atol,
@@ -612,7 +612,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         pass_test = compare_csv_files(
             generated_results,
             release_results,
-            ignore_columns=[5],
+            ignore_columns=[9],
             sort_key=sort_key,
             rtol=rtol,
             atol=atol,
