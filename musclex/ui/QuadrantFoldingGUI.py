@@ -26,7 +26,6 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import sys
 import os
 import json
 import traceback
@@ -4912,7 +4911,9 @@ class QuadrantFoldingGUI(BaseGUI):
             print(f"Error log saved to: {error_file}")
 
     def showProcessingFinishedMessage(self):
-        msgBox = QMessageBox()
+        # Parent the dialog to this module so its actions affect the module
+        # window, not another independently launched MuscleX application.
+        msgBox = QMessageBox(self)
         msgBox.setWindowTitle("Processing Complete")
 
         # Calculate totals
@@ -4974,7 +4975,14 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # Check which button was clicked
         if msgBox.clickedButton() == exitButton:
-            sys.exit(0)  # Closes the entire application
+            # Each MuscleX module is launched in its own process.  Closing the
+            # module's top-level window follows Qt's normal shutdown path,
+            # including closeEvent cleanup, without relying on SystemExit from
+            # inside a nested dialog event loop.
+            self.close()
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
         elif msgBox.clickedButton() == closeButton:
             # Just close the popup - do nothing more
             pass
