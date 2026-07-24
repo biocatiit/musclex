@@ -86,7 +86,7 @@ def getImgFiles(fullname, headless=False):
     :return: directory (str), list of image file names, and current index i.e /aaa/bbb/ccc, ["ddd.tif","eee.tif"], 0
     """
     dir_path, filename = split(
-        str(fullname)
+        os.path.abspath(str(fullname))
     )  # split directory and file name from full file name
     dir_path = str(dir_path)
     filename = str(filename)
