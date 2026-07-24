@@ -1079,6 +1079,18 @@ class ProjectionTracesGUI(BaseGUI):
             self.projProc.boxes[name].clear_results(from_stage="fit")
             print(f"Updated processor peaks for '{name}': {len(peaks)} peaks (full)")
 
+    @staticmethod
+    def _mirror_selected_peaks(peaks):
+        """
+        Convert user-selected positive distances to the processor's symmetric format.
+
+        The image-level selector records one absolute distance per click.  The
+        processor expects all selected distances first, followed by their mirrored
+        negative counterparts.
+        """
+        selected_peaks = list(peaks)
+        return selected_peaks + [-peak for peak in selected_peaks]
+
     def addPeakstoBox(self, name, peaks):
         """
         add peaks to box and process image
@@ -1123,7 +1135,8 @@ class ProjectionTracesGUI(BaseGUI):
                 # When Done clicked
                 peaks = self.function[1]
                 for name in peaks.keys():
-                    self.updatePeaks(name, peaks[name])
+                    mirrored_peaks = self._mirror_selected_peaks(peaks[name])
+                    self.updatePeaks(name, mirrored_peaks)
 
             print("peaks")
             self.processImage()
