@@ -45,13 +45,16 @@ The dialog itself is organized in three steps, described below.
 
 - **Metric Settings** — Adjust the relative importance of each metric and the normalization means. The weights should roughly add up to 1. Leave the default values for the first run and adjust after reviewing the results. The normalization means are hidden by default; double-click the metric table header to show/hide means.
 
-![-](../../images/QF/metric_setting.png)
+
+<img src="../../images/QF/metric_setting.png" alt="IMG" width="600">
+
 
 - **Advanced Settings**
   - **Evaluation Baseline** sets the near-zero threshold; **Persist evaluation baseline** keeps it when changing images. **Evaluation Baseline** allows adjusting the near-zero threshold for the calculation of **Fraction of Non Near-Zero Baseline Pixels** — the threshold below which pixels are considered part of the background. Change this value if the noise level doesn't match the calculated value.
   - **Synthetic** amplitude and sigmas (and **Sampling Frequency**) define the reference pattern used in MSE and oversubtraction metrics.
 
-![-](../../images/QF/additional_setting.png)
+
+<img src="../../images/QF/additional_setting.png" alt="IMG" width="600">
 
 - Click **Apply Selected Subtraction Settings** (dialog or Results panel) to run on the current image. During automated optimization the button becomes **Stop Optimization**, which stops the search and returns the previous best performing method and parameters. This is useful when you want to tune the settings and rerun the optimization.
 
@@ -111,4 +114,4 @@ For batch runs with **Choose best configuration for images automatically**, opti
 
 - [Background Subtraction](Quadrant-Folding--Background-Subtraction.md) — Processing options, manual and transition modes, and the subtraction method reference.
 - [Background Fitting](Quadrant-Folding--Background-Fitting.md) — Parametric (iterative 2D) equator + general background model, which shares the evaluation-mask parameters used here.
-- [How it works](Quadrant-Folding--How-it-works.html) — Full processing pipeline including merge and result image generation.
+- [How it works](Quadrant-Folding--How-it-works.md) — Full processing pipeline including merge and result image generation.
