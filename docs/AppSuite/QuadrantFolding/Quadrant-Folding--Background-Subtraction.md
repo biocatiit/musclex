@@ -40,7 +40,7 @@ See [Examples](#examples) for more details and the [Use cases](#use-cases) secti
 
 Background subtraction is configured in the **Results** tab:
 
-<img src="../../images/QF/background_sub_panel.png" alt="img" width="200"> 
+<img src="../../images/QF/background_sub_panel.png" alt="img" width="400"> 
 
 **Background Subtraction** panel (collapsible section on the right) — quick access to mode, method parameters, apply buttons, and current configuration summary.
 
@@ -49,7 +49,7 @@ Background subtraction is configured in the **Results** tab:
 
 Under **Non-parametric Background Subtraction**, use the **Options** dropdown in the Results tab to choose how background is applied.
 
-<img src="../../images/QF/background_sub_non_param.png" alt="img" width="200">
+<img src="../../images/QF/background_sub_non_param.png" alt="img" width="400">
 
 | Option | Description |
 |--------|-------------|
@@ -81,7 +81,7 @@ Set the transition radius just outside the M3 meridional peak when possible.
 **Apply Default Optimization** runs this search with default methods on the current image and can add a **Default Optimization** entry to the configuration table to be applied to subsequent images.
 **Advanced Configuration** adjusts the optimization target and lets you add reusable configurations to the configuration table.
 
-<img src="../../images/QF/bg_sub_automated.png" alt="Automated Processing controls" width="200">
+<img src="../../images/QF/bg_sub_automated.png" alt="Automated Processing controls" width="400">
 
 ## Recommended workflow using Automated Processing
 
@@ -108,13 +108,15 @@ Automatic detection of **Equator Height**, **Equator Center Radius**, **Layer li
 
 To view the evaluation masks, click **Show** in the Results tab to inspect **Subtracted**, **Background**, **Folded**, **Evaluation Mask**, **Synthetic Signal**, or **Synthetic Mask**.
 - **Metric Settings** - Adjust the relative importance of each metric and the normalization means. The weights should roughly add up to 1. The weights may depend on the dataset and are the most important settings to adjust to get the best results. Leave the default values for the first run and adjust after reviewing the results. The normalization means are hidden by default; double-click the metric table header to show/hide means. Usually, they don't need to be adjusted.
-![-](../../images/QF/metric_setting.png)
+
+<img src="../../images/QF/metric_setting.png" alt="IMG" width="400">
 
 - **Additional Settings**:
   - **Evaluation Baseline** sets the near-zero threshold; **Persist evaluation baseline** keeps it when changing images. **Evaluation Baseline** allows to adjust the near-zero threshold for the calculation of **Fraction of Non Near-Zero Baseline Pixels**. This is the threshold below which pixels are considered to be part of the background. Change this value if the noise level doesn't match the calculated value.
   - **Synthetic** amplitude and sigmas (and **Sampling Frequency**) define the reference pattern used in MSE and oversubtraction metrics.
 
-![-](../../images/QF/additional_setting.png)
+
+<img src="../../images/QF/additional_setting.png" alt="IMG" width="600">
 
 
 - Click **Apply Selected Subtraction Settings** (dialog or Results panel) to run on the current image. During automated optimization the button becomes **Stop Optimization** which will stop the optimization and return the previous best performing method and parameters. This is useful when you want to tune the settings and rerun the optimization.
@@ -135,7 +137,7 @@ After processing, the **Results** section shows **Loss** and a table of metrics:
 
 - **Save result metrics to csv** - Save the result metrics to a csv file. This is useful for further analysis. This will save the result metrics to a csv file in the `qf_results/bg` folder with name `background_metrics.csv`.
 
-![-](../../images/QF/results_table_2.png)
+<img src="../../images/QF/results_table_2.png" alt="IMG" width="600">
 
 ### Step 3: Batch processing
 
@@ -183,6 +185,7 @@ Six methods are available (plus **None**). Visible parameters depend on the sele
 
 - **Box Car Size** (X, Y)
 - **Number of Cycles**
+
 <img src="../../images/QF/bg_sub_transition.png" alt="img" width="800">
 
 ## Parametric (iterative 2D) background fitting

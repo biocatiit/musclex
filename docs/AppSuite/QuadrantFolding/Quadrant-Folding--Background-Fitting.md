@@ -92,21 +92,21 @@ Under **Advanced Settings** (collapsed by default):
 
 The View dropdown shows **Original**, **Fitted background (equator+general)**, **Equator component**, **General component**, **Residual (background removed)**, **Equator / Meridian profiles**, and the two mask overlays. Before a fit, only the mask overlays are available.
 
-<img src="../../images/QF/views_fitting.png" alt="img" width="300"> 
+<img src="../../images/QF/views_fitting.png" alt="img" width="400"> 
 
 The **Fitted parameters** panel reports the selected iteration, the component-2 kernel, the oversubtracted-pixel fraction over r-min/r-max, the reductions used, and the full equator and general parameter values.
 
-<img src="../../images/QF/parameters_window.png" alt="img" width="100"> 
+<img src="../../images/QF/parameters_window.png" alt="img" width="200"> 
 
 ## Applying and running for a folder
 
 
-<img src="../../images/QF/apply_close.png" alt="img" width="150"> 
+<img src="../../images/QF/apply_close.png" alt="img" width="200"> 
 
 
 - **Apply & Close** replaces the current result with the residual and enables the checkbox **Subtract fitted before non-parametric**, so a non-parametric method can then run on top of the fitted residual.
 
-<img src="../../images/QF/parametric_fitting_options.png" alt="img" width="250"> 
+<img src="../../images/QF/parametric_fitting_options.png" alt="img" width="350"> 
 
 - **Run Fitting with Default Settings and Apply** (Parametric Background Fitting panel) runs the fit headlessly with the current settings and applies it in one click, without opening the window.
 - **Fit background for each image in folder** fits and subtracts the parametric background for every image during folder processing, using the current fitting parameters, instead of reusing a single applied fit.
@@ -123,4 +123,4 @@ See [How to use — Headless Mode](Quadrant-Folding--How-to-use.html#headless-mo
 
 - [Background Subtraction](Quadrant-Folding--Background-Subtraction.md) — Processing options, manual and transition modes, and the subtraction method reference.
 - [Optimization Settings](Quadrant-Folding--Optimization-Settings.md) — Advanced Configuration dialog, including the evaluation-mask parameters shared with this fitting window.
-- [How it works](Quadrant-Folding--How-it-works.html) — Full processing pipeline including merge and result image generation.
+- [How it works](Quadrant-Folding--How-it-works.md) — Full processing pipeline including merge and result image generation.
