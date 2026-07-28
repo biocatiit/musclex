@@ -1,0 +1,121 @@
+name: Upload Package to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: "Release tag to build and publish (for example, v2.1.0)"
+        required: true
+        type: string
+        default: "v2.1.0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-publish-${{ inputs.release_ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and validate source distribution
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Verify release tag and package version
+        shell: bash
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: |
+          if [[ "${RELEASE_REF}" != v* ]]; then
+            echo "ERROR: release_ref must be a version tag beginning with 'v'."
+            exit 1
+          fi
+
+          if ! git show-ref --verify --quiet "refs/tags/${RELEASE_REF}"; then
+            echo "ERROR: '${RELEASE_REF}' is not a tag in this repository."
+            exit 1
+          fi
+
+          TAG_COMMIT="$(git rev-list -n 1 "${RELEASE_REF}")"
+          HEAD_COMMIT="$(git rev-parse HEAD)"
+          if [[ "${TAG_COMMIT}" != "${HEAD_COMMIT}" ]]; then
+            echo "ERROR: checkout does not match tag ${RELEASE_REF}."
+            exit 1
+          fi
+
+          PACKAGE_VERSION="$(python -c 'from musclex import __version__; print(__version__)')"
+          EXPECTED_VERSION="${RELEASE_REF#v}"
+          if [[ "${PACKAGE_VERSION}" != "${EXPECTED_VERSION}" ]]; then
+            echo "ERROR: package version '${PACKAGE_VERSION}' does not match tag '${RELEASE_REF}'."
+            exit 1
+          fi
+
+          echo "Publishing MuscleX ${PACKAGE_VERSION} from ${HEAD_COMMIT}."
+
+      - name: Install packaging tools
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build source distribution
+        run: python -m build --sdist --outdir release-dist
+
+      - name: Verify distribution filename
+        shell: bash
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: |
+          EXPECTED_FILE="release-dist/musclex-${RELEASE_REF#v}.tar.gz"
+          if [[ ! -f "${EXPECTED_FILE}" ]]; then
+            echo "ERROR: expected distribution '${EXPECTED_FILE}' was not built."
+            exit 1
+          fi
+
+      - name: Validate distribution metadata
+        run: python -m twine check release-dist/*
+
+      - name: Display distribution
+        run: |
+          ls -lh release-dist/
+          sha256sum release-dist/*
+
+      - name: Store distribution for publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-distribution-${{ inputs.release_ref }}
+          path: release-dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish source distribution to PyPI
+    needs: build
+    runs-on: ubuntu-22.04
+
+    environment:
+      name: pypi
+      url: https://pypi.org/project/musclex/
+
+    steps:
+      - name: Download validated distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: pypi-distribution-${{ inputs.release_ref }}
+          path: dist/
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          packages-dir: dist/
+          attestations: false
