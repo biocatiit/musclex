@@ -1,0 +1,49 @@
+name: Publish PyPI and Conda Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: "Release tag to publish (for example, v2.1.0)"
+        required: true
+        type: string
+      conda_build_number:
+        description: "Conda build number (0 for a new release)"
+        required: true
+        type: string
+        default: "0"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-packages-${{ inputs.release_ref }}-${{ inputs.conda_build_number }}
+  cancel-in-progress: false
+
+jobs:
+  publish-pypi:
+    name: Publish PyPI package
+    uses: ./.github/workflows/pypi-upload.yml
+    with:
+      release_ref: ${{ inputs.release_ref }}
+    secrets: inherit
+
+  build-conda:
+    name: Build Conda packages
+    needs: publish-pypi
+    uses: ./.github/workflows/conda-build.yml
+    with:
+      release_ref: ${{ inputs.release_ref }}
+      version: ${{ needs.publish-pypi.outputs.version }}
+      build_number: ${{ inputs.conda_build_number }}
+
+  upload-conda:
+    name: Upload Conda packages
+    needs: [publish-pypi, build-conda]
+    uses: ./.github/workflows/conda-upload.yml
+    with:
+      run_id: ${{ format('{0}', github.run_id) }}
+      version: ${{ needs.publish-pypi.outputs.version }}
+      build_number: ${{ inputs.conda_build_number }}
+    secrets: inherit

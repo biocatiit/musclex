@@ -1,6 +1,23 @@
 name: Upload Conda Packages
 
 on:
+  workflow_call:
+    inputs:
+      run_id:
+        description: 'Run ID containing the Conda build artifacts'
+        required: true
+        type: string
+      version:
+        description: 'Version associated with the build artifacts'
+        required: true
+        type: string
+      build_number:
+        description: 'Conda build number'
+        required: true
+        type: string
+    secrets:
+      ANACONDA_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       run_id:

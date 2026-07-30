@@ -13,21 +13,22 @@
   * [Upload the project to PyPI](#upload-the-project-to-pypi)
   * [Publish the release on GitHub](#publish-the-release-on-github)
   * [Update the information of the new release on Zenodo](#update-the-information-of-the-new-release-on-zenodo)
+    * [Troubleshoot a release missing from Zenodo](#troubleshoot-a-release-missing-from-zenodo)
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
-  * [Create a conda package](#create-a-conda-package)
+  * [Publish PyPI and Conda packages](#publish-pypi-and-conda-packages)
+    * [Standalone package workflows](#standalone-package-workflows)
 
 ## Process outline
 1. Generate pickle testing files (deprecated), update test files.
 2. Test release (GUI == Headless, Current == Previous) using the testing module.
 3. Create release tag and enter release notes on Github.
 4. Update DOI on Zenodo (if it was not done automatically).
-5. Create pip distribution and upload to PyPI.
-6. Create conda distribution and upload it to Anaconda Cloud.
-7. Create docker distribution and upload to Docker Hub.
-8. Update documentation on Readthedocs.
-9. Create Windows and Mac standalone distributions and upload to Sourceforge (major releases only).
-10. Create a snap distribution and upload to SnapStore.
-11. Test release on each distribution.
+5. Run the combined workflow to publish the pip and conda distributions.
+6. Create docker distribution and upload to Docker Hub.
+7. Update documentation on Readthedocs.
+8. Create Windows and Mac standalone distributions and upload to Sourceforge (major releases only).
+9. Create a snap distribution and upload to SnapStore.
+10. Test release on each distribution.
 
 ## Prepare a Release
 
@@ -182,12 +183,10 @@ See our [SourceForge repository][5]. Or use other tools for uploading
 (see details [here][6]).
 
 ### Upload the project to PyPI
-See [Uploading your Project to PyPI][7]. Be careful of this step, because
-one version number are only allowed to be used once for uploading one
-source distribution.
-
-> python setup.py sdist  
-> twine upload dist/*  
+PyPI and Conda packages are published together by the manually triggered
+workflow described in [Publish PyPI and Conda packages](#publish-pypi-and-conda-packages).
+Be careful with this step because a version uploaded to PyPI cannot be
+replaced.
 
 ### Publish the release on GitHub
 Publish the release [here][8].
@@ -195,6 +194,47 @@ Publish the release [here][8].
 ### Update the information of the new release on Zenodo
 Edit [here][9]. **Authors** are generated according to contributors of
 the GitHub repo. Change them properly according to [Project Credits][10].
+
+#### Troubleshoot a release missing from Zenodo
+
+Zenodo normally creates a new record after a GitHub release is published. If
+the release is public on GitHub but does not appear at all under the enabled
+`biocatiit/musclex` repository in Zenodo, the publication webhook may have
+been missed. The **Sync now** button refreshes repository access, but it does
+not import a missed release.
+
+To send a new publication event without deleting the tag or release assets:
+
+1. In **Zenodo > GitHub**, switch `biocatiit/musclex` off, wait a few seconds,
+   and switch it on again. This reinstalls or refreshes the Zenodo webhook.
+2. Temporarily convert the existing GitHub release to a draft, then publish
+   the same release again. Replace `vX.Y.Z` below with the release tag:
+
+```bash
+gh auth login
+
+RELEASE_ID=$(gh api repos/biocatiit/musclex/releases/tags/vX.Y.Z --jq .id)
+
+gh api --method PATCH \
+  repos/biocatiit/musclex/releases/$RELEASE_ID \
+  -F draft=true
+
+gh api --method PATCH \
+  repos/biocatiit/musclex/releases/$RELEASE_ID \
+  -F draft=false \
+  -F prerelease=false
+```
+
+This preserves the existing release, tag, description, and uploaded assets.
+Wait several minutes, then check the repository's release list in Zenodo.
+
+Do **not** rerun the `Build MuscleX` workflow to troubleshoot this problem.
+Its `create-release` job deletes an existing GitHub release before creating a
+new draft, which is unnecessary and may discard the existing release state.
+
+If the release is still missing, a repository administrator can inspect
+**GitHub > Settings > Webhooks > Zenodo > Recent deliveries**. GitHub only
+allows recent webhook deliveries to be redelivered for a limited time.
 
 ### Create App Image using App Image Installer
 
@@ -227,54 +267,73 @@ Note: if the command doesn't exist, you can download the appimage-builder [here]
 [12]:https://appimage-builder.readthedocs.io/en/latest/intro/install.html
 
 
-### Build and upload Conda Packages (via GitHub Actions)
+### Publish PyPI and Conda packages
 
-Conda packages are built for all platforms (linux-64, win-64, osx-64, osx-arm64) using GitHub Actions. Two workflows handle this process:
-
-- **Build Conda Packages** (`conda-build.yml`): Builds packages on all 4 platforms and saves them as GitHub Artifacts.
-- **Upload Conda Packages** (`conda-upload.yml`): Downloads previously built artifacts and uploads them to Anaconda Cloud (biocat_IIT).
+The manually triggered **Publish PyPI and Conda Packages**
+(`publish-packages.yml`) workflow orchestrates the three reusable package
+workflows. It publishes the source distribution to PyPI, builds Conda packages
+for `linux-64`, `win-64`, `osx-64`, and `osx-arm64`, uploads them to the
+`biocat_IIT` Anaconda Cloud account, and verifies the uploads. This is the
+convenient default for a normal release; each underlying workflow also remains
+manually runnable for troubleshooting and partial reruns.
 
 #### Prerequisites
 
-- The pip package must be built and uploaded to PyPI first (the conda build pulls the source from PyPI).
+- The GitHub release tag must exist and match the version in
+  `musclex/__init__.py`.
+- The `PYPI_TOKEN` secret must be available to the `pypi` GitHub environment.
 - The `ANACONDA_TOKEN` secret must be configured in the GitHub repository settings (Settings > Secrets and variables > Actions).
 - Ensure dependencies in `meta.yaml` are accurate and up to date before triggering a build.
 
-#### 1. Build the Conda Packages
+#### Run the publishing workflow
 
 1. Go to the GitHub repository **Actions** tab.
-2. Select the **"Build Conda Packages"** workflow.
+2. Select the **Publish PyPI and Conda Packages** workflow.
 3. Click **"Run workflow"** and fill in:
-   - **version**: The version to build (e.g., `1.27.0`). Must match the version on PyPI.
-   - **build_number**: `0` for a new version, increment for rebuilds of the same version.
-4. Wait for all 4 platform jobs to complete. The workflow automatically patches `meta.yaml` with the correct version, sha256 (computed from the PyPI tarball), and build number.
+   - **release_ref**: The complete GitHub release tag, such as `v2.1.0`.
+   - **conda_build_number**: `0` for a new version; increment it only when
+     rebuilding Conda packages for an existing version.
+4. Confirm the workflow checks out the requested tag and validates that its
+   package version matches.
+5. If the `pypi` environment requires approval, approve the PyPI publication.
+6. Wait for the source distribution and all four Conda packages to be
+   published and verified.
 
-#### 2. Test the Packages Locally
+The combined workflow calls `pypi-upload.yml`, `conda-build.yml`, and
+`conda-upload.yml` in order. Conda uploads do not begin unless all four
+platform builds succeed. Build artifacts remain available from the same
+workflow run for troubleshooting.
+
+#### Standalone package workflows
+
+Use the original manually triggered workflows when only one stage needs to be
+run:
+
+- **Upload Package to PyPI** (`pypi-upload.yml`) accepts `release_ref`, such
+  as `v2.1.0`.
+- **Build Conda Packages** (`conda-build.yml`) accepts `version` without the
+  leading `v`, `build_number`, and an optional `release_ref`. Its completed
+  run provides the artifacts and run ID needed by the upload workflow.
+- **Upload Conda Packages** (`conda-upload.yml`) accepts the Conda build
+  `run_id`, `version`, and `build_number`.
+
+#### Test a Conda package locally
 
 1. Download the built artifacts from the completed workflow run page on GitHub.
 2. Test locally:
+
 ```bash
 conda create -n test-musclex python=3.10
 conda activate test-musclex
 conda install /path/to/downloaded/musclex-*.tar.bz2
 ```
+
 3. Verify the main functionalities and run the tests.
 
-#### 3. Upload to Anaconda Cloud
-
-Once testing passes:
-
-1. Go to the GitHub repository **Actions** tab.
-2. Select the **"Upload Conda Packages"** workflow.
-3. Click **"Run workflow"** and fill in:
-   - **run_id**: The Run ID of the build workflow (found in the URL: `/actions/runs/<run_id>`).
-   - **version**: Must match the version used in the build.
-   - **build_number**: Must match the build number used in the build.
-4. The workflow downloads all 4 platform artifacts and uploads them to Anaconda Cloud under the `biocat_IIT` user. If a package for a platform already exists, it is skipped (not overwritten).
-
-#### 4. Verify
+#### Verify installation from Anaconda Cloud
 
 After upload, test installation from Anaconda Cloud:
+
 ```bash
 conda create -n verify-musclex python=3.10
 conda activate verify-musclex
@@ -284,7 +343,10 @@ conda install -c biocat_IIT musclex=<version>
 #### Notes
 
 - If a build for one platform fails, the other platforms still complete (`fail-fast: false`).
-- To rebuild a failed platform, re-run the build workflow and then upload only the new artifacts.
+- Conda uploads start only after every platform build succeeds.
+- If the combined workflow fails after PyPI has already been published, use
+  the standalone **Build Conda Packages** and **Upload Conda Packages**
+  workflows to resume. PyPI does not allow replacing an existing file.
 - If you need to overwrite an existing package on Anaconda Cloud, delete it manually via the [Anaconda Cloud dashboard](https://anaconda.org/biocat_IIT/musclex/files) before uploading.
 - Build artifacts are retained for 90 days on GitHub.
 

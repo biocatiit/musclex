@@ -1,8 +1,26 @@
 name: Build Conda Packages
 
 on:
+  workflow_call:
+    inputs:
+      release_ref:
+        description: 'Release tag whose Conda recipe should be used'
+        required: true
+        type: string
+      version:
+        description: 'Version to build from PyPI'
+        required: true
+        type: string
+      build_number:
+        description: 'Conda build number'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
+      release_ref:
+        description: 'Optional release tag to check out (e.g., v2.1.0)'
+        required: false
+        type: string
       version:
         description: 'Version to build from PyPI (e.g., 1.27.0)'
         required: true
@@ -33,6 +51,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref || github.ref }}
 
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
