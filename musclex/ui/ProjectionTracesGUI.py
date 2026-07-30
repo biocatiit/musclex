@@ -153,6 +153,36 @@ class Worker(QRunnable):
         mirrored_peaks = [-p for p in user_peaks]
         box.peaks = user_peaks + mirrored_peaks
 
+    @classmethod
+    def _install_current_box_configuration(cls, proj_proc, boxes):
+        """Replace cached per-image boxes with the batch configuration.
+
+        Image-level review metadata remains on ``state``. Box-derived results
+        and meridional fit state must not survive a change from, for example,
+        M3 to M6 peak selections.
+        """
+        proj_proc.state.boxes = {}
+        proj_proc.state.original_boxes = {}
+        proj_proc.state.main_peak_info = {}
+
+        for name, box in boxes.items():
+            box_copy = ProcessingBox(
+                name=box.name,
+                coordinates=copy.deepcopy(box.coordinates),
+                type=box.type,
+                bgsub=box.bgsub,
+                peaks=box.peaks.copy() if box.peaks else [],
+                merid_bg=box.merid_bg,
+                hull_range=copy.deepcopy(box.hull_range),
+                param_bounds=copy.deepcopy(box.param_bounds),
+                use_common_sigma=box.use_common_sigma,
+                peak_tolerance=box.peak_tolerance,
+                sigma_tolerance=box.sigma_tolerance,
+            )
+            proj_proc.store_original_boxes(name, box_copy)
+            cls._expand_peaks_mirrored(box_copy)
+            proj_proc.state.boxes[name] = box_copy
+
     @Slot()
     def run(self):
         try:
@@ -179,29 +209,12 @@ class Worker(QRunnable):
                 pt_output = self.params.gui._output_dir_for_source(image_dir)
                 self.projProc = ProjectionProcessor(image_data, output_dir=pt_output)
 
-                # Transfer folder template boxes to processor if cache is empty
-                if len(self.projProc.boxes) == 0 and self.params.boxes_copy:
-                    for name, box in self.params.boxes_copy.items():
-                        # Direct copy of configuration
-                        box_copy = ProcessingBox(
-                            name=box.name,
-                            coordinates=box.coordinates,
-                            type=box.type,
-                            bgsub=box.bgsub,
-                            peaks=box.peaks.copy() if box.peaks else [],
-                            merid_bg=box.merid_bg,
-                            hull_range=box.hull_range,
-                            param_bounds=(
-                                box.param_bounds.copy() if box.param_bounds else {}
-                            ),
-                            use_common_sigma=box.use_common_sigma,
-                            peak_tolerance=box.peak_tolerance,
-                            sigma_tolerance=box.sigma_tolerance,
-                        )
-                        self.projProc.store_original_boxes(name, box_copy)
-                        # Expand peaks by mirroring (folder template only contains first half)
-                        self._expand_peaks_mirrored(box_copy)
-                        self.projProc.state.boxes[name] = box_copy
+                # "Process Current Folder" always means the settings captured
+                # by its confirmation dialog, even when an image has an older
+                # per-image processing cache.
+                self._install_current_box_configuration(
+                    self.projProc, self.params.boxes_copy
+                )
 
             # Apply settings directly to state
             if self.settings:
@@ -1090,6 +1103,13 @@ class ProjectionTracesGUI(BaseGUI):
         """
         selected_peaks = list(peaks)
         return selected_peaks + [-peak for peak in selected_peaks]
+
+    @staticmethod
+    def _peak_distance_in_local_coordinates(box_type, centerx, centery, comp_x, comp_y):
+        """Measure a click along the projection axis in box-local coordinates."""
+        if box_type in ("h", "oriented"):
+            return abs(centerx - comp_x)
+        return abs(centery - comp_y)
 
     def addPeakstoBox(self, name, peaks):
         """
@@ -2241,7 +2261,17 @@ class ProjectionTracesGUI(BaseGUI):
                             peaks[name] = []
 
                         if typ == "h":
-                            distance = int(round(abs(centerx - comp_x)))
+                            distance = int(
+                                round(
+                                    self._peak_distance_in_local_coordinates(
+                                        typ,
+                                        centerx,
+                                        centery,
+                                        comp_x,
+                                        comp_y,
+                                    )
+                                )
+                            )
                             peaks[name].append(distance)
                             ax.plot(
                                 (centerx - distance, centerx - distance),
@@ -2254,8 +2284,12 @@ class ProjectionTracesGUI(BaseGUI):
                                 color="r",
                             )
                         elif typ == "oriented":
-                            distance = np.sqrt(
-                                (centerx - comp_x) ** 2 + (centery - comp_y) ** 2
+                            distance = self._peak_distance_in_local_coordinates(
+                                typ,
+                                centerx,
+                                centery,
+                                comp_x,
+                                comp_y,
                             )
                             edge_1 = rotatePoint(
                                 (centerx, centery),
@@ -2291,7 +2325,17 @@ class ProjectionTracesGUI(BaseGUI):
 
                             peaks[name].append(distance)
                         else:
-                            distance = int(round(abs(centery - comp_y)))
+                            distance = int(
+                                round(
+                                    self._peak_distance_in_local_coordinates(
+                                        typ,
+                                        centerx,
+                                        centery,
+                                        comp_x,
+                                        comp_y,
+                                    )
+                                )
+                            )
                             peaks[name].append(distance)
                             ax.plot(
                                 boxx,
@@ -3064,7 +3108,7 @@ class ProjectionTracesGUI(BaseGUI):
             self.lock.acquire()
         self.projProc = projProc
 
-        self.onProcessingFinished()
+        self.onProcessingFinished(update_folder_cache=False)
 
         if self.lock is not None:
             self.lock.release()
@@ -3177,9 +3221,9 @@ class ProjectionTracesGUI(BaseGUI):
             self.currentTask.signals.finished.connect(self.thread_finished)
             self.threadPool.start(self.currentTask)
 
-    def onProcessingFinished(self):
-        # Update folder cache with refined results
-        self._update_folder_cache_from_results()
+    def onProcessingFinished(self, update_folder_cache=True):
+        if update_folder_cache:
+            self._update_folder_cache_from_results()
 
         # Note: Keep self.boxes as folder template (config-only, peaks = first half)
         # Don't sync full results back to maintain clean state
@@ -3671,13 +3715,22 @@ class ProjectionTracesGUI(BaseGUI):
         print(f"    Saved (first half): {result}")
         return result
 
+    @staticmethod
+    def _user_param_bounds(proc_box: ProcessingBox):
+        """Copy explicit bounds while leaving automatic fit bounds image-local."""
+        return {
+            name: copy.deepcopy(bounds)
+            for name, bounds in proc_box.param_bounds.items()
+            if isinstance(bounds, dict) and bounds.get("source") != "auto"
+        }
+
     def _update_folder_cache_from_results(self):
         """
         Update folder-level cache with refined results from current image processing.
 
         Key updates:
         1. peaks: Use refined peak positions from fit results
-        2. param_bounds: Parameter bounds learned during fitting
+        2. param_bounds: Preserve explicitly user-authored bounds
         3. Other configuration parameters
 
         This allows subsequent images to benefit from improved initial values.
@@ -3701,7 +3754,7 @@ class ProjectionTracesGUI(BaseGUI):
                     peaks=refined_peaks,  # Directly use refined peaks (already first half)
                     merid_bg=proc_box.merid_bg,
                     hull_range=proc_box.hull_range,
-                    param_bounds={},
+                    param_bounds=self._user_param_bounds(proc_box),
                     use_common_sigma=proc_box.use_common_sigma,
                     peak_tolerance=proc_box.peak_tolerance,
                     sigma_tolerance=proc_box.sigma_tolerance,
@@ -3731,7 +3784,7 @@ class ProjectionTracesGUI(BaseGUI):
                         print(f"  Peak {i}: {old:.2f} → {new:.2f} (Δ{delta:+.3f})")
 
                 # Update fitting parameters
-                folder_box.param_bounds = {}
+                folder_box.param_bounds = self._user_param_bounds(proc_box)
                 folder_box.use_common_sigma = proc_box.use_common_sigma
                 folder_box.peak_tolerance = proc_box.peak_tolerance
                 folder_box.sigma_tolerance = proc_box.sigma_tolerance

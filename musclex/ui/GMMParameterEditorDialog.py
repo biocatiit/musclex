@@ -7,6 +7,7 @@ import copy
 import numpy as np
 from sklearn.metrics import r2_score
 from lmfit import Model, Parameters
+from ..modules.ProjectionProcessor import mirrored_peak_count
 
 
 class GMMParameterEditorDialog(QDialog):
@@ -22,6 +23,7 @@ class GMMParameterEditorDialog(QDialog):
 
         # Create working copy from original fit_results (for real-time preview editing)
         box = self.projProc.boxes[self.box_name]
+        self._symmetric_peak_count = mirrored_peak_count(box.peaks)
         if box.fit_results is None:
             raise ValueError(
                 f"No fit results found for box '{box_name}'. Please fit peaks first."
@@ -200,9 +202,8 @@ class GMMParameterEditorDialog(QDialog):
             cs_bounds = {}
         params_to_show["common_sigma"] = {
             "val": fit_result.get("common_sigma", 10.0),
-            # Prefer persisted bounds; fallback to legacy UI range
-            "min": cs_bounds.get("min", 1.0),
-            "max": cs_bounds.get("max", 100.0),
+            "min": cs_bounds.get("min", 0.5),
+            "max": cs_bounds.get("max", 50.0),
             "fixed": fit_result.get("common_sigma_fixed", False),  # Read fixed state
             "enabled": is_gmm,  # Only enabled in GMM mode
         }
@@ -218,12 +219,19 @@ class GMMParameterEditorDialog(QDialog):
             p_min = stored_p_bounds.get("min", fit_result[p_name] - peak_tol)
             p_max = stored_p_bounds.get("max", fit_result[p_name] + peak_tol)
 
+            derived_position = bool(
+                self._symmetric_peak_count and i >= self._symmetric_peak_count
+            )
             params_to_show[f"p_{i}"] = {
                 "val": fit_result[f"p_{i}"],
                 "min": p_min,
                 "max": p_max,
-                "fixed": fit_result.get(f"p_{i}_fixed", False),  # Read fixed state
-                "enabled": True,
+                "fixed": (
+                    False if derived_position else fit_result.get(f"p_{i}_fixed", False)
+                ),
+                "enabled": not derived_position,
+                "bounds_enabled": not derived_position,
+                "derived": bool(derived_position),
             }
 
             # Amplitude (no bounds - amplitude is unconstrained in fitting)
@@ -245,9 +253,8 @@ class GMMParameterEditorDialog(QDialog):
                 s_bounds = {}
             params_to_show[f"sigma{i}"] = {
                 "val": fit_result.get(s_name, fit_result.get("common_sigma", 10.0)),
-                # Prefer persisted bounds; fallback to legacy UI range
-                "min": s_bounds.get("min", 1.0),
-                "max": s_bounds.get("max", 100.0),
+                "min": s_bounds.get("min", 0.5),
+                "max": s_bounds.get("max", 50.0),
                 "fixed": fit_result.get(f"sigma{i}_fixed", False),  # Read fixed state
                 "enabled": not is_gmm,  # Only enabled in non-GMM mode
             }
@@ -268,7 +275,11 @@ class GMMParameterEditorDialog(QDialog):
 
             # Fixed checkbox
             chkItem = QTableWidgetItem()
-            chkItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            if pdict.get("derived", False):
+                chkItem.setFlags(Qt.NoItemFlags)
+                chkItem.setToolTip("Derived from the mirrored editable peak")
+            else:
+                chkItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             chkItem.setCheckState(Qt.Checked if pdict["fixed"] else Qt.Unchecked)
             self.paramTable.setItem(row, 0, chkItem)
 
@@ -533,6 +544,22 @@ class GMMParameterEditorDialog(QDialog):
                         self._reset_bounds_for_row_by_tolerance(
                             row, param_name, sender.value()
                         )
+                    if param_name.startswith("p_") and self._symmetric_peak_count:
+                        peak_index = int(param_name.split("_")[1])
+                        if peak_index < self._symmetric_peak_count:
+                            partner_name = (
+                                f"p_{peak_index + self._symmetric_peak_count}"
+                            )
+                            for partner_row in range(self.paramTable.rowCount()):
+                                if (
+                                    self.paramTable.item(partner_row, 1).text()
+                                    == partner_name
+                                ):
+                                    partner = self.paramTable.cellWidget(partner_row, 2)
+                                    partner.blockSignals(True)
+                                    partner.setValue(-sender.value())
+                                    partner.blockSignals(False)
+                                    break
                 except Exception:
                     pass
 
@@ -556,10 +583,19 @@ class GMMParameterEditorDialog(QDialog):
         box = self.projProc.boxes[self.box_name]
 
         for param_name, pinfo in params_info.items():
+            if param_name.startswith("p_"):
+                peak_index = int(param_name.split("_")[1])
+                if (
+                    self._symmetric_peak_count
+                    and peak_index >= self._symmetric_peak_count
+                ):
+                    box.param_bounds.pop(param_name, None)
+                    continue
             # Only commit if min/max exist in the table structure
             box.param_bounds[param_name] = {
                 "min": float(pinfo.get("min", 0.0)),
                 "max": float(pinfo.get("max", 0.0)),
+                "source": "user",
             }
 
     def onCommonSigmaChanged(self, value):
