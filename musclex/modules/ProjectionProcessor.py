@@ -64,6 +64,19 @@ except Exception:  # pragma: no cover - any import failure -> disable capture
 _SQRT_2PI = np.sqrt(2.0 * np.pi)
 _SQRT2 = np.sqrt(2.0)
 _HULL_FIT_MARGIN = 15
+_DEFAULT_SIGMA_INIT = 5.0
+_DEFAULT_SIGMA_MIN = 0.5
+_DEFAULT_SIGMA_MAX = 50.0
+
+
+def mirrored_peak_count(peaks, *, atol=1e-6):
+    """Return the number of editable peaks when *peaks* contains mirrored pairs."""
+    if not peaks or len(peaks) % 2:
+        return 0
+    half = len(peaks) // 2
+    if all(np.isclose(peaks[half + i], -peaks[i], atol=atol) for i in range(half)):
+        return half
+    return 0
 
 
 @dataclass
@@ -381,7 +394,12 @@ class ProjectionProcessor:
         return (b.get("min", None), b.get("max", None))
 
     def _set_param_bounds(
-        self, box_name: str, param_name: str, bmin: float, bmax: float
+        self,
+        box_name: str,
+        param_name: str,
+        bmin: float,
+        bmax: float,
+        source: str = "auto",
     ):
         """
         Helper to persist per-parameter bounds.
@@ -390,7 +408,48 @@ class ProjectionProcessor:
             return
 
         box = self.boxes[box_name]
-        box.param_bounds[param_name] = {"min": float(bmin), "max": float(bmax)}
+        box.param_bounds[param_name] = {
+            "min": float(bmin),
+            "max": float(bmax),
+            "source": source,
+        }
+
+    def _get_sigma_bounds(self, box_name: str, param_name: str):
+        """Return explicit sigma bounds or install the broad automatic defaults.
+
+        Older PT versions persisted the automatically-derived [0, 10] range
+        without recording its provenance. Treat that exact range as legacy
+        automatic state, while preserving every other unmarked legacy range.
+        """
+        box = self.boxes[box_name]
+        bounds = box.param_bounds.get(param_name)
+        if isinstance(bounds, dict):
+            bmin = bounds.get("min")
+            bmax = bounds.get("max")
+            source = bounds.get("source")
+            legacy_auto = (
+                source is None
+                and bmin is not None
+                and bmax is not None
+                and np.isclose(float(bmin), 0.0)
+                and np.isclose(float(bmax), 10.0)
+            )
+            if (
+                source != "auto"
+                and not legacy_auto
+                and bmin is not None
+                and bmax is not None
+            ):
+                return float(bmin), float(bmax)
+
+        self._set_param_bounds(
+            box_name,
+            param_name,
+            _DEFAULT_SIGMA_MIN,
+            _DEFAULT_SIGMA_MAX,
+            source="auto",
+        )
+        return _DEFAULT_SIGMA_MIN, _DEFAULT_SIGMA_MAX
 
     def removePeaks(self, name):
         """
@@ -727,13 +786,20 @@ class ProjectionProcessor:
             fixed_sigma_for_box = box.fixed_sigma
             fixed_amplitude_for_box = box.fixed_amplitude
             fixed_common_sigma_for_box = box.fixed_common_sigma
+            symmetric_peak_count = mirrored_peak_count(peaks)
+            if symmetric_peak_count:
+                # Only the first half of a mirrored selection is independently
+                # fitted. Honor legacy fixed values recorded on the derived
+                # half by mapping them back to their editable partner.
+                fixed_center_for_box = dict(fixed_center_for_box)
+                for fixed_idx, fixed_value in list(fixed_center_for_box.items()):
+                    if fixed_idx >= symmetric_peak_count:
+                        partner = fixed_idx - symmetric_peak_count
+                        fixed_center_for_box.setdefault(partner, -fixed_value)
 
             # Check if hull_ranges exist to constrain peak search range
             # Get peak tolerance from settings (default 2.0 for backward compatibility)
             default_search_dist = box.peak_tolerance
-            # Sigma tolerance percentage for initializing sigma/common_sigma bounds when none are stored
-            # (used as ± tolerance% around the default initial value 5)
-            sigma_tol_percent = box.sigma_tolerance
             hull_constraint = None
             if box.hull_range is not None:
                 hull_start, hull_end = box.hull_range
@@ -747,67 +813,65 @@ class ProjectionProcessor:
                 if fixed_common_sigma_for_box is not None:
                     params.add("common_sigma", fixed_common_sigma_for_box, vary=False)
                 else:
-                    # Bounds-driven common_sigma: prefer persisted bounds; otherwise default [1, 50]
-                    orig_cs_min, orig_cs_max = self._get_param_bounds(
-                        name, "common_sigma"
+                    cs_min, cs_max = self._get_sigma_bounds(name, "common_sigma")
+                    params.add(
+                        "common_sigma",
+                        _DEFAULT_SIGMA_INIT,
+                        min=cs_min,
+                        max=cs_max,
                     )
-                    cs_min, cs_max = orig_cs_min, orig_cs_max
-                    if cs_min is None:
-                        # Calculate tolerance as percentage of default value 5.0
-                        cs_min = max(
-                            0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0)
-                        )
-                    if cs_max is None:
-                        cs_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
-                    if cs_min > cs_max:
-                        cs_min, cs_max = cs_max, cs_min
-                    if cs_min == cs_max:
-                        cs_min = max(0.0, cs_min - 0.5)
-                        cs_max = cs_max + 0.5
-                    # Persist defaults if missing
-                    if orig_cs_min is None and orig_cs_max is None:
-                        self._set_param_bounds(name, "common_sigma", cs_min, cs_max)
-                    params.add("common_sigma", 5, min=cs_min, max=cs_max)
 
                 for j, p in enumerate(peaks):
-                    # Per-peak bounds (scheme B):
-                    # Prefer persisted bounds for p_j; otherwise initialize from Peak Tolerance.
-                    stored_min, stored_max = self._get_param_bounds(name, f"p_{j}")
-                    base_min = (
-                        (p - default_search_dist) if stored_min is None else stored_min
-                    )
-                    base_max = (
-                        (p + default_search_dist) if stored_max is None else stored_max
-                    )
+                    if symmetric_peak_count and j >= symmetric_peak_count:
+                        partner = j - symmetric_peak_count
+                        params.add(f"p_{j}", expr=f"-p_{partner}")
+                    else:
+                        # Per-peak bounds (scheme B):
+                        # Prefer persisted bounds for p_j; otherwise initialize from Peak Tolerance.
+                        stored_min, stored_max = self._get_param_bounds(name, f"p_{j}")
+                        base_min = (
+                            (p - default_search_dist)
+                            if stored_min is None
+                            else stored_min
+                        )
+                        base_max = (
+                            (p + default_search_dist)
+                            if stored_max is None
+                            else stored_max
+                        )
 
-                    # Apply hull constraint by clamping bounds (not recomputing from p)
-                    if hull_constraint is not None:
-                        hull_start, hull_end = hull_constraint
-                        if p > 0:
-                            clamp_min, clamp_max = hull_start, hull_end
+                        # Apply hull constraint by clamping bounds (not recomputing from p)
+                        if hull_constraint is not None:
+                            hull_start, hull_end = hull_constraint
+                            if p > 0:
+                                clamp_min, clamp_max = hull_start, hull_end
+                            else:
+                                clamp_min, clamp_max = -hull_end, -hull_start
+                            p_min = max(base_min, clamp_min)
+                            p_max = min(base_max, clamp_max)
                         else:
-                            clamp_min, clamp_max = -hull_end, -hull_start
-                        p_min = max(base_min, clamp_min)
-                        p_max = min(base_max, clamp_max)
-                    else:
-                        p_min, p_max = base_min, base_max
+                            p_min, p_max = base_min, base_max
 
-                    # Safety: ensure valid min/max
-                    if p_min > p_max:
-                        p_min, p_max = p_max, p_min
-                    if p_min == p_max:
-                        p_min -= 0.5
-                        p_max += 0.5
+                        # Safety: ensure valid min/max
+                        if p_min > p_max:
+                            p_min, p_max = p_max, p_min
+                        if p_min == p_max:
+                            p_min -= 0.5
+                            p_max += 0.5
 
-                    # Persist bounds if they didn't exist yet (initialization step)
-                    if stored_min is None or stored_max is None:
-                        self._set_param_bounds(name, f"p_{j}", p_min, p_max)
+                        # Persist bounds if they didn't exist yet (initialization step)
+                        if stored_min is None or stored_max is None:
+                            self._set_param_bounds(name, f"p_{j}", p_min, p_max)
 
-                    # Position: check if fixed
-                    if j in fixed_center_for_box:
-                        params.add("p_" + str(j), fixed_center_for_box[j], vary=False)
-                    else:
-                        params.add("p_" + str(j), p, min=p_min, max=p_max)
+                        # Position: check if fixed
+                        if j in fixed_center_for_box:
+                            params.add(
+                                "p_" + str(j),
+                                fixed_center_for_box[j],
+                                vary=False,
+                            )
+                        else:
+                            params.add("p_" + str(j), p, min=p_min, max=p_max)
 
                     # NOTE: In GMM mode, we do NOT add individual sigma parameters
                     # The layerlineModelGMM function will use common_sigma directly
@@ -816,17 +880,7 @@ class ProjectionProcessor:
                     # However, for UI consistency (Parameter Editor), we still initialize
                     # per-peak sigma{i} bounds if missing so they can be displayed/edited.
                     s_name = f"sigma{j}"
-                    orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
-                    if orig_s_min is None and orig_s_max is None:
-                        # Calculate tolerance as percentage of default value 5.0
-                        s_min = max(0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0))
-                        s_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
-                        if s_min > s_max:
-                            s_min, s_max = s_max, s_min
-                        if s_min == s_max:
-                            s_min = max(0.0, s_min - 0.5)
-                            s_max = s_max + 0.5
-                        self._set_param_bounds(name, s_name, s_min, s_max)
+                    self._get_sigma_bounds(name, s_name)
 
                     # Amplitude: check if fixed (no upper bound - amplitude is unconstrained)
                     if j in fixed_amplitude_for_box:
@@ -841,64 +895,70 @@ class ProjectionProcessor:
             else:
                 # Original mode: each peak has independent sigma
                 for j, p in enumerate(peaks):
-                    # Per-peak bounds (scheme B): same as GMM branch.
-                    stored_min, stored_max = self._get_param_bounds(name, f"p_{j}")
-                    base_min = (
-                        (p - default_search_dist) if stored_min is None else stored_min
-                    )
-                    base_max = (
-                        (p + default_search_dist) if stored_max is None else stored_max
-                    )
+                    if symmetric_peak_count and j >= symmetric_peak_count:
+                        partner = j - symmetric_peak_count
+                        params.add(f"p_{j}", expr=f"-p_{partner}")
+                    else:
+                        # Per-peak bounds (scheme B): same as GMM branch.
+                        stored_min, stored_max = self._get_param_bounds(name, f"p_{j}")
+                        base_min = (
+                            (p - default_search_dist)
+                            if stored_min is None
+                            else stored_min
+                        )
+                        base_max = (
+                            (p + default_search_dist)
+                            if stored_max is None
+                            else stored_max
+                        )
 
-                    if hull_constraint is not None:
-                        hull_start, hull_end = hull_constraint
-                        if p > 0:
-                            clamp_min, clamp_max = hull_start, hull_end
+                        if hull_constraint is not None:
+                            hull_start, hull_end = hull_constraint
+                            if p > 0:
+                                clamp_min, clamp_max = hull_start, hull_end
+                            else:
+                                clamp_min, clamp_max = -hull_end, -hull_start
+                            p_min = max(base_min, clamp_min)
+                            p_max = min(base_max, clamp_max)
                         else:
-                            clamp_min, clamp_max = -hull_end, -hull_start
-                        p_min = max(base_min, clamp_min)
-                        p_max = min(base_max, clamp_max)
-                    else:
-                        p_min, p_max = base_min, base_max
+                            p_min, p_max = base_min, base_max
 
-                    if p_min > p_max:
-                        p_min, p_max = p_max, p_min
-                    if p_min == p_max:
-                        p_min -= 0.5
-                        p_max += 0.5
+                        if p_min > p_max:
+                            p_min, p_max = p_max, p_min
+                        if p_min == p_max:
+                            p_min -= 0.5
+                            p_max += 0.5
 
-                    if stored_min is None or stored_max is None:
-                        self._set_param_bounds(name, f"p_{j}", p_min, p_max)
+                        if stored_min is None or stored_max is None:
+                            self._set_param_bounds(name, f"p_{j}", p_min, p_max)
 
-                    # Position: check if fixed
-                    if j in fixed_center_for_box:
-                        params.add("p_" + str(j), fixed_center_for_box[j], vary=False)
-                    else:
-                        params.add("p_" + str(j), p, min=p_min, max=p_max)
+                        # Position: check if fixed
+                        if j in fixed_center_for_box:
+                            params.add(
+                                "p_" + str(j),
+                                fixed_center_for_box[j],
+                                vary=False,
+                            )
+                        else:
+                            params.add("p_" + str(j), p, min=p_min, max=p_max)
 
                     # Sigma: check if fixed
                     if j in fixed_sigma_for_box:
                         params.add("sigma" + str(j), fixed_sigma_for_box[j], vary=False)
                     else:
-                        # Bounds-driven sigma: prefer persisted bounds; otherwise default [1, 50]
                         s_name = f"sigma{j}"
-                        orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
-                        s_min, s_max = orig_s_min, orig_s_max
-                        if s_min is None:
-                            # Calculate tolerance as percentage of default value 5.0
-                            s_min = max(
-                                0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0)
-                            )
-                        if s_max is None:
-                            s_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
+                        s_min, s_max = self._get_sigma_bounds(name, s_name)
                         if s_min > s_max:
                             s_min, s_max = s_max, s_min
                         if s_min == s_max:
                             s_min = max(0.0, s_min - 0.5)
                             s_max = s_max + 0.5
-                        if orig_s_min is None and orig_s_max is None:
-                            self._set_param_bounds(name, s_name, s_min, s_max)
-                        params.add(s_name, 5, min=s_min, max=s_max)
+                        params.add(
+                            s_name,
+                            _DEFAULT_SIGMA_INIT,
+                            min=s_min,
+                            max=s_max,
+                        )
 
                     # Amplitude: check if fixed (no upper bound - amplitude is unconstrained)
                     if j in fixed_amplitude_for_box:
@@ -951,7 +1011,7 @@ class ProjectionProcessor:
             _n_free_peaks = sum(
                 1 for k in params if k.startswith("p_") and params[k].vary
             )
-            if use_gmm and _n_free_peaks >= 10:
+            if use_gmm and not symmetric_peak_count and _n_free_peaks >= 10:
                 result = _fit_gmm_analytic_jac(
                     params, fit_int_vars["x"], fit_hist, fit_int_vars
                 )

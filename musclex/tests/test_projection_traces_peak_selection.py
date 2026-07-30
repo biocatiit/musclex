@@ -7,6 +7,10 @@ import pytest
 
 pytest.importorskip("PySide6")
 
+from PySide6.QtWidgets import QApplication
+
+_APP = QApplication.instance() or QApplication([])
+
 from musclex.modules.ProjectionProcessor import ProcessingBox
 from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
 
@@ -18,6 +22,9 @@ class _UncheckedButton:
 
 class _PeakSelectionHarness:
     _mirror_selected_peaks = staticmethod(ProjectionTracesGUI._mirror_selected_peaks)
+    _peak_distance_in_local_coordinates = staticmethod(
+        ProjectionTracesGUI._peak_distance_in_local_coordinates
+    )
     updatePeaks = ProjectionTracesGUI.updatePeaks
     addPeaks = ProjectionTracesGUI.addPeaks
 
@@ -61,3 +68,17 @@ def test_image_peak_selection_keeps_all_selected_peaks_before_mirrors():
 
     assert gui.projProc.boxes["axis"].peaks == [12, 30, -12, -30]
     assert gui.boxes["axis"].peaks == [12, 30]
+
+
+def test_oriented_peak_distance_ignores_transverse_click_offset():
+    gui = _PeakSelectionHarness([])
+
+    on_axis = gui._peak_distance_in_local_coordinates(
+        "oriented", 50.0, 40.0, 75.0, 40.0
+    )
+    off_axis = gui._peak_distance_in_local_coordinates(
+        "oriented", 50.0, 40.0, 75.0, 63.0
+    )
+
+    assert on_axis == 25.0
+    assert off_axis == on_axis

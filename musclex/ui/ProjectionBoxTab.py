@@ -316,7 +316,8 @@ class ProjectionBoxTab(QWidget):
         self.sigmaToleranceSpinBox.setDecimals(1)
         self.sigmaToleranceSpinBox.setSuffix("%")
         self.sigmaToleranceSpinBox.setToolTip(
-            "Sigma tolerance percentage - used to initialize sigma/common_sigma bounds (± tolerance% of value)"
+            "After you manually edit a sigma value, use this percentage to "
+            "set its refit bounds around that value"
         )
 
         self.clearPeakButton = QPushButton("Clear Peaks")
