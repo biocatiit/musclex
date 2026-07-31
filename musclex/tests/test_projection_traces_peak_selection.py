@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication
 _APP = QApplication.instance() or QApplication([])
 
 from musclex.modules.ProjectionProcessor import ProcessingBox
+from musclex.ui.ProjectionBoxTab import ProjectionBoxTab
 from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
 
 
@@ -82,3 +83,21 @@ def test_oriented_peak_distance_ignores_transverse_click_offset():
 
     assert on_axis == 25.0
     assert off_axis == on_axis
+
+
+@pytest.mark.parametrize(
+    ("position", "hist_length", "expected"),
+    [
+        (0.0, 50, True),
+        (49.999, 50, True),
+        (-0.001, 50, False),
+        (50.0, 50, False),
+        (86.0, 50, False),
+        (float("nan"), 50, False),
+        (10.0, 0, False),
+    ],
+)
+def test_model_peak_visibility_is_limited_to_projection(
+    position, hist_length, expected
+):
+    assert ProjectionBoxTab._peak_is_in_projection(position, hist_length) is expected
