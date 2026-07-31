@@ -154,6 +154,11 @@ class ProjectionBoxTab(QWidget):
 
         return self.centerX
 
+    @staticmethod
+    def _peak_is_in_projection(x, hist_length):
+        """Return whether an absolute peak position is visible in the histogram."""
+        return bool(hist_length > 0 and np.isfinite(x) and 0 <= x < hist_length)
+
     def _getRenderParams(self):
         """
         Get parameters for rendering (supports preview mode)
@@ -2045,12 +2050,20 @@ class ProjectionBoxTab(QWidget):
                     p = model[key]
                     x = model["centerX"] + p
 
+                    # A mirrored peak can legitimately fall outside an off-center
+                    # projection box.  Do not create an off-axis annotation for it:
+                    # tight_layout() otherwise reserves space for the text and
+                    # squeezes the actual projection into a narrow strip.
+                    if not self._peak_is_in_projection(x, len(hist)):
+                        i += 1
+                        continue
+
                     # ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
                     center_line = ax.axvline(x, color="r", alpha=0.7)
                     self.lines.append(center_line)
 
                     # Label peak using the stored variable name (p_0, p_1, ...)
-                    ax.text(
+                    peak_label = ax.text(
                         x,
                         0.95,
                         key,
@@ -2059,7 +2072,9 @@ class ProjectionBoxTab(QWidget):
                         fontsize=9,
                         ha="center",
                         va="top",
+                        clip_on=True,
                     )
+                    peak_label.set_in_layout(False)
 
                     i += 1
 
