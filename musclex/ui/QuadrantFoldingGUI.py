@@ -105,6 +105,15 @@ import random
 from musclex import __version__
 
 
+def _qf_image_spec_identity(spec):
+    """Return a stable physical identity for a FileManager image spec."""
+    if not isinstance(spec, tuple) or len(spec) < 2:
+        return None
+    path = os.path.realpath(str(spec[1]))
+    frame = spec[2] if len(spec) >= 3 and spec[0] == "h5" else None
+    return path, frame
+
+
 class QuadFoldParams:
     def __init__(self, flags, index, file_manager, parent):
         self.flags = flags
@@ -6720,7 +6729,26 @@ class QuadrantFoldingGUI(BaseGUI):
             return
 
         try:
+            previous_identity = None
+            current = self.file_manager.current
+            if current is not None and 0 <= current < len(self.file_manager.specs):
+                previous_identity = _qf_image_spec_identity(
+                    self.file_manager.specs[current]
+                )
+
             self.file_manager.load_from_sources(self.selected_batch_folders)
+
+            # Batch loading prefixes directory images with their folder name.
+            # Match the underlying file/frame so the currently open image stays
+            # selected when it is part of the new batch. If no match exists,
+            # keep load_from_sources' usual first-image selection.
+            if previous_identity is not None:
+                for index, spec in enumerate(self.file_manager.specs):
+                    if _qf_image_spec_identity(spec) == previous_identity:
+                        if index != self.file_manager.current:
+                            self.file_manager.switch_image_by_index(index)
+                        break
+
             if refresh_ui:
                 try:
                     self.workspace.navigator._load_current_image()
