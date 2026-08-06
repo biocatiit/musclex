@@ -27,11 +27,13 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import re
 import traceback
 from datetime import datetime
 from os.path import split, exists, join
 import numpy as np
 import fabio
+import h5py
 
 # from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
@@ -50,11 +52,156 @@ input_types = [
     "marccd",
     "hdf5",
     "h5",
+    "nxs",
     "pilatus",
     "tif",
     "tiff",
     "smv",
 ]
+
+HDF5_EXTENSIONS = (".hdf5", ".h5", ".nxs")
+TIFF_EXTENSIONS = (".tif", ".tiff")
+
+
+def _reference_path(value):
+    """Return the file part of a NeXus string reference, if it names an image."""
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="ignore")
+    if not isinstance(value, str):
+        return None
+    value = value.strip().strip("\x00")
+    if value.startswith("file://"):
+        value = value[7:]
+    # External data references commonly append an HDF5 dataset using ``::`` or
+    # a URI fragment/query. Keep only the physical file portion.
+    value = value.split("::", 1)[0].split("#", 1)[0].split("?", 1)[0]
+    match = re.match(r"^(.+\.(?:tiff?|hdf5|h5|nxs))(?::/.*)?$", value, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def _resolve_reference_path(nexus_path, value):
+    reference = _reference_path(value)
+    if not reference:
+        return None
+    reference = reference.replace("\\", os.sep)
+    if not os.path.isabs(reference):
+        reference = os.path.join(os.path.dirname(nexus_path), reference)
+    reference = os.path.abspath(reference)
+    if not os.path.isfile(reference):
+        # Acquisition files sometimes retain an absolute path from another
+        # machine while placing the referenced image beside the NeXus file.
+        beside_nexus = os.path.join(
+            os.path.dirname(nexus_path), os.path.basename(reference)
+        )
+        reference = os.path.abspath(beside_nexus)
+    return reference if os.path.isfile(reference) else None
+
+
+def resolve_nexus_image_references(nexus_path, _visited=None):
+    """Collect unique existing TIFF/HDF5 files referenced by a NeXus file.
+
+    Handles HDF5 external links, virtual-dataset sources, and path-valued string
+    datasets/attributes. References are returned in NeXus traversal order.
+    """
+    nexus_path = os.path.abspath(str(nexus_path))
+    if _visited is None:
+        _visited = set()
+    nexus_key = os.path.normcase(os.path.realpath(nexus_path))
+    if nexus_key in _visited:
+        return []
+    _visited.add(nexus_key)
+    references = []
+    seen = set()
+
+    def add(value):
+        path = _resolve_reference_path(nexus_path, value)
+        if path is None or os.path.normcase(path) == os.path.normcase(nexus_path):
+            return
+        key = os.path.normcase(os.path.realpath(path))
+        if key not in seen:
+            seen.add(key)
+            references.append(path)
+
+    def add_values(value):
+        if isinstance(value, np.ndarray):
+            if value.size > 10000:
+                return
+            for item in value.flat:
+                add_values(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                add_values(item)
+        else:
+            add(value)
+
+    def walk(group):
+        for attr_value in group.attrs.values():
+            add_values(attr_value)
+        for name in group:
+            try:
+                link = group.get(name, getlink=True)
+                if isinstance(link, h5py.ExternalLink):
+                    add(link.filename)
+                    continue
+                obj = group.get(name)
+                if isinstance(obj, h5py.Group):
+                    walk(obj)
+                elif isinstance(obj, h5py.Dataset):
+                    for attr_value in obj.attrs.values():
+                        add_values(attr_value)
+                    if obj.is_virtual:
+                        for source in obj.virtual_sources():
+                            add(source.file_name)
+                    if obj.dtype.kind in ("S", "U", "O") and obj.size <= 10000:
+                        add_values(obj[()])
+            except (KeyError, OSError, RuntimeError, ValueError):
+                continue
+
+    try:
+        with h5py.File(nexus_path, "r") as nexus:
+            walk(nexus)
+    except (OSError, ValueError):
+        return []
+    expanded = []
+    for path in references:
+        if os.path.splitext(path)[1].lower() == ".nxs":
+            nested = resolve_nexus_image_references(path, _visited)
+            expanded.extend(nested if nested else [path])
+        else:
+            expanded.append(path)
+    return _filter_redundant_image_paths(expanded)
+
+
+def _filter_redundant_image_paths(paths):
+    """Remove duplicate paths and HDF5 data files covered by a master file."""
+    unique = []
+    seen = set()
+    for path in paths:
+        key = os.path.normcase(os.path.realpath(path))
+        if key not in seen:
+            seen.add(key)
+            unique.append(path)
+    master_prefixes = {
+        (
+            os.path.normcase(os.path.realpath(os.path.dirname(path))),
+            os.path.splitext(os.path.basename(path))[0][:-7],
+        )
+        for path in unique
+        if os.path.splitext(path)[1].lower() in HDF5_EXTENSIONS
+        and os.path.splitext(os.path.basename(path))[0].endswith("_master")
+    }
+    return [
+        path
+        for path in unique
+        if not (
+            "_data_" in os.path.splitext(os.path.basename(path))[0]
+            and (
+                os.path.normcase(os.path.realpath(os.path.dirname(path))),
+                os.path.splitext(os.path.basename(path))[0].split("_data_", 1)[0],
+            )
+            in master_prefixes
+        )
+    ]
 
 
 def getFilesAndHdf(dir_path):
@@ -101,7 +248,7 @@ def getImgFiles(fullname, headless=False):
     else:
         failedcases = None
 
-    if ext in (".hdf5", ".h5"):
+    if ext.lower() in HDF5_EXTENSIONS:
         fileList = loadFile(fullname)
         imgList = []
         if fileList is None or not fileList or None in fileList:
@@ -132,7 +279,7 @@ def getImgFiles(fullname, headless=False):
             for f in list_h5_files:
                 _, ext2 = os.path.splitext(str(f))
                 full_file_name = fullPath(dir_path, f)
-                if ext2 in (".hdf5", ".h5"):
+                if ext2.lower() in HDF5_EXTENSIONS:
                     file_loader = loadFile(full_file_name)
                     if file_loader[0] is None:
                         infMsg = QMessageBox()
@@ -167,13 +314,13 @@ def getImgFiles(fullname, headless=False):
             if (
                 isImg(full_file_name)
                 and f != "calibration.tif"
-                and ext2 not in (".hdf5", ".h5")
+                and ext2.lower() not in HDF5_EXTENSIONS
             ):  # and validateImage(full_file_name):
                 imgList.append(f)
         imgList.sort()
 
     if failedcases is None and imgList:
-        if ext in (".hdf5", ".h5"):
+        if ext.lower() in HDF5_EXTENSIONS:
             if filename_index is None:
                 current = 0
             else:
@@ -231,8 +378,7 @@ def isHdf5(fileName):
     :param fileName: (str)
     :return: True or False
     """
-    nameList = fileName.split(".")
-    return nameList[-1] in ("hdf5", "h5")
+    return os.path.splitext(str(fileName))[1].lower() in HDF5_EXTENSIONS
 
 
 def ifHdfReadConvertless(fileName, img):
@@ -274,9 +420,9 @@ def _disk_cache_file(dir_path):
         cdir = _disk_cache_dir(dir_path)
         if cdir is None:
             return None
-        # v2: specs stored as relative paths so cache is portable across machines/users.
-        # Old scan_cache.pkl (absolute paths) is intentionally ignored.
-        return join(cdir, "scan_cache_v2.pkl")
+        # v3 adds NeXus files to the HDF5 scan. Specs remain relative so the
+        # cache is portable across machines/users.
+        return join(cdir, "scan_cache_v3.pkl")
     except Exception:
         return None
 
@@ -456,6 +602,90 @@ def _tiff_size(path):
     return None
 
 
+def _hdf5_dataset_frames(path):
+    """Return loader specs for the most likely 2-D detector dataset in *path*.
+
+    AreaDetector files used by Diamond commonly store data as
+    ``scan dimensions × height × width``. Fabio sees the leading scan dimension
+    as one frame, so flatten those leading dimensions explicitly.
+    """
+    candidates = []
+    try:
+        with h5py.File(path, "r") as h5_file:
+
+            def collect(name, obj):
+                if not isinstance(obj, h5py.Dataset) or obj.dtype.kind not in "iuf":
+                    return
+                shape = tuple(int(value) for value in obj.shape)
+                if len(shape) < 2 or min(shape[-2:]) < 64:
+                    return
+                frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
+                data_name = os.path.basename(name).lower()
+                score = (
+                    data_name in ("data", "image", "images", "detector_data"),
+                    frame_count,
+                    shape[-2] * shape[-1],
+                )
+                candidates.append((score, name, shape, frame_count))
+
+            h5_file.visititems(collect)
+    except (OSError, RuntimeError, ValueError):
+        return [], None
+
+    if not candidates:
+        return [], None
+    _score, dataset_path, shape, frame_count = max(candidates, key=lambda item: item[0])
+    specs = [
+        ("h5_dataset", path, dataset_path, frame_index)
+        for frame_index in range(frame_count)
+    ]
+    return specs, shape[-2:]
+
+
+def scan_referenced_images(paths, progress_dict=None):
+    """Expand image files referenced by a NeXus manifest into XV loader specs."""
+    entries = []
+    source_index_map = {}
+    size_map = {}
+    paths = _filter_redundant_image_paths(paths)
+    h5_paths = [
+        path for path in paths if os.path.splitext(path)[1].lower() in HDF5_EXTENSIONS
+    ]
+    if progress_dict is not None:
+        progress_dict["h5_total"] = len(h5_paths)
+        progress_dict["h5_done"] = 0
+
+    h5_done = 0
+    for path in paths:
+        base, ext = os.path.splitext(os.path.basename(path))
+        if ext.lower() in HDF5_EXTENSIONS:
+            frame_specs, shape = _hdf5_dataset_frames(path)
+            h5_done += 1
+            if progress_dict is not None:
+                progress_dict["h5_done"] = h5_done
+            if not frame_specs:
+                if progress_dict is not None:
+                    progress_dict.setdefault("skipped_files", []).append(path)
+                continue
+            start = len(entries)
+            for frame_index, spec in enumerate(frame_specs):
+                display_name = f"{base}_{frame_index + 1:05d}{ext}"
+                entries.append((display_name, spec))
+                if shape is not None:
+                    size_map[display_name] = f"{shape[1]}×{shape[0]}"
+            source_index_map[path] = (start, len(entries) - 1)
+        elif ext.lower() in TIFF_EXTENSIONS:
+            display_name = os.path.basename(path)
+            entries.append((display_name, ("tiff", path)))
+            shape = _tiff_size(path)
+            if shape is not None:
+                size_map[display_name] = f"{shape[1]}×{shape[0]}"
+
+    names = [name for name, _spec in entries]
+    specs = [spec for _name, spec in entries]
+    return names, specs, source_index_map, size_map
+
+
 def scan_directory_images_cached(
     dir_path, max_workers=None, progress_dict=None, fallback_cache_dir=None
 ):
@@ -513,9 +743,9 @@ def scan_directory_images_cached(
         base, ext = os.path.splitext(f)
         if f == "calibration.tif":
             continue
-        if ext.lower() in (".hdf5", ".h5"):
+        if ext.lower() in HDF5_EXTENSIONS:
             h5_files.append((base, ext, full_file_name))
-        elif isImg(full_file_name) and ext.lower() not in (".hdf5", ".h5"):
+        elif isImg(full_file_name) and ext.lower() not in HDF5_EXTENSIONS:
             # Add all TIFF files (no filtering here)
             entries.append((f, ("tiff", full_file_name)))
             # Read header-only size (very cheap, no pixel data decoded)
@@ -639,6 +869,16 @@ def load_image_via_spec(file_path, display_name, source):
                     f.close()
                 except Exception:
                     pass
+        elif kind == "h5_dataset" and len(source) == 4:
+            abs_path, dataset_path, frame_idx = source[1], source[2], int(source[3])
+            with h5py.File(abs_path, "r") as h5_file:
+                dataset = h5_file[dataset_path]
+                leading_shape = dataset.shape[:-2]
+                if leading_shape:
+                    leading_index = np.unravel_index(frame_idx, leading_shape)
+                    img = np.asarray(dataset[leading_index])
+                else:
+                    img = np.asarray(dataset[()])
         else:
             img = fabio.open(fullPath(file_path, display_name)).data
     else:
@@ -653,6 +893,16 @@ def get_loader_source(fileList, idx):
         return fileList[1][idx]
     except Exception:
         return None
+
+
+def _spec_frame_index(spec):
+    if not isinstance(spec, tuple):
+        return 0
+    if spec and spec[0] == "h5_dataset" and len(spec) >= 4:
+        return int(spec[3])
+    if spec and spec[0] == "h5" and len(spec) >= 3:
+        return int(spec[2])
+    return 0
 
 
 def load_image_by_index(file_path, fileList, idx, display_name):
@@ -675,7 +925,7 @@ def build_provisional_selection(fullname):
     sel_name = str(sel_name)
     base, ext = os.path.splitext(sel_name)
 
-    if ext.lower() in (".h5", ".hdf5"):
+    if ext.lower() in HDF5_EXTENSIONS:
         # If selected a data file and a matching master exists, pivot to master
         if "_data_" in base:
             prefix = base.split("_data_")[0]
@@ -706,6 +956,7 @@ class FileManager:
         self.dir_path = ""
         self.output_dir = ""  # writable directory for scan cache fallback
         self.failedcases = None  # List of filenames to filter (from failedcases.txt)
+        self.reference_sources = []  # Real images resolved from a NeXus manifest
         # File layer (fast, for navigation)
         self.file_list = []  # [(filename, type, full_path), ...]
         self.current_file_idx = 0
@@ -720,6 +971,7 @@ class FileManager:
         self.current_h5_nframes = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
+        self._h5_dataset_specs = {}  # {full_path: generic HDF5 frame specs}
         self.source_index_map = (
             {}
         )  # {h5_path_or_dir_path: (start_idx, end_idx)} in names/specs
@@ -751,6 +1003,45 @@ class FileManager:
         # Check if selected file is failedcases.txt (must match exact name)
         selected_name = os.path.basename(str(selected_file))
         base, ext = os.path.splitext(selected_name)
+        self.reference_sources = []
+
+        if ext.lower() == ".nxs":
+            self.reference_sources = resolve_nexus_image_references(selected_file)
+            if self.reference_sources:
+                available_sources = []
+                for path in self.reference_sources:
+                    path_ext = os.path.splitext(path)[1].lower()
+                    if path_ext in HDF5_EXTENSIONS:
+                        specs, _shape = _hdf5_dataset_frames(path)
+                        if not specs:
+                            continue
+                        self._h5_dataset_specs[path] = specs
+                        self._h5_frames[path] = len(specs)
+                    elif path_ext not in TIFF_EXTENSIONS:
+                        continue
+                    available_sources.append(path)
+                self.reference_sources = available_sources
+
+            if self.reference_sources:
+                self.file_list = [
+                    (
+                        os.path.basename(path),
+                        (
+                            "h5"
+                            if os.path.splitext(path)[1].lower() in HDF5_EXTENSIONS
+                            else "tiff"
+                        ),
+                        path,
+                    )
+                    for path in self.reference_sources
+                ]
+                self._rebuild_path_to_file_idx()
+                self.current_file_idx = 0
+                self.current_frame_idx = 0
+                self.failedcases = None
+                self._rebuild_simple_image_list()
+                self.load_current()
+                return
 
         if ext.lower() == ".txt" and selected_name.lower() == "failedcases.txt":
             # Read failedcases.txt
@@ -777,7 +1068,7 @@ class FileManager:
             # Fallback to single file if scan fails (but not for .txt files)
             if ext.lower() != ".txt":
                 fname = os.path.basename(str(selected_file))
-                ftype = "h5" if ext.lower() in (".h5", ".hdf5") else "tiff"
+                ftype = "h5" if ext.lower() in HDF5_EXTENSIONS else "tiff"
                 file_list = [(fname, ftype, str(selected_file))]
 
         self.file_list = file_list
@@ -793,7 +1084,7 @@ class FileManager:
             # No need to search, just use first file
             found = True if file_list else False
         # If selected a data file, try to find corresponding master first
-        elif ext.lower() in (".h5", ".hdf5") and "_data_" in base:
+        elif ext.lower() in HDF5_EXTENSIONS and "_data_" in base:
             prefix = base.split("_data_")[0]
             master_name = f"{prefix}_master{ext}"
             for i, (fname, ftype, fpath) in enumerate(file_list):
@@ -838,7 +1129,10 @@ class FileManager:
                 # Check if this first frame is in failedcases
                 if self.failedcases is None or disp in self.failedcases:
                     names.append(disp)
-                    specs.append(("h5", fpath, 0))
+                    dataset_specs = self._h5_dataset_specs.get(fpath)
+                    specs.append(
+                        dataset_specs[0] if dataset_specs else ("h5", fpath, 0)
+                    )
             else:
                 # TIFF: filename is display name, apply filter directly
                 if self.failedcases is None or fname in self.failedcases:
@@ -896,7 +1190,7 @@ class FileManager:
                 if isinstance(spec, tuple) and len(spec) >= 2:
                     spec_path = spec[1]
                     if spec_path == prev_file_path:
-                        if len(spec) >= 3 and spec[2] == prev_frame:
+                        if _spec_frame_index(spec) == prev_frame:
                             self.current = i
                             break
                         elif i == len(specs) - 1 or (
@@ -927,11 +1221,18 @@ class FileManager:
                 if self.output_dir and self.output_dir != self.dir_path
                 else None
             )
-            imgList, specs, source_index_map, size_map = scan_directory_images_cached(
-                self.dir_path,
-                progress_dict=self._h5_progress,
-                fallback_cache_dir=fallback,
-            )
+            if self.reference_sources:
+                imgList, specs, source_index_map, size_map = scan_referenced_images(
+                    self.reference_sources, progress_dict=self._h5_progress
+                )
+            else:
+                imgList, specs, source_index_map, size_map = (
+                    scan_directory_images_cached(
+                        self.dir_path,
+                        progress_dict=self._h5_progress,
+                        fallback_cache_dir=fallback,
+                    )
+                )
             self._scan_errors = self._h5_progress.get("skipped_files", [])
 
             # Apply failedcases filtering if needed
@@ -985,8 +1286,13 @@ class FileManager:
     def _get_h5_nframes(self, path):
         """Get HDF5 file frame count (with caching). Returns int, not tuple."""
         if path not in self._h5_frames:
-            nframes, _shape = _h5_nframes(path)
-            self._h5_frames[path] = nframes
+            dataset_specs, _shape = _hdf5_dataset_frames(path)
+            if dataset_specs:
+                self._h5_dataset_specs[path] = dataset_specs
+                self._h5_frames[path] = len(dataset_specs)
+            else:
+                nframes, _shape = _h5_nframes(path)
+                self._h5_frames[path] = nframes
         return self._h5_frames[path]
 
     def get_current_h5_range(self):
@@ -1009,8 +1315,13 @@ class FileManager:
             return None
 
         if ftype == "h5":
-            source = ("h5", fpath, self.current_frame_idx)
             self.current_h5_nframes = self._get_h5_nframes(fpath)
+            dataset_specs = self._h5_dataset_specs.get(fpath)
+            source = (
+                dataset_specs[self.current_frame_idx]
+                if dataset_specs
+                else ("h5", fpath, self.current_frame_idx)
+            )
             # Prefer names[current] so that dir-sourced frames get prefix (e.g. "exp1/base_00001.h5"),
             # keeping the key consistent with what batch processing uses via names[i].
             if self.names and 0 <= self.current < len(self.names):
@@ -1116,7 +1427,7 @@ class FileManager:
             if isinstance(spec, tuple) and len(spec) >= 2:
                 if spec[1] == fpath:
                     if ftype == "h5" and len(spec) >= 3:
-                        if spec[2] == self.current_frame_idx:
+                        if _spec_frame_index(spec) == self.current_frame_idx:
                             self.current = i
                             return
                     else:
@@ -1186,7 +1497,7 @@ class FileManager:
                         and isinstance(self.specs[target_idx], tuple)
                         and len(self.specs[target_idx]) >= 3
                         and self.specs[target_idx][1] == fpath
-                        and self.specs[target_idx][2] == frame_idx
+                        and _spec_frame_index(self.specs[target_idx]) == frame_idx
                     ):
                         return target_idx
 
@@ -1213,8 +1524,7 @@ class FileManager:
 
                 if file_idx is not None:
                     self.current_file_idx = file_idx
-                    # Frame index is already in spec[2] for H5, or 0 for TIFF
-                    self.current_frame_idx = spec[2] if len(spec) >= 3 else 0
+                    self.current_frame_idx = _spec_frame_index(spec)
         self.load_current()
 
     def switch_image_by_name(self, name):
@@ -1270,7 +1580,7 @@ class FileManager:
             base_ext = os.path.splitext(os.path.basename(source))
             base, ext = base_ext
 
-            if os.path.isfile(source) and ext.lower() in (".h5", ".hdf5"):
+            if os.path.isfile(source) and ext.lower() in HDF5_EXTENSIONS:
                 # --- H5 file as experiment (no prefix) ---
                 label = base  # e.g. "exp1_master" without extension
                 nframes, shape = _h5_nframes(source)
@@ -1366,6 +1676,16 @@ def scan_directory_files_sync(dir_path):
     except Exception:
         return []
 
+    # Use the same master/data de-duplication as the full image scan.  The
+    # master and data files may use different HDF5 extensions (for example a
+    # NeXus ``_master.nxs`` file backed by ``_data_*.h5`` files).
+    master_prefixes = {
+        os.path.splitext(f)[0][:-7]
+        for f in file_names
+        if os.path.splitext(f)[1].lower() in HDF5_EXTENSIONS
+        and os.path.splitext(f)[0].endswith("_master")
+    }
+
     for f in file_names:
         full_path = fullPath(dir_path, f)
         base, ext = os.path.splitext(f)
@@ -1373,13 +1693,11 @@ def scan_directory_files_sync(dir_path):
         if f == "calibration.tif":
             continue
 
-        if ext.lower() in (".h5", ".hdf5"):
+        if ext.lower() in HDF5_EXTENSIONS:
             # Check if this is a data file, skip if corresponding master exists
             if "_data_" in base:
                 prefix = base.split("_data_")[0]
-                master_name = f"{prefix}_master{ext}"
-                master_path = os.path.join(dir_path, master_name)
-                if os.path.exists(master_path):
+                if prefix in master_prefixes:
                     continue  # Skip data file
             files.append((f, "h5", full_path))
         elif isImg(full_path):
