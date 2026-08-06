@@ -141,6 +141,15 @@ def main(arguments=None):
     h5_types = [".h5", ".hdf5"]
     if arguments is None:
         arguments = sys.argv
+
+    # XV accepts an optional image/frame request and acts as a cross-platform
+    # single-instance application. Handle it before the legacy argument-count
+    # dispatcher, which only recognizes shortcuts with exactly one argument.
+    if len(arguments) >= 2 and arguments[1] == "xv":
+        from musclex.ui.xv_single_instance import run_xv
+
+        sys.exit(run_xv(list(arguments), stylesheet.stylesheet))
+
     run = True
     if len(arguments) == 2:
         prog = arguments[1]
@@ -243,14 +252,6 @@ def main(arguments=None):
             app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = QFCenterExamine()
-            sys.exit(app.exec_())
-        elif prog == "xv":
-            from musclex.ui.XRayViewerGUI import XRayViewerGUI
-
-            app = QApplication(sys.argv)
-            app.setStyle("Fusion")
-            app.setStyleSheet(stylesheet.stylesheet)
-            myapp = XRayViewerGUI()
             sys.exit(app.exec_())
         elif prog == "gui":
             from musclex.launcher import LauncherForm
@@ -679,7 +680,7 @@ def main(arguments=None):
         print("")
         print("  $ musclex [program]")
         print("")
-        print("          xv - X-Ray Viewer")
+        print("          xv [image] [--frame N] - X-Ray Viewer (reuses a running XV)")
         print("          eq [<-h>] - Equator (-h for headless version)")
         print("          di [<-h>] - Scanning Diffraction (-h for headless version)")
         print("          qf [<-h>] - Quadrant Folding (-h for headless version)")
@@ -696,6 +697,9 @@ def main(arguments=None):
         print("          test_gpu - Run GPU Testing Module")
         print("")
         print("For example,")
+
+        print("\t$ musclex xv image.tif")
+        print("\t$ musclex xv --file stack.h5 --frame 17")
         print("\t$ musclex eq")
         print("\t$ musclex eq -h -i test.tif -s config.json")
         print("")

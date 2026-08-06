@@ -10,6 +10,15 @@ The status bar shows the current image index, frame index for HDF5 data, cursor 
 
 Use **File > Select an Image...** or `Ctrl+I` to open another image or HDF5 file.
 
+XV can also be opened from another application or a terminal:
+
+```text
+musclex xv /data/image.tif
+musclex xv --file /data/stack.h5 --frame 17
+```
+
+The frame number is zero-based. XV is a single-instance application: if a viewer is already running in the same login session, these commands send the image request to it, bring its window forward, and exit. Otherwise, the command starts XV and opens the requested image. `--reuse` is accepted for compatibility but is unnecessary because reuse is the default. The listener uses a local Unix-domain socket on Linux and a local named pipe on Windows; it does not expose a network port.
+
 Use **File > Change Output Directory...** if results should be written somewhere other than the input data directory. This is useful when the input directory is read-only or when you want to keep analysis results separate from raw data.
 
 Use **File > Export Current View to PNG...** or `Ctrl+E` to save the current image view as a clean PNG. The export uses the current zoom, intensity limits, log scale, and colormap, but removes axes and temporary overlays.

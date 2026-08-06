@@ -300,7 +300,7 @@ class ImageNavigatorWidget(QWidget):
         Open file dialog and load selected file.
 
         Opens a file selection dialog for the user to choose an image file.
-        Supports TIF, TIFF, H5, HDF5, and other common image formats.
+        Supports TIF, TIFF, H5, HDF5, NeXus, and other common image formats.
 
         Emits:
             fileManagerReady: After file is loaded into FileManager
@@ -316,7 +316,7 @@ class ImageNavigatorWidget(QWidget):
             self,
             "Select Image File",
             "",
-            "Image Files (*.tif *.tiff *.h5 *.hdf5 *.png *.jpg *.jpeg);;All Files (*)",
+            "Image Files (*.tif *.tiff *.h5 *.hdf5 *.nxs *.png *.jpg *.jpeg);;All Files (*)",
         )
 
         if file_path:
