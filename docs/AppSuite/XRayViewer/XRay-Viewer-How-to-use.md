@@ -15,9 +15,12 @@ XV can also be opened from another application or a terminal:
 ```text
 musclex xv /data/image.tif
 musclex xv --file /data/stack.h5 --frame 17
+musclex xv --file /data/scan.nxs --dataset /entry/data/data --frame 17
 ```
 
-The frame number is zero-based. XV is a single-instance application: if a viewer is already running in the same login session, these commands send the image request to it, bring its window forward, and exit. Otherwise, the command starts XV and opens the requested image. `--reuse` is accepted for compatibility but is unnecessary because reuse is the default. The listener uses a local Unix-domain socket on Linux and a local named pipe on Windows; it does not expose a network port.
+The frame number is zero-based. When another application sends an HDF5 or NeXus file, XV opens the container as one navigable image stack; `--frame` only chooses the initially displayed frame. It does not require the calling application to extract or send every image separately. Use `--dataset` when the container has multiple datasets and the caller knows which image dataset should be shown. Without it, XV selects the most likely detector dataset and, for NeXus manifests, follows their image references.
+
+XV is a single-instance application: if a viewer is already running in the same login session, these commands send the container or image request to it, bring its window forward, and exit. Otherwise, the command starts XV. `--reuse` is accepted for compatibility but is unnecessary because reuse is the default. The listener uses a local Unix-domain socket on Linux and a local named pipe on Windows; it does not expose a network port.
 
 Use **File > Change Output Directory...** if results should be written somewhere other than the input data directory. This is useful when the input directory is read-only or when you want to keep analysis results separate from raw data.
 

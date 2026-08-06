@@ -2,6 +2,8 @@ import multiprocessing
 import os
 import uuid
 
+import h5py
+import numpy as np
 import pytest
 
 pytest.importorskip("PySide6")
@@ -110,8 +112,9 @@ def test_viewer_delivery_loads_requested_hdf5_frame(tmp_path):
         def __init__(self, manager):
             self.manager = manager
 
-        def load_from_file(self, filepath):
+        def load_from_file(self, filepath, **kwargs):
             self.loaded_path = filepath
+            self.load_options = kwargs
 
         def _load_current_image(self):
             self.image_loaded = True
@@ -140,6 +143,10 @@ def test_viewer_delivery_loads_requested_hdf5_frame(tmp_path):
     _open_in_viewer(window, make_open_request(str(image), frame=17))
 
     assert window.navigator.loaded_path == str(image)
+    assert window.navigator.load_options == {
+        "dataset_path": None,
+        "container_only": True,
+    }
     assert window.file_manager.current_frame_idx == 17
     assert window.file_manager.position_updated
     assert window.file_manager.current_loaded
@@ -147,14 +154,28 @@ def test_viewer_delivery_loads_requested_hdf5_frame(tmp_path):
     assert window.shown and window.raised and window.activated
 
 
-def test_dataset_addressing_is_rejected_explicitly(tmp_path):
+def test_dataset_addressing_opens_the_complete_stack(tmp_path):
     image = tmp_path / "data.nxs"
-    image.touch()
-
-    with pytest.raises(XVProtocolError, match="dataset-addressed"):
-        _validate_viewer_request(
-            make_open_request(str(image), dataset="/entry/instrument/detector/data")
+    with h5py.File(image, "w") as nexus:
+        nexus.create_dataset(
+            "/entry/instrument/detector/data",
+            data=np.arange(3 * 8 * 9).reshape(3, 8, 9),
         )
+
+    request = make_open_request(
+        str(image), dataset="/entry/instrument/detector/data", frame=2
+    )
+
+    _validate_viewer_request(request)
+
+
+def test_dataset_addressing_rejects_a_missing_dataset(tmp_path):
+    image = tmp_path / "data.h5"
+    with h5py.File(image, "w") as h5_file:
+        h5_file.create_dataset("data", shape=(2, 8, 9), dtype="f4")
+
+    with pytest.raises(XVProtocolError, match="not a numeric image stack"):
+        _validate_viewer_request(make_open_request(str(image), dataset="/missing"))
 
 
 def test_local_server_forwards_and_acknowledges_request():

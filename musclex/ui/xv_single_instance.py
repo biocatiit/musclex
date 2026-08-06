@@ -22,6 +22,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 PROTOCOL_VERSION = 1
 MAX_MESSAGE_SIZE = 1024 * 1024
+CONTAINER_EXTENSIONS = (".h5", ".hdf5", ".nxs")
 _HEADER = struct.Struct("!I")
 
 
@@ -321,7 +322,7 @@ def parse_xv_arguments(arguments: list[str]) -> dict:
     )
     parser.add_argument(
         "--dataset",
-        help="reserved NeXus/HDF5 dataset path (not yet supported by XV)",
+        help="HDF5/NeXus image dataset to navigate (opens the complete stack)",
     )
     options = parser.parse_args(arguments[2:])
     if options.image and options.file_option:
@@ -340,21 +341,43 @@ def parse_xv_arguments(arguments: list[str]) -> dict:
 
 def _validate_viewer_request(request: dict) -> None:
     """Reject requests XV cannot represent before acknowledging them."""
-    if request.get("dataset") is not None:
-        raise XVProtocolError(
-            "dataset-addressed NeXus images are not supported by XV yet; "
-            "send the detector image/HDF5 file instead"
-        )
     filepath = request.get("file")
     if filepath and not os.path.isfile(filepath):
         raise XVProtocolError(f"file does not exist: {filepath}")
+    dataset_path = request.get("dataset")
+    if dataset_path is not None:
+        import h5py
+
+        extension = os.path.splitext(filepath or "")[1].lower()
+        if extension not in CONTAINER_EXTENSIONS:
+            raise XVProtocolError("a dataset path requires an HDF5 or NeXus file")
+        try:
+            with h5py.File(filepath, "r") as h5_file:
+                dataset = h5_file.get(dataset_path)
+                is_image_stack = (
+                    isinstance(dataset, h5py.Dataset)
+                    and dataset.dtype.kind in "iuf"
+                    and len(dataset.shape) >= 2
+                    and min(dataset.shape[-2:]) >= 1
+                )
+        except (KeyError, OSError, RuntimeError, ValueError):
+            is_image_stack = False
+        if not is_image_stack:
+            raise XVProtocolError(
+                f"dataset is not a numeric image stack: {dataset_path}"
+            )
 
 
 def _open_in_viewer(window, request: dict) -> None:
     """Deliver a validated request to an ``XRayViewerGUI`` instance."""
     filepath = request.get("file")
     if filepath:
-        window.navigator.load_from_file(filepath)
+        is_container = os.path.splitext(filepath)[1].lower() in CONTAINER_EXTENSIONS
+        window.navigator.load_from_file(
+            filepath,
+            dataset_path=request.get("dataset"),
+            container_only=is_container,
+        )
         frame = request.get("frame")
         if frame is not None:
             manager = window.file_manager

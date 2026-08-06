@@ -602,16 +602,33 @@ def _tiff_size(path):
     return None
 
 
-def _hdf5_dataset_frames(path):
+def _hdf5_dataset_frames(path, dataset_path=None):
     """Return loader specs for the most likely 2-D detector dataset in *path*.
 
     AreaDetector files used by Diamond commonly store data as
     ``scan dimensions × height × width``. Fabio sees the leading scan dimension
-    as one frame, so flatten those leading dimensions explicitly.
+    as one frame, so flatten those leading dimensions explicitly. When
+    ``dataset_path`` is supplied, use that dataset instead of applying the
+    detector-dataset heuristic.
     """
     candidates = []
     try:
         with h5py.File(path, "r") as h5_file:
+            if dataset_path is not None:
+                dataset = h5_file.get(dataset_path)
+                if not isinstance(dataset, h5py.Dataset):
+                    return [], None
+                if dataset.dtype.kind not in "iuf":
+                    return [], None
+                shape = tuple(int(value) for value in dataset.shape)
+                if len(shape) < 2 or min(shape[-2:]) < 1:
+                    return [], None
+                frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
+                specs = [
+                    ("h5_dataset", path, dataset_path, frame_index)
+                    for frame_index in range(frame_count)
+                ]
+                return specs, shape[-2:]
 
             def collect(name, obj):
                 if not isinstance(obj, h5py.Dataset) or obj.dtype.kind not in "iuf":
@@ -629,7 +646,7 @@ def _hdf5_dataset_frames(path):
                 candidates.append((score, name, shape, frame_count))
 
             h5_file.visititems(collect)
-    except (OSError, RuntimeError, ValueError):
+    except (KeyError, OSError, RuntimeError, ValueError):
         return [], None
 
     if not candidates:
@@ -957,6 +974,9 @@ class FileManager:
         self.output_dir = ""  # writable directory for scan cache fallback
         self.failedcases = None  # List of filenames to filter (from failedcases.txt)
         self.reference_sources = []  # Real images resolved from a NeXus manifest
+        # True when names/specs already contain every frame of one explicitly
+        # opened HDF5/NeXus container, so no directory scan is necessary.
+        self.container_listing_complete = False
         # File layer (fast, for navigation)
         self.file_list = []  # [(filename, type, full_path), ...]
         self.current_file_idx = 0
@@ -990,20 +1010,38 @@ class FileManager:
             []
         )  # HDF5 files skipped due to load errors during background scan
 
-    def set_from_file(self, selected_file):
+    def set_from_file(self, selected_file, dataset_path=None, container_only=False):
         """
         Initialize from a selected file. Scans directory and locates the file.
         selected_file: full path of the file to select
+        dataset_path: Optional HDF5/NeXus detector dataset to navigate
+        container_only: For HDF5/NeXus, expose this container's frames rather
+            than all images in its parent directory
         Supports: image files, HDF5 files, and failedcases.txt
         """
+        selected_file = str(selected_file)
         # Extract directory path
-        dir_path = os.path.dirname(str(selected_file))
+        dir_path = os.path.dirname(selected_file)
         self.dir_path = dir_path
 
         # Check if selected file is failedcases.txt (must match exact name)
         selected_name = os.path.basename(str(selected_file))
         base, ext = os.path.splitext(selected_name)
         self.reference_sources = []
+        self.container_listing_complete = False
+        self._h5_dataset_specs.pop(selected_file, None)
+        self._h5_frames.pop(selected_file, None)
+
+        if dataset_path is not None:
+            if ext.lower() not in HDF5_EXTENSIONS:
+                raise ValueError("A dataset path requires an HDF5 or NeXus file")
+            specs, shape = _hdf5_dataset_frames(selected_file, dataset_path)
+            if not specs:
+                raise ValueError(
+                    f"Dataset is not a numeric image stack: {dataset_path}"
+                )
+            self._set_container_listing(selected_file, specs, shape)
+            return
 
         if ext.lower() == ".nxs":
             self.reference_sources = resolve_nexus_image_references(selected_file)
@@ -1042,6 +1080,19 @@ class FileManager:
                 self._rebuild_simple_image_list()
                 self.load_current()
                 return
+
+        if container_only and ext.lower() in HDF5_EXTENSIONS:
+            specs, shape = _hdf5_dataset_frames(selected_file)
+            if not specs:
+                frame_count, shape = _h5_nframes(selected_file)
+                specs = [
+                    ("h5", selected_file, frame_index)
+                    for frame_index in range(frame_count)
+                ]
+            if not specs:
+                raise ValueError(f"No detector image dataset found in {selected_name}")
+            self._set_container_listing(selected_file, specs, shape)
+            return
 
         if ext.lower() == ".txt" and selected_name.lower() == "failedcases.txt":
             # Read failedcases.txt
@@ -1104,6 +1155,32 @@ class FileManager:
         # Build simple image layer (temporary, each HDF5 shown as single frame)
         self._rebuild_simple_image_list()
         # Ensure current image is loaded for the selected file
+        self.load_current()
+
+    def _set_container_listing(self, path, specs, shape=None):
+        """Expose all frames in one HDF5/NeXus dataset as a navigation list."""
+        filename = os.path.basename(path)
+        base, ext = os.path.splitext(filename)
+        names = [f"{base}_{index + 1:05d}{ext}" for index in range(len(specs))]
+
+        self.failedcases = None
+        self.reference_sources = []
+        self.container_listing_complete = True
+        self.file_list = [(filename, "h5", path)]
+        self._rebuild_path_to_file_idx()
+        self.current_file_idx = 0
+        self.current_frame_idx = 0
+        self.names = names
+        self.specs = list(specs)
+        self.current = 0
+        self._h5_dataset_specs[path] = list(specs)
+        self._h5_frames[path] = len(specs)
+        self.source_index_map = {path: (0, len(specs) - 1)}
+        self.image_sizes = {}
+        if shape is not None:
+            size = f"{shape[1]}×{shape[0]}"
+            self.image_sizes = {name: size for name in names}
+        self._scan_done = True
         self.load_current()
 
     def _rebuild_path_to_file_idx(self):

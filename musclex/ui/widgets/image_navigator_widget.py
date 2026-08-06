@@ -248,13 +248,21 @@ class ImageNavigatorWidget(QWidget):
 
     # ===== Public API =====
 
-    def load_from_file(self, filepath: str, start_background_scan: bool = True):
+    def load_from_file(
+        self,
+        filepath: str,
+        start_background_scan: bool = True,
+        dataset_path: str | None = None,
+        container_only: bool = False,
+    ):
         """
         Load a file or directory into the FileManager.
 
         Args:
             filepath: Full path to image file or directory
             start_background_scan: Whether to start background scan for HDF5 expansion
+            dataset_path: Optional HDF5/NeXus detector dataset to navigate
+            container_only: Show this container's frames instead of its parent folder
 
         Emits:
             fileLoaded: Immediately after folder/file is loaded (before image loads)
@@ -263,7 +271,11 @@ class ImageNavigatorWidget(QWidget):
         """
         try:
             # Load file into FileManager
-            self.file_manager.set_from_file(filepath)
+            self.file_manager.set_from_file(
+                filepath,
+                dataset_path=dataset_path,
+                container_only=container_only,
+            )
 
             # Update navigation mode
             self.nav_controls.setNavMode(self.file_manager.current_file_type)
@@ -285,7 +297,11 @@ class ImageNavigatorWidget(QWidget):
             self._load_current_image()
 
             # Start background scan if requested
-            if start_background_scan and self.file_manager.dir_path:
+            if (
+                start_background_scan
+                and self.file_manager.dir_path
+                and not self.file_manager.container_listing_complete
+            ):
                 self.file_manager.start_async_scan(self.file_manager.dir_path)
                 self._scan_timer.start()
 
