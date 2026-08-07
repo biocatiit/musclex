@@ -137,6 +137,42 @@ def test_container_only_hdf5_loads_every_frame_without_parent_directory(tmp_path
     assert manager.current_frame_idx == 1
 
 
+def test_hdf5_auto_selection_ignores_detector_calibration_images(tmp_path):
+    master_path = tmp_path / "detector_master.h5"
+    with file_manager.h5py.File(master_path, "w") as master:
+        detector_specific = master.create_group(
+            "entry/instrument/detector/detectorSpecific"
+        )
+        detector_specific.create_dataset(
+            "flatfield", data=np.ones((64, 80), dtype=np.float32)
+        )
+        detector_specific.create_dataset(
+            "pixel_mask", data=np.zeros((64, 80), dtype=np.uint32)
+        )
+
+    specs, shape = file_manager._hdf5_dataset_frames(str(master_path))
+
+    assert specs == []
+    assert shape is None
+
+
+def test_hdf5_auto_selection_still_finds_detector_data(tmp_path):
+    data_path = tmp_path / "detector_data.h5"
+    expected = np.arange(2 * 64 * 80, dtype=np.uint32).reshape(2, 64, 80)
+    with file_manager.h5py.File(data_path, "w") as data_file:
+        data_file.create_dataset("entry/data/data", data=expected)
+        data_file.create_dataset(
+            "entry/instrument/detector/detectorSpecific/flatfield",
+            data=np.ones((64, 80), dtype=np.float32),
+        )
+
+    specs, shape = file_manager._hdf5_dataset_frames(str(data_path))
+
+    assert len(specs) == 2
+    assert specs[0][2] == "entry/data/data"
+    assert shape == (64, 80)
+
+
 def test_explicit_nexus_dataset_becomes_one_navigable_stack(tmp_path):
     nexus_path = tmp_path / "scan.nxs"
     expected = np.arange(4 * 8 * 9).reshape(4, 8, 9)

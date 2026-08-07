@@ -636,6 +636,28 @@ def _hdf5_dataset_frames(path, dataset_path=None):
                 shape = tuple(int(value) for value in obj.shape)
                 if len(shape) < 2 or min(shape[-2:]) < 64:
                     return
+                # Eiger master files keep calibration arrays locally while
+                # detector frames are exposed through external links. h5py's
+                # visititems() does not follow those links, so without this
+                # guard a 0/1 flatfield or pixel mask can be mistaken for the
+                # image dataset. Returning no candidate lets the established
+                # Fabio loader follow the master/data relationship instead.
+                path_parts = {
+                    part.lower().replace("-", "_") for part in name.split("/")
+                }
+                auxiliary_parts = {
+                    "flatfield",
+                    "flat_field",
+                    "pixel_mask",
+                    "mask",
+                    "bad_pixel_mask",
+                    "gain",
+                    "gain_map",
+                    "validity",
+                    "quality",
+                }
+                if path_parts & auxiliary_parts:
+                    return
                 frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
                 data_name = os.path.basename(name).lower()
                 score = (
