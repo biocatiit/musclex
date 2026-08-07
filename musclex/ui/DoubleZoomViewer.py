@@ -133,7 +133,7 @@ class DoubleZoom:
                             # norm=Normalize(vmin=vmin, vmax=vmax)
                         )
 
-                    ax1.invert_yaxis()
+                    ax1.set_ylim(imgScaled.shape[0] - 0.5, -0.5)
                     y, x = imgScaled.shape
                     # cy, cx = y // 2, x // 2
                     if len(ax1.lines) > 0:
@@ -272,7 +272,7 @@ class DoubleZoom:
                         # norm=Normalize(vmin=vmin, vmax=vmax)
                     )
 
-                ax1.invert_yaxis()
+                ax1.set_ylim(imgScaled.shape[0] - 0.5, -0.5)
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines) - 1, -1, -1):
                         ax1.lines[i].remove()

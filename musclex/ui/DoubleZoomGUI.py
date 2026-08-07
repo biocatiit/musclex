@@ -106,7 +106,9 @@ class DoubleZoom:
                     )
                     self.doubleZoomPoint = (x, y)
                     ax1.imshow(imgScaled)
-                    ax1.invert_yaxis()
+                    # Keep row zero at the top. This axes is reused, so
+                    # invert_yaxis() would toggle orientation on every update.
+                    ax1.set_ylim(imgScaled.shape[0] - 0.5, -0.5)
                     y, x = imgScaled.shape
                     # cy, cx = y // 2, x // 2
                     if len(ax1.lines) > 0:
@@ -226,7 +228,7 @@ class DoubleZoom:
                 )
                 self.doubleZoomPoint = (x, y)
                 ax1.imshow(imgScaled)
-                ax1.invert_yaxis()
+                ax1.set_ylim(imgScaled.shape[0] - 0.5, -0.5)
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines) - 1, -1, -1):
                         ax1.lines[i].remove()
