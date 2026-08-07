@@ -35,7 +35,7 @@ _DEV_SUFFIX = ".dev1"
 
 
 def _get_version():
-    _base = "2.1.0"
+    _base = "2.1.1"
     try:
         _branch = (
             _subprocess.check_output(
