@@ -3031,35 +3031,25 @@ class QuadrantFoldingGUI(BaseGUI):
 
         menu = QMenu(self)
         fold_number = self.quadFold.getFoldNumber(x, y)
-        self.function = ["ignorefold", (x, y)]
-        self.display_points = ["ignorefold", (x, y)]
 
         if fold_number not in self.quadFold.info["ignore_folds"]:
             ignoreThis = QAction("Ignore This Quadrant", self)
             ignoreThis.setToolTip(
                 "Exclude this quadrant from the fold so it does not contribute to the averaged result"
             )
-            ignoreThis.triggered.connect(self.addIgnoreQuadrant)
+            ignoreThis.triggered.connect(
+                lambda _checked=False, fold=fold_number: self.addIgnoreQuadrant(fold)
+            )
             menu.addAction(ignoreThis)
         else:
             unignoreThis = QAction("Unignore This Quadrant", self)
             unignoreThis.setToolTip("Re-include this quadrant in the fold")
-            unignoreThis.triggered.connect(self.removeIgnoreQuadrant)
+            unignoreThis.triggered.connect(
+                lambda _checked=False, fold=fold_number: self.removeIgnoreQuadrant(fold)
+            )
             menu.addAction(unignoreThis)
 
-        # Clean up state when menu is closed without selection
-        menu.aboutToHide.connect(lambda: self._clear_ignorefold_state())
-
         menu.popup(QCursor.pos())
-
-    def _clear_ignorefold_state(self):
-        """
-        Clear ignorefold state if it's still set.
-        This is called when the right-click menu is closed without selection.
-        """
-        if self.function is not None and self.function[0] == "ignorefold":
-            self.function = None
-            self.display_points = None
 
     def _on_status_text_requested(self, text: str):
         """
@@ -3585,8 +3575,7 @@ class QuadrantFoldingGUI(BaseGUI):
                     self.result_zoom, move, img.shape[1], img.shape[0]
                 )
                 ax.set_xlim(self.result_zoom[0])
-                ax.set_ylim(self.result_zoom[1])
-                # ax.invert_yaxis()
+                ax.set_ylim(self.result_zoom[1][1], self.result_zoom[1][0])
                 self.resultCanvas.draw_idle()
 
     def resultReleased(self, event):
@@ -3653,8 +3642,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.result_zoom = [(x1, x2), (y1, y2)]
         ax = self.resultAxes
         ax.set_xlim(self.result_zoom[0])
-        ax.set_ylim(self.result_zoom[1])
-        # Y-axis already inverted in updateResultTab, don't toggle it again
+        ax.set_ylim(self.result_zoom[1][1], self.result_zoom[1][0])
         self.resultCanvas.draw_idle()
 
     def setManualRminRmax(self):
@@ -3942,29 +3930,19 @@ class QuadrantFoldingGUI(BaseGUI):
         self.current_image_data.update_manual_center(None)
         self.processImage()
 
-    def addIgnoreQuadrant(self):
+    def addIgnoreQuadrant(self, fold_number):
         """
         Trigger when a quadrant is ignored
         """
-        fold_number = self.quadFold.getFoldNumber(
-            self.function[1][0], self.function[1][1]
-        )
-        self.function = None
-        self.display_points = None
         self.ignoreFolds.add(fold_number)
         self.deleteImgCache(["avg_fold"])
         self.processImage()
 
-    def removeIgnoreQuadrant(self):
+    def removeIgnoreQuadrant(self, fold_number):
         """
         Trigger when a quadrant is unignored
         """
-        fold_number = self.quadFold.getFoldNumber(
-            self.function[1][0], self.function[1][1]
-        )
-        self.function = None
-        self.display_points = None
-        self.ignoreFolds.remove(fold_number)
+        self.ignoreFolds.discard(fold_number)
         self.deleteImgCache(["avg_fold"])
         self.processImage()
 

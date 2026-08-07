@@ -473,10 +473,14 @@ class ImageViewerWidget(QWidget):
 
         Args:
             xlim: Tuple (xmin, xmax)
-            ylim: Tuple (ymin, ymax) - Note: for inverted Y-axis, use (ymax, ymin)
+            ylim: Tuple containing the selected Y bounds. The current axis
+                direction is preserved automatically.
         """
+        y_was_inverted = self.axes.yaxis_inverted()
         self.axes.set_xlim(xlim)
-        self.axes.set_ylim(ylim)
+        self.axes.set_ylim(
+            (max(ylim), min(ylim)) if y_was_inverted else (min(ylim), max(ylim))
+        )
         self.canvas.draw_idle()
 
     def get_zoom_bounds(self):
