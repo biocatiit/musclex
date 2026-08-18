@@ -1,4 +1,3 @@
-import sys
 import importlib
 from types import SimpleNamespace
 
@@ -22,14 +21,13 @@ def test_center_method_selection_cascades_to_required_previous_stages():
 def test_package_refine_center_name_is_not_callable_api():
     import musclex.algorithms.calibration_refinement as package
 
-    if hasattr(package, "refine_center"):
-        delattr(package, "refine_center")
-    assert not hasattr(package, "refine_center")
     imported = importlib.import_module(
         "musclex.algorithms.calibration_refinement.refine_center"
     )
+    # The package attribute is the sub-package directory, not the callable API.
     assert package.refine_center is imported
     assert not callable(package.refine_center)
+    # The callable GUI-facing API lives on the adapter.
     assert callable(adapter.refine_center)
 
 
@@ -70,21 +68,9 @@ def test_center_refinement_runs_methods_in_pipeline_order(monkeypatch):
         },
     )
 
-    monkeypatch.setitem(
-        sys.modules,
-        "musclex.algorithms.calibration_refinement.refine_center.registration_refinement",
-        reg,
-    )
-    monkeypatch.setitem(
-        sys.modules,
-        "musclex.algorithms.calibration_refinement.refine_center.gradient_refinement",
-        grad,
-    )
-    monkeypatch.setitem(
-        sys.modules,
-        "musclex.algorithms.calibration_refinement.refine_center.search_refinement",
-        search,
-    )
+    monkeypatch.setattr(adapter, "registration_refinement", reg)
+    monkeypatch.setattr(adapter, "gradient_refinement", grad)
+    monkeypatch.setattr(adapter, "search_refinement", search)
 
     result = adapter.refine_center(
         np.ones((8, 8)),
@@ -114,11 +100,7 @@ def test_rotation_refinement_keeps_center_fixed(monkeypatch):
         parse_angle_only_levels=lambda levels: [{"level": levels}],
         coarse_to_fine_search=coarse_to_fine_search,
     )
-    monkeypatch.setitem(
-        sys.modules,
-        "musclex.algorithms.calibration_refinement.refine_rotation",
-        rotation_search,
-    )
+    monkeypatch.setattr(adapter, "rotation_refinement", rotation_search)
 
     result = adapter.refine_rotation(np.ones((8, 8)), None, (3.0, 4.0), 2.0)
 
@@ -142,11 +124,7 @@ def test_mask_is_converted_to_excluded_pixel_mask(monkeypatch):
         parse_levels=lambda levels: [{"level": levels}],
         coarse_to_fine_search=coarse_to_fine_search,
     )
-    monkeypatch.setitem(
-        sys.modules,
-        "musclex.algorithms.calibration_refinement.refine_center.search_refinement",
-        search,
-    )
+    monkeypatch.setattr(adapter, "search_refinement", search)
 
     adapter.refine_center(
         np.ones((4, 4)),

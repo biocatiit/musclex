@@ -6,10 +6,18 @@ several lower-level functions. This module keeps GUI callers on a compact API.
 
 from __future__ import annotations
 
-from importlib import import_module
 from typing import Iterable, Sequence
 
 import numpy as np
+
+# Imported statically (rather than via importlib) so that PyInstaller's static
+# analysis can see them and bundle them into the frozen application.
+from . import refine_rotation as rotation_refinement
+from .refine_center import (
+    gradient_refinement,
+    registration_refinement,
+    search_refinement,
+)
 
 CENTER_METHOD_REGISTRATION = "registration"
 CENTER_METHOD_GRADIENT = "gradient"
@@ -97,9 +105,7 @@ def refine_center(
     stages = []
     for method in _ordered_center_methods(methods):
         if method == CENTER_METHOD_REGISTRATION:
-            reg = import_module(
-                "musclex.algorithms.calibration_refinement.refine_center.registration_refinement"
-            )
+            reg = registration_refinement
 
             UX, UY = _grid_for(image, reg)
             result = reg.run_ecc_refinement(
@@ -130,9 +136,7 @@ def refine_center(
             current_rotation = float(result["best_angle_deg"])
 
         elif method == CENTER_METHOD_GRADIENT:
-            grad = import_module(
-                "musclex.algorithms.calibration_refinement.refine_center.gradient_refinement"
-            )
+            grad = gradient_refinement
 
             UX, UY = _grid_for(image, grad)
             result = grad.optimize_symmetry_gradient(
@@ -153,9 +157,7 @@ def refine_center(
             current_rotation = float(result["angle_deg"])
 
         elif method == CENTER_METHOD_SEARCH:
-            search = import_module(
-                "musclex.algorithms.calibration_refinement.refine_center.search_refinement"
-            )
+            search = search_refinement
 
             UX, UY = _grid_for(
                 image,
@@ -191,9 +193,7 @@ def refine_center(
 
 def refine_rotation(image: np.ndarray, mask, center: Sequence[float], rotation) -> dict:
     """Run angle-only local search with the center fixed."""
-    rotation_search = import_module(
-        "musclex.algorithms.calibration_refinement.refine_rotation"
-    )
+    rotation_search = rotation_refinement
 
     image = _normalise_image(image)
     mask = _normalise_mask(mask, image.shape)
