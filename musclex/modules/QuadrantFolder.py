@@ -2653,7 +2653,7 @@ class QuadrantFolder:
             source_img = self.imgCache.get('avg_fold')
             if source_img is None:
                 raise ValueError("Cache missing 'avg_fold' for result generation.")
-            
+
             result = copy.copy(source_img)
             result = makeFullImage(result)
             result_scaled = self._applyTransformations(result)
@@ -2666,7 +2666,7 @@ class QuadrantFolder:
             result = makeFullImage(result)
             result_scaled = self._applyTransformations(result)
             self.imgCache['resultImg'] = result_scaled
-            
+
             bg_data = self.imgCache.get('BgFold')
             if bg_data is not None:
                 bg = makeFullImage(copy.copy(bg_data))
@@ -2884,7 +2884,7 @@ class QuadrantFolder:
 
         self.parent.statusPrint("Evaluating Result...")
         print("Evaluating result image...")
-        
+
         if not self.info.get("fold_bg_image"):
             print("Skipping evaluation in fold-only mode.")
             return
@@ -2896,13 +2896,13 @@ class QuadrantFolder:
         result = self.imgCache["resultImg"]
         bg = self.imgCache.get("resultBg", None)
         bg_fit = self.imgCache.get("resultBgFit", None)
-        
+
         if bg is not None and bg_fit is not None:
             bg = bg + bg_fit
 
         stack = result if bg is None else (result + bg)
         persist_manual = bool(self.info.get("persist_evaluation_baseline", False))
-        
+
         if "rmax" not in self.info:
             print("Warning: 'rmax' not found in info. Skipping baseline evaluation.")
             return
@@ -2918,7 +2918,7 @@ class QuadrantFolder:
                     get_radial_average_rmax(stack, self.info["rmax"], band_width=30)
                     * 0.2
                 )
-                
+
         baseline = max(float(baseline), qf_defaults.MIN_EVAL_BASELINE)
         self.info["evaluation_baseline"] = baseline
         syn_srt = self.imgCache.get("synthetic_data", None)
@@ -2927,7 +2927,7 @@ class QuadrantFolder:
         syn_fold_base = self.imgCache.get("BgSubFold", None)
         gen_mask = self.imgCache.get("mask", None)
         equator_mask = self.imgCache.get("equator_mask", None)
-        
+
         syn_img, syn_srt, syn_mask, gen_mask_fold = prepare_synthetic_eval_pair(
             syn_fold, syn_fold_base, syn_srt, syn_mask, gen_mask
         )
@@ -2946,10 +2946,10 @@ class QuadrantFolder:
             "metric_weights": self.info.get("metric_weights", None),
         }
         eval_result = evaluate_loss(**kwargs, return_details=True)
-        
+
         if "result_bg" not in self.info or self.info["result_bg"] is None:
             self.info["result_bg"] = {}
-            
+
         self.info["result_bg"]["loss"] = eval_result.get("loss", None)
         self.info["result_bg"]["metrics_normalized"] = eval_result.get("metrics_normalized", {})
         self.info["result_bg"]["metrics_raw"] = eval_result.get("metrics_raw", {})

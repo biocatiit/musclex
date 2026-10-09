@@ -308,7 +308,7 @@ def process_one_qf_image(args):
 #             result_dir = fullPath(result_path, 'folded_bg')
 #             suffix = '_folded_bg'
 #     createFolder(result_path)
-    
+
 #     base, _ = splitext(str(join(result_path, quadFold.img_name)))
 #     img = quadFold.imgCache["resultImg"].astype("float32")
 
@@ -377,15 +377,15 @@ def _save_qf_result_image(quadFold, output_dir, compress_folded):
         img = qf.imgCache["resultImg"].astype("float32")
 
     createFolder(result_dir)
-    
+
     base, _ = splitext(str(join(result_dir, quadFold.img_name)))
 
     try:
         suffix = f"{suffix}_compressed.tif" if compress_folded else f"{suffix}.tif"
         out_file = base + suffix
-        
+
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        
+
         if compress_folded:
             Image.fromarray(img).save(out_file, compression="tiff_lzw")
         else:
