@@ -383,14 +383,51 @@ def isHdf5(fileName):
 
 def ifHdfReadConvertless(fileName, img):
     """
-    Check if a file name is an hdf5 file
-    and convert it to be directly readable without converting to tiff
-    :param fileName, img: (str), (array)
-    :return: img converted
+    Normalize detector data after reading it from HDF5 or TIFF.
+
+    Some detector files use the maximum value of an unsigned integer type as
+    the invalid/dead-pixel marker.  Handle both common cases before converting
+    to a signed type:
+
+      * uint16: 65535 -> -1
+      * uint32: 4294967295 -> -1
+
+    The uint16/uint32 handling is intentionally applied to TIFF as well as
+    HDF5, so a directly opened detector TIFF behaves the same as the same
+    detector image stored in an HDF5 dataset.
+
+    For other HDF5 numeric types, retain the previous MuscleX behavior of
+    converting to int32.  Other TIFF types are left unchanged.
+
+    :param fileName: source/display filename
+    :param img: numpy-compatible image array
+    :return: normalized image array
     """
+    if img is None:
+        return img
+
+    img = np.asarray(img)
+
+    # Handle unsigned 16-bit detector images (HDF5 or TIFF).
+    if img.dtype.kind == "u" and img.dtype.itemsize == 2:
+        bad_value = np.iinfo(img.dtype).max
+        bad_pixels = img == bad_value
+        img = img.astype(np.int32, copy=True)
+        img[bad_pixels] = -1
+        return img
+
+    # Handle unsigned 32-bit detector images without overflowing int32.
+    if img.dtype.kind == "u" and img.dtype.itemsize == 4:
+        bad_value = np.iinfo(img.dtype).max
+        bad_pixels = img == bad_value
+        img = img.astype(np.int64, copy=True)
+        img[bad_pixels] = -1
+        return img
+
+    # Preserve the old HDF5 behavior for other dtypes.
     if isHdf5(fileName):
         img = img.astype(np.int32)
-        img[img == 4294967295] = -1
+
     return img
 
 
@@ -887,7 +924,8 @@ def load_image_via_spec(file_path, display_name, source):
     """
     Load an image array given a loader spec entry from GUI `fileList[1]`.
     - source can be ndarray, ("tiff", abs_path), or ("h5", abs_path, frame_idx)
-    Applies ifHdfReadConvertless using display_name to handle HDF sentinel values.
+    Applies ifHdfReadConvertless to normalize unsigned detector sentinel values
+    for HDF5 and directly opened TIFF images.
     """
     if isinstance(source, np.ndarray):
         img = source

@@ -200,7 +200,7 @@ class DisplayOptionsPanel(CollapsibleGroupBox):
             self.colorMapCombo.addItems(
                 [
                     "gray",
-                    "gray_r",
+                    "inverse gray",
                     "viridis",
                     "plasma",
                     "inferno",
