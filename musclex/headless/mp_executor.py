@@ -346,59 +346,63 @@ def _save_qf_result_image(quadFold, output_dir, compress_folded):
 
     result_path = fullPath(output_dir, "qf_results")
 
-    # Check if BOTH modes are active
-    if self.quadFold.info.get('center_aligned_only') and self.quadFold.info.get('fold_bg_image'):
-        print("Center-Aligned + Fold + Background mode:")
-        # Verify both required cache items exist
-        if "align" not in qf.imgCache or "resultImg" not in qf.imgCache:
-            print("Error: Required cache images ('align' or 'resultImg') not found.")
-            return
-        result_dir = fullPath(result_path, 'aligned_folded_bg')
-        suffix = '_aligned_folded_bg'
-        # Define how you want to combine or use both images here
-        img = qf.imgCache["resultImg"].astype("float32") # or a combined array
+    # Decide output subdirectory & source image based on quadFold.info
+    center_aligned = bool(quadFold.info.get("center_aligned_only", False))
+    fold_bg = bool(quadFold.info.get("fold_bg_image", True))
 
-    # Otherwise, handle Center-Aligned only
-    elif self.quadFold.info.get('center_aligned_only'):
-        print("Center-aligned-only mode:")
-        if "align" not in qf.imgCache:
+    # BOTH: center-aligned + fold+background (rare) -> put into aligned_folded_bg
+    if center_aligned and fold_bg:
+        result_dir = fullPath(result_path, "aligned_folded_bg")
+        suffix = "_aligned_folded_bg"
+        if "align" not in quadFold.imgCache and "resultImg" not in quadFold.imgCache:
+            print("Error: required cache images ('align' or 'resultImg') not found.")
+            return
+        # Prefer resultImg if present, otherwise fall back to align
+        img = (
+            quadFold.imgCache.get("resultImg")
+            if "resultImg" in quadFold.imgCache
+            else quadFold.imgCache.get("align")
+        )
+    elif center_aligned:
+        result_dir = fullPath(result_path, "aligned")
+        suffix = "_aligned"
+        if "align" not in quadFold.imgCache:
             print("Error: 'align' image not found in cache.")
             return
-        result_dir = fullPath(result_path, 'aligned')
-        suffix = '_aligned'
-        img = qf.imgCache["align"].astype("float32")
-
-    # Otherwise, handle Fold-only (no background)
-    elif not self.quadFold.info.get('fold_bg_image'):
-        print("Fold-only mode:")
-        if "resultImg" not in qf.imgCache:
+        img = quadFold.imgCache["align"]
+    elif not fold_bg:
+        result_dir = fullPath(result_path, "folded")
+        suffix = "_folded"
+        if "resultImg" not in quadFold.imgCache:
             print("Error: 'resultImg' not found in cache.")
             return
-        result_dir = fullPath(result_path, 'folded')
-        suffix = '_folded'
-        img = qf.imgCache["resultImg"].astype("float32")
-
-    # Default: Fold + background mode (neither of the above)
+        img = quadFold.imgCache["resultImg"]
     else:
-        print("Fold + background mode:")
-        if "resultImg" not in qf.imgCache:
+        # Fold + background
+        result_dir = fullPath(result_path, "folded_bg")
+        suffix = "_folded_bg"
+        if "resultImg" not in quadFold.imgCache:
             print("Error: 'resultImg' not found in cache.")
             return
-        result_dir = fullPath(result_path, 'folded_bg')
-        suffix = '_folded_bg'
-        img = qf.imgCache["resultImg"].astype("float32")
+        img = quadFold.imgCache["resultImg"]
+
+    # Normalize and prepare saving
+    if img is None:
+        print("Error: selected image is None; nothing to save.")
+        return
+
+    img = img.astype("float32")
 
     createFolder(result_dir)
-
     base, _ = splitext(str(join(result_dir, quadFold.img_name)))
 
     try:
-        suffix = f"{suffix}_compressed.tif" if compress_folded else f"{suffix}.tif"
-        out_file = base + suffix
-
+        out_suffix = f"{suffix}_compressed.tif" if compress_folded else f"{suffix}.tif"
+        out_file = base + out_suffix
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
 
         if compress_folded:
+            # PIL will handle tiff compression
             Image.fromarray(img).save(out_file, compression="tiff_lzw")
         else:
             fabio.tifimage.tifimage(data=img).write(out_file)
