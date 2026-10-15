@@ -163,6 +163,7 @@ class EquatorWindow(QMainWindow):
         self.selected_batch_folders = []
         self._batch_original_dir = ""
         self.batchCsvManagers = {}
+        self._geometry_settings_manager_cache = {}
 
         self.gap_lines = []
         self.gaps = []
@@ -340,6 +341,9 @@ class EquatorWindow(QMainWindow):
             settings_dir=self.filePath,
             coord_transform_func=self._coord_transform_func,
             get_display_center_func=self._get_display_center,
+        )
+        self.workspace.set_geometry_settings_resolver(
+            self._resolve_eq_geometry_settings
         )
 
         # Expose components for backward compatibility
@@ -1043,6 +1047,37 @@ class EquatorWindow(QMainWindow):
     def _output_dir_for_source(self, source_dir):
         """Mirror QF: write to custom output only when explicitly changed."""
         return self._custom_output_dir() or source_dir
+
+    def _resolve_eq_geometry_settings(self, index, filename):
+        """Resolve selected-folder geometry settings from each image's source."""
+        if not self.selected_batch_folders:
+            return self.workspace.settings_manager, filename
+
+        fm = self.file_manager
+        if fm is None or index is None or index < 0 or index >= len(fm.specs):
+            return self.workspace.settings_manager, filename
+
+        spec = fm.specs[index]
+        if not isinstance(spec, tuple) or len(spec) < 2:
+            return self.workspace.settings_manager, filename
+
+        source_path = str(spec[1])
+        source_dir = os.path.dirname(source_path)
+        key = (
+            os.path.basename(filename)
+            if spec[0] == "h5"
+            else os.path.basename(source_path)
+        )
+        if not source_dir:
+            return self.workspace.settings_manager, filename
+
+        from ..utils.settings_manager import SettingsManager
+
+        manager = self._geometry_settings_manager_cache.get(source_dir)
+        if manager is None:
+            manager = SettingsManager(source_dir)
+            self._geometry_settings_manager_cache[source_dir] = manager
+        return manager, key
 
     def _on_folder_loaded(self, dir_path: str):
         """Reset batch-folder UI state after a normal folder/file load."""
@@ -2453,7 +2488,16 @@ class EquatorWindow(QMainWindow):
             spec = self.file_manager.specs[job_index]
             image_dir, filename = self._batch_image_context(job_index)
             output_dir = self._output_dir_for_source(image_dir)
+            geometry_manager, geometry_key = (
+                self.workspace.resolve_geometry_settings(filename, job_index)
+            )
+            manual_geometry = (
+                geometry_manager.get_center(geometry_key),
+                geometry_manager.get_rotation(geometry_key),
+                getattr(self.workspace, "_orientation_model", 0),
+            )
             job_args = (settings, None, image_dir, filename, spec, output_dir)
+            job_args += (manual_geometry,)
 
             future = self.processExecutor.submit(process_one_image, job_args)
             task = self.taskManager.submit_task(filename, job_index, future)

@@ -221,7 +221,7 @@ class DDFWindow(QMainWindow):
             rows_list.append(d)
 
         # Create DataFrame once from the list of dictionaries
-        self.data = pd.DataFrame(rows_list, columns=cols)
+        self.data = pd.DataFrame(rows_list, columns=cols) # Here ddf 
 
         QApplication.restoreOverrideCursor()
         self.generateButton.setEnabled(True)

@@ -29,7 +29,9 @@ def process_one_image(args):
     Headless image processing function (no Qt dependencies).
 
     Args:
-        args: tuple of (settings, paramInfo, dir_path, filename, spec[, output_dir])
+        args: tuple of (settings, paramInfo, dir_path, filename, spec,
+        [output_dir[, geometry]]), where geometry is (manual_center,
+        manual_rotation, orientation_model)
             - settings: dict with processing settings
             - paramInfo: dict with parameter information
             - dir_path: str directory path
@@ -48,6 +50,13 @@ def process_one_image(args):
     try:
         settings, paramInfo, dir_path, filename, spec = args[:5]
         output_dir = args[5] if len(args) > 5 and args[5] else dir_path
+        geometry = args[6] if len(args) > 6 else (None, None)
+        manual_center, manual_rotation = geometry[:2]
+        orientation_model = (
+            geometry[2]
+            if len(geometry) > 2 and geometry[2] is not None
+            else settings.get("orientation_model") or 0
+        )
 
         # Create a minimal parent object that only provides statusPrint
         # We don't use EquatorWindowh here because it requires complex initialization
@@ -78,6 +87,9 @@ def process_one_image(args):
             img=img,
             img_path=output_dir,
             img_name=filename,
+            center=manual_center,
+            rotation=manual_rotation,
+            orientation_model=orientation_model,
             inpaint=inpaint,
             settings_manager=settings_manager,
         )
