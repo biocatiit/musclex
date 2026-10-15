@@ -36,6 +36,7 @@ def test_process_folder_applies_current_rotation_to_all_before_batch(monkeypatch
         file_manager=SimpleNamespace(names=["first.tif", "second.tif"]),
         getSettings=lambda: {"rotationAngle": 17.5},
         _restore_current_folder_after_batch_selection_clear=lambda **_kwargs: None,
+        _buildProcessSettingsText=lambda settings, nImg, desc: "Mock settings text",  # <-- Add this line
         workspace=SimpleNamespace(
             apply_rotation_to_batch=lambda angle, scope, reprocess_current: operations.append(
                 ("apply", angle, scope, reprocess_current)
