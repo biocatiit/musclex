@@ -98,7 +98,7 @@ pip install musclex==1.24.0
 ### Install Latest Beta/Pre-release from GitHub
 
 ```bash
-pip install --upgrade git+https://github.com/biocatiit/musclex.git
+pip install --upgrade git+https://github.com/biocatiit/musclex.git@v2.2.1-beta
 ```
 
 ### To install a previous release directly from GitHub:
