@@ -29,7 +29,9 @@ def process_one_image(args):
     Headless image processing function (no Qt dependencies).
 
     Args:
-        args: tuple of (settings, paramInfo, dir_path, filename, spec[, output_dir])
+        args: tuple of (settings, paramInfo, dir_path, filename, spec,
+        [output_dir[, geometry]]), where geometry is (manual_center,
+        manual_rotation, orientation_model)
             - settings: dict with processing settings
             - paramInfo: dict with parameter information
             - dir_path: str directory path
@@ -48,6 +50,13 @@ def process_one_image(args):
     try:
         settings, paramInfo, dir_path, filename, spec = args[:5]
         output_dir = args[5] if len(args) > 5 and args[5] else dir_path
+        geometry = args[6] if len(args) > 6 else (None, None)
+        manual_center, manual_rotation = geometry[:2]
+        orientation_model = (
+            geometry[2]
+            if len(geometry) > 2 and geometry[2] is not None
+            else settings.get("orientation_model") or 0
+        )
 
         # Create a minimal parent object that only provides statusPrint
         # We don't use EquatorWindowh here because it requires complex initialization
@@ -78,6 +87,9 @@ def process_one_image(args):
             img=img,
             img_path=output_dir,
             img_name=filename,
+            center=manual_center,
+            rotation=manual_rotation,
+            orientation_model=orientation_model,
             inpaint=inpaint,
             settings_manager=settings_manager,
         )
@@ -277,27 +289,127 @@ def process_one_qf_image(args):
         }
 
 
+# def _save_qf_result_image(quadFold, output_dir, compress_folded):
+#     """Mirror QuadrantFoldingGUI.saveResults() so the worker can write the
+#     canonical _folded.tif itself (per-image filenames, no race)."""
+#     import fabio
+#     from PIL import Image
+#     from os.path import splitext, join
+#     from musclex.utils.file_manager import fullPath, createFolder
+
+#     result_path = fullPath(output_dir, "qf_results")
+#     # if not quadFold.info.get('fold_bg_image'):
+#     #     print("Fold-only mode:")
+#     #     result_dir = fullPath(result_path, 'folded')
+#     #     suffix = '_folded'
+#     # else:
+#     #     print("Fold + background mode:")
+#     #     result_dir = fullPath(result_path, 'folded_bg')
+#     #     suffix = '_folded_bg'
+
+#     if self.quadFold.info.get('center_aligned_only'):
+#             print("Center-aligned-only mode:")
+#             result_dir = fullPath(result_path, 'aligned')
+#             suffix = '_aligned'
+#         elif not self.quadFold.info.get('fold_bg_image'):
+#             print("Fold-only mode:")
+#             result_dir = fullPath(result_path, 'folded')
+#             suffix = '_folded'
+#         else:
+#             print("Fold + background mode:")
+#             result_dir = fullPath(result_path, 'folded_bg')
+#             suffix = '_folded_bg'
+#     createFolder(result_path)
+
+#     base, _ = splitext(str(join(result_path, quadFold.img_name)))
+#     img = quadFold.imgCache["resultImg"].astype("float32")
+
+#     # suffix = "_folded_compressed.tif" if compress_folded else "_folded.tif"
+#     suffix = f"{suffix}_compressed.tif" if compress else f"{suffix}.tif"
+#     out_file = base + suffix
+#     os.makedirs(os.path.dirname(out_file), exist_ok=True)
+#     if compress_folded:
+#         Image.fromarray(img).save(out_file, compression="tiff_lzw")
+#     else:
+#         fabio.tifimage.tifimage(data=img).write(out_file)
 def _save_qf_result_image(quadFold, output_dir, compress_folded):
     """Mirror QuadrantFoldingGUI.saveResults() so the worker can write the
-    canonical _folded.tif itself (per-image filenames, no race)."""
+    canonical result image itself (per-image filenames, no race)."""
+    import os
     import fabio
     from PIL import Image
     from os.path import splitext, join
     from musclex.utils.file_manager import fullPath, createFolder
 
+    if quadFold is None:
+        return
+
     result_path = fullPath(output_dir, "qf_results")
-    createFolder(result_path)
 
-    base, _ = splitext(str(join(result_path, quadFold.img_name)))
-    img = quadFold.imgCache["resultImg"].astype("float32")
+    # Decide output subdirectory & source image based on quadFold.info
+    center_aligned = bool(quadFold.info.get("center_aligned_only", False))
+    fold_bg = bool(quadFold.info.get("fold_bg_image", True))
 
-    suffix = "_folded_compressed.tif" if compress_folded else "_folded.tif"
-    out_file = base + suffix
-    os.makedirs(os.path.dirname(out_file), exist_ok=True)
-    if compress_folded:
-        Image.fromarray(img).save(out_file, compression="tiff_lzw")
+    # BOTH: center-aligned + fold+background (rare) -> put into aligned_folded_bg
+    if center_aligned and fold_bg:
+        result_dir = fullPath(result_path, "aligned_folded_bg")
+        suffix = "_aligned_folded_bg"
+        if "align" not in quadFold.imgCache and "resultImg" not in quadFold.imgCache:
+            print("Error: required cache images ('align' or 'resultImg') not found.")
+            return
+        # Prefer resultImg if present, otherwise fall back to align
+        img = (
+            quadFold.imgCache.get("resultImg")
+            if "resultImg" in quadFold.imgCache
+            else quadFold.imgCache.get("align")
+        )
+    elif center_aligned:
+        result_dir = fullPath(result_path, "aligned")
+        suffix = "_aligned"
+        if "align" not in quadFold.imgCache:
+            print("Error: 'align' image not found in cache.")
+            return
+        img = quadFold.imgCache["align"]
+    elif not fold_bg:
+        result_dir = fullPath(result_path, "folded")
+        suffix = "_folded"
+        if "resultImg" not in quadFold.imgCache:
+            print("Error: 'resultImg' not found in cache.")
+            return
+        img = quadFold.imgCache["resultImg"]
     else:
-        fabio.tifimage.tifimage(data=img).write(out_file)
+        # Fold + background
+        result_dir = fullPath(result_path, "folded_bg")
+        suffix = "_folded_bg"
+        if "resultImg" not in quadFold.imgCache:
+            print("Error: 'resultImg' not found in cache.")
+            return
+        img = quadFold.imgCache["resultImg"]
+
+    # Normalize and prepare saving
+    if img is None:
+        print("Error: selected image is None; nothing to save.")
+        return
+
+    img = img.astype("float32")
+
+    createFolder(result_dir)
+    base, _ = splitext(str(join(result_dir, quadFold.img_name)))
+
+    try:
+        out_suffix = f"{suffix}_compressed.tif" if compress_folded else f"{suffix}.tif"
+        out_file = base + out_suffix
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
+        if compress_folded:
+            # PIL will handle tiff compression
+            Image.fromarray(img).save(out_file, compression="tiff_lzw")
+        else:
+            fabio.tifimage.tifimage(data=img).write(out_file)
+    except Exception as e:
+        print("Error saving image", e)
+        import traceback
+        traceback.print_exc()
 
 
 def _save_qf_background(quadFold, dir_path):

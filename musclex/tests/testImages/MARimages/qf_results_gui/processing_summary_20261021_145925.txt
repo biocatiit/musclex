@@ -1,0 +1,9 @@
+Processing Summary
+==================
+Time: 2026-10-21 14:59:25
+Directory: /home/harsh/Desktop/musclex-latest/musclex/musclex/tests/testImages/MARimages
+
+Total processed: 2
+Successful (first attempt): 2
+Successful (after retry): 0
+Failed after retry: 0

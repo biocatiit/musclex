@@ -305,18 +305,16 @@ class ImageViewerWidget(QWidget):
             im.remove()
 
         # Redraw image with new settings
+        colormap = "gray_r" if self._current_colormap == "inverse gray" else self._current_colormap
+
         if self._current_log_scale:
-            self.axes.imshow(
-                self._current_image,
-                cmap=self._current_colormap,
-                norm=LogNorm(vmin=max(1, self._current_vmin), vmax=self._current_vmax),
-            )
+            self.axes.imshow(self._current_image, cmap=colormap, 
+                        norm=LogNorm(vmin=max(1, self._current_vmin), 
+                                    vmax=self._current_vmax))
         else:
-            self.axes.imshow(
-                self._current_image,
-                cmap=self._current_colormap,
-                norm=Normalize(vmin=self._current_vmin, vmax=self._current_vmax),
-            )
+            self.axes.imshow(self._current_image, cmap=colormap,
+                        norm=Normalize(vmin=self._current_vmin, 
+                                        vmax=self._current_vmax))
 
         # Restore zoom state
         self.axes.set_xlim(xlim)
@@ -356,18 +354,22 @@ class ImageViewerWidget(QWidget):
 
         self.axes.cla()
 
+       # Determine the correct colormap name
+        cmap_name = self._current_colormap
+        if cmap_name == "inverse gray":
+            cmap_name = "gray_r"
+
         # Draw image using current display settings
-        # Note: imshow() automatically sets Y-axis to image coordinates (0,0 at top-left)
         if self._current_log_scale:
             self.axes.imshow(
                 img,
-                cmap=self._current_colormap,
+                cmap=cmap_name,
                 norm=LogNorm(vmin=max(1, self._current_vmin), vmax=self._current_vmax),
             )
         else:
             self.axes.imshow(
                 img,
-                cmap=self._current_colormap,
+                cmap=cmap_name,
                 norm=Normalize(vmin=self._current_vmin, vmax=self._current_vmax),
             )
 
