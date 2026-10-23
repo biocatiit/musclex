@@ -53,15 +53,35 @@ GUI baselines are stored as `summary.csv` inside the `*_results_gui/` subdirecto
 
 #### Steps to regenerate GUI baselines
 
-For each module and each dataset directory:
+Run the baseline driver from the repository root:
 
-1. Launch the corresponding MuscleX GUI application (e.g. Quadrant Folding, Projection Traces).
-2. Open the test image directory (e.g. `musclex/tests/testImages/EIGERimages/`).
-3. **Load Settings**: use the module's "Load Settings" button/menu to load the settings file already present in the directory (e.g. `qfsettings.json`, `ptsettings.json`). This ensures the GUI uses the same parameters as headless mode.
-4. Process all images in the directory (use "Process All" or equivalent).
-5. The GUI writes results to `*_results/` by default (e.g. `qf_results/`). Rename that folder to `*_results_gui/` (e.g. `qf_results_gui/`) so the test suite can find it as the GUI baseline.
-6. Confirm that `*_results_gui/summary.csv` now exists.
-7. Repeat for every dataset directory listed above.
+```bash
+python -m musclex.tests.regenerate_gui_baselines --replace
+```
+
+The driver launches the actual QF/PT GUI windows, opens each dataset, loads its
+`qfsettings.json` or `ptsettings.json`, and starts the GUI's folder-processing
+action. For QF, it waits for the initially opened image to finish processing,
+then invokes the GUI's Apply Selected Subtraction Settings action before
+processing the folder so background metrics such as `loss` are included. It
+stages outputs separately, checks that every input image appears in the
+generated `summary.csv`, and then installs each folder as
+`qf_results_gui/` or `pt_results_gui/`. The previous baseline is kept in a
+timestamped backup when `--replace` is used. Once all baselines are generated,
+the driver runs `MuscleXGlobalTester` automatically; use `--skip-tests` to
+generate baselines without running the suite.
+
+To regenerate one module or dataset only:
+
+```bash
+python -m musclex.tests.regenerate_gui_baselines --module qf --replace
+python -m musclex.tests.regenerate_gui_baselines --module pt --dataset MAR_PT_Convex_Hull_Vertical --replace
+```
+
+The GUI windows are shown while processing. On systems without a display, set
+Qt's platform plugin explicitly (for example, `QT_QPA_PLATFORM=offscreen`).
+The driver automatically confirms folder-processing dialogs; settings are
+applied through the same GUI methods used by the Load Settings menu action.
 
 **Modules and their baseline directories:**
 
@@ -85,7 +105,26 @@ All 18 tests should pass. Key checks performed:
 - **Headless vs. GUI baseline** — verifies that GUI and headless produce identical `summary.csv` output.
 - **Schema tests** — verifies that `qfsettings.json` / `eqsettings.json` keys match the declared bindings.
 
-If tests fail after a code change, update the committed headless baselines in `musclex/tests/testResults/` by copying the newly generated headless `summary.csv` files and committing them together with the code change.
+If tests fail after a code change, first inspect why the comparison failed and
+confirm the output change is intentional. The separate headless-baseline updater
+can preview and validate generated results without writing anything:
+
+```bash
+python -m musclex.tests.update_headless_baselines --module qf --dataset EIGERimages
+```
+
+When the preview is correct, add `--apply` to copy the generated headless
+summaries into `musclex/tests/testResults/`:
+
+```bash
+python -m musclex.tests.update_headless_baselines --module qf --dataset EIGERimages --apply
+```
+
+The updater supports `qf`, `eq`, `di`, and `pt`; use `--module all` to preview
+all supported datasets. It validates all selected source summaries before
+changing any references. It does not regenerate GUI baselines or run tests.
+Review the resulting changes and commit only intentional baseline updates with
+the code change.
 
 ---
 

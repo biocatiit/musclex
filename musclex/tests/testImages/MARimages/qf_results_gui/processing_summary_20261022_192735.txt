@@ -1,7 +1,7 @@
 Processing Summary
 ==================
-Time: 2026-10-21 14:59:17
-Directory: /home/harsh/Desktop/musclex-latest/musclex/musclex/tests/testImages/EIGERimages
+Time: 2026-10-22 19:27:35
+Directory: /home/harsh/Desktop/musclex-latest/musclex/musclex/tests/testImages/MARimages
 
 Total processed: 2
 Successful (first attempt): 2

@@ -246,9 +246,21 @@ class BaselineRun:
                     str(settings_path),
                     "",
                 )
+            
+            # Load the settings for the current dataset folder
             self.window.loadSettings()
-            if self.module == "pt" and not self.window.boxes:
-                raise RuntimeError(f"No PT boxes loaded from {settings_path}")
+
+            # Synchronize PT box parameters immediately after loading
+            if self.module == "pt":
+                if not self.window.boxes:
+                    raise RuntimeError(f"No PT boxes loaded from {settings_path}")
+                
+                for box in self.window.boxes:
+                    if hasattr(box, "updateParameters"):
+                        box.updateParameters()
+                if hasattr(self.window, "updateDisplay"):
+                    self.window.updateDisplay()
+
             QTimer.singleShot(0, self._start_processing)
         except Exception as exc:
             self._fail(f"Could not load settings {settings_path}: {exc}")
