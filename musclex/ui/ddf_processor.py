@@ -143,15 +143,58 @@ class DDFWindow(QMainWindow):
                 errMsg.exec_()
                 self.browseFile()
 
+    # def processFile(self):
+    #     """
+    #     Process DDF on the file.
+    #     """
+    #     self.data = None
+    #     cols = None
+    #     reading = "Please wait. Input file is being read ."
+    #     self.generateButton.setEnabled(False)
+    #     QApplication.setOverrideCursor(Qt.WaitCursor)
+    #     for i, row in enumerate(open(self.current_file)):
+    #         if (i // 100) % 3 == 0:
+    #             self.statusText.setText(reading)
+    #         elif (i // 100) % 3 == 1:
+    #             self.statusText.setText(reading + " .")
+    #         else:
+    #             self.statusText.setText(reading + " . .")
+    #         QApplication.processEvents()
+
+    #         if "Sample" in row and "Stim" in row:
+    #             r = row.rstrip("\n")
+    #             r = r.rstrip("\r")
+    #             cols = r.split("\t")
+    #             self.data = pd.DataFrame(columns=cols)
+    #             continue
+
+    #         if self.data is None:
+    #             continue
+
+    #         r = row.rstrip("\n")
+    #         r = r.rstrip("\r")
+    #         line = r.split("\t")
+    #         line = list(map(float, line))[: len(cols)]
+    #         d = dict(zip(cols, line))
+    #         self.data = self.data.append(d, ignore_index=True)
+
+    #     QApplication.restoreOverrideCursor()
+    #     self.generateButton.setEnabled(True)
+    #     self.statusText.setText(
+    #         "Please select columns, adjust the average frequency, and click Generate"
+    #     )
+    #     QApplication.processEvents()
     def processFile(self):
         """
         Process DDF on the file.
         """
         self.data = None
         cols = None
+        rows_list = []
         reading = "Please wait. Input file is being read ."
         self.generateButton.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
+        
         for i, row in enumerate(open(self.current_file)):
             if (i // 100) % 3 == 0:
                 self.statusText.setText(reading)
@@ -165,10 +208,9 @@ class DDFWindow(QMainWindow):
                 r = row.rstrip("\n")
                 r = r.rstrip("\r")
                 cols = r.split("\t")
-                self.data = pd.DataFrame(columns=cols)
                 continue
 
-            if self.data is None:
+            if cols is None:
                 continue
 
             r = row.rstrip("\n")
@@ -176,7 +218,10 @@ class DDFWindow(QMainWindow):
             line = r.split("\t")
             line = list(map(float, line))[: len(cols)]
             d = dict(zip(cols, line))
-            self.data = self.data.append(d, ignore_index=True)
+            rows_list.append(d)
+
+        # Create DataFrame once from the list of dictionaries
+        self.data = pd.DataFrame(rows_list, columns=cols) # Here ddf 
 
         QApplication.restoreOverrideCursor()
         self.generateButton.setEnabled(True)

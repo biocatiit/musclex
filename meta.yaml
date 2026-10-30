@@ -1,5 +1,5 @@
 {% set name = "musclex" %}
-{% set version = "2.1.1" %}
+{% set version = "2.2.1-beta" %}
 
 package:
   name: {{ name|lower }}

@@ -1174,36 +1174,30 @@ class ProcessingWorkspace(QWidget):
             self._update_mode_statistics_internal()
 
     def set_orientation_model(self, orientation_model: int):
-        """
-        Update the orientation model used for auto-rotation calculation.
+            """
+            Update the orientation model used for auto-rotation calculation.
 
-        This will:
-        1. Update the widget display
-        2. Clear current manual rotation (if exists) to trigger recalculation
-        3. Emit needsReprocess signal
+            This will:
+            1. Update the widget display
+            2. Invalidate the current image's cached auto-rotation
+            3. Preserve any current manual rotation and reprocess the image
 
-        Args:
-            orientation_model: The orientation model index
-        """
-        # Update widget display
-        self._rotation_widget.set_orientation_model(orientation_model)
+            Args:
+                orientation_model: The orientation model index
+            """
+            # Update widget display
+            self._rotation_widget.set_orientation_model(orientation_model)
 
-        # Clear manual rotation to force recalculation with new model
-        if self._current_filename and self._current_image_data:
-            # Clear from ImageData
-            self._current_image_data.update_manual_rotation(None)
+            # A manual rotation takes precedence over auto-orientation. Only
+            # invalidate the cached angle when this image is in auto mode.
+            if self._current_filename and self._current_image_data:
+                self._current_image_data.update_orientation_model(orientation_model)
+                manager, key = self.resolve_geometry_settings(self._current_filename)
+                is_manual = manager.get_rotation(key) is not None
+                self._rotation_widget.update_mode_indicator(is_manual=is_manual)
 
-            # Remove from settings
-            manager, key = self.resolve_geometry_settings(self._current_filename)
-            manager.clear_rotation(key)
-            manager.save_rotation()
-            self._after_rotation_save()
-
-            # Update UI
-            self._rotation_widget.update_mode_indicator(is_manual=False)
-
-            # Trigger reprocess
-            self.needsReprocess.emit()
+                self.needsReprocess.emit()
+                print("Orientation model changed; manual rotation preserved if set")
 
             print(f"Orientation model changed, rotation will be recalculated")
 

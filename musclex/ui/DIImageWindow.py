@@ -45,6 +45,7 @@ from ..modules.ScanningDiffraction import *
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import DI_CSVManager
 from .ImageMaskTool import ImageMaskerWindow
+from .ImageMaskDialog import ImageMaskDialog
 
 
 class DSpacingScale(mscale.ScaleBase):
@@ -684,60 +685,48 @@ class DIImageWindow(QMainWindow):
             self.processImage()
 
     def setBlankAndMask(self):
-        """
-        Set the blank image and mask threshold
-        """
+            """
+            Set the blank image and mask threshold using ImageMaskDialog
+            """
+            if self.cirProj is None:
+                return
 
-        img = copy.copy(self.cirProj.original_image)
+            img = copy.copy(self.cirProj.original_image)
 
-        max_val = np.max(np.ravel(img))
-
-        ext = self.fileName.split(".")[-1]
-
-        try:
-            fabio.tifimage.tifimage(data=img).write(
-                join(self.filePath, "settings/tempMaskFile_di.tif")
+            di_out = (
+                self.dir_context.output_dir
+                if hasattr(self, "dir_context")
+                else self.filePath
             )
-        except:
-            print("ERROR WITH SAVING THE IMAGE")
+            settings_dir = os.path.join(di_out, "settings")
+            os.makedirs(settings_dir, exist_ok=True)
 
-        di_out = (
-            self.dir_context.output_dir
-            if hasattr(self, "dir_context")
-            else self.filePath
-        )
-        imageMaskingTool = ImageMaskerWindow(
-            self.filePath,
-            os.path.join(di_out, "settings/tempMaskFile_di.tif"),
-            self.minInt.value(),
-            self.maxInt.value(),
-            max_val,
-            img.shape,
-            isHDF5=ext in ("hdf5", "h5"),
-        )
+            # Initialize ImageMaskDialog directly with the numpy array image data
+            imageMaskingTool = ImageMaskDialog(
+                image_data=img,
+                settings_dir_path=settings_dir,
+                vmin=self.minInt.value(),
+                vmax=self.maxInt.value(),
+            )
 
-        if imageMaskingTool is not None and imageMaskingTool.exec_():
-            if os.path.exists(
-                join(join(self.filePath, "settings"), "blank_image_settings.json")
-            ):
-                with open(
-                    join(join(self.filePath, "settings"), "blank_image_settings.json"),
-                    "r",
-                ) as f:
-                    info = json.load(f)
-                    if "path" in info:
-                        img = fabio.open(info["path"]).data
-                        fabio.tifimage.tifimage(data=img).write(
-                            join(join(self.filePath, "settings"), "blank.tif")
+            if imageMaskingTool.exec_() == QDialog.Accepted:
+                settings_json = os.path.join(settings_dir, "blank_image_settings.json")
+                if os.path.exists(settings_json):
+                    with open(settings_json, "r") as f:
+                        info = json.load(f)
+                        if "path" in info:
+                            blank_img = fabio.open(info["path"]).data
+                            fabio.tifimage.tifimage(data=blank_img).write(
+                                os.path.join(settings_dir, "blank.tif")
+                            )
+                else:
+                    mask_path = os.path.join(settings_dir, "mask.tif")
+                    if os.path.exists(mask_path):
+                        os.rename(
+                            mask_path,
+                            os.path.join(settings_dir, "maskonly.tif"),
                         )
-            else:
-                if os.path.exists(join(join(self.filePath, "settings"), "mask.tif")):
-                    os.rename(
-                        join(join(self.filePath, "settings"), "mask.tif"),
-                        join(join(self.filePath, "settings"), "maskonly.tif"),
-                    )
 
-        if self.cirProj is not None:
             self.cirProj.removeInfo("2dintegration")
             self.onImageChanged()
 

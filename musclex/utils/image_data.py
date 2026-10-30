@@ -401,6 +401,12 @@ class ImageData:
         self._manual_rotation = rotation
         print(f"Manual rotation updated: {self._manual_rotation}")
 
+    def update_orientation_model(self, orientation_model: int):
+        """Update the auto-rotation model without changing manual geometry."""
+        if self.orientation_model != orientation_model:
+            self.orientation_model = orientation_model
+            self._computed_rotation = None
+
     def update_detector(self, detector: Optional[str]) -> bool:
         """
         Update detector at runtime and invalidate auto-rotation if it changed.

@@ -588,7 +588,7 @@ class QuadrantFoldingh:
         # is also no longer consumed by QF (ImageData applies blank/mask
         # before the image reaches QF). Both intentionally omitted.
         flags["rotate"] = False
-        flags["fold_image"] = True
+        flags["fold_bg_image"] = True
         flags["bg_options"] = 0  # default to "Manual Setting | One Method"
 
         if self.calSettings is not None:
