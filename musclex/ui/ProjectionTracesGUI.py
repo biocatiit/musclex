@@ -179,8 +179,8 @@ class Worker(QRunnable):
                 peak_tolerance=box.peak_tolerance,
                 sigma_tolerance=box.sigma_tolerance,
             )
-            proj_proc.store_original_boxes(name, box_copy)
             cls._expand_peaks_mirrored(box_copy)
+            proj_proc.store_original_boxes(name, box_copy)
             proj_proc.state.boxes[name] = box_copy
 
     @Slot()
@@ -2005,9 +2005,9 @@ class ProjectionTracesGUI(BaseGUI):
                         # self.projProc.state.original_boxes[name] = copy.deepcopy(
                         #     box_copy
                         # )
-                        self.projProc.store_original_boxes(name, box_copy)
-                        # Expand peaks for processor (folder template keeps first half only)
+                        # Expand first, then preserve the full mirrored pre-fit peaks
                         self._expand_peaks_mirrored(box_copy)
+                        self.projProc.store_original_boxes(name, box_copy)
                         self.projProc.state.boxes[name] = box_copy
 
                 self.function = None
@@ -2226,9 +2226,9 @@ class ProjectionTracesGUI(BaseGUI):
                                 peak_tolerance=new_box.peak_tolerance,
                                 sigma_tolerance=new_box.sigma_tolerance,
                             )
-                            self.projProc.store_original_boxes(name, box_copy)
-                            # Expand peaks for processor (folder template keeps first half only)
+                            # Expand first, then preserve the full mirrored pre-fit peaks
                             self._expand_peaks_mirrored(box_copy)
+                            self.projProc.store_original_boxes(name, box_copy)
                             self.projProc.state.boxes[name] = box_copy
 
                         self.addBoxTabs()
@@ -2825,11 +2825,9 @@ class ProjectionTracesGUI(BaseGUI):
                         # Results fields default to None
                     )
                     print(f"  After direct copy: {len(box_copy.peaks)} peaks")
-                    self.projProc.store_original_boxes(name, box_copy)
-
-                    # Expand peaks by mirroring user-selected peaks
-                    # (folder template only contains first half)
+                    # Expand first, then preserve the full mirrored pre-fit peaks
                     self._expand_peaks_mirrored(box_copy)
+                    self.projProc.store_original_boxes(name, box_copy)
 
                     self.projProc.state.boxes[name] = box_copy
 
@@ -3076,9 +3074,6 @@ class ProjectionTracesGUI(BaseGUI):
                 self.projProc.center  # Current center coordinates
             )
 
-        # === Update folder cache with refined results ===
-        self._update_folder_cache_from_results()
-
         # Note: Keep self.boxes as folder template (config-only, peaks = first half)
         # Don't sync full results back to maintain clean state
 
@@ -3222,9 +3217,6 @@ class ProjectionTracesGUI(BaseGUI):
             self.threadPool.start(self.currentTask)
 
     def onProcessingFinished(self, update_folder_cache=True):
-        if update_folder_cache:
-            self._update_folder_cache_from_results()
-
         # Note: Keep self.boxes as folder template (config-only, peaks = first half)
         # Don't sync full results back to maintain clean state
 
@@ -3645,10 +3637,9 @@ class ProjectionTracesGUI(BaseGUI):
                     peak_tolerance=box.peak_tolerance,
                     sigma_tolerance=box.sigma_tolerance,
                 )
-                # self.projProc.state.original_boxes[name] = copy.deepcopy(box_copy)
-                self.projProc.store_original_boxes(name, box_copy)
-                # Expand peaks by mirroring (only in projProc copy)
+                # Expand first, then preserve the full mirrored pre-fit peaks
                 self._expand_peaks_mirrored(box_copy)
+                self.projProc.store_original_boxes(name, box_copy)
                 # Update projProc's boxes to match
                 self.projProc.state.boxes[name] = box_copy
             # Update mask threshold

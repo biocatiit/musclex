@@ -1,4 +1,4 @@
-"""Regenerate GUI summary baselines using the actual QF and PT GUI workflows."""
+"""Regenerate GUI summary baselines using module-specific GUI workflows."""
 
 import argparse
 import csv
@@ -36,13 +36,16 @@ IMAGE_EXTENSIONS = {
     ".tiff",
     ".smv",
 }
+# Dataset folders can support more than one processing module.
+# EIGERimages contains both qfsettings.json and ptsettings.json, so it is
+# intentionally included in both lists. MARimages and PILATUSimages currently
+# provide QF settings; the dedicated *_PT_* folders provide PT settings.
 DATASETS = {
-    "qf": (
-        "EIGERimages",
-        "MARimages",
-        "PILATUSimages",
-    ),
+    "qf": ("EIGERimages", "MARimages", "PILATUSimages"),
+    "eq": ("EIGERimages", "MARimages", "PILATUSimages"),
+    "di": ("EIGERimages", "MARimages", "PILATUSimages"),
     "pt": (
+        
         "EIGER_PT_Convex_Hull_Vertical",
         "MAR_PT_Convex_Hull_Vertical",
         "PT_FittingGaussians_Horizontal",
@@ -68,6 +71,12 @@ class BaselineRun:
         self.original_pt_template_update = None
         self.pt_gui_class = None
         self.worker_refs = []
+        self.eq_start_window = None
+        self.di_image_window = None
+        self.di_image_class = None
+        self.original_di_process_folder = None
+        self.di_settings = {}
+        self._expected_images = []
         self.start_time = time.monotonic()
         self.timer = QTimer()
         self.timer.setInterval(100)
@@ -106,48 +115,95 @@ class BaselineRun:
             navigator.load_from_file(str(images[0]), start_background_scan=False)
             return True
 
+        self._expected_images = images
         self.timer.start()
         output_dir_dialog.resolve_output_directory = resolve_to_staging
         ImageNavigatorWidget.browse_file = load_dataset_from_browse
         try:
             if self.module == "qf":
                 from ..ui.QuadrantFoldingGUI import QuadrantFoldingGUI
-
                 self.window = QuadrantFoldingGUI()
                 self._route_qf_batch_output_to_staging()
-            else:
+            elif self.module == "pt":
                 from ..ui.ProjectionTracesGUI import ProjectionTracesGUI
-
                 self.pt_gui_class = ProjectionTracesGUI
-                self.original_pt_template_update = (
-                    ProjectionTracesGUI._update_folder_cache_from_results
-                )
+                self.original_pt_template_update = ProjectionTracesGUI._update_folder_cache_from_results
 
                 def preserve_loaded_template(_window):
                     print("DEBUG: suppressed PT template update")
                     return None
 
-                ProjectionTracesGUI._update_folder_cache_from_results = (
-                    preserve_loaded_template
-                )
+                ProjectionTracesGUI._update_folder_cache_from_results = preserve_loaded_template
                 self.window = ProjectionTracesGUI()
                 self._retain_projection_workers()
-                self.window.workspace.load_from_file(
-                    str(images[0]), start_background_scan=False
-                )
+                self.window.workspace.load_from_file(str(images[0]), start_background_scan=False)
+            elif self.module == "eq":
+                from ..ui.EQStartWindow import EQStartWindow
+                self.eq_start_window = EQStartWindow()
+                if not self.eq_start_window.windowList:
+                    raise RuntimeError("EQ launcher did not create an EquatorWindow")
+                self.window = self.eq_start_window.windowList[-1]
+                self.window.workspace.load_from_file(str(images[0]), start_background_scan=False)
+            elif self.module == "di":
+                import json
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    self.di_settings = json.load(f)
+                if not isinstance(self.di_settings, dict):
+                    raise RuntimeError(f"DI settings must be a JSON object: {settings_path}")
+
+                from ..ui.DIImageWindow import DIImageWindow
+                self.di_image_class = DIImageWindow
+                self.original_di_process_folder = DIImageWindow.processFolder
+                original_process_folder = DIImageWindow.processFolder
+
+                def process_folder_with_settings(image_window):
+                    # DI's settings JSON is a flags dictionary. The GUI exposes
+                    # saveSettings(), but no corresponding loadSettings().
+                    original_get_flags = image_window.getFlags
+                    def get_flags_with_saved_settings(imgChanged=True):
+                        flags = original_get_flags(imgChanged)
+                        flags.update(self.di_settings)
+                        return flags
+                    image_window.getFlags = get_flags_with_saved_settings
+                    self.di_image_window = image_window
+                    return original_process_folder(image_window)
+
+                DIImageWindow.processFolder = process_folder_with_settings
+                from ..ui.DIBatchWindow import DIBatchWindow
+
+                def create_di_window():
+                    if self.error:
+                        return
+                    output_dir_dialog.resolve_output_directory = resolve_to_staging
+                    try:
+                        self.window = DIBatchWindow(None, str(self.dataset_dir))
+                        self.window.show()
+                    except Exception as exc:
+                        self._fail(f"Could not start DI folder workflow: {exc}")
+                    finally:
+                        output_dir_dialog.resolve_output_directory = original_resolver
+
+                QTimer.singleShot(0, create_di_window)
+            else:
+                raise ValueError(f"Unsupported module: {self.module}")
         except Exception:
             self.timer.stop()
             raise
         finally:
             output_dir_dialog.resolve_output_directory = original_resolver
             ImageNavigatorWidget.browse_file = original_browse_file
-        self.window.show()
-        QTimer.singleShot(0, lambda: self._load_settings(settings_path))
+
+        if self.module != "di":
+            self.window.show()
+            QTimer.singleShot(0, lambda: self._load_settings(settings_path))
         self.app.exec()
 
         if self.module == "pt" and not self.window.threadPool.waitForDone(5000):
             raise RuntimeError("Projection Traces workers did not shut down cleanly")
+        if self.module == "eq":
+            self._shutdown_eq_workers()
         self._restore_pt_template_update()
+        self._restore_di_process_folder()
         if self.window is not None:
             self.window.close()
         if self.error:
@@ -235,18 +291,15 @@ class BaselineRun:
         original_get_file = None
         original_get_open_file_name = None
         try:
-            if self.module == "qf":
-                qf_module = importlib.import_module("musclex.ui.QuadrantFoldingGUI")
-
-                original_get_file = qf_module.getAFile
-                qf_module.getAFile = lambda **_kwargs: str(settings_path)
-            else:
+            if self.module in ("qf", "eq"):
+                module_path = "musclex.ui.QuadrantFoldingGUI" if self.module == "qf" else "musclex.ui.EquatorWindow"
+                settings_module = importlib.import_module(module_path)
+                original_get_file = settings_module.getAFile
+                settings_module.getAFile = lambda **_kwargs: str(settings_path)
+            elif self.module == "pt":
                 original_get_open_file_name = QFileDialog.getOpenFileName
-                QFileDialog.getOpenFileName = lambda *_args, **_kwargs: (
-                    str(settings_path),
-                    "",
-                )
-            
+                QFileDialog.getOpenFileName = lambda *_args, **_kwargs: (str(settings_path), "")
+
             # Load the settings for the current dataset folder
             self.window.loadSettings()
 
@@ -266,9 +319,9 @@ class BaselineRun:
             self._fail(f"Could not load settings {settings_path}: {exc}")
         finally:
             if original_get_file is not None:
-                qf_module = importlib.import_module("musclex.ui.QuadrantFoldingGUI")
-
-                qf_module.getAFile = original_get_file
+                module_path = "musclex.ui.QuadrantFoldingGUI" if self.module == "qf" else "musclex.ui.EquatorWindow"
+                settings_module = importlib.import_module(module_path)
+                settings_module.getAFile = original_get_file
             if original_get_open_file_name is not None:
                 QFileDialog.getOpenFileName = original_get_open_file_name
 
@@ -279,7 +332,7 @@ class BaselineRun:
             if self.module == "qf" and not self.window.ableToProcess():
                 QTimer.singleShot(100, self._start_processing)
                 return
-            if self.module == "pt" and (
+            if self.module in ("pt", "eq") and (
                 self.window.progressBar.isVisible()
                 or self.window.threadPool.activeThreadCount() > 0
                 or not self.window.tasksQueue.empty()
@@ -301,13 +354,33 @@ class BaselineRun:
                 ):
                     QTimer.singleShot(100, self._start_processing)
                     return
-            button = self.window.navControls.processFolderButton
+            button = (
+                self.window.navImg.processFolderButton
+                if self.module == "eq"
+                else self.window.navControls.processFolderButton
+            )
             if not button.isEnabled():
                 raise RuntimeError("The GUI's Process Current Folder button is disabled")
             self.processing_requested = True
             button.click()
         except Exception as exc:
             self._fail(f"Could not start GUI folder processing: {exc}")
+
+    def _shutdown_eq_workers(self):
+        if self.window is None:
+            return
+        executor = getattr(self.window, "processExecutor", None)
+        if executor is not None:
+            try:
+                executor.shutdown(wait=True, cancel_futures=False)
+            except Exception as exc:
+                print(f"Warning: EQ process executor shutdown failed: {exc}")
+
+    def _restore_di_process_folder(self):
+        if self.di_image_class is not None and self.original_di_process_folder is not None:
+            self.di_image_class.processFolder = self.original_di_process_folder
+            self.original_di_process_folder = None
+            self.di_image_class = None
 
     def _restore_pt_template_update(self):
         if self.original_pt_template_update is not None and self.pt_gui_class is not None:
@@ -342,17 +415,37 @@ class BaselineRun:
                 return
             if not self.processing_requested or not self.started:
                 return
-        else:
+        elif self.module in ("pt", "eq"):
             if self.window.progressBar.isVisible():
                 if self.processing_requested:
                     self.started = True
                 return
             if not self.processing_requested or not self.started:
                 return
-            if self.window.threadPool.activeThreadCount() > 0:
+            if self.window.threadPool.activeThreadCount() > 0 or not self.window.tasksQueue.empty():
                 return
-            if not self.window.tasksQueue.empty():
+            if self.window.currentTask is not None:
                 return
+            if self.module == "eq":
+                stats = self.window.taskManager.get_statistics()
+                if stats.get("pending", 0) > 0:
+                    return
+                if stats.get("failed", 0):
+                    self.dialog_errors.append(f"EQ batch processing reported {stats['failed']} failed image(s)")
+        elif self.module == "di":
+            if self.window is None:
+                return
+            summary = self.staging_dir / "di_results" / "summary.csv"
+            if not summary.is_file():
+                return
+            try:
+                with summary.open(newline="", encoding="utf-8-sig") as csv_file:
+                    rows = list(csv.DictReader(csv_file))
+            except Exception:
+                return
+            if len(rows) < len(self._expected_images):
+                return
+            self.started = True
 
         self.timer.stop()
         self.app.quit()
@@ -397,6 +490,13 @@ class BaselineRun:
                     dialog.close()
                 return
 
+            if self.module == "eq" and "batch complete" in text.lower():
+                self.started = True
+                ok_button = dialog.button(QMessageBox.Ok)
+                if ok_button is not None:
+                    ok_button.click()
+                return
+
             if buttons & QMessageBox.Yes:
                 if "process" in text.lower() and "image" in text.lower():
                     yes_button = dialog.button(QMessageBox.Yes)
@@ -432,12 +532,11 @@ class BaselineRun:
             reader = csv.DictReader(csv_file)
             rows = list(reader)
 
-        if not rows or not reader.fieldnames or "Filename" not in reader.fieldnames:
-            raise RuntimeError(
-                f"GUI summary is empty or missing Filename: {summary_path}"
-            )
+        filename_column = "filename" if self.module == "di" else "Filename"
+        if not rows or not reader.fieldnames or filename_column not in reader.fieldnames:
+            raise RuntimeError(f"GUI summary is empty or missing {filename_column}: {summary_path}")
 
-        generated_names = [row["Filename"] for row in rows]
+        generated_names = [row[filename_column] for row in rows]
         expected_names = {image.name for image in images}
         generated_name_set = set(generated_names)
         missing_names = expected_names - generated_name_set
@@ -548,13 +647,13 @@ def _run_tests():
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=(
-            "Regenerate QF/PT GUI CSV baselines using the GUI's settings and "
+            "Regenerate QF/EQ/DI/PT GUI CSV baselines using each GUI's settings and "
             "Process Current Folder workflows, then run the headless tests."
         )
     )
     parser.add_argument(
         "--module",
-        choices=("qf", "pt", "all"),
+        choices=("qf", "eq", "di", "pt", "all"),
         default="all",
         help="Which GUI module to run (default: all)",
     )
@@ -581,7 +680,7 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    modules = ("qf", "pt") if args.module == "all" else (args.module,)
+    modules = ("qf", "eq", "di", "pt") if args.module == "all" else (args.module,)
     allowed_datasets = {
         dataset for module in modules for dataset in DATASETS[module]
     }
