@@ -26,6 +26,11 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from .image_data import ImageData
+def __getattr__(name):
+    if name == "ImageData":
+        from .image_data import ImageData
+
+        return ImageData
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = ["ImageData"]

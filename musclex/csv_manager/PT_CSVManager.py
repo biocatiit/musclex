@@ -68,7 +68,12 @@ class PT_CSVManager:
             rotation = box_info["rotation"]
 
             info["Box " + str(box_name) + " Original Type"] = box.type
-            info["Box " + str(box_name) + " Original Coordinates"] = box.coordinates
+            info["Box " + str(box_name) + " Original Coordinates"] = [
+                list(coordinate)
+                if isinstance(coordinate, (tuple, list))
+                else coordinate
+                for coordinate in box.coordinates
+            ]
             info["Box " + str(box_name) + " Original bgsub"] = box.bgsub
             info["Box " + str(box_name) + " Original peaks"] = box.peaks
             info["Box " + str(box_name) + " Original merid_bg"] = box.merid_bg

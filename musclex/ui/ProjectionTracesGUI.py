@@ -3435,9 +3435,13 @@ class ProjectionTracesGUI(BaseGUI):
         # (start, end) defines distance ranges from center for both positive and negative sides
 
     def _box_to_dict(self, box: ProcessingBox) -> dict:
+        coordinates = [
+            list(coordinate) if isinstance(coordinate, (tuple, list)) else coordinate
+            for coordinate in box.coordinates
+        ]
         return {
             "name": box.name,
-            "coordinates": box.coordinates,
+            "coordinates": coordinates,
             "type": box.type,
             "bgsub": box.bgsub,
             "peaks": box.peaks,

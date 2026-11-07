@@ -183,9 +183,12 @@ Application Bundle][8].)
   App Bundle.
 ```
 mkdir dist/musclex.app/Contents/MacOS
-cp -r dist/musclex dist/musclex.app/Contents/MacOS
+cp -R dist/musclex/. dist/musclex.app/Contents/MacOS/
 ```
-Verify that you have the 'musclex' FOLDER copied in musclex.app/Contents/MacOS, not directly the files.
+Copy the PyInstaller files directly into `Contents/MacOS`, keeping the
+`_internal` directory beside `musclex-launcher` and `musclex-main`.
+`CFBundleExecutable` must be `musclex-launcher`, and that executable must be
+directly inside `Contents/MacOS`; do not set it to a nested path.
 2. Edit the file `Info.plist`  
   Specify the values of *CFBundleExecutable* and other attributes. (See
   [the example](../../dist/musclex.app/Contents/Info.plist).)

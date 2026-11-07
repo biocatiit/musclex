@@ -1,12 +1,18 @@
 {
   "P1_F1_tet_1_100_005_0002.tif": {
-    "center": null,
-    "rotation": 0.8000000000000114,
+    "center": [
+      416.1234130859375,
+      517.1085815429688
+    ],
+    "rotation": -0.3,
     "detector": null
   },
   "P1_F1_tet_1_100_005_0001.tif": {
-    "center": null,
-    "rotation": 0.9000000000000057,
+    "center": [
+      422.2012939453125,
+      518.7224731445312
+    ],
+    "rotation": -2.2,
     "detector": null
   }
 }

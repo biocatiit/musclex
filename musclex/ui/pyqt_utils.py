@@ -36,10 +36,7 @@ import matplotlib
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 
-try:
-    from ..utils.file_manager import input_types
-except:  # for coverage
-    from utils.file_manager import input_types
+from ..utils.file_manager import input_types
 
 print("Qt version:", QT_VERSION_STR)
 

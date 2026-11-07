@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
@@ -541,7 +540,12 @@ class BaselineRun:
         generated_name_set = set(generated_names)
         missing_names = expected_names - generated_name_set
         extra_names = generated_name_set - expected_names
-        if missing_names or extra_names or len(generated_names) != len(expected_names):
+        if missing_names or extra_names:
+            raise RuntimeError(
+                "GUI summary does not contain rows for exactly every input image. "
+                f"Missing: {sorted(missing_names)}; extra: {sorted(extra_names)}."
+            )
+        if self.module != "eq" and len(generated_names) != len(expected_names):
             raise RuntimeError(
                 "GUI summary does not contain exactly one row for every input image. "
                 f"Missing: {sorted(missing_names)}; extra: {sorted(extra_names)}; "
@@ -600,36 +604,16 @@ class BaselineRun:
         self.app.quit()
 
 
-def _backup_name(path):
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = path.with_name(f"{path.name}.backup-{stamp}")
-    suffix = 1
-    while backup.exists():
-        backup = path.with_name(f"{path.name}.backup-{stamp}-{suffix}")
-        suffix += 1
-    return backup
-
-
 def _promote_baseline(result_dir, target_dir, replace):
-    backup_dir = None
     if target_dir.exists():
         if not replace:
             raise FileExistsError(
                 f"GUI baseline already exists: {target_dir}. "
-                "Pass --replace to preserve it as a timestamped backup and replace it."
+                "Pass --replace to remove and replace it."
             )
-        backup_dir = _backup_name(target_dir)
-        target_dir.rename(backup_dir)
+        shutil.rmtree(target_dir)
 
-    try:
-        result_dir.rename(target_dir)
-    except Exception:
-        if backup_dir is not None and backup_dir.exists() and not target_dir.exists():
-            backup_dir.rename(target_dir)
-        raise
-
-    if backup_dir is not None:
-        print(f"Previous baseline preserved at {backup_dir}")
+    result_dir.rename(target_dir)
 
 
 def _run_tests():
@@ -642,6 +626,15 @@ def _run_tests():
     ]
     print("\nRunning the headless regression suite:", " ".join(command), flush=True)
     return subprocess.run(command, cwd=REPO_ROOT, check=False).returncode
+
+
+def _build_targets(modules, selected_datasets):
+    return [
+        (module, IMAGE_ROOT / dataset)
+        for module in modules
+        for dataset in dict.fromkeys(selected_datasets)
+        if dataset in DATASETS[module]
+    ]
 
 
 def main(argv=None):
@@ -665,7 +658,7 @@ def main(argv=None):
     parser.add_argument(
         "--replace",
         action="store_true",
-        help="Replace existing GUI baselines, preserving the old folders as backups.",
+        help="Remove and replace existing GUI baselines without creating backups.",
     )
     parser.add_argument(
         "--skip-tests",
@@ -696,12 +689,7 @@ def main(argv=None):
     if args.timeout <= 0:
         parser.error("--timeout must be greater than zero")
 
-    targets = [
-        (module, IMAGE_ROOT / dataset)
-        for module in modules
-        for dataset in selected_datasets
-        if dataset in DATASETS[module]
-    ]
+    targets = _build_targets(modules, selected_datasets)
     for module, dataset_dir in targets:
         if not dataset_dir.is_dir():
             parser.error(f"Dataset directory does not exist: {dataset_dir}")

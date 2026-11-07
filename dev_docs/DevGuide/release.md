@@ -47,29 +47,32 @@ musclex/tests/testImages/
 └── PT_FittingGaussians_Horizontal/  # PT test images
 ```
 
-GUI baselines are stored as `summary.csv` inside the `*_results_gui/` subdirectory of each dataset folder:
-- `qf_results_gui/summary.csv` — compared by QF headless tests
-- `pt_results_gui/summary.csv` — compared by PT headless tests
+GUI baselines are stored inside the `*_results_gui/` subdirectory of each
+dataset folder:
+- `qf_results_gui/summary.csv` — QF
+- `eq_results_gui/summary.csv` — EQ (multiple rows per image are expected)
+- `di_results_gui/summary.csv` — DI
+- `pt_results_gui/summary.csv` — PT
 
 #### Steps to regenerate GUI baselines
 
-Run the baseline driver from the repository root:
+Run the baseline driver from the repository root. `--replace` removes each
+existing GUI-baseline folder before installing the new one; it does not create
+timestamped backups.
 
 ```bash
 python -m musclex.tests.regenerate_gui_baselines --replace
 ```
 
-The driver launches the actual QF/PT GUI windows, opens each dataset, loads its
-`qfsettings.json` or `ptsettings.json`, and starts the GUI's folder-processing
-action. For QF, it waits for the initially opened image to finish processing,
-then invokes the GUI's Apply Selected Subtraction Settings action before
-processing the folder so background metrics such as `loss` are included. It
-stages outputs separately, checks that every input image appears in the
-generated `summary.csv`, and then installs each folder as
-`qf_results_gui/` or `pt_results_gui/`. The previous baseline is kept in a
-timestamped backup when `--replace` is used. Once all baselines are generated,
-the driver runs `MuscleXGlobalTester` automatically; use `--skip-tests` to
-generate baselines without running the suite.
+The driver launches each module's GUI, opens each dataset, loads its module
+settings, and starts the GUI's folder-processing action. For QF, it waits for
+the initially opened image to finish processing, then invokes the GUI's Apply
+Selected Subtraction Settings action before processing the folder so
+background metrics such as `loss` are included. It stages outputs separately,
+checks that every input image appears in the generated `summary.csv`, and then
+installs each folder as the corresponding `*_results_gui/` directory. Once all
+baselines are generated, the driver runs `MuscleXGlobalTester` automatically;
+use `--skip-tests` to generate baselines without running the suite.
 
 To regenerate one module or dataset only:
 
@@ -85,12 +88,12 @@ applied through the same GUI methods used by the Load Settings menu action.
 
 **Modules and their baseline directories:**
 
-| Module | GUI App | Settings file | Baseline dir |
+| Module | Settings file | GUI baseline dir | Committed headless baseline |
 |---|---|---|---|
-| Quadrant Folding (QF) | Quadrant Folding | `qfsettings.json` | `qf_results_gui/` |
-| Projection Traces (PT) | Projection Traces | `ptsettings.json` | `pt_results_gui/` |
-
-> EQ and DI do not currently maintain GUI baselines; their tests compare against committed headless baselines only.
+| Quadrant Folding (QF) | `qfsettings.json` | `qf_results_gui/summary.csv` | `testResults/<dataset>/qf_results/summary.csv` |
+| Equator (EQ) | `eqsettings.json` | `eq_results_gui/summary.csv` | `testResults/<dataset>/eq_results/summary2.csv` |
+| Diffraction Integration (DI) | `disettings.json` | `di_results_gui/summary.csv` | `testResults/<dataset>/di_results/summary.csv` |
+| Projection Traces (PT) | `ptsettings.json` | `pt_results_gui/summary.csv` | `testResults/<dataset>/summary.csv` |
 
 #### Run the full automated test suite
 
@@ -101,8 +104,12 @@ python -m unittest musclex.tests.musclex_tester.MuscleXGlobalTester -v
 ```
 
 All 18 tests should pass. Key checks performed:
-- **Headless vs. committed baseline** — verifies no regression against the last accepted run.
-- **Headless vs. GUI baseline** — verifies that GUI and headless produce identical `summary.csv` output.
+- **Headless vs. committed baseline** — compares fresh output under
+  `testImages/<dataset>/<module>_results/` (EQ uses `summary2.csv`) against
+  the matching committed file under `testResults/<dataset>/`.
+- **Headless vs. GUI baseline** — separately compares fresh headless
+  `summary.csv` under `testImages/<dataset>/<module>_results/` against the
+  module's GUI `summary.csv` under `testImages/<dataset>/<module>_results_gui/`.
 - **Schema tests** — verifies that `qfsettings.json` / `eqsettings.json` keys match the declared bindings.
 
 If tests fail after a code change, first inspect why the comparison failed and

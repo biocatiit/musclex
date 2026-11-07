@@ -19,8 +19,9 @@ pyinstaller --clean -y musclex_mac.spec
 # Create the MacOS directory
 mkdir -p dist/musclex.app/Contents/MacOS
 
-# Copy the entire musclex folder into MacOS
-cp -r dist/musclex dist/musclex.app/Contents/MacOS/
+# Copy the PyInstaller files into MacOS. Keep the executable directly in
+# Contents/MacOS and its _internal directory alongside it.
+cp -R dist/musclex/. dist/musclex.app/Contents/MacOS/
 ```
 
 **Important:** Make sure the file structure is:
@@ -28,11 +29,10 @@ cp -r dist/musclex dist/musclex.app/Contents/MacOS/
 musclex.app/
   Contents/
     MacOS/
-      musclex/           ← Folder containing all files
-        musclex-launcher
-        musclex-main
-        _internal/
-        ...
+      musclex-launcher    ← CFBundleExecutable; must be directly in MacOS
+      musclex-main
+      _internal/
+      ...
     Resources/
       AppIcon.icns
     Info.plist
@@ -48,7 +48,7 @@ Edit `dist/musclex.app/Contents/Info.plist` and update the version:
 Ensure the executable path is:
 ```xml
 <key>CFBundleExecutable</key>
-<string>musclex/musclex-launcher</string>
+<string>musclex-launcher</string>
 ```
 
 ### 4. Create DMG in One Command
@@ -72,7 +72,7 @@ echo "✅ DMG created at: dist/musclex-1.26.0-macOS.dmg"
 open dist/musclex.app
 
 # Or test from terminal to see errors
-dist/musclex.app/Contents/MacOS/musclex/musclex-launcher
+dist/musclex.app/Contents/MacOS/musclex-launcher
 ```
 
 ### 6. Handle macOS Gatekeeper (if needed)
@@ -103,7 +103,7 @@ pyinstaller --clean -y musclex_mac.spec || exit 1
 echo "Step 2: Creating App Bundle..."
 mkdir -p dist/musclex.app/Contents/MacOS
 rm -rf dist/musclex.app/Contents/MacOS/musclex
-cp -r dist/musclex dist/musclex.app/Contents/MacOS/
+cp -R dist/musclex/. dist/musclex.app/Contents/MacOS/
 
 # 3. Update Info.plist version (manual step required)
 echo "Step 3: Please update version in dist/musclex.app/Contents/Info.plist to ${VERSION}"
@@ -180,6 +180,5 @@ See [Using Packages to create an installer for distributing macOS apps outside o
 
 [1]:https://el-tramo.be/blog/fancy-dmg/  
 [2]:https://www.appcoda.com/packages-macos-apps-distribution/ 
-
 
 

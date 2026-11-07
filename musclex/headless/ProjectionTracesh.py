@@ -280,6 +280,7 @@ class ProjectionTracesh:
             img_name,
             center=manual_center,
             rotation=manual_rotation,
+            quadrant_folded=ImageData.detect_folded(self.dir_path, img_name),
             settings_manager=settings_manager,
         )
 
@@ -482,9 +483,15 @@ class ProjectionTracesh:
         boxes = {}
 
         for name, box in self.projProc.boxes.items():
+            coordinates = [
+                list(coordinate)
+                if isinstance(coordinate, (tuple, list))
+                else coordinate
+                for coordinate in box.coordinates
+            ]
             boxes[name] = {
                 "name": box.name,
-                "coordinates": box.coordinates,
+                "coordinates": coordinates,
                 "type": box.type,
                 "bgsub": box.bgsub,
                 "peaks": box.peaks,

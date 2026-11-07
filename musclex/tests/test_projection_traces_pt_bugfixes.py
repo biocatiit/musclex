@@ -1,4 +1,5 @@
 import os
+import pickle
 from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -17,6 +18,8 @@ from musclex.modules.ProjectionProcessor import (
     ProcessingState,
     ProjectionProcessor,
 )
+from musclex.headless.ProjectionTracesh import ProjectionTracesh
+from musclex.csv_manager.PT_CSVManager import PT_CSVManager
 from musclex.ui.GMMParameterEditorDialog import GMMParameterEditorDialog
 from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI, Worker
 
@@ -40,6 +43,56 @@ def _symmetric_histogram(sigma):
         )
 
     return gaussian(80.0) + gaussian(120.0)
+
+
+def test_gui_box_config_serializes_coordinates_as_lists():
+    box = ProcessingBox(
+        name="M3",
+        coordinates=((0, 200), (0, 10)),
+        type="h",
+        bgsub=1,
+    )
+
+    saved_box = ProjectionTracesGUI._box_to_dict(None, box)
+
+    assert saved_box["coordinates"] == [[0, 200], [0, 10]]
+
+
+def test_summary_original_box_coordinates_are_lists():
+    box = ProcessingBox(
+        name="M3",
+        coordinates=((0, 200), (0, 10)),
+        type="h",
+        bgsub=1,
+    )
+
+    original_info = PT_CSVManager.get_original_box_info(
+        None,
+        {"M3": {"boxes": box, "center": (100, 5), "rotation": 0}},
+    )
+
+    assert original_info["Box M3 Original Coordinates"] == [[0, 200], [0, 10]]
+
+
+def test_headless_box_cache_serializes_coordinates_as_lists(tmp_path):
+    box = ProcessingBox(
+        name="M3",
+        coordinates=((0, 200), (0, 10)),
+        type="h",
+        bgsub=1,
+    )
+    headless = ProjectionTracesh.__new__(ProjectionTracesh)
+    headless.projProc = SimpleNamespace(boxes={"M3": box})
+    headless.centerx = 100
+    headless.centery = 5
+    headless.mask_thres = 0
+    headless.output_dir = str(tmp_path)
+
+    headless.cacheBoxesAndPeaks()
+
+    with open(tmp_path / "pt_cache" / "boxes_peaks.info", "rb") as cache_file:
+        cache = pickle.load(cache_file)
+    assert cache["boxes"]["M3"]["coordinates"] == [[0, 200], [0, 10]]
 
 
 @pytest.mark.parametrize("use_common_sigma", [False, True])
