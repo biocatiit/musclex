@@ -606,13 +606,27 @@ def _h5_nframes(path):
         except Exception:
             pass
         return n, shape
-    except Exception as e:
-        _write_error_log(
-            os.path.dirname(path),
-            f"Could not open HDF5 file (skipped during scan): {path}",
-            e,
-        )
-        return 0, None
+    except Exception:
+        try:
+            with h5py.File(path, "r") as h5_file:
+                dataset_specs, shape = _hdf5_dataset_frames(path)
+                if dataset_specs:
+                    return len(dataset_specs), shape
+        except Exception:
+            pass
+
+        # A valid HDF5 file may exist without containing a detector image stack.
+        # Only treat it as a scan error when the file itself is unreadable.
+        try:
+            with h5py.File(path, "r") as _:
+                return 0, None
+        except Exception as e:
+            _write_error_log(
+                os.path.dirname(path),
+                f"Could not open HDF5 file (skipped during scan): {path}",
+                e,
+            )
+            return 0, None
 
 
 def _tiff_size(path):
@@ -740,8 +754,12 @@ def scan_referenced_images(paths, progress_dict=None):
             if progress_dict is not None:
                 progress_dict["h5_done"] = h5_done
             if not frame_specs:
-                if progress_dict is not None:
-                    progress_dict.setdefault("skipped_files", []).append(path)
+                try:
+                    with h5py.File(path, "r"):
+                        pass
+                except Exception:
+                    if progress_dict is not None:
+                        progress_dict.setdefault("skipped_files", []).append(path)
                 continue
             start = len(entries)
             for frame_index, spec in enumerate(frame_specs):
@@ -874,8 +892,12 @@ def scan_directory_images_cached(
 
         for (base, ext, path), (nframes, shape) in zip(h5_files, nframes_shape_list):
             if nframes <= 0:
-                if progress_dict is not None:
-                    progress_dict.setdefault("skipped_files", []).append(path)
+                try:
+                    with h5py.File(path, "r"):
+                        pass
+                except Exception:
+                    if progress_dict is not None:
+                        progress_dict.setdefault("skipped_files", []).append(path)
                 continue
             if shape is not None:
                 h5_shapes[path] = shape

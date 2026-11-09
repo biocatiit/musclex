@@ -1,10 +1,7 @@
 {
   "CD_PIGLV_PIG3_FB_SHORT_PRE_BUFFER_00001.tif": {
-    "center": [
-      1023.9032592773438,
-      1046.19921875
-    ],
-    "rotation": 89.9,
+    "center": null,
+    "rotation": 89.6,
     "detector": null
   }
 }

@@ -1,17 +1,11 @@
 {
   "F10_pCa8_SL21_0001.tif": {
-    "center": [
-      1031.2113037109375,
-      1016.7031860351562
-    ],
-    "rotation": -89.1,
+    "center": null,
+    "rotation": -89.0,
     "detector": null
   },
   "F10_pCa8_SL21_0002.tif": {
-    "center": [
-      1031.8358154296875,
-      1017.6788940429688
-    ],
+    "center": null,
     "rotation": -89.5,
     "detector": null
   }

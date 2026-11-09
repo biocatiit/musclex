@@ -156,6 +156,24 @@ def test_hdf5_auto_selection_ignores_detector_calibration_images(tmp_path):
     assert shape is None
 
 
+def test_directory_scan_does_not_warn_for_valid_non_image_hdf5(tmp_path):
+    calibration = tmp_path / "calibration.h5"
+    with file_manager.h5py.File(calibration, "w") as cal:
+        detector_specific = cal.create_group("entry/instrument/detector/detectorSpecific")
+        detector_specific.create_dataset(
+            "flatfield", data=np.ones((64, 80), dtype=np.float32)
+        )
+
+    progress = {"h5_total": 0, "h5_done": 0}
+    names, specs, _, _ = file_manager.scan_directory_images_cached(
+        str(tmp_path), progress_dict=progress
+    )
+
+    assert names == []
+    assert specs == []
+    assert progress.get("skipped_files", []) == []
+
+
 def test_hdf5_auto_selection_still_finds_detector_data(tmp_path):
     data_path = tmp_path / "detector_data.h5"
     expected = np.arange(2 * 64 * 80, dtype=np.uint32).reshape(2, 64, 80)
