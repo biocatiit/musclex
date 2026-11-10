@@ -150,6 +150,13 @@ def main(arguments=None):
 
         sys.exit(run_xv(list(arguments), stylesheet.stylesheet))
 
+    if (
+        len(arguments) == 1
+        and sys.platform == "darwin"
+        and getattr(sys, "frozen", False)
+    ):
+        arguments = [arguments[0], "gui"]
+
     run = True
     if len(arguments) == 2:
         prog = arguments[1]
