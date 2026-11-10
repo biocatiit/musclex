@@ -38,10 +38,6 @@ sys.path.append("..")
 from musclex.ui.ui_launcherform import *
 from musclex import __version__
 from musclex.utils.exception_handler import handlers
-from musclex.utils.zip_download import download_zip_pickles
-from musclex.tests.module_test import *
-from musclex.tests.musclex_tester import MuscleXGlobalTester
-from musclex.tests.environment_tester import EnvironmentTester
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -272,6 +268,8 @@ class TestDialog(QDialog):
         """
         Run Environment Tests.
         """
+        from musclex.tests.environment_tester import EnvironmentTester
+
         self.progressBar.reset()
         self.detail.moveCursor(QTextCursor.End)
         self.detail.setFontWeight(100)
@@ -328,6 +326,8 @@ class TestDialog(QDialog):
         """
         Run GPU Tests from unittest.
         """
+        from musclex.tests.module_test import MuscleXTest
+
         self.progressBar.reset()
         self.detail.moveCursor(QTextCursor.End)
         QApplication.processEvents()
@@ -412,6 +412,8 @@ class TestDialog(QDialog):
         """
         Run the downloading for pickle files.
         """
+        from musclex.utils.zip_download import download_zip_pickles
+
         self.progressBar.reset()
         self.detail.moveCursor(QTextCursor.End)
         self.detail.setFontWeight(100)
@@ -434,6 +436,8 @@ class TestDialog(QDialog):
         Run the gross result testing in a subprocess while monitoring progress
         from the log in the parent process.
         """
+        from musclex.tests.musclex_tester import MuscleXGlobalTester
+
         self.progressBar.reset()
         NTESTS = 14
 
@@ -530,6 +534,8 @@ class TestDialog(QDialog):
         Run the unittest in a subprocess while monitoring progress
         from the log in the parent process.
         """
+        from musclex.tests.module_test import MuscleXTest
+
         self.progressBar.reset()
         NTESTS = 8
 
