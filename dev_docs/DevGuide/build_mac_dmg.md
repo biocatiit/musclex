@@ -23,8 +23,8 @@ musclex.app/
     MacOS/
       musclex-main
     Frameworks/
-      Python
-      Python.framework/
+      Python.framework/Python (framework-based Python)
+      or libpython3.x.dylib (shared-library Python)
       ...
     Resources/
       AppIcon.icns
@@ -34,7 +34,8 @@ musclex.app/
 Check that the bundle's executable and Python framework are present:
 ```bash
 /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' dist/musclex.app/Contents/Info.plist
-test -e dist/musclex.app/Contents/Frameworks/Python
+find dist/musclex.app/Contents/Frameworks \
+  \( -name Python -o -name 'libpython*.dylib' \) -print -quit | grep -q .
 dist/musclex.app/Contents/MacOS/musclex-main eq -h
 ```
 
@@ -98,7 +99,8 @@ pyinstaller --clean -y musclex_mac.spec || exit 1
 # 2. Set version and verify App Bundle
 echo "Step 2: Verifying App Bundle..."
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" dist/musclex.app/Contents/Info.plist || exit 1
-test -e dist/musclex.app/Contents/Frameworks/Python || exit 1
+find dist/musclex.app/Contents/Frameworks \
+  \( -name Python -o -name 'libpython*.dylib' \) -print -quit | grep -q . || exit 1
 dist/musclex.app/Contents/MacOS/musclex-main eq -h || exit 1
 
 # 3. Remove quarantine and create DMG

@@ -141,7 +141,13 @@ jobs:
           plutil -lint "$PLIST"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")" = "musclex-main"
           test -x dist/musclex.app/Contents/MacOS/musclex-main
-          test -e dist/musclex.app/Contents/Frameworks/Python
+          if ! find dist/musclex.app/Contents/Frameworks \
+            \( -name Python -o -name 'libpython*.dylib' \) \
+            -print -quit | grep -q .; then
+            echo "PyInstaller Python runtime not found in Contents/Frameworks"
+            find dist/musclex.app/Contents/Frameworks -maxdepth 4 -print
+            exit 1
+          fi
           lipo -archs dist/musclex.app/Contents/MacOS/musclex-main | grep -qw "${{ matrix.arch }}"
           dist/musclex.app/Contents/MacOS/musclex-main eq -h
           
