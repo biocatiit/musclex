@@ -35,6 +35,9 @@ from musclex import __version__
 from musclex.ui.pyqt_utils import *
 from musclex.utils.file_manager import getImgFiles
 from musclex.utils.exception_handler import handlers
+from musclex.tests.module_test import MuscleXTest
+from musclex.tests.musclex_tester import MuscleXGlobalTester
+from musclex.tests.environment_tester import EnvironmentTester
 from musclex import stylesheet
 
 if sys.platform in handlers:
@@ -146,13 +149,6 @@ def main(arguments=None):
         from musclex.ui.xv_single_instance import run_xv
 
         sys.exit(run_xv(list(arguments), stylesheet.stylesheet))
-
-    if (
-        len(arguments) == 1
-        and sys.platform == "darwin"
-        and getattr(sys, "frozen", False)
-    ):
-        arguments = [arguments[0], "gui"]
 
     run = True
     if len(arguments) == 2:
@@ -266,8 +262,6 @@ def main(arguments=None):
             myapp = LauncherForm.main()
             sys.exit(app.exec_())
         elif prog == "test_global":
-            from musclex.tests.musclex_tester import MuscleXGlobalTester
-
             suite = unittest.TestSuite()
             suite.addTest(MuscleXGlobalTester("testHeadlessMarEquator"))
             suite.addTest(MuscleXGlobalTester("testHeadlessEigerEquator"))
@@ -286,7 +280,6 @@ def main(arguments=None):
             sys.exit()
         elif prog == "test_impl":
             from musclex.utils.zip_download import download_zip_pickles
-            from musclex.tests.module_test import MuscleXTest
 
             download_zip_pickles(os.path.dirname(__file__))
             suite = unittest.TestSuite()
@@ -302,16 +295,12 @@ def main(arguments=None):
             runner.run(suite)
             sys.exit()
         elif prog == "test_env":
-            from musclex.tests.environment_tester import EnvironmentTester
-
             suite = unittest.TestSuite()
             suite.addTest(EnvironmentTester("testEnvironment"))
             runner = unittest.TextTestRunner()
             runner.run(suite)
             sys.exit()
         elif prog == "test_gpu":
-            from musclex.tests.module_test import MuscleXTest
-
             suite = unittest.TestSuite()
             suite.addTest(MuscleXTest("testOpenCLDevice"))
             suite.addTest(MuscleXTest("testGPUIntegratePyFAI"))

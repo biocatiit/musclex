@@ -1,7 +1,6 @@
-# Building a DMG Image for MuscleX
-The macOS spec builds the `.app` bundle directly with PyInstaller. Do not copy
-the onedir output into `Contents/MacOS` manually; PyInstaller must place Python
-and other frameworks in the bundle's `Contents/Frameworks` directory.
+# Building DMG Image for MuscleX
+Make sure you have finished building the Mac OS X App Bundle of MuscleX
+with PyInstaller.
 
 See [Building Fancy DMG Images on Mac OS X][1] for reference.
 
@@ -15,40 +14,44 @@ cd /path/to/musclex
 pyinstaller --clean -y musclex_mac.spec
 ```
 
-### 2. Validate the App Bundle
-The app bundle is created by the spec and contains this layout:
+### 2. Create App Bundle with Correct Structure
+```bash
+# Create the MacOS directory
+mkdir -p dist/musclex.app/Contents/MacOS
+
+# Copy the entire musclex folder into MacOS
+cp -r dist/musclex dist/musclex.app/Contents/MacOS/
+```
+
+**Important:** Make sure the file structure is:
 ```
 musclex.app/
   Contents/
     MacOS/
-      musclex-main
-    Frameworks/
-      Python.framework/Python (framework-based Python)
-      or libpython3.x.dylib (shared-library Python)
-      ...
+      musclex/           ← Folder containing all files
+        musclex-launcher
+        musclex-main
+        _internal/
+        ...
     Resources/
       AppIcon.icns
     Info.plist
 ```
 
-Check that the bundle's executable and Python framework are present:
-```bash
-/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' dist/musclex.app/Contents/Info.plist
-find dist/musclex.app/Contents/Frameworks \
-  \( -name Python -o -name 'libpython*.dylib' \) -print -quit | grep -q .
-dist/musclex.app/Contents/MacOS/musclex-main eq -h
+### 3. Update Info.plist Version
+Edit `dist/musclex.app/Contents/Info.plist` and update the version:
+```xml
+<key>CFBundleShortVersionString</key>
+<string>1.26.0</string>
 ```
 
-Set the version and sign the modified bundle:
-```bash
-VERSION=$(python -c "from musclex import __version__; print(__version__)")
-PLIST=dist/musclex.app/Contents/Info.plist
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "$PLIST"
-codesign --force --deep --sign - dist/musclex.app
-codesign --verify --deep --strict dist/musclex.app
+Ensure the executable path is:
+```xml
+<key>CFBundleExecutable</key>
+<string>musclex/musclex-launcher</string>
 ```
 
-### 3. Create the DMG
+### 4. Create DMG in One Command
 ```bash
 # Remove macOS quarantine attributes
 xattr -cr dist/musclex.app
@@ -63,16 +66,16 @@ rm -rf dist/dmg_temp
 echo "✅ DMG created at: dist/musclex-1.26.0-macOS.dmg"
 ```
 
-### 4. Test the App
+### 5. Test the App
 ```bash
 # Test by opening directly
 open dist/musclex.app
 
 # Or test from terminal to see errors
-dist/musclex.app/Contents/MacOS/musclex-main
+dist/musclex.app/Contents/MacOS/musclex/musclex-launcher
 ```
 
-### 5. Handle macOS Gatekeeper (if needed)
+### 6. Handle macOS Gatekeeper (if needed)
 If you get "unidentified developer" warnings:
 ```bash
 xattr -cr /Applications/MuscleX.app
@@ -96,19 +99,20 @@ echo "Building MuscleX ${VERSION} for macOS..."
 echo "Step 1: Building with PyInstaller..."
 pyinstaller --clean -y musclex_mac.spec || exit 1
 
-# 2. Set version and verify App Bundle
-echo "Step 2: Verifying App Bundle..."
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" dist/musclex.app/Contents/Info.plist || exit 1
-find dist/musclex.app/Contents/Frameworks \
-  \( -name Python -o -name 'libpython*.dylib' \) -print -quit | grep -q . || exit 1
-dist/musclex.app/Contents/MacOS/musclex-main eq -h || exit 1
+# 2. Create App Bundle structure
+echo "Step 2: Creating App Bundle..."
+mkdir -p dist/musclex.app/Contents/MacOS
+rm -rf dist/musclex.app/Contents/MacOS/musclex
+cp -r dist/musclex dist/musclex.app/Contents/MacOS/
 
-# 3. Remove quarantine and create DMG
-echo "Step 3: Creating DMG..."
+# 3. Update Info.plist version (manual step required)
+echo "Step 3: Please update version in dist/musclex.app/Contents/Info.plist to ${VERSION}"
+echo "Press Enter to continue after updating..."
+read
+
+# 4. Remove quarantine and create DMG
+echo "Step 4: Creating DMG..."
 xattr -cr dist/musclex.app
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" dist/musclex.app/Contents/Info.plist
-codesign --force --deep --sign - dist/musclex.app
-codesign --verify --deep --strict dist/musclex.app
 mkdir -p dist/dmg_temp
 cp -r dist/musclex.app dist/dmg_temp/
 ln -s /Applications dist/dmg_temp/Applications
@@ -174,5 +178,8 @@ Once the Mac OS App Bundle has been built by PyInstaller, you can use **Packages
 See [Using Packages to create an installer for distributing macOS apps outside of the Mac App Store][2] for reference. 
 
 
+
 [1]:https://el-tramo.be/blog/fancy-dmg/  
 [2]:https://www.appcoda.com/packages-macos-apps-distribution/ 
+
+
