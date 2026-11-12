@@ -749,7 +749,8 @@ class DIBatchWindow(QMainWindow):
             new_image_window = DIImageWindow(
                 self, str(self.batchmodeImgFilename), str(self.filePath)
             )
-            self.widgetList.append(new_image_window)
+            if not new_image_window.load_failed:
+                self.widgetList.append(new_image_window)
         else:
             if self.batchmodeImgFilename is None:
                 errMsg = QMessageBox()

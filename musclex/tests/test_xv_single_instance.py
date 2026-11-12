@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import sys
 import uuid
 
 import h5py
@@ -8,10 +9,12 @@ import pytest
 
 pytest.importorskip("PySide6")
 
+from musclex.ui import xv_single_instance
 from musclex.ui.xv_single_instance import (
     PROTOCOL_VERSION,
     XVProtocolError,
     XVSingleInstance,
+    _endpoint_name,
     _open_in_viewer,
     _validate_viewer_request,
     decode_message,
@@ -94,6 +97,15 @@ def test_parse_xv_arguments_supports_explicit_file_option(tmp_path):
 def test_parse_xv_arguments_requires_file_for_frame():
     with pytest.raises(SystemExit):
         parse_xv_arguments(["musclex", "xv", "--frame", "2"])
+
+
+def test_macos_local_socket_path_fits_unix_socket_limit(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    endpoint = _endpoint_name("test-server")
+
+    assert endpoint.startswith("/tmp/")
+    assert len(os.fsencode(endpoint)) < 104
 
 
 def test_viewer_delivery_loads_requested_hdf5_frame(tmp_path):

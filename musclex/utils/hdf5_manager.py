@@ -31,9 +31,11 @@ authorization from Illinois Institute of Technology.
 import os
 import re
 import traceback
+from contextlib import ExitStack
 import hdf5plugin
 import fabio
 import h5py
+import numpy as np
 
 ############################
 # --- ## Load image files: ##
@@ -789,6 +791,159 @@ def loadImage(filename, hdf5_file=None, next_image=None):
 # --- ** MAIN LOADING FUNCTION **
 #################################
 
+def _matching_master_data_file(master_path, external_filename):
+    """Find the matching sibling data file for a master with a broken link."""
+    master_name = os.path.basename(master_path)
+    master_match = re.match(
+        r"^(.*)_master\.(?:h5|hdf5|nxs)$", master_name, re.IGNORECASE
+    )
+    data_match = re.search(
+        r"(_data_[^/\\]+\.(?:h5|hdf5))$",
+        os.path.basename(external_filename),
+        re.IGNORECASE,
+    )
+    if master_match is None or data_match is None:
+        return None
+
+    expected_name = master_match.group(1) + data_match.group(1)
+    directory = os.path.dirname(os.path.abspath(master_path))
+    matches = [
+        name
+        for name in os.listdir(directory)
+        if name.lower() == expected_name.lower()
+    ]
+    if len(matches) != 1:
+        return None
+    candidate = os.path.join(directory, matches[0])
+    return candidate if os.path.isfile(candidate) else None
+
+
+def _hdf5_dataset_frames(path, dataset_path=None):
+    """Return loader specs for the most likely 2-D detector dataset in *path*.
+
+    AreaDetector files used by Diamond commonly store data as
+    ``scan dimensions × height × width``. Flatten those leading dimensions
+    explicitly. When ``dataset_path`` is supplied, use that dataset instead
+    of applying the detector-dataset heuristic.
+    """
+    candidates = []
+    try:
+        with h5py.File(path, "r") as h5_file:
+            if dataset_path is not None:
+                dataset = h5_file.get(dataset_path)
+                if not isinstance(dataset, h5py.Dataset):
+                    return [], None
+                if dataset.dtype.kind not in "iuf":
+                    return [], None
+                shape = tuple(int(value) for value in dataset.shape)
+                if len(shape) < 2 or min(shape[-2:]) < 1:
+                    return [], None
+                frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
+                specs = [
+                    (
+                        "h5_dataset",
+                        os.path.abspath(dataset.file.filename),
+                        dataset.name.lstrip("/"),
+                        frame_index,
+                    )
+                    for frame_index in range(frame_count)
+                ]
+                return specs, shape[-2:]
+
+            def collect(name, obj):
+                if not isinstance(obj, h5py.Dataset) or obj.dtype.kind not in "iuf":
+                    return
+                shape = tuple(int(value) for value in obj.shape)
+                if len(shape) < 2 or min(shape[-2:]) < 64:
+                    return
+                # Eiger master files can keep calibration arrays locally while
+                # exposing detector frames through external links. visititems()
+                # does not follow those links, so exclude calibration datasets.
+                path_parts = {
+                    part.lower().replace("-", "_") for part in name.split("/")
+                }
+                auxiliary_parts = {
+                    "flatfield",
+                    "flat_field",
+                    "pixel_mask",
+                    "mask",
+                    "bad_pixel_mask",
+                    "gain",
+                    "gain_map",
+                    "validity",
+                    "quality",
+                }
+                if path_parts & auxiliary_parts:
+                    return
+                frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
+                data_name = os.path.basename(name).lower()
+                score = (
+                    data_name in ("data", "image", "images", "detector_data"),
+                    frame_count,
+                    shape[-2] * shape[-1],
+                )
+                candidates.append(
+                    (
+                        score,
+                        os.path.abspath(obj.file.filename),
+                        (obj.name or name).lstrip("/"),
+                        shape,
+                        frame_count,
+                    )
+                )
+
+            visited_groups = set()
+
+            def walk(group):
+                group_key = (
+                    os.path.normcase(os.path.realpath(group.file.filename)),
+                    group.name,
+                )
+                if group_key in visited_groups:
+                    return
+                visited_groups.add(group_key)
+                for name in group:
+                    link = group.get(name, getlink=True)
+                    try:
+                        obj = group.get(name)
+                    except (KeyError, OSError, RuntimeError, ValueError):
+                        obj = None
+                    if obj is None and isinstance(link, h5py.ExternalLink):
+                        fallback_path = _matching_master_data_file(
+                            h5_file.filename, link.filename
+                        )
+                        if fallback_path is None:
+                            continue
+                        try:
+                            with h5py.File(fallback_path, "r") as fallback_file:
+                                fallback_obj = fallback_file.get(link.path.lstrip("/"))
+                                if isinstance(fallback_obj, h5py.Group):
+                                    walk(fallback_obj)
+                                elif isinstance(fallback_obj, h5py.Dataset):
+                                    collect(fallback_obj.name, fallback_obj)
+                        except (KeyError, OSError, RuntimeError, ValueError):
+                            continue
+                        continue
+                    if isinstance(obj, h5py.Group):
+                        walk(obj)
+                    elif isinstance(obj, h5py.Dataset):
+                        collect(obj.name or name, obj)
+
+            walk(h5_file)
+    except (KeyError, OSError, RuntimeError, ValueError):
+        return [], None
+
+    if not candidates:
+        return [], None
+    _score, source_path, dataset_path, shape, frame_count = max(
+        candidates, key=lambda item: item[0]
+    )
+    specs = [
+        ("h5_dataset", source_path, dataset_path, frame_index)
+        for frame_index in range(frame_count)
+    ]
+    return specs, shape[-2:]
+
 
 def loadFile(filename, no_processing=False, return_all_images=True):
     """Loads a file an returns a SAS Measurement Object (SASM) and the full image if the
@@ -811,10 +966,16 @@ def loadFile(filename, no_processing=False, return_all_images=True):
             hdf5_file = fabio.open(filename)
             file_type = "image"
         except Exception as e:
+            try:
+                generic_images = _load_generic_hdf5(filename)
+            except Exception as fallback_error:
+                print("Error loading HDF5 dataset. Error:", fallback_error)
+                return None, None
+            if generic_images is not None:
+                return generic_images
             print("Error loading HDF5 file.  Error:", end=" ")
             print(e)
             return None, None
-            # pass
     else:
         hdf5_file = None
 
@@ -823,7 +984,16 @@ def loadFile(filename, no_processing=False, return_all_images=True):
             sasm, img = loadImageFile(filename, hdf5_file, return_all_images)
         except (ValueError, AttributeError) as msg:
             print("No data could be retrieved from the file, unknown format.")
+            if hdf5_file is not None:
+                try:
+                    generic_images = _load_generic_hdf5(filename)
+                except Exception as fallback_error:
+                    print("Error loading HDF5 dataset. Error:", fallback_error)
+                    return None, None
+                if generic_images is not None:
+                    return generic_images
             traceback.print_exc()
+            return None, None
         # except Exception:
         # traceback.print_exc()
         # raise
@@ -837,6 +1007,39 @@ def loadFile(filename, no_processing=False, return_all_images=True):
         return None, None
 
     return sasm, img
+
+
+def _load_generic_hdf5(filename):
+    """Load numeric image datasets when Fabio has no reader for an HDF5 layout."""
+    frame_specs, _shape = _hdf5_dataset_frames(filename)
+    if not frame_specs:
+        return None
+
+    loaded_images = []
+    with ExitStack() as file_stack:
+        opened_files = {}
+        for _kind, _path, dataset_path, frame_index in frame_specs:
+            source_path = _path
+            file_key = os.path.normcase(os.path.realpath(source_path))
+            if file_key not in opened_files:
+                opened_files[file_key] = file_stack.enter_context(
+                    h5py.File(source_path, "r")
+                )
+            dataset = opened_files[file_key][dataset_path]
+            leading_shape = dataset.shape[:-2]
+            if leading_shape:
+                leading_index = np.unravel_index(frame_index, leading_shape)
+                image = dataset[leading_index]
+            else:
+                image = dataset[()]
+            loaded_images.append(np.asarray(image))
+
+    base, ext = os.path.splitext(os.path.basename(filename))
+    image_names = [
+        f"{base}_{frame_index + 1:05d}{ext}"
+        for frame_index in range(len(loaded_images))
+    ]
+    return image_names, loaded_images
 
 
 def loadImageFile(filename, hdf5_file=None, return_all_images=True):
@@ -947,8 +1150,6 @@ def checkFileType(filename):
         return "abs"
     elif ext == ".out":
         return "out"
-    elif ext == ".nxs":  # Nexus file
-        return "image"
     elif ext == ".edf":
         return "image"
     elif ext == ".ccdraw":
@@ -992,7 +1193,7 @@ def checkFileType(filename):
         return "ift"
     elif ext == ".csv":
         return "txt"
-    elif ext == ".h5":
+    elif ext.lower() in (".h5", ".hdf5", ".nxs"):
         return "hdf5"
     else:
         try:

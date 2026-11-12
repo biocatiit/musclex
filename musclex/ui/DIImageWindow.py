@@ -247,6 +247,7 @@ class DIImageWindow(QMainWindow):
         self.intesityRange = [0, 1, 1, 2]
         self.mainWin = mainWin
         self.logger = None
+        self.load_failed = False
 
         self.generateRingColors()
         self.initUI()
@@ -1316,13 +1317,20 @@ class DIImageWindow(QMainWindow):
         if imgList is not None:
             self.imgList = imgList
         else:
+            file_info = getImgFiles(self.fullPath)
+            if not file_info or file_info[1] is None:
+                self.imgList = []
+                self.numberOfFiles = 0
+                self.load_failed = True
+                self.close()
+                return
             (
                 self.filePath,
                 self.imgList,
                 self.currentFileNumber,
                 self.fileList,
                 self.ext,
-            ) = getImgFiles(self.fullPath)
+            ) = file_info
             # self.imgList, _ = getFilesAndHdf(self.filePath)
 
         # self.imgList.sort()
@@ -2009,7 +2017,7 @@ class DIImageWindow(QMainWindow):
             # img[mask > 0] += 25
             img = getBGR(img)
             r, g, b = cv2.split(img)
-            red_panel = r.astype(np.int)
+            red_panel = r.astype(int)
             red_panel[mask > 0] += 50
             red_panel[red_panel > 255] = 255
             r = red_panel.astype(r.dtype)

@@ -100,7 +100,8 @@ class ScanningDiffractionGUI(QMainWindow):
         """
         filePath, fileName = os.path.split(fullfilepath)
         new_image_window = DIImageWindow(self, str(fileName), str(filePath))
-        self.widgetList.append(new_image_window)
+        if not new_image_window.load_failed:
+            self.widgetList.append(new_image_window)
 
     def browseFile(self):
         """

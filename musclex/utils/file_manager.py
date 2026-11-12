@@ -36,7 +36,7 @@ import fabio
 import h5py
 
 # from ..ui.pyqt_utils import *
-from .hdf5_manager import loadFile
+from .hdf5_manager import _hdf5_dataset_frames, loadFile
 from PySide6.QtWidgets import QMessageBox
 from concurrent.futures import ProcessPoolExecutor
 import hashlib
@@ -254,7 +254,10 @@ def getImgFiles(fullname, headless=False):
         if fileList is None or not fileList or None in fileList:
             infMsg = QMessageBox()
             infMsg.setText("Error opening file: " + fullname)
-            infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.")
+            infMsg.setInformativeText(
+                "The file may be invalid or corrupted, or it may be a master file "
+                "with an unavailable external data link."
+            )
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
@@ -276,20 +279,14 @@ def getImgFiles(fullname, headless=False):
             list_h5_files = os.listdir(dir_path)
             imgList = []
             fileList = [[], []]
+            skipped_h5_files = []
             for f in list_h5_files:
                 _, ext2 = os.path.splitext(str(f))
                 full_file_name = fullPath(dir_path, f)
                 if ext2.lower() in HDF5_EXTENSIONS:
                     file_loader = loadFile(full_file_name)
-                    if file_loader[0] is None:
-                        infMsg = QMessageBox()
-                        infMsg.setText("Error opening file: " + f)
-                        infMsg.setInformativeText(
-                            "File is not a valid HDF5 file, is corrupted, or is an empty HDF5 Master file.  Skipping."
-                        )
-                        infMsg.setStandardButtons(QMessageBox.Ok)
-                        infMsg.setIcon(QMessageBox.Information)
-                        infMsg.exec_()
+                    if not file_loader or file_loader[0] is None:
+                        skipped_h5_files.append(f)
                         continue
                     if len(file_loader[0]) == 1:
                         if (
@@ -302,6 +299,19 @@ def getImgFiles(fullname, headless=False):
                         fileList[1].append(file_loader[1][0])
                         if full_file_name == fullname:
                             filename_index = file_loader[0][0]
+            if skipped_h5_files:
+                infMsg = QMessageBox()
+                infMsg.setText(
+                    f"{len(skipped_h5_files)} HDF5 file(s) could not be loaded and were skipped."
+                )
+                infMsg.setInformativeText(
+                    "These files may be invalid or corrupted, or may be master files "
+                    "with missing external data links:\n"
+                    + "\n".join(skipped_h5_files)
+                )
+                infMsg.setStandardButtons(QMessageBox.Ok)
+                infMsg.setIcon(QMessageBox.Information)
+                infMsg.exec_()
             imgList.sort()
     else:
         fileList = os.listdir(dir_path)
@@ -651,85 +661,6 @@ def _tiff_size(path):
     except Exception:
         pass
     return None
-
-
-def _hdf5_dataset_frames(path, dataset_path=None):
-    """Return loader specs for the most likely 2-D detector dataset in *path*.
-
-    AreaDetector files used by Diamond commonly store data as
-    ``scan dimensions × height × width``. Fabio sees the leading scan dimension
-    as one frame, so flatten those leading dimensions explicitly. When
-    ``dataset_path`` is supplied, use that dataset instead of applying the
-    detector-dataset heuristic.
-    """
-    candidates = []
-    try:
-        with h5py.File(path, "r") as h5_file:
-            if dataset_path is not None:
-                dataset = h5_file.get(dataset_path)
-                if not isinstance(dataset, h5py.Dataset):
-                    return [], None
-                if dataset.dtype.kind not in "iuf":
-                    return [], None
-                shape = tuple(int(value) for value in dataset.shape)
-                if len(shape) < 2 or min(shape[-2:]) < 1:
-                    return [], None
-                frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
-                specs = [
-                    ("h5_dataset", path, dataset_path, frame_index)
-                    for frame_index in range(frame_count)
-                ]
-                return specs, shape[-2:]
-
-            def collect(name, obj):
-                if not isinstance(obj, h5py.Dataset) or obj.dtype.kind not in "iuf":
-                    return
-                shape = tuple(int(value) for value in obj.shape)
-                if len(shape) < 2 or min(shape[-2:]) < 64:
-                    return
-                # Eiger master files keep calibration arrays locally while
-                # detector frames are exposed through external links. h5py's
-                # visititems() does not follow those links, so without this
-                # guard a 0/1 flatfield or pixel mask can be mistaken for the
-                # image dataset. Returning no candidate lets the established
-                # Fabio loader follow the master/data relationship instead.
-                path_parts = {
-                    part.lower().replace("-", "_") for part in name.split("/")
-                }
-                auxiliary_parts = {
-                    "flatfield",
-                    "flat_field",
-                    "pixel_mask",
-                    "mask",
-                    "bad_pixel_mask",
-                    "gain",
-                    "gain_map",
-                    "validity",
-                    "quality",
-                }
-                if path_parts & auxiliary_parts:
-                    return
-                frame_count = int(np.prod(shape[:-2])) if len(shape) > 2 else 1
-                data_name = os.path.basename(name).lower()
-                score = (
-                    data_name in ("data", "image", "images", "detector_data"),
-                    frame_count,
-                    shape[-2] * shape[-1],
-                )
-                candidates.append((score, name, shape, frame_count))
-
-            h5_file.visititems(collect)
-    except (KeyError, OSError, RuntimeError, ValueError):
-        return [], None
-
-    if not candidates:
-        return [], None
-    _score, dataset_path, shape, frame_count = max(candidates, key=lambda item: item[0])
-    specs = [
-        ("h5_dataset", path, dataset_path, frame_index)
-        for frame_index in range(frame_count)
-    ]
-    return specs, shape[-2:]
 
 
 def scan_referenced_images(paths, progress_dict=None):

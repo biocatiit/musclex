@@ -7,6 +7,7 @@ pytest.importorskip("fabio")
 pytest.importorskip("PySide6")
 
 from musclex.utils import file_manager
+from musclex.utils import hdf5_manager
 
 
 class _ImmediateFuture:
@@ -189,6 +190,154 @@ def test_hdf5_auto_selection_still_finds_detector_data(tmp_path):
     assert len(specs) == 2
     assert specs[0][2] == "entry/data/data"
     assert shape == (64, 80)
+
+
+@pytest.mark.parametrize("filename", ["detector.h5", "detector.hdf5", "detector.HDF5"])
+def test_shared_loader_falls_back_to_generic_hdf5_dataset(
+    tmp_path, monkeypatch, filename
+):
+    expected = np.arange(2 * 64 * 80, dtype=np.uint32).reshape(2, 64, 80)
+    hdf5_path = tmp_path / filename
+    with file_manager.h5py.File(hdf5_path, "w") as hdf5_file:
+        hdf5_file.create_dataset("entry/data/data", data=expected)
+
+    def unsupported_by_fabio(_path):
+        raise ValueError("No detector-specific Fabio reader")
+
+    monkeypatch.setattr(hdf5_manager.fabio, "open", unsupported_by_fabio)
+
+    names, images = hdf5_manager.loadFile(str(hdf5_path))
+
+    assert names == [f"detector_{index:05d}{hdf5_path.suffix}" for index in (1, 2)]
+    assert len(images) == 2
+    assert np.array_equal(images[0], expected[0])
+    assert np.array_equal(images[1], expected[1])
+
+
+def test_shared_loader_follows_external_hdf5_dataset_links(tmp_path, monkeypatch):
+    expected = np.arange(2 * 64 * 80, dtype=np.uint32).reshape(2, 64, 80)
+    data_path = tmp_path / "scan_data_000001.h5"
+    with file_manager.h5py.File(data_path, "w") as data_file:
+        data_file.create_dataset("entry/data/data", data=expected)
+
+    master_path = tmp_path / "scan_master.h5"
+    with file_manager.h5py.File(master_path, "w") as master_file:
+        master_file["entry/data/data"] = file_manager.h5py.ExternalLink(
+            data_path.name, "/entry/data/data"
+        )
+
+    def unsupported_by_fabio(_path):
+        raise ValueError("No detector-specific Fabio reader")
+
+    monkeypatch.setattr(hdf5_manager.fabio, "open", unsupported_by_fabio)
+
+    names, images = hdf5_manager.loadFile(str(master_path))
+
+    assert names == ["scan_master_00001.h5", "scan_master_00002.h5"]
+    assert np.array_equal(images[0], expected[0])
+    assert np.array_equal(images[1], expected[1])
+
+
+def test_shared_loader_recovers_broken_master_link_from_matching_data_name(
+    tmp_path, monkeypatch
+):
+    expected = np.arange(2 * 64 * 80, dtype=np.uint32).reshape(2, 64, 80)
+    data_path = tmp_path / "9D10_ab_1_0062_data_000001.h5"
+    with file_manager.h5py.File(data_path, "w") as data_file:
+        data_file.create_dataset("entry/data/data", data=expected)
+
+    master_path = tmp_path / "9D10_ab_1_0062_master.h5"
+    with file_manager.h5py.File(master_path, "w") as master_file:
+        master_file["entry/data/data_000001"] = file_manager.h5py.ExternalLink(
+            "9D10_control_1_0062_data_000001.h5", "/entry/data/data"
+        )
+
+    def unsupported_by_fabio(_path):
+        raise ValueError("No detector-specific Fabio reader")
+
+    monkeypatch.setattr(hdf5_manager.fabio, "open", unsupported_by_fabio)
+
+    names, images = hdf5_manager.loadFile(str(master_path))
+
+    assert names == [
+        "9D10_ab_1_0062_master_00001.h5",
+        "9D10_ab_1_0062_master_00002.h5",
+    ]
+    assert np.array_equal(images[0], expected[0])
+    assert np.array_equal(images[1], expected[1])
+
+
+def test_broken_master_link_does_not_choose_unrelated_sibling_data(tmp_path):
+    master_path = tmp_path / "scan_master.h5"
+    with file_manager.h5py.File(master_path, "w") as master_file:
+        master_file["entry/data/data_000001"] = file_manager.h5py.ExternalLink(
+            "other_scan_data_000001.h5", "/entry/data/data"
+        )
+    with file_manager.h5py.File(tmp_path / "scan_data_000002.h5", "w") as data_file:
+        data_file.create_dataset(
+            "entry/data/data", data=np.ones((64, 80), dtype=np.uint16)
+        )
+
+    specs, shape = hdf5_manager._hdf5_dataset_frames(str(master_path))
+
+    assert specs == []
+    assert shape is None
+
+
+def test_get_img_files_shows_one_dialog_for_skipped_hdf5_siblings(
+    tmp_path, monkeypatch
+):
+    selected_path = tmp_path / "selected.h5"
+    skipped_paths = [tmp_path / "broken_master_a.h5", tmp_path / "broken_master_b.h5"]
+    for path in [selected_path, *skipped_paths]:
+        path.touch()
+
+    image = np.ones((64, 80), dtype=np.uint16)
+
+    def fake_load_file(path):
+        if os.path.basename(path) == selected_path.name:
+            return ["selected_00001.h5"], [image]
+        return None, None
+
+    class FakeMessageBox:
+        Ok = 1
+        Information = 2
+        dialogs = []
+
+        def __init__(self):
+            self.text = ""
+            self.informative_text = ""
+            self.dialogs.append(self)
+
+        def setText(self, text):
+            self.text = text
+
+        def setInformativeText(self, text):
+            self.informative_text = text
+
+        def setStandardButtons(self, _buttons):
+            pass
+
+        def setIcon(self, _icon):
+            pass
+
+        def exec_(self):
+            pass
+
+    monkeypatch.setattr(file_manager, "loadFile", fake_load_file)
+    monkeypatch.setattr(file_manager, "QMessageBox", FakeMessageBox)
+
+    _directory, names, current, _file_list, _extension = file_manager.getImgFiles(
+        str(selected_path)
+    )
+
+    assert names == ["selected_00001.h5"]
+    assert current == 0
+    assert len(FakeMessageBox.dialogs) == 2
+    skipped_dialog = FakeMessageBox.dialogs[-1]
+    assert "2 HDF5 file(s)" in skipped_dialog.text
+    assert "broken_master_a.h5" in skipped_dialog.informative_text
+    assert "broken_master_b.h5" in skipped_dialog.informative_text
 
 
 def test_explicit_nexus_dataset_becomes_one_navigable_stack(tmp_path):

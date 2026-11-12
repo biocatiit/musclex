@@ -129,9 +129,16 @@ def instance_name() -> str:
 
 
 def _user_temp_dir() -> Path:
-    temp_root = QStandardPaths.writableLocation(QStandardPaths.TempLocation)
+    # macOS has a short limit for Unix-domain socket paths. Qt's temporary
+    # directory can exceed it (notably for bundled applications), so keep the
+    # socket endpoint under the consistently short /tmp alias.
+    temp_root = (
+        Path("/tmp")
+        if sys.platform == "darwin"
+        else Path(QStandardPaths.writableLocation(QStandardPaths.TempLocation))
+    )
     user_digest = hashlib.sha256(_instance_scope().encode("utf-8")).hexdigest()[:12]
-    directory = Path(temp_root) / f"musclex-xv-{user_digest}"
+    directory = temp_root / f"musclex-xv-{user_digest}"
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     return directory
 
