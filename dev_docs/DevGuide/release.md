@@ -317,15 +317,16 @@ run:
 - **Upload Conda Packages** (`conda-upload.yml`) accepts the Conda build
   `run_id`, `version`, and `build_number`.
 
-#### Test a Conda package locally
+#### Test the package locally
 
 1. Download the built artifacts from the completed workflow run page on GitHub.
 2. Test locally:
 
 ```bash
-conda create -n test-musclex python=3.10
-conda activate test-musclex
-conda install /path/to/downloaded/musclex-*.tar.bz2
+conda create -n musclex python=3.10
+conda activate musclex
+python -m pip install musclex-2.1.1.tar.gz
+
 ```
 
 3. Verify the main functionalities and run the tests.
