@@ -41,6 +41,28 @@ For users who prefer not to manage Python environments, we provide a pre-built i
 
 4. Eject and delete the `.dmg` after installation
 
+### Troubleshooting `QLocalServer::listen: Name error` on macOS
+
+If launching the `xv` module shows `QLocalServer::listen: Name error`, the temporary Unix-domain socket path used by Qt may be too long. This can happen when the temporary directory or working directory path is long.
+
+In the active Terminal session, set `TMPDIR` to a shorter temporary directory before starting MuscleX:
+
+```bash
+export TMPDIR=/tmp
+musclex xv
+```
+
+The GUI should open without the `Name error`. This setting applies only to the current Terminal session.
+
+Alternatively, start MuscleX from a shorter working directory:
+
+```bash
+cd /tmp
+musclex xv
+```
+
+If the error persists after a previous crash, quit any running MuscleX processes and check for a stale MuscleX socket in the temporary directory. Remove only a socket you have identified as belonging to MuscleX; do not clear all of `/tmp`.
+
 ### PKG Installer (Deprecated)
 
 - The `.pkg` installer is no longer produced. Use `.dmg` or Docker when possible.
