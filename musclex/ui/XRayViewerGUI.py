@@ -43,6 +43,83 @@ from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
 from .widgets import ProcessingWorkspace
 
+import os
+import json
+import traceback
+import csv
+import copy
+import math
+from os.path import split, splitext
+from pathlib import Path
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import pandas as pd
+from PIL import Image
+from musclex import __version__
+from PySide6.QtCore import (
+    QRunnable,
+    QThreadPool,
+    QEventLoop,
+    Signal,
+    QTimer,
+    QSize,
+    QSignalBlocker,
+)
+from PySide6.QtWidgets import QStyle
+from queue import Queue
+import fabio
+from ..utils.file_manager import *
+from ..utils.image_processor import *
+from ..utils import ImageData
+from ..utils import qf_defaults
+from ..utils.settings_manager import SettingsManager
+
+from ..modules.QuadrantFolder import QuadrantFolder
+from ..csv_manager.QF_CSVManager import QF_CSVManager
+from .pyqt_utils import *
+from .BlankImageSettings import BlankImageSettings
+from .ImageMaskTool import ImageMaskerWindow
+
+# from .DoubleZoomGUI import DoubleZoom
+# from .DoubleZoomViewer import DoubleZoom
+from .widgets.double_zoom_widget import DoubleZoomWidget
+
+# NOTE: SetCentDialog and SetAngleDialog moved to ImageSettingsPanel
+from .ImageBlankDialog import ImageBlankDialog
+from .ImageMaskDialog import ImageMaskDialog
+from .BackgroundSubtractionDialog import (
+    BackgroundSubtractionDialog,
+    _to_metric_text,
+    _fraction_to_percent_for_ui,
+    _percent_to_fraction_for_flags,
+)
+
+from ..CalibrationSettings import CalibrationSettings
+from threading import Lock
+from scipy.ndimage import rotate
+from .widgets.navigation_controls import NavigationControls
+from .tools.tool_manager import ToolManager
+from .tools.chords_center_tool import ChordsCenterTool
+from .tools.perpendiculars_center_tool import PerpendicularsCenterTool
+from .tools.rotation_tool import RotationTool
+from .tools.center_rotate_tool import CenterRotateTool
+from .widgets.image_viewer_widget import ImageViewerWidget
+from .widgets.collapsible_right_panel import CollapsibleRightPanel
+from .widgets.collapsible_groupbox import CollapsibleGroupBox
+from .widgets.center_settings_widget import CenterSettingsWidget
+from .widgets.rotation_settings_widget import RotationSettingsWidget
+from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
+from .widgets import ProcessingWorkspace, BatchFolderSelectionDialog
+from .base_gui import BaseGUI
+from ..utils.bg_search.background_search import (
+    get_projection,
+    find_i0_i1_peaks_auto,
+    find_m_peak_auto,
+)
+from ..utils.qf_defaults import parse_optimization_steps
+import time
+import random
+from musclex import __version__
 
 class XRayViewerGUI(QMainWindow):
     """
@@ -205,7 +282,7 @@ class XRayViewerGUI(QMainWindow):
         # Rotation and Blank/Mask widgets are deliberately NOT added.
         self.workspace._center_widget.setCenterRotationButton.hide()
         self.workspace.right_panel.add_widget(self.workspace._center_widget)
-
+        self.workspace.right_panel.add_widget(self.workspace._blank_mask_widget)
         # Create custom settings group for XRayViewer features
         # Note: Calibration is now launched from the center settings panel above
         # (workspace._center_widget.calibrationButton). This group only hosts
@@ -594,7 +671,8 @@ class XRayViewerGUI(QMainWindow):
         if image_data._computed_rotation is None and not image_data.has_manual_rotation:
             image_data._computed_rotation = 0.0
 
-        img = image_data.img
+        # img = image_data.img
+        img = image_data.get_working_image() ############## heres 
         filename = image_data.img_name
         input_dir = None
         if self.workspace.dir_context is not None:

@@ -385,15 +385,35 @@ class QuadrantFolder:
         self.deleteFromDict(self.info, "rmin")
         self.deleteFromDict(self.info, "rmax")
 
+    # def delCache(self):
+    #     """
+    #     Delete cache
+    #     :return: -
+    #     """
+    #     cache_path = fullPath(self.output_dir, "qf_cache")
+    #     cache_file = fullPath(cache_path, self.img_name + ".info")
+    #     if os.path.exists(cache_path) and os.path.isfile(cache_file):
+    #         os.remove(cache_file)
     def delCache(self):
         """
-        Delete cache
-        :return: -
+        Delete cache and stale result files to prevent loading corrupted bases.
         """
         cache_path = fullPath(self.output_dir, "qf_cache")
         cache_file = fullPath(cache_path, self.img_name + ".info")
         if os.path.exists(cache_path) and os.path.isfile(cache_file):
             os.remove(cache_file)
+
+        # Clear stale folded results so they aren't blindly reused
+        folded_dir = fullPath(self.output_dir, "qf_results", "folded")
+        if os.path.isdir(folded_dir):
+            base, _ = os.path.splitext(self.img_name)
+            for suffix in FAST_PATH_RESULT_SUFFIXES:
+                candidate = fullPath(folded_dir, base + suffix)
+                if os.path.isfile(candidate):
+                    try:
+                        os.remove(candidate)
+                    except Exception:
+                        pass
 
     # ==================== Fingerprint ====================
 
@@ -492,6 +512,37 @@ class QuadrantFolder:
         if delStr in dicto:
             del dicto[delStr]
 
+    def _try_load_saved_folded_base(self):
+        """Reuse the already-saved folded result as the base for bg subtraction.
+
+        This covers the toggle case: the user previously ran with fold disabled,
+        saved a result in qf_results/folded, then re-enables folding and wants to
+        apply background subtraction without re-folding the quadrants again.
+        """
+        # if not bool(self.info.get('fold_bg_image', True)):
+        #     return False
+
+        qf_root = fullPath(self.output_dir, 'qf_results')
+        folded_dir = fullPath(qf_root, 'folded')
+        if not os.path.isdir(folded_dir):
+            return False
+
+        base, _ = os.path.splitext(self.img_name)
+        for suffix in FAST_PATH_RESULT_SUFFIXES:
+            candidate = fullPath(folded_dir, base + suffix)
+            if os.path.isfile(candidate):
+                try:
+                    img = fabio.open(candidate).data.astype('float32')
+                    self.imgCache['avg_fold'] = img
+                    self.imgCache['folded'] = True
+                    print(f"Loaded saved folded result as bg-subtraction base: {candidate}")
+                    return True
+                except Exception as exc:
+                    print(f"Failed to reuse saved folded result {candidate}: {exc}")
+                    return False
+        return False
+
+
     def process(self, flags):
         """
         Run all processing steps for the current image. The pipeline is:
@@ -564,6 +615,9 @@ class QuadrantFolder:
         # ==========================================
         self._invalidate_slow_path_image_caches()
         self.transformImage()
+        if self.info.get('center_aligned_only'):
+            # aligned_img = np.nan_to_num(self.orig_img.copy(), nan=0.0).astype(np.float32)
+            self.imgCache['align'] = self.orig_img.copy().astype(np.float32)
         self.calculateAvgFold()
         if self.imgCache["avg_fold"].max() <= 0:
             raise ValueError(
@@ -613,6 +667,7 @@ class QuadrantFolder:
                 traceback.print_exc()
         self.parent.statusPrint("")
         return True
+
 
     def _invalidate_slow_path_image_caches(self):
         """Discard every image derived from a previous fold.
@@ -1433,8 +1488,8 @@ class QuadrantFolder:
         ]
 
         # Use top left quadrant as average fold if folding is disabled
-        if self.info["fold_image"] == False:
-            print("Folding is disabled. Using top left quadrant as average fold...")
+        if self.info["fold_bg_image"] == False:
+            # print("Folding is disabled. Using top left quadrant as average fold...")
             self.imgCache["folded"] = False
             self.imgCache["avg_fold"] = top_left
 
@@ -2552,37 +2607,78 @@ class QuadrantFolder:
             self.imgCache["BgSubFold_syn"] = result
         print("Done.")
 
+    # def generateResultImage(self):
+    #     """
+    #     Put BgSubFold_in, BgSubFold_out, BgSubFold_syn_in, BgSubFold_syn_out together as a result image
+    #     :return:
+    #     """
+    #     self.parent.statusPrint("Generating Resultant Image...")
+    #     print("Generating result image from average fold...")
+
+    #     result = copy.copy(self.imgCache["BgSubFold"])
+    #     result = makeFullImage(result)
+    #     result_scaled = self._applyTransformations(result)
+    #     self.imgCache["resultImg"] = result_scaled
+    #     bg = makeFullImage(copy.copy(self.imgCache["BgFold"]))
+    #     bg_scaled = self._applyTransformations(bg)
+    #     self.imgCache["resultBg"] = bg_scaled
+
+    #     # Fitted (parametric) background, transformed identically to resultImg so
+    #     # it can be added back / displayed consistently. When no fit was applied,
+    #     # store zeros so callers can add it unconditionally.
+    #     bg_fit = self.imgCache.get("BgFoldFit", None)
+    #     if bg_fit is not None and np.asarray(bg_fit).size > 0:
+    #         bgfit_full = makeFullImage(copy.copy(np.asarray(bg_fit)))
+    #         bgfit_scaled = self._applyTransformations(bgfit_full)
+    #     else:
+    #         bgfit_scaled = np.zeros_like(result_scaled)
+    #     self.imgCache["resultBgFit"] = bgfit_scaled
+
+    #     if self.info["bgsub"] == "None":
+    #         self.imgCache["resultFolded"] = result_scaled + bgfit_scaled
+    #     else:
+    #         self.imgCache["resultFolded"] = result_scaled + bg_scaled + bgfit_scaled
+
+    #     print("Done.")
+
     def generateResultImage(self):
         """
-        Put BgSubFold_in, BgSubFold_out, BgSubFold_syn_in, BgSubFold_syn_out together as a result image
-        :return:
+        Put result images together, handling both full pipeline and fold-only mode.
         """
         self.parent.statusPrint("Generating Resultant Image...")
-        print("Generating result image from average fold...")
 
-        result = copy.copy(self.imgCache["BgSubFold"])
-        result = makeFullImage(result)
-        result_scaled = self._applyTransformations(result)
-        self.imgCache["resultImg"] = result_scaled
-        bg = makeFullImage(copy.copy(self.imgCache["BgFold"]))
-        bg_scaled = self._applyTransformations(bg)
-        self.imgCache["resultBg"] = bg_scaled
+        # In fold-only mode (fold_bg_image is False) or if BgSubFold is missing, use avg_fold
+        if not self.info.get('fold_bg_image') or 'BgSubFold' not in self.imgCache:
+            print("Generating result image from average fold (Fold-only mode)...")
+            source_img = self.imgCache.get('avg_fold')
+            if source_img is None:
+                raise ValueError("Cache missing 'avg_fold' for result generation.")
 
-        # Fitted (parametric) background, transformed identically to resultImg so
-        # it can be added back / displayed consistently. When no fit was applied,
-        # store zeros so callers can add it unconditionally.
-        bg_fit = self.imgCache.get("BgFoldFit", None)
-        if bg_fit is not None and np.asarray(bg_fit).size > 0:
-            bgfit_full = makeFullImage(copy.copy(np.asarray(bg_fit)))
-            bgfit_scaled = self._applyTransformations(bgfit_full)
+            result = copy.copy(source_img)
+            result = makeFullImage(result)
+            result_scaled = self._applyTransformations(result)
+            self.imgCache['resultImg'] = result_scaled
+            self.imgCache['resultFolded'] = result_scaled
+            self.imgCache['resultBg'] = None
         else:
-            bgfit_scaled = np.zeros_like(result_scaled)
-        self.imgCache["resultBgFit"] = bgfit_scaled
+            print("Generating result image from background subtraction...")
+            result = copy.copy(self.imgCache['BgSubFold'])
+            result = makeFullImage(result)
+            result_scaled = self._applyTransformations(result)
+            self.imgCache['resultImg'] = result_scaled
 
-        if self.info["bgsub"] == "None":
-            self.imgCache["resultFolded"] = result_scaled + bgfit_scaled
-        else:
-            self.imgCache["resultFolded"] = result_scaled + bg_scaled + bgfit_scaled
+            bg_data = self.imgCache.get('BgFold')
+            if bg_data is not None:
+                bg = makeFullImage(copy.copy(bg_data))
+                bg_scaled = self._applyTransformations(bg)
+                self.imgCache['resultBg'] = bg_scaled
+            else:
+                bg_scaled = 0
+
+            if self.info.get("bgsub") == 'None':
+                self.imgCache['resultFolded'] = result_scaled
+            else:
+                self.imgCache['resultFolded'] = result_scaled + bg_scaled
 
         print("Done.")
 
@@ -2686,22 +2782,131 @@ class QuadrantFolder:
         result_scaled = cv2.warpAffine(result, M, (w, h))
         return result_scaled
 
+    # def evaluateResult(self):
+    #     """
+    #     Evaluate the result by calculating the loss metrics on the result image and background.
+    #     """
+    #     self.parent.statusPrint("Evaluating Result...")
+    #     print("Evaluating result image...")
+    #     if "resultImg" not in self.imgCache:
+    #         print("Result image not found. Please generate the result image first.")
+    #         return
+
+    #     result = self.imgCache["resultImg"]
+    #     bg = self.imgCache.get("resultBg", None)
+    #     bg = bg + self.imgCache.get("resultBgFit", None) if bg is not None else bg
+
+    #     stack = result if bg is None else (result + bg)
+    #     persist_manual = bool(self.info.get("persist_evaluation_baseline", False))
+    #     if not persist_manual:
+    #         baseline = (
+    #             get_radial_average_rmax(stack, self.info["rmax"], band_width=30) * 0.2
+    #         )
+    #     else:
+    #         baseline = self.info.get("evaluation_baseline", None)
+    #         if baseline is None or float(baseline) <= 0.0:
+    #             baseline = (
+    #                 get_radial_average_rmax(stack, self.info["rmax"], band_width=30)
+    #                 * 0.2
+    #             )
+    #     baseline = max(float(baseline), qf_defaults.MIN_EVAL_BASELINE)
+    #     self.info["evaluation_baseline"] = baseline
+    #     syn_srt = self.imgCache.get("synthetic_data", None)
+    #     syn_mask = self.imgCache.get("synthetic_mask", None)
+    #     syn_fold = self.imgCache.get("BgSubFold_syn", None)
+    #     syn_fold_base = self.imgCache.get("BgSubFold", None)
+    #     gen_mask = self.imgCache.get("mask", None)
+    #     equator_mask = self.imgCache.get("equator_mask", None)
+    #     syn_img, syn_srt, syn_mask, gen_mask_fold = prepare_synthetic_eval_pair(
+    #         syn_fold, syn_fold_base, syn_srt, syn_mask, gen_mask
+    #     )
+
+    #     kwargs = {
+    #         "dimg": result,
+    #         "dbg": bg,
+    #         "baseline": baseline,
+    #         "syn_img": syn_img,
+    #         "syn_srt": syn_srt,
+    #         "syn_mask": syn_mask,
+    #         "gen_mask": gen_mask,
+    #         "gen_mask_fold": gen_mask_fold,
+    #         "equator_mask": equator_mask,
+    #         "mean_metric_values": self.info.get("mean_metric_values", None),
+    #         "metric_weights": self.info.get("metric_weights", None),
+    #     }
+    #     eval_result = evaluate_loss(**kwargs, return_details=True)
+    #     self.info["result_bg"]["loss"] = eval_result.get("loss", None)
+    #     self.info["result_bg"]["metrics_normalized"] = eval_result.get(
+    #         "metrics_normalized", {}
+    #     )
+    #     self.info["result_bg"]["metrics_raw"] = eval_result.get("metrics_raw", {})
+    #     self.info["result_bg"]["metrics_equator_normalized"] = eval_result.get(
+    #         "metrics_equator_normalized", {}
+    #     )
+    #     self.info["result_bg"]["metrics_equator_raw"] = eval_result.get(
+    #         "metrics_equator_raw", {}
+    #     )
+    #     self.info["result_bg"]["mean_metric_values"] = self.info.get(
+    #         "mean_metric_values", None
+    #     )
+    #     self.info["result_bg"]["metric_weights"] = eval_result.get(
+    #         "metric_weights", None
+    #     )
+    #     # Total subtracted background = non-parametric (resultBg) + parametric
+    #     # fit (resultBgFit), already summed into ``bg`` above. Report it over
+    #     # the [rmin, rmax] annulus only -- the region the fit/subtraction
+    #     # actually targets. Pixels outside it (beam stop, corners) are not
+    #     # meaningful background and would otherwise dominate the total.
+    #     self.info["result_bg"]["intensity"] = self._backgroundAnnulusSum(bg)
+
+    #     # Fold-symmetry score (normalised). Computed from the *original*
+    #     # pre-transform image so the score reflects what folding actually saw;
+    #     # this is the same input shape _compute_fold_symmetry expects (it
+    #     # re-runs the translate+rotate itself).
+    #     try:
+    #         if self._image_data is not None:
+    #             sym_img = self._image_data.get_working_image()
+    #             sym_center = self._image_data.center
+    #             sym_rotation = self._image_data.rotation
+    #         else:
+    #             sym_img = None
+    #             sym_center = self.orig_image_center
+    #             sym_rotation = self.rotation if self.rotation is not None else 0.0
+    #         sym = _compute_fold_symmetry(sym_img, sym_center, sym_rotation)
+    #         self.info["result_bg"]["symmetry"] = sym.get("fold_std_norm", None)
+    #     except Exception as _sym_err:
+    #         print(f"Symmetry calculation failed: {_sym_err}")
+    #         self.info["result_bg"]["symmetry"] = None
+
+    #     print("Evaluation complete. Loss: ", self.info["result_bg"]["loss"])
+
     def evaluateResult(self):
-        """
-        Evaluate the result by calculating the loss metrics on the result image and background.
-        """
+
         self.parent.statusPrint("Evaluating Result...")
         print("Evaluating result image...")
+
+        if not self.info.get("fold_bg_image"):
+            print("Skipping evaluation in fold-only mode.")
+            return
+
         if "resultImg" not in self.imgCache:
             print("Result image not found. Please generate the result image first.")
             return
 
         result = self.imgCache["resultImg"]
         bg = self.imgCache.get("resultBg", None)
-        bg = bg + self.imgCache.get("resultBgFit", None) if bg is not None else bg
+        bg_fit = self.imgCache.get("resultBgFit", None)
+
+        if bg is not None and bg_fit is not None:
+            bg = bg + bg_fit
 
         stack = result if bg is None else (result + bg)
         persist_manual = bool(self.info.get("persist_evaluation_baseline", False))
+
+        if "rmax" not in self.info:
+            print("Warning: 'rmax' not found in info. Skipping baseline evaluation.")
+            return
+
         if not persist_manual:
             baseline = (
                 get_radial_average_rmax(stack, self.info["rmax"], band_width=30) * 0.2
@@ -2713,6 +2918,7 @@ class QuadrantFolder:
                     get_radial_average_rmax(stack, self.info["rmax"], band_width=30)
                     * 0.2
                 )
+
         baseline = max(float(baseline), qf_defaults.MIN_EVAL_BASELINE)
         self.info["evaluation_baseline"] = baseline
         syn_srt = self.imgCache.get("synthetic_data", None)
@@ -2721,6 +2927,7 @@ class QuadrantFolder:
         syn_fold_base = self.imgCache.get("BgSubFold", None)
         gen_mask = self.imgCache.get("mask", None)
         equator_mask = self.imgCache.get("equator_mask", None)
+
         syn_img, syn_srt, syn_mask, gen_mask_fold = prepare_synthetic_eval_pair(
             syn_fold, syn_fold_base, syn_srt, syn_mask, gen_mask
         )
@@ -2739,34 +2946,19 @@ class QuadrantFolder:
             "metric_weights": self.info.get("metric_weights", None),
         }
         eval_result = evaluate_loss(**kwargs, return_details=True)
+
+        if "result_bg" not in self.info or self.info["result_bg"] is None:
+            self.info["result_bg"] = {}
+
         self.info["result_bg"]["loss"] = eval_result.get("loss", None)
-        self.info["result_bg"]["metrics_normalized"] = eval_result.get(
-            "metrics_normalized", {}
-        )
+        self.info["result_bg"]["metrics_normalized"] = eval_result.get("metrics_normalized", {})
         self.info["result_bg"]["metrics_raw"] = eval_result.get("metrics_raw", {})
-        self.info["result_bg"]["metrics_equator_normalized"] = eval_result.get(
-            "metrics_equator_normalized", {}
-        )
-        self.info["result_bg"]["metrics_equator_raw"] = eval_result.get(
-            "metrics_equator_raw", {}
-        )
-        self.info["result_bg"]["mean_metric_values"] = self.info.get(
-            "mean_metric_values", None
-        )
-        self.info["result_bg"]["metric_weights"] = eval_result.get(
-            "metric_weights", None
-        )
-        # Total subtracted background = non-parametric (resultBg) + parametric
-        # fit (resultBgFit), already summed into ``bg`` above. Report it over
-        # the [rmin, rmax] annulus only -- the region the fit/subtraction
-        # actually targets. Pixels outside it (beam stop, corners) are not
-        # meaningful background and would otherwise dominate the total.
+        self.info["result_bg"]["metrics_equator_normalized"] = eval_result.get("metrics_equator_normalized", {})
+        self.info["result_bg"]["metrics_equator_raw"] = eval_result.get("metrics_equator_raw", {})
+        self.info["result_bg"]["mean_metric_values"] = self.info.get("mean_metric_values", None)
+        self.info["result_bg"]["metric_weights"] = eval_result.get("metric_weights", None)
         self.info["result_bg"]["intensity"] = self._backgroundAnnulusSum(bg)
 
-        # Fold-symmetry score (normalised). Computed from the *original*
-        # pre-transform image so the score reflects what folding actually saw;
-        # this is the same input shape _compute_fold_symmetry expects (it
-        # re-runs the translate+rotate itself).
         try:
             if self._image_data is not None:
                 sym_img = self._image_data.get_working_image()

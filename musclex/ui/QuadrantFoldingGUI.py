@@ -800,7 +800,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # Add built-in settings widgets from workspace (workspace no longer adds these automatically)
         self.right_panel.add_widget(self.workspace._center_widget)
         self.right_panel.add_widget(self.workspace._rotation_widget)
-        self.right_panel.add_widget(self.workspace._blank_mask_widget)
+        self.right_panel.add_widget(self.workspace._blank_mask_widget) ########## here blank_mask -> imagemaskdialog
 
         # Add quadrant-specific settings groups
         self._create_processing_settings()
@@ -836,13 +836,20 @@ class QuadrantFoldingGUI(BaseGUI):
             "Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)"
         )
 
-        self.toggleFoldImage = QCheckBox("Fold Image")
-        self.toggleFoldImage.setChecked(True)
+        self.toggleFoldImage = QCheckBox("Apply background subtraction")
+        self.toggleFoldImage.setChecked(False)
+        self.toggleFoldImage.setEnabled(False) # Disabled until background subtraction is implemented
         self.toggleFoldImage.setToolTip(
             "When enabled, average the four quadrants into a single folded image.\n"
-            "When disabled, the original (unfolded) image is used for background subtraction."
+            "When disabled, the original (unfolded) image is used for background subtraction.\n Click results tab select subtraction parameters from  the Background Subtraction section  click apply background subtraction button to apply the background subtraction settings to the current image."
         )
 
+                    # Center Aligned Only
+        self.centerAlignedOnlyChkBx = QCheckBox("Save Center-Aligned Only")
+        self.centerAlignedOnlyChkBx.setChecked(False)
+        self.centerAlignedOnlyChkBx.setToolTip(
+            "When enabled, save the aligned output without folding."
+        )
         self.solidAngleCorrectionChkBx = QCheckBox("Solid Angle")
         self.solidAngleCorrectionChkBx.setChecked(False)
         self.solidAngleCorrectionChkBx.setToolTip(
@@ -864,15 +871,27 @@ class QuadrantFoldingGUI(BaseGUI):
             "Select the incident-beam polarization model used by the correction"
         )
 
+        # self.settingsLayout.addWidget(
+        #     QLabel("Mask Threshold : Use Set Mask"), 0, 0, 1, 2
+        # )
+        # self.settingsLayout.addWidget(self.toggleFoldImage, 1, 0, 1, 2)
+        # self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 1, 2, 1, 2)
+        # self.settingsLayout.addWidget(QLabel("Intensity Correction"), 2, 0, 1, 4)
+        # self.settingsLayout.addWidget(self.solidAngleCorrectionChkBx, 3, 0, 1, 1)
+        # self.settingsLayout.addWidget(self.polarizationCorrectionChkBx, 3, 1, 1, 1)
+        # self.settingsLayout.addWidget(self.polarizationModeCB, 3, 2, 1, 2)
+
+        # self.settingsGroup.setLayout(self.settingsLayout)
         self.settingsLayout.addWidget(
-            QLabel("Mask Threshold : Use Set Mask"), 0, 0, 1, 2
+            QLabel("Mask Threshold : Use Set Mask"), 0, 0, 1, 4
         )
         self.settingsLayout.addWidget(self.toggleFoldImage, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 1, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Intensity Correction"), 2, 0, 1, 4)
-        self.settingsLayout.addWidget(self.solidAngleCorrectionChkBx, 3, 0, 1, 1)
-        self.settingsLayout.addWidget(self.polarizationCorrectionChkBx, 3, 1, 1, 1)
-        self.settingsLayout.addWidget(self.polarizationModeCB, 3, 2, 1, 2)
+        self.settingsLayout.addWidget(self.centerAlignedOnlyChkBx, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Intensity Correction"), 3, 0, 1, 4)
+        self.settingsLayout.addWidget(self.solidAngleCorrectionChkBx, 4, 0, 1, 1)
+        self.settingsLayout.addWidget(self.polarizationCorrectionChkBx, 4, 1, 1, 1)
+        self.settingsLayout.addWidget(self.polarizationModeCB, 4, 2, 1, 2)
 
         self.settingsGroup.setLayout(self.settingsLayout)
         # Note: settingsGroup is added in _create_quadrant_settings(), not here
@@ -1882,6 +1901,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resultDisplayModeCB.setEnabled(False)
 
         self._addDefaultOptimizationConfig = True
+        self.toggleFoldImage.setChecked(True)  # Set default to checked
+        self.toggleFoldImage.setEnabled(True)
         self.processImage()
 
         if not checked:
@@ -2508,6 +2529,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self._on_result_display_mode_changed
         )
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
+        self.centerAlignedOnlyChkBx.stateChanged.connect(self.onCenterAlignedOnlyChkBoxToggled) # Center aligned only connection
         self.solidAngleCorrectionChkBx.stateChanged.connect(
             self.intensityCorrectionChanged
         )
@@ -3880,7 +3902,9 @@ class QuadrantFoldingGUI(BaseGUI):
         # self._force_no_fast_path_on_process = True
 
         self.resultDisplayModeCB.setEnabled(False)
-
+        self.quadFold.info['fold_bg_image'] = True
+        self.toggleFoldImage.setChecked(True)  # Set default to checked
+        self.toggleFoldImage.setEnabled(True)
         self.processImage()
 
         if (
@@ -4189,6 +4213,9 @@ class QuadrantFoldingGUI(BaseGUI):
             return
         if "avg_fold" not in self.quadFold.imgCache:
             return
+        # Skip seeding synthetic parameters in fold-only mode
+        if not self.quadFold.info.get("fold_bg_image", True):
+            return
         computed = self.quadFold.ensureSyntheticGaussianDefaults()
         if computed is None:
             return
@@ -4334,12 +4361,40 @@ class QuadrantFoldingGUI(BaseGUI):
         if hasattr(self, "bgSubDialog"):
             self.bgSubDialog._populate_loss_params_table()
 
+    # def onFoldChkBoxToggled(self):
+    #     if self.quadFold is not None:
+    #         self.deleteImgCache(["avg_fold"])
+    #         self.deleteImgCache(["BgSubFold"])
+    #         self.processImage()
     def onFoldChkBoxToggled(self):
+        """Recompute the folded image whenever the fold toggle changes.
+
+        Switching fold_bg_image changes the effective average-fold source and
+        invalidates the downstream result/background caches. Clearing only
+        avg_fold/BgSubFold is insufficient because result_bg and fully rendered
+        result images can still be reused in the UI and CSV layer.
+        """
+       
+         
+
         if self.quadFold is not None:
-            self.deleteImgCache(["avg_fold"])
-            self.deleteImgCache(["BgSubFold"])
+            self.deleteInfo(['result_bg'])
+            self.deleteImgCache([
+                'avg_fold', 'BgSubFold', 'BgFold',
+                'BgSubFold_out', 'BgFold_out',
+                'BgSubFold_syn', 'BgFold_syn',
+                'BgSubFold_in', 'BgFold_in',
+                'BgSubFold_syn_in', 'BgFold_syn_in',
+                'BgSubFold_syn_out', 'BgFold_syn_out',
+                'resultImg', 'resultBg', 'resultFolded', 'mask',
+            ])
             self.processImage()
 
+
+    def onCenterAlignedOnlyChkBoxToggled(self):
+            if self.quadFold is not None:
+                self.deleteImgCache(['align'])
+                self.processImage()
     def intensityCorrectionChanged(self):
         if self.uiUpdating or self.quadFold is None:
             return
@@ -5725,31 +5780,110 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.currentTask = None
 
+    # def saveResults(self, full_process=True, quad_fold=None):
+    #     """
+    #     Save the result image to qf_results.
+
+    #     Filename rules:
+    #       - compress unchecked  -> <name>_folded.tif
+    #       - compress checked    -> <name>_folded_compressed.tif
+
+    #     Both variants are full-size copies of resultImg and are eligible
+    #     for fast-path reload next session.
+
+    #     :param full_process: True if the slow-path ran (process() did the
+    #         full pipeline); False on the fast-path. Retained for callers and
+    #         logging -- saveBackground() now runs on both paths (it records the
+    #         cached background sum and only skips the bg.tif rewrite when the
+    #         background arrays weren't reconstructed), so the result tif and the
+    #         background_sum.csv row are both emitted regardless.
+    #     """
+    #     qf = quad_fold if quad_fold is not None else self.quadFold
+    #     if qf is None:
+    #         return
+
+    #     print("SAVE RESULTS")
+    #     if "resultImg" not in qf.imgCache:
+    #         return
+
+    #     out = (
+    #         self.workspace.dir_context.output_dir
+    #         if self.workspace.dir_context
+    #         else self.filePath
+    #     )
+    #     result_path = fullPath(out, "qf_results")
+    #     # if not self.quadFold.info.get('fold_bg_image'):
+    #     #     print("Fold-only mode:")
+    #     #     result_dir = fullPath(result_path, 'folded')
+    #     #     suffix = '_folded'
+    #     # else:
+    #     #     print("Fold + background mode:")
+    #     #     result_dir = fullPath(result_path, 'folded_bg')
+    #     #     suffix = '_folded_bg'
+    #     if self.quadFold.info.get('center_aligned_only'):
+    #         print("Center-aligned-only mode:")
+    #         result_dir = fullPath(result_path, 'aligned')
+    #         suffix = '_aligned'
+    #         img = qf.imgCache["align"].astype("float32")
+    #     elif not self.quadFold.info.get('fold_bg_image'):
+    #         print("Fold-only mode:")
+    #         result_dir = fullPath(result_path, 'folded')
+    #         suffix = '_folded'
+    #         img = qf.imgCache["resultImg"].astype("float32")
+    #     else:
+    #         print("Fold + background mode:")
+    #         result_dir = fullPath(result_path, 'folded_bg')
+    #         suffix = '_folded_bg'
+    #         img = qf.imgCache["resultImg"].astype("float32")
+
+    #     createFolder(result_dir)
+    #     base, _ = splitext(str(join(result_dir, qf.img_name)))
+        
+    #     # img is now defined dynamically in the blocks above based on the mode
+    #     # img = qf.imgCache["resultImg"].astype("float32")
+
+    #     compress = self.compressFoldedImageChkBx.isChecked()
+
+    #     try:
+    #         # suffix = "_folded_compressed.tif" if compress else "_folded.tif"
+    #         suffix = f"{suffix}_compressed.tif" if compress else f"{suffix}.tif"
+    #         out_file = base + suffix
+    #         # Multi-folder batches retain a relative folder in img_name to
+    #         # avoid basename collisions.  Ensure that folder exists when the
+    #         # image is revisited after the batch (for example via alignment).
+    #         os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    #         if compress:
+    #             Image.fromarray(img).save(out_file, compression="tiff_lzw")
+    #         else:
+    #             fabio.tifimage.tifimage(data=img).write(out_file)
+    #     except Exception as e:
+    #         print("Error saving image", e)
+    #         if self.batchProcessing and hasattr(self, "saveErrors"):
+    #             import traceback
+
+    #             self.saveErrors[qf.img_name] = traceback.format_exc()
+
+    #     self.saveBackground(quad_fold=qf)
     def saveResults(self, full_process=True, quad_fold=None):
         """
         Save the result image to qf_results.
 
         Filename rules:
-          - compress unchecked  -> <name>_folded.tif
-          - compress checked    -> <name>_folded_compressed.tif
+        - compress unchecked  -> <name>_<mode>.tif
+        - compress checked    -> <name>_<mode>_compressed.tif
 
-        Both variants are full-size copies of resultImg and are eligible
+        Both variants are full-size copies of the active image and are eligible
         for fast-path reload next session.
 
         :param full_process: True if the slow-path ran (process() did the
             full pipeline); False on the fast-path. Retained for callers and
-            logging -- saveBackground() now runs on both paths (it records the
-            cached background sum and only skips the bg.tif rewrite when the
-            background arrays weren't reconstructed), so the result tif and the
-            background_sum.csv row are both emitted regardless.
+            logging -- saveBackground() now runs on both paths.
         """
         qf = quad_fold if quad_fold is not None else self.quadFold
         if qf is None:
             return
 
         print("SAVE RESULTS")
-        if "resultImg" not in qf.imgCache:
-            return
 
         out = (
             self.workspace.dir_context.output_dir
@@ -5757,19 +5891,62 @@ class QuadrantFoldingGUI(BaseGUI):
             else self.filePath
         )
         result_path = fullPath(out, "qf_results")
-        createFolder(result_path)
 
-        base, _ = splitext(str(join(result_path, qf.img_name)))
-        img = qf.imgCache["resultImg"].astype("float32")
+        # Determine directory, suffix, and appropriate image cache source
+        # Check if BOTH modes are active
+        if self.quadFold.info.get('center_aligned_only') and self.quadFold.info.get('fold_bg_image'):
+            print("Center-Aligned + Fold + Background mode:")
+            # Verify both required cache items exist
+            if "align" not in qf.imgCache or "resultImg" not in qf.imgCache:
+                print("Error: Required cache images ('align' or 'resultImg') not found.")
+                return
+            result_dir = fullPath(result_path, 'aligned_folded_bg')
+            suffix = '_aligned_folded_bg'
+            # Define how you want to combine or use both images here
+            img = qf.imgCache["resultImg"].astype("float32") # or a combined array
+
+        # Otherwise, handle Center-Aligned only
+        elif self.quadFold.info.get('center_aligned_only'):
+            print("Center-aligned-only mode:")
+            if "align" not in qf.imgCache:
+                print("Error: 'align' image not found in cache.")
+                return
+            result_dir = fullPath(result_path, 'aligned')
+            suffix = '_aligned'
+            img = qf.imgCache["align"].astype("float32")
+
+        # Otherwise, handle Fold-only (no background)
+        elif not self.quadFold.info.get('fold_bg_image'):
+            print("Fold-only mode:")
+            if "resultImg" not in qf.imgCache:
+                print("Error: 'resultImg' not found in cache.")
+                return
+            result_dir = fullPath(result_path, 'folded')
+            suffix = '_folded'
+            img = qf.imgCache["resultImg"].astype("float32")
+
+        # Default: Fold + background mode (neither of the above)
+        else:
+            print("Fold + background mode:")
+            if "resultImg" not in qf.imgCache:
+                print("Error: 'resultImg' not found in cache.")
+                return
+            result_dir = fullPath(result_path, 'folded_bg')
+            suffix = '_folded_bg'
+            img = qf.imgCache["resultImg"].astype("float32")
+
+        createFolder(result_dir)
+        base, _ = splitext(str(join(result_dir, qf.img_name)))
 
         compress = self.compressFoldedImageChkBx.isChecked()
 
         try:
-            suffix = "_folded_compressed.tif" if compress else "_folded.tif"
+            suffix = f"{suffix}_compressed.tif" if compress else f"{suffix}.tif"
             out_file = base + suffix
+            
             # Multi-folder batches retain a relative folder in img_name to
-            # avoid basename collisions.  Ensure that folder exists when the
-            # image is revisited after the batch (for example via alignment).
+            # avoid basename collisions. Ensure that folder exists when the
+            # image is revisited after the batch.
             os.makedirs(os.path.dirname(out_file), exist_ok=True)
             if compress:
                 Image.fromarray(img).save(out_file, compression="tiff_lzw")
@@ -6119,7 +6296,9 @@ class QuadrantFoldingGUI(BaseGUI):
         flags["blank_mask"] = sm.blank_enabled
         flags["apply_mask"] = sm.mask_enabled
 
-        flags["fold_image"] = self.toggleFoldImage.isChecked()
+        # flags["fold_image"] = self.toggleFoldImage.isChecked()
+        flags["fold_bg_image"] = bool(self.toggleFoldImage.isChecked())
+        flags['center_aligned_only'] = bool(self.centerAlignedOnlyChkBx.isChecked())
         flags["apply_solid_angle_correction"] = bool(
             self.solidAngleCorrectionChkBx.isChecked()
         )
@@ -7093,7 +7272,7 @@ class QuadrantFoldingGUI(BaseGUI):
             "pixel_size",
             "intensity_correction_sdd_pixels",
             "center",
-            "fold_image",
+            "fold_bg_image",
             "rotate",
             "batch_processing",
             "force_recalc_bg",

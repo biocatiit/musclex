@@ -45,6 +45,34 @@ def log_progress(progress, total):
         print(" [DONE]")
 
 
+def normalize_detector_data(data):
+    """
+    Convert detector data to the signed int32 representation used by the
+    MuscleX TIFF converter.
+
+    Eiger-style invalid/dead-pixel sentinels are converted to -1:
+      uint16: 65535      -> -1
+      uint32: 4294967295 -> -1
+
+    All other values retain the converter's historical int32 behavior.
+    """
+    raw = np.asarray(data)
+
+    if raw.dtype == np.uint16:
+        invalid = raw == np.iinfo(np.uint16).max
+        out = raw.astype(np.int32)
+        out[invalid] = -1
+        return out
+
+    if raw.dtype == np.uint32:
+        invalid = raw == np.iinfo(np.uint32).max
+        out = raw.astype(np.int32)
+        out[invalid] = -1
+        return out
+
+    return raw.astype(np.int32)
+
+
 def generate_tiff_files(fn, path, prefix, compress):
     """
     Generate tiff files from a hdf file.
@@ -76,8 +104,9 @@ def create_tiff(img_data, path, prefix, serial, compress):
     )
     # extra_tags = [("ImageDescription", 's', 0, metadata, True)]
     # tifffile.imsave(tif_file_name, img_data, extratags=extra_tags)
-    data = img_data.data.astype(np.int32)
-    data[data == 4294967295] = -1
+
+    data = normalize_detector_data(img_data.data)
+
     if compress:
         from PIL import Image
 

@@ -155,6 +155,100 @@ class ProjectionTracesh:
 
         self.onImageChanged(box_config, is_from_cache=is_from_cache)
 
+    # def onImageChanged(self, box_config=None, is_from_cache=False):
+    #     """
+    #     Called when image changes (e.g. to next image in batch).
+    #     Creates a new ProjectionProcessor and populates boxes from config.
+
+    #     :param box_config: Dictionary containing box configurations from cache or settings file
+    #                        Expected format (NEW): {'boxes': {'name': {...}}, 'centerx': ..., 'centery': ..., 'mask_thres': ...}
+    #     :param is_from_cache: If True, peaks are already mirrored (from cache). If False, need to mirror (from settings file).
+    #     """
+    #     # Load image data
+    #     import fabio
+    #     from ..utils.image_data import ImageData
+    #     from ..utils.file_manager import fullPath
+    #     from ..modules.ProjectionProcessor import ProcessingBox
+
+    #     img_name = self.imgList[self.current_file]
+    #     img_full_path = fullPath(self.dir_path, img_name)
+    #     img = fabio.open(img_full_path).data
+
+    #     # Create ImageData with manual center/rotation from center_settings.json
+    #     from ..utils.settings_manager import SettingsManager
+
+    #     settings_manager = SettingsManager(self.dir_path)
+    #     manual_center = settings_manager.get_center(img_name)
+    #     manual_rotation = settings_manager.get_rotation(img_name)
+    #     image_data = ImageData(
+    #         img,
+    #         self.dir_path,
+    #         img_name,
+    #         center=manual_center,
+    #         rotation=manual_rotation,
+    #         settings_manager=settings_manager,
+    #     )
+
+    #     # Create ProjectionProcessor with ImageData
+    #     self.projProc = ProjectionProcessor(image_data, output_dir=self.output_dir)
+    #     # Headless mode: Use the same rotation as GUI
+    #     # Box coordinates in ptsettings.json are based on the rotated image displayed in GUI
+    #     # ImageData will automatically load rotation from auto_geometry cache if it exists
+    #     # This ensures headless and GUI produce identical results
+
+    #     if self.mask_thres == -999:
+    #         self.mask_thres = getMaskThreshold(self.projProc.orig_img)
+
+    #     # Get final center from ImageData (manual or auto-calculated)
+    #     center = self.projProc._image_data.center
+    #     self.centerx, self.centery = center
+
+    #     # Populate boxes from config (NEW FORMAT: boxes contain all info as objects)
+    #     if box_config is not None and "boxes" in box_config:
+    #         boxes_dict = box_config["boxes"]
+
+    #         for box_name, box_dict in boxes_dict.items():
+    #             # Create ProcessingBox from dict (new format with all properties)
+    #             box = ProcessingBox(
+    #                 name=box_dict.get("name", box_name),
+    #                 coordinates=box_dict.get("coordinates"),
+    #                 type=box_dict.get("type", "h"),
+    #                 bgsub=box_dict.get("bgsub", 0),
+    #                 peaks=(
+    #                     box_dict.get("peaks", []).copy()
+    #                     if box_dict.get("peaks")
+    #                     else []
+    #                 ),
+    #                 merid_bg=box_dict.get("merid_bg", False),
+    #                 hull_range=(
+    #                     tuple(box_dict["hull_range"])
+    #                     if box_dict.get("hull_range")
+    #                     else None
+    #                 ),
+    #                 param_bounds=(
+    #                     box_dict.get("param_bounds", {}).copy()
+    #                     if box_dict.get("param_bounds")
+    #                     else {}
+    #                 ),
+    #                 use_common_sigma=box_dict.get("use_common_sigma", False),
+    #                 peak_tolerance=box_dict.get("peak_tolerance", 2.0),
+    #                 sigma_tolerance=box_dict.get("sigma_tolerance", 100.0),
+    #             )
+
+    #             # Expand peaks by mirroring ONLY if loading from settings file
+    #             # Cache already has mirrored peaks, so skip mirroring to avoid double-mirror
+    #             if not is_from_cache:
+    #                 self._expand_peaks_mirrored(box)
+    #             else:
+    #                 print(
+    #                     f"  [onImageChanged] Box '{box.name}': Loaded from cache, peaks already mirrored (count={len(box.peaks)})"
+    #                 )
+    #             self.projProc.store_original_boxes(box_name, box)
+    #             self.projProc.boxes[box_name] = box
+
+    #     # Process new image
+    #     self.processImage()
+
     def onImageChanged(self, box_config=None, is_from_cache=False):
         """
         Called when image changes (e.g. to next image in batch).
@@ -208,32 +302,43 @@ class ProjectionTracesh:
             boxes_dict = box_config["boxes"]
 
             for box_name, box_dict in boxes_dict.items():
-                # Create ProcessingBox from dict (new format with all properties)
-                box = ProcessingBox(
-                    name=box_dict.get("name", box_name),
-                    coordinates=box_dict.get("coordinates"),
-                    type=box_dict.get("type", "h"),
-                    bgsub=box_dict.get("bgsub", 0),
-                    peaks=(
-                        box_dict.get("peaks", []).copy()
-                        if box_dict.get("peaks")
-                        else []
-                    ),
-                    merid_bg=box_dict.get("merid_bg", False),
-                    hull_range=(
-                        tuple(box_dict["hull_range"])
-                        if box_dict.get("hull_range")
-                        else None
-                    ),
-                    param_bounds=(
-                        box_dict.get("param_bounds", {}).copy()
-                        if box_dict.get("param_bounds")
-                        else {}
-                    ),
-                    use_common_sigma=box_dict.get("use_common_sigma", False),
-                    peak_tolerance=box_dict.get("peak_tolerance", 2.0),
-                    sigma_tolerance=box_dict.get("sigma_tolerance", 100.0),
-                )
+                if isinstance(box_dict, dict):
+                    # Ensure coordinates are tuples instead of lists
+                    raw_coords = box_dict.get("coordinates")
+                    coordinates = (
+                        tuple(tuple(item) if isinstance(item, list) else item for item in raw_coords)
+                        if isinstance(raw_coords, list)
+                        else raw_coords
+                    )
+
+                    # Ensure hull_range is a tuple if present
+                    raw_hull = box_dict.get("hull_range")
+                    hull_range = tuple(raw_hull) if isinstance(raw_hull, list) else raw_hull
+
+                    # Create ProcessingBox from dict with tuple coordinates
+                    box = ProcessingBox(
+                        name=box_dict.get("name", box_name),
+                        coordinates=coordinates,
+                        type=box_dict.get("type", "h"),
+                        bgsub=box_dict.get("bgsub", 0),
+                        peaks=(
+                            box_dict.get("peaks", []).copy()
+                            if box_dict.get("peaks")
+                            else []
+                        ),
+                        merid_bg=box_dict.get("merid_bg", False),
+                        hull_range=hull_range,
+                        param_bounds=(
+                            box_dict.get("param_bounds", {}).copy()
+                            if box_dict.get("param_bounds")
+                            else {}
+                        ),
+                        use_common_sigma=box_dict.get("use_common_sigma", False),
+                        peak_tolerance=box_dict.get("peak_tolerance", 2.0),
+                        sigma_tolerance=box_dict.get("sigma_tolerance", 100.0),
+                    )
+                else:
+                    box = box_dict
 
                 # Expand peaks by mirroring ONLY if loading from settings file
                 # Cache already has mirrored peaks, so skip mirroring to avoid double-mirror
